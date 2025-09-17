@@ -1,14 +1,10 @@
-
-from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path,include
+from .views import *
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('ckeditor/', include('ckeditor_uploader.urls')), 
-    path('api/vlog/',include('vlog.urls')),
-    path('api/mls/',include('mls.urls')),
+    path('properties/', FetchProperties.as_view(), name='fetch_properties'),
 ]
 
 if settings.DEBUG:

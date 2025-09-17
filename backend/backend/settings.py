@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "ckeditor",
     "ckeditor_uploader",
     "vlog",  
+    "mls",
 ]
 
 MIDDLEWARE = [
@@ -145,3 +146,6 @@ CKEDITOR_CONFIGS = {
         ]),
     },
 }
+
+CLIENT_ID = 'uCyucNP7QrV4fLA8YtWngTUg'
+CLIENT_SECRET = 'OFocUcAnQShbZRPUKdaafgEi'

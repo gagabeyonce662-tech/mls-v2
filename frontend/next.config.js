@@ -1,10 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  output: 'export', // Optional: Static export (only needed if you're exporting the project)
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: true, // Ignores ESLint errors during builds
   },
-  images: { unoptimized: true },
+  images: {
+    unoptimized: true, // Optional: Disable image optimization (useful for static exports)
+  },
+  reactStrictMode: true, // Optional: Enable React Strict Mode for development
 };
 
 module.exports = nextConfig;

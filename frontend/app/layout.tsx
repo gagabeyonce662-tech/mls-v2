@@ -1,18 +1,18 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Poppins, Montserrat } from 'next/font/google';
+// import { Poppins, Montserrat } from 'next/font/google';
 
-const poppins = Poppins({ 
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-poppins'
-});
+// const poppins = Poppins({
+//   subsets: ['latin'],
+//   weight: ['300', '400', '500', '600', '700'],
+//   variable: '--font-poppins'
+// });
 
-const montserrat = Montserrat({ 
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-montserrat'
-});
+// const montserrat = Montserrat({
+//   subsets: ['latin'],
+//   weight: ['400', '500', '600'],
+//   variable: '--font-montserrat'
+// });
 
 export const metadata: Metadata = {
   title: 'Gunneet Singh Top Realtor in Toronto GTA | Real Estate Agent in Toronto',
@@ -26,7 +26,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${poppins.variable} ${montserrat.variable} font-sans`}>{children}</body>
+      <body >{children}</body>
+
     </html>
   );
 }
