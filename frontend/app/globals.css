@@ -122,13 +122,12 @@ h1, h2, h3, h4, h5, h6 {
   overflow: hidden;
 }
 
-/* Applying the custom variables */
 @layer base {
   * {
-    border: 1px solid hsl(var(--border)); /* Already fixed from previous response */
+    border: 1px solid hsl(var(--border)); 
   }
   body {
-    background-color: hsl(var(--background)); /* Use --background directly */
-    color: hsl(var(--foreground)); /* Use --foreground directly */
+    background-color: hsl(var(--background)); 
+    color: hsl(var(--foreground)); 
   }
 }
