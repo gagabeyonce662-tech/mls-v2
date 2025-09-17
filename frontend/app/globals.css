@@ -125,9 +125,10 @@ h1, h2, h3, h4, h5, h6 {
 /* Applying the custom variables */
 @layer base {
   * {
-    @apply border-border;
+    border: 1px solid hsl(var(--border)); /* Already fixed from previous response */
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background)); /* Use --background directly */
+    color: hsl(var(--foreground)); /* Use --foreground directly */
   }
 }
