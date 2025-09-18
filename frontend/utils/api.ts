@@ -1,18 +1,22 @@
 // utils/api.ts
 import { BlogPost } from "../types/blogPost";
+import axios from 'axios';
 
-export async function fetchBlogPosts(): Promise<BlogPost[]> {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vlog/`, {
-    });
+const accessToken=""
+const axiosInstance=axios.create({
+  baseURL:"http://localhost:8000/api/"
+})
 
-    if (!res.ok) {
-      throw new Error("Failed to fetch blog posts");
-    }
-
-    return await res.json();
-  } catch (error) {
-    console.error(error);
-    return [];
+const axiosInstance2=axios.create({
+  baseURL:"http://localhost:8000/api/",
+  headers:{
+    Authorization:`Bearer ${accessToken}`
   }
+})
+
+
+
+export async function fetchBlogPosts(){
+    const response=await axiosInstance.get('vlog/')
+    return response.data;
 }

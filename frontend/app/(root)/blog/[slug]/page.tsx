@@ -2,17 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { fetchBlogPost } from '../../utils/api';
+import { useParams } from 'next/navigation';
+import { fetchBlogPosts } from '@/utils/api';
+
 
 export default function BlogPostPage() {
   const router = useRouter();
-  const { slug } = router.query;
+  const { slug } = useParams()
   const [post, setPost] = useState(null);
 
   useEffect(() => {
     if (slug) {
       const getPost = async () => {
-        const data = await fetchBlogPost(slug);
+        const data = await fetchBlogPosts(slug);
         setPost(data);
       };
       getPost();
