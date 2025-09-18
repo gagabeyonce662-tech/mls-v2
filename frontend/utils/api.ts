@@ -4,11 +4,11 @@ import axios from 'axios';
 
 const accessToken=""
 const axiosInstance=axios.create({
-  baseURL:"http://localhost:8000/api/"
+  baseURL:"https://t3pszf8w-8000.inc1.devtunnels.ms/api/"
 })
 
 const axiosInstance2=axios.create({
-  baseURL:"http://localhost:8000/api/",
+  baseURL:"https://t3pszf8w-8000.inc1.devtunnels.ms/api/",
   headers:{
     Authorization:`Bearer ${accessToken}`
   }
@@ -17,6 +17,6 @@ const axiosInstance2=axios.create({
 
 
 export async function fetchBlogPosts(){
-    const response=await axiosInstance.get('vlog/')
+    const response=await axiosInstance.get(`vlog/`)
     return response.data;
 }
