@@ -67,28 +67,6 @@ export default function BlogPage() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-indigo-50/50 to-white">
       <Header />
 
-      {/* 🏔 Hero Section */}
-      <section className="relative overflow-hidden py-16 text-center">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent blur-3xl opacity-30" />
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4"
-        >
-          Discover Insights. <span className="text-primary">Stay Ahead.</span>
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="text-gray-600 max-w-2xl mx-auto text-lg"
-        >
-          Expert-driven articles, strategies, and guides to empower your
-          investment journey.
-        </motion.p>
-      </section>
-
       {/* 🔍 Sticky Search + Filter Bar */}
       <motion.section
         initial={{ opacity: 0, y: 20 }}
