@@ -9,7 +9,7 @@ export default function FeaturedListings() {
   const listings = config.listings || [];
 
   return (
-    <section className="max-w-7xl mx-auto px-4 py-8">
+    <section className="max-w-6xl mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-3xl font-bold">Featured Listings</h2>

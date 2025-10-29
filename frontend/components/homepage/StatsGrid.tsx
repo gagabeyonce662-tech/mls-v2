@@ -10,7 +10,7 @@ export default function StatsGrid() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat, index) => (
         <Card key={index} className="hover:shadow-md transition-shadow">
           <CardContent className="p-6 flex justify-between items-center">
