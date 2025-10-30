@@ -9,7 +9,7 @@ const listings = config.recentListings
 export default function RecentListings() {
   return (
     <section className="py-16 bg-neutral-50 dark:bg-neutral-900">
-      <div className="max-w-6xl mx-auto px-6">
+      <div className="max-w-5xl mx-auto px-6">
         <h2 className="text-3xl font-bold mb-10 text-gray-900 dark:text-white">
           Recent Listings
         </h2>

@@ -14,7 +14,7 @@ const neighborhoods = config.popularNeighborhoods || [
 export default function PopularNeighborhoods() {
   return (
     <section className="py-16 bg-white dark:bg-neutral-950">
-      <div className="max-w-6xl mx-auto px-6">
+      <div className="max-w-5xl mx-auto px-6">
         <h2 className="text-3xl font-bold mb-10 text-gray-900 dark:text-white">
           Popular Neighborhoods
         </h2>

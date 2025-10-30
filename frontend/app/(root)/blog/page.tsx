@@ -10,6 +10,8 @@ import { motion } from "framer-motion";
 import { Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+
 
 export default function BlogPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -45,14 +47,42 @@ export default function BlogPage() {
   }, [blogPosts, searchQuery, selectedCategory]);
 
   // 🌀 Loading state
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-50">
-        <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-        <p className="text-gray-600">Loading blog posts...</p>
+if (loading) {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-indigo-50/50 to-white px-6 py-12">
+      <div className="max-w-7xl mx-auto">
+        {/* 🔍 Skeleton for Search + Filter Bar */}
+        <div className="bg-white/80 backdrop-blur-lg shadow-lg rounded-2xl p-6 border border-gray-100 mb-12">
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <Skeleton className="h-12 w-full md:flex-1 rounded-xl" />
+            <div className="flex gap-2 flex-wrap justify-center md:justify-start">
+              {Array(5)
+                .fill(0)
+                .map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-20 rounded-full" />
+                ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 📚 Skeleton for Blog Cards */}
+        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+          {Array(6)
+            .fill(0)
+            .map((_, i) => (
+              <div key={i} className="space-y-3">
+                <Skeleton className="h-48 w-full rounded-xl" />
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-4 w-5/6" />
+              </div>
+            ))}
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
 
   // 🫥 Empty state
   if (!blogPosts?.length) {

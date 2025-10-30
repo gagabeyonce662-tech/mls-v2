@@ -37,7 +37,7 @@ export default function Header() {
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="hidden lg:block sticky top-0 z-50 shadow-md border-b border-white/10"
+        className="hidden lg:block sticky top-0 z-50 bg-white border-b border-gray-200 shadow-md"
       >
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex items-center justify-between h-20 bg-white">
@@ -118,7 +118,7 @@ export default function Header() {
       </motion.header>
 
       {/* 📱 Mobile Header */}
-      <header className="lg:hidden sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-gray-200">
+      <header className="lg:hidden sticky top-0 z-50 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-4 h-20">
           {/* Hamburger Menu */}
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
