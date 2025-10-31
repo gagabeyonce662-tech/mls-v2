@@ -4,13 +4,13 @@ from django.utils import timezone
 from .helpers import regenerate_access_token_with_refresh_token
 
 class AccessToken(models.Model):
-    access_token = models.CharField(max_length=512,blank=True, null=True)
-    refresh_token = models.CharField(max_length=512, blank=True, null=True)
+    access_token = models.CharField(max_length=5000,blank=True, null=True)
+    refresh_token = models.CharField(max_length=5000, blank=True, null=True)
     access_token_expires_at = models.DateTimeField()
     refresh_token_expires_at = models.DateTimeField()
 
     def __str__(self):
-        return f"Access Token (expires at {self.access_token_expires_at}), Refresh Token (expires at {self.refresh_token_expires_at})"
+        return self.access_token
 
     @classmethod
     def get_valid_token(cls):

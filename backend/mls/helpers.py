@@ -1,6 +1,8 @@
 import requests
 from django.conf import settings
 from django.utils import timezone
+from datetime import datetime, timedelta
+
 
 
 def regenerate_access_token():
@@ -24,20 +26,35 @@ def regenerate_access_token():
         
         access_token = token_data.get('access_token')
         refresh_token = token_data.get('refresh_token')
-        access_token_expires_in = token_data.get('expires_in', 3600) 
-        refresh_token_expires_in = token_data.get('refresh_token_expires_in', 3600)  
-        print(access_token,"------------",refresh_token,access_token_expires_in,refresh_token_expires_in)
+        access_token_expires_in = token_data.get('expires_in', 3600)  # Default to 3600 seconds if not provided
+        refresh_token_expires_in = token_data.get('refresh_token_expires_in', 3600)  # Default to 3600 seconds if not provided
+        
+        # Define current_time before using it
+        current_time = datetime.now()
+
+        # Calculate expiration times
+        access_token_expiry = current_time + timedelta(seconds=access_token_expires_in)
+        refresh_token_expiry = current_time + timedelta(seconds=refresh_token_expires_in)
+
+        # Print the expiration times for debugging
+        print(f"Access token expires at: {access_token_expiry}")
+        print(f"Refresh token expires at: {refresh_token_expiry}")
+
+        # Create the AccessToken instance
         from mls.models import AccessToken
-        token = AccessToken.regenerate_token({
-            'access_token': access_token,
-            'refresh_token': refresh_token,
-            'access_token_expires_in': access_token_expires_in,
-            'refresh_token_expires_in': refresh_token_expires_in
-        })
+        if access_token:
+            token = AccessToken.objects.create(
+                access_token=access_token,
+                refresh_token=refresh_token,
+                access_token_expires_at=access_token_expiry,  # Store as DateTime
+                refresh_token_expires_at=refresh_token_expiry  # Store as DateTime
+            )
+        
         print(token)
-        return token 
+        return token
     else:
-        return None 
+        return None
+
 
 
 def regenerate_access_token_with_refresh_token(refresh_token):

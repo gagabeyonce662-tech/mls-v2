@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     "ckeditor",
     "ckeditor_uploader",
     "vlog",  
@@ -51,6 +52,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -149,3 +151,7 @@ CKEDITOR_CONFIGS = {
 
 CLIENT_ID = 'uCyucNP7QrV4fLA8YtWngTUg'
 CLIENT_SECRET = 'OFocUcAnQShbZRPUKdaafgEi'
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]

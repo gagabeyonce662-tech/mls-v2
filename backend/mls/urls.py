@@ -5,6 +5,9 @@ from .views import *
 
 urlpatterns = [
     path('properties/', FetchProperties.as_view(), name='fetch_properties'),
+    path('properties/filter/', PropertyFilterView.as_view(), name='property_filter'),
+    path('properties/exclusive/', PropertyListView.as_view(), name='property_filter'),
+    path('properties/<str:PropertyKey>/', PropertyDetailView.as_view(), name='property_detail_path'),
 ]
 
 if settings.DEBUG:
