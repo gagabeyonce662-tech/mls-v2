@@ -1,89 +1,183 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Header from "../../../components/Header";
 import BlogCard from "../../../components/blog/blog/BlogCard";
-import AdCard from "../../../components/blog/blog/AdCard";
-import FeaturedPost from "../../../components/blog/blog/FeaturedPost";
-import Newsletter from "../../../components/blog/blog/Newsletter";
-import { fetchBlogPosts } from "../../../utils/api";
+import { fetchBlogPosts } from "../../../lib/utils/api";
 import { BlogPost } from "../../../types/blogPost";
-import {
-  QueryClientProvider,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
+import { motion } from "framer-motion";
+import { Loader2, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+
 
 export default function BlogPage() {
-  const queryClient = useQueryClient();
-  const { data: blogPosts, isLoading: loading } = useQuery({
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+
+  const categories = ["All", "Trading", "Finance", "Investing", "Wealth"];
+
+  const { data: blogPosts = [], isLoading: loading } = useQuery<BlogPost[]>({
     queryKey: ["blogPost"],
     queryFn: fetchBlogPosts,
   });
 
-  if (loading) {
-    return <div className="p-8 text-center">Loading blog posts...</div>;
-  }
+  // ✅ Fixed filter logic (safe for object-based category)
+  const filteredPosts = useMemo(() => {
+    return blogPosts.filter((post) => {
+      const title = post.title?.toLowerCase() || "";
+      const excerpt = post.excerpt?.toLowerCase() || "";
+      const category =
+        typeof post.category === "object"
+          ? post.category?.name?.toLowerCase() || ""
+          : post.category?.toLowerCase?.() || "";
 
-  if (!blogPosts.length) {
-    return <div className="p-8 text-center">No blog posts found</div>;
-  }
+      const matchesSearch =
+        title.includes(searchQuery.toLowerCase()) ||
+        excerpt.includes(searchQuery.toLowerCase());
 
-  const featuredPost = blogPosts[0]; // for now take the first as featured
-  const regularPosts = blogPosts.slice(1);
+      const matchesCategory =
+        selectedCategory === "All" ||
+        category === selectedCategory.toLowerCase();
 
+      return matchesSearch && matchesCategory;
+    });
+  }, [blogPosts, searchQuery, selectedCategory]);
+
+  // 🌀 Loading state
+if (loading) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <div
-        className="min-h-screen"
-        style={{ backgroundColor: "rgb(202, 192, 219, 31%)" }}
-      >
-        <Header />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="lg:grid lg:grid-cols-4 lg:gap-8">
-            <main className="lg:col-span-3">
-              <div className="space-y-8">
-                {featuredPost && <FeaturedPost post={featuredPost} />}
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                    Latest Articles
-                  </h2>
-                  <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-                    {regularPosts.map((post) => (
-                      <BlogCard key={post.id} post={post} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </main>
-
-            <aside className="mt-8 lg:mt-0">
-              <div className="space-y-8 lg:sticky lg:top-8">
-                <AdCard
-                  title="Boost Your Development Skills"
-                  description="Join thousands of developers learning with our premium courses"
-                  buttonText="Start Learning"
-                  image="https://images.pexels.com/photos/574071/pexels-photo-574071.jpeg?auto=compress&cs=tinysrgb&w=400"
-                  color="bg-gradient-to-br from-blue-500 to-purple-600"
-                />
-                <Newsletter />
-                <AdCard
-                  title="Professional Tools"
-                  description="Get 50% off on premium development tools and resources"
-                  buttonText="Get Discount"
-                  color="bg-gradient-to-br from-green-500 to-teal-600"
-                />
-                <AdCard
-                  title="Web Hosting"
-                  description="Fast, reliable hosting for your next project. Free SSL included"
-                  buttonText="Learn More"
-                  color="bg-gradient-to-br from-orange-500 to-red-600"
-                />
-              </div>
-            </aside>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-indigo-50/50 to-white px-6 py-12">
+      <div className="max-w-7xl mx-auto">
+        {/* 🔍 Skeleton for Search + Filter Bar */}
+        <div className="bg-white/80 backdrop-blur-lg shadow-lg rounded-2xl p-6 border border-gray-100 mb-12">
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <Skeleton className="h-12 w-full md:flex-1 rounded-xl" />
+            <div className="flex gap-2 flex-wrap justify-center md:justify-start">
+              {Array(5)
+                .fill(0)
+                .map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-20 rounded-full" />
+                ))}
+            </div>
           </div>
         </div>
+
+        {/* 📚 Skeleton for Blog Cards */}
+        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+          {Array(6)
+            .fill(0)
+            .map((_, i) => (
+              <div key={i} className="space-y-3">
+                <Skeleton className="h-48 w-full rounded-xl" />
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-4 w-5/6" />
+              </div>
+            ))}
+        </div>
       </div>
-    </QueryClientProvider>
+    </div>
+  );
+}
+
+
+  // 🫥 Empty state
+  if (!blogPosts?.length) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-50">
+        <p className="text-gray-500 text-lg">No blog posts found.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-indigo-50/50 to-white">
+      <Header />
+
+      {/* 🔍 Sticky Search + Filter Bar */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="relative top-4 z-40 max-w-5xl mx-auto mb-12 px-6"
+      >
+        <div className="bg-white/80 backdrop-blur-lg shadow-lg rounded-2xl p-6 border border-gray-100 transition-all duration-300 hover:shadow-xl">
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            {/* Search Input */}
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-2.5 text-gray-400 w-5 h-5" />
+              <Input
+                type="text"
+                placeholder="Search blogs..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 w-full rounded-xl border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+            </div>
+
+            {/* Filter Buttons */}
+            <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+              {categories.map((cat) => (
+                <Button
+                  key={cat}
+                  variant={selectedCategory === cat ? "default" : "outline"}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`rounded-full px-4 text-sm transition-all ${
+                    selectedCategory === cat
+                      ? "bg-primary text-white shadow-md"
+                      : "bg-white hover:bg-primary/10 text-gray-700"
+                  }`}
+                >
+                  {cat}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* 📚 Blog List Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <motion.h2
+          initial={{ opacity: 0, x: -30 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-2xl font-semibold text-gray-800 mb-8 flex items-center"
+        >
+          <span className="h-8 w-1 rounded-full bg-primary mr-3" />
+          
+        </motion.h2>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="grid gap-8 md:grid-cols-2 xl:grid-cols-3"
+        >
+          {filteredPosts.length > 0 ? (
+            filteredPosts.map((post: BlogPost) => (
+              <motion.div
+                key={post.id}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+              >
+                <BlogCard post={post} />
+              </motion.div>
+            ))
+          ) : (
+            <p className="text-gray-500 text-center col-span-full">
+              No articles match your search.
+            </p>
+          )}
+        </motion.div>
+      </div>
+
+      {/* ✨ Background Glow */}
+      <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-indigo-200/40 via-transparent to-transparent blur-3xl" />
+    </div>
   );
 }
