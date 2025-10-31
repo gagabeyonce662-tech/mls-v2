@@ -7,11 +7,10 @@ import { BlogPost } from "../../../types/blogPost";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-
 
 export default function BlogPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,12 +18,16 @@ export default function BlogPage() {
 
   const categories = ["All", "Trading", "Finance", "Investing", "Wealth"];
 
-  const { data: blogPosts = [], isLoading: loading } = useQuery<BlogPost[]>({
+  const {
+    data: blogPosts = [],
+    isLoading,
+    isFetching,
+  } = useQuery<BlogPost[]>({
     queryKey: ["blogPost"],
     queryFn: fetchBlogPosts,
   });
 
-  // ✅ Fixed filter logic (safe for object-based category)
+  // ✅ Filtering logic
   const filteredPosts = useMemo(() => {
     return blogPosts.filter((post) => {
       const title = post.title?.toLowerCase() || "";
@@ -37,7 +40,6 @@ export default function BlogPage() {
       const matchesSearch =
         title.includes(searchQuery.toLowerCase()) ||
         excerpt.includes(searchQuery.toLowerCase());
-
       const matchesCategory =
         selectedCategory === "All" ||
         category === selectedCategory.toLowerCase();
@@ -46,58 +48,70 @@ export default function BlogPage() {
     });
   }, [blogPosts, searchQuery, selectedCategory]);
 
-  // 🌀 Loading state
-if (loading) {
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-indigo-50/50 to-white px-6 py-12">
-      <div className="max-w-7xl mx-auto">
-        {/* 🔍 Skeleton for Search + Filter Bar */}
-        <div className="bg-white/80 backdrop-blur-lg shadow-lg rounded-2xl p-6 border border-gray-100 mb-12">
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            <Skeleton className="h-12 w-full md:flex-1 rounded-xl" />
-            <div className="flex gap-2 flex-wrap justify-center md:justify-start">
-              {Array(5)
-                .fill(0)
-                .map((_, i) => (
-                  <Skeleton key={i} className="h-10 w-20 rounded-full" />
-                ))}
+  // 🌀 Loading Skeleton (Fixed version)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-indigo-50/50 to-white">
+        <Header />
+
+        <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
+          {/* 🔍 Search + Filter Bar Skeleton */}
+          <div className="relative top-4 z-40 max-w-5xl mx-auto">
+            <div className="bg-white/80 backdrop-blur-lg shadow-lg rounded-2xl p-6 border border-gray-100">
+              <div className="flex flex-col md:flex-row gap-4 items-center">
+                <Skeleton className="h-12 w-full md:flex-1 rounded-xl bg-gray-200" />
+                <div className="flex gap-2 flex-wrap justify-center md:justify-start">
+                  {Array(5)
+                    .fill(0)
+                    .map((_, i) => (
+                      <Skeleton key={i} className="h-10 w-20 rounded-full bg-gray-200" />
+                    ))}
+                </div>
+              </div>
             </div>
+          </div>
+
+          {/* 📚 Blog Grid Skeleton */}
+          <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3 px-4 sm:px-6 lg:px-8">
+            {Array(6)
+              .fill(0)
+              .map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 space-y-3"
+                >
+                  <Skeleton className="h-48 w-full rounded-lg bg-gray-200" />
+                  <Skeleton className="h-6 w-3/4 rounded-md bg-gray-200" />
+                  <Skeleton className="h-4 w-1/2 rounded-md bg-gray-200" />
+                  <Skeleton className="h-4 w-5/6 rounded-md bg-gray-200" />
+                  <Skeleton className="h-4 w-full rounded-md bg-gray-200" />
+                </div>
+              ))}
           </div>
         </div>
 
-        {/* 📚 Skeleton for Blog Cards */}
-        <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-          {Array(6)
-            .fill(0)
-            .map((_, i) => (
-              <div key={i} className="space-y-3">
-                <Skeleton className="h-48 w-full rounded-xl" />
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-                <Skeleton className="h-4 w-5/6" />
-              </div>
-            ))}
-        </div>
+        {/* ✨ Background Glow */}
+        <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-indigo-200/40 via-transparent to-transparent blur-3xl" />
       </div>
-    </div>
-  );
-}
-
+    );
+  }
 
   // 🫥 Empty state
   if (!blogPosts?.length) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-50">
+        <Header />
         <p className="text-gray-500 text-lg">No blog posts found.</p>
       </div>
     );
   }
 
+  // ✅ Main Content
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-indigo-50/50 to-white">
       <Header />
 
-      {/* 🔍 Sticky Search + Filter Bar */}
+      {/* 🔍 Search + Filter */}
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -118,7 +132,7 @@ if (loading) {
               />
             </div>
 
-            {/* Filter Buttons */}
+            {/* Category Filters */}
             <div className="flex flex-wrap gap-2 justify-center md:justify-start">
               {categories.map((cat) => (
                 <Button
@@ -139,7 +153,7 @@ if (loading) {
         </div>
       </motion.section>
 
-      {/* 📚 Blog List Section */}
+      {/* 📚 Blog List */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <motion.h2
           initial={{ opacity: 0, x: -30 }}
@@ -148,7 +162,6 @@ if (loading) {
           className="text-2xl font-semibold text-gray-800 mb-8 flex items-center"
         >
           <span className="h-8 w-1 rounded-full bg-primary mr-3" />
-          
         </motion.h2>
 
         <motion.div
