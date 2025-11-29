@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ds } from "@/lib/design-system-utils";
@@ -124,72 +125,76 @@ export default function BlogPage() {
         {/* Blog Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
           {blogPosts.map((post) => (
-            <article key={post.id} className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow">
-              {/* Image */}
-              <div className="relative h-56">
-                <img
-                  src={post.image}
-                  alt={post.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-4 left-4">
-                  <span className="bg-cyan-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold">
-                    {post.category}
-                  </span>
+            <Link key={post.id} href={`/blog/${post.id}`}>
+              <article className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow cursor-pointer">
+                {/* Image */}
+                <div className="relative h-56">
+                  <img
+                    src={post.image}
+                    alt={post.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-4 left-4">
+                    <span className="bg-cyan-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold">
+                      {post.category}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Content */}
-              <div className="p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-3 leading-snug line-clamp-2">
-                  {post.title}
-                </h3>
-                
-                <p className="text-gray-600 text-sm mb-6 line-clamp-2">
-                  {post.excerpt}
-                </p>
-                
-                <button className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors w-full">
-                  Read Now
-                </button>
-              </div>
-            </article>
+                {/* Content */}
+                <div className="p-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 leading-snug line-clamp-2">
+                    {post.title}
+                  </h3>
+                  
+                  <p className="text-gray-600 text-sm mb-6 line-clamp-2">
+                    {post.excerpt}
+                  </p>
+                  
+                  <button className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors w-full">
+                    Read Now
+                  </button>
+                </div>
+              </article>
+            </Link>
           ))}
         </div>
 
         {/* Second Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {blogPosts.map((post) => (
-            <article key={`second-${post.id}`} className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow">
-              {/* Image */}
-              <div className="relative h-56">
-                <img
-                  src={post.image}
-                  alt={post.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-4 left-4">
-                  <span className="bg-cyan-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold">
-                    {post.category}
-                  </span>
+            <Link key={`second-${post.id}`} href={`/blog/${post.id}`}>
+              <article className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow cursor-pointer">
+                {/* Image */}
+                <div className="relative h-56">
+                  <img
+                    src={post.image}
+                    alt={post.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-4 left-4">
+                    <span className="bg-cyan-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold">
+                      {post.category}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Content */}
-              <div className="p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-3 leading-snug line-clamp-2">
-                  {post.title}
-                </h3>
-                
-                <p className="text-gray-600 text-sm mb-6 line-clamp-2">
-                  {post.excerpt}
-                </p>
-                
-                <button className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors w-full">
-                  Read Now
-                </button>
-              </div>
-            </article>
+                {/* Content */}
+                <div className="p-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 leading-snug line-clamp-2">
+                    {post.title}
+                  </h3>
+                  
+                  <p className="text-gray-600 text-sm mb-6 line-clamp-2">
+                    {post.excerpt}
+                  </p>
+                  
+                  <button className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors w-full">
+                    Read Now
+                  </button>
+                </div>
+              </article>
+            </Link>
           ))}
         </div>
       </div>
