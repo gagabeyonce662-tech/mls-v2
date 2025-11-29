@@ -1,5 +1,8 @@
 /* globals.css */
 
+/* Import Inter font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 /* Importing TailwindCSS's base, components, and utilities */
 @tailwind base;
 @tailwind components;
@@ -9,37 +12,28 @@
 
 /* Global styles for the body */
 * {
-
   border: none !important;
   outline: none !important;
 }
-body {
 
-  font-family: var(--font-poppins), system-ui, sans-serif;
-  font-size: 15px;
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
   font-weight: 400;
-  line-height: 1.67;
+  line-height: 1.5;
+  color: #4B5563;
 }
 
 /* Heading styles */
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-poppins), system-ui, sans-serif;
-  font-weight: 400;
-  text-transform: capitalize;
-}
-
-/* Navigation link styles */
-.nav-link {
-  font-family: var(--font-montserrat), system-ui, sans-serif;
-  font-size: 20px;
-  font-weight: 500;
-  text-transform: uppercase;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  color: #000000;
 }
 
 /* CSS Variables (Custom Design) */
 :root {
-  --font-poppins: 'Poppins', sans-serif;
-  --font-montserrat: 'Montserrat', sans-serif;
+  --font-inter: 'Inter', system-ui, -apple-system, sans-serif;
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;

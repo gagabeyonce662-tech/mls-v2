@@ -1,24 +1,26 @@
 import React from 'react'
 import HeroSection from '@/components/homepage/HeroSection';
-import StatsGrid from '@/components/homepage/StatsGrid';
+import FeaturedCollections from '@/components/homepage/FeaturedCollections';
 import FeaturedListings from '@/components/homepage/FeaturedListings';
-import PopularNeighborhoods from '@/components/homepage/PopularNeighborhoods';
-import RecentListings from '@/components/homepage/RecentListings';
-import NewsletterSection from '@/components/homepage/NewsletterSection';
+import LocationsSection from '@/components/homepage/LocationsSection';
+import MortgageSection from '@/components/homepage/MortgageSection';
+import LatestArticles from '@/components/homepage/LatestArticles';
+import ClientReviews from '@/components/homepage/ClientReviews';
 import Header from '@/components/Header';
-import ListingGrid from '@/components/ListingGrid';
+import Footer from '@/components/Footer';
 
 export default function page() {
   return (
-     <div className="min-h-screen bg-background">
-      <Header/>
+    <div className="min-h-screen bg-white">
+      <Header />
       <HeroSection />
-      <ListingGrid />
-      <StatsGrid />
+      <FeaturedCollections />
       <FeaturedListings />
-      <PopularNeighborhoods />
-      <RecentListings />
-      <NewsletterSection />
+      <LocationsSection />
+      <MortgageSection />
+      <LatestArticles />
+      <ClientReviews />
+      <Footer />
     </div>
   )
 }
