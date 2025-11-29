@@ -1,196 +1,205 @@
-"use client";
-
-import Header from "../../../components/Header";
-import BlogCard from "../../../components/blog/blog/BlogCard";
-import { fetchBlogPosts } from "../../../lib/utils/api";
-import { BlogPost } from "../../../types/blogPost";
-import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
-import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import { ds } from "@/lib/design-system-utils";
 
 export default function BlogPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const blogPosts = [
+    {
+      id: 1,
+      title: "Mastering negotiations tips for buyers and sellers",
+      excerpt: "Euth-tenant architecture supporting unlimited clients and 10,000+ concurrent",
+      image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=600&q=80",
+      category: "Industry Trends",
+    },
+    {
+      id: 2,
+      title: "How location impacts property value insights buyer needs",
+      excerpt: "Euth-tenant architecture supporting unlimited clients and 10,000+ concurrent",
+      image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&q=80",
+      category: "Real Estate Strategies",
+    },
+    {
+      id: 3,
+      title: "The Power of Natural Light in Architectural Design",
+      excerpt: "Euth-tenant architecture supporting unlimited clients and 10,000+ concurrent",
+      image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80",
+      category: "Finance",
+    },
+    {
+      id: 4,
+      title: "Mastering negotiations tips for buyers and sellers",
+      excerpt: "Euth-tenant architecture supporting unlimited clients and 10,000+ concurrent",
+      image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=600&q=80",
+      category: "Industry Trends",
+    },
+    {
+      id: 5,
+      title: "How location impacts property value insights buyer needs",
+      excerpt: "Euth-tenant architecture supporting unlimited clients and 10,000+ concurrent",
+      image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&q=80",
+      category: "Real Estate Strategies",
+    },
+    {
+      id: 6,
+      title: "The Power of Natural Light in Architectural Design",
+      excerpt: "Euth-tenant architecture supporting unlimited clients and 10,000+ concurrent",
+      image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80",
+      category: "Finance",
+    },
+  ];
 
-  const categories = ["All", "Trading", "Finance", "Investing", "Wealth"];
+  const topCategories = [
+    "Industry Trends",
+    "Real Estate Strategies",
+    "Finance",
+    "Property Value",
+    "Market Tips",
+    "Investments",
+    "Tips"
+  ];
 
-  const {
-    data: blogPosts = [],
-    isLoading,
-    isFetching,
-  } = useQuery<BlogPost[]>({
-    queryKey: ["blogPost"],
-    queryFn: fetchBlogPosts,
-  });
+  return (
+    <div className="min-h-screen bg-white">
+      <Header />
 
-  // ✅ Filtering logic
-  const filteredPosts = useMemo(() => {
-    return blogPosts.filter((post) => {
-      const title = post.title?.toLowerCase() || "";
-      const excerpt = post.excerpt?.toLowerCase() || "";
-      const category =
-        typeof post.category === "object"
-          ? post.category?.name?.toLowerCase() || ""
-          : post.category?.toLowerCase?.() || "";
+      {/* Hero Section with Background Image */}
+      <div className="relative h-[500px] md:h-[550px] bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1600&q=80')" }}>
+        <div className="absolute inset-0 bg-black/50" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center py-20">
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-2 mb-4">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <span className="text-white text-sm">Our Blogs</span>
+            </div>
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
+              Discover Your Perfect Property In Your City
+            </h1>
+            <p className="text-white/90 text-base md:text-lg">
+              Egou picturesque river views, modern amenities, and a serene lifestyle perfect for families and professionals alike.
+            </p>
+          </div>
+        </div>
+      </div>
 
-      const matchesSearch =
-        title.includes(searchQuery.toLowerCase()) ||
-        excerpt.includes(searchQuery.toLowerCase());
-      const matchesCategory =
-        selectedCategory === "All" ||
-        category === selectedCategory.toLowerCase();
-
-      return matchesSearch && matchesCategory;
-    });
-  }, [blogPosts, searchQuery, selectedCategory]);
-
-  // 🌀 Loading Skeleton (Fixed version)
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-indigo-50/50 to-white">
-        <Header />
-
-        <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
-          {/* 🔍 Search + Filter Bar Skeleton */}
-          <div className="relative top-4 z-40 max-w-5xl mx-auto">
-            <div className="bg-white/80 backdrop-blur-lg shadow-lg rounded-2xl p-6 border border-gray-100">
-              <div className="flex flex-col md:flex-row gap-4 items-center">
-                <Skeleton className="h-12 w-full md:flex-1 rounded-xl bg-gray-200" />
-                <div className="flex gap-2 flex-wrap justify-center md:justify-start">
-                  {Array(5)
-                    .fill(0)
-                    .map((_, i) => (
-                      <Skeleton key={i} className="h-10 w-20 rounded-full bg-gray-200" />
-                    ))}
-                </div>
+      {/* Category Filters */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-wrap items-center gap-3">
+            {topCategories.map((category) => (
+              <button
+                key={category}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                {category}
+              </button>
+            ))}
+            <div className="ml-auto">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search"
+                  className="pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
+                <svg 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* 📚 Blog Grid Skeleton */}
-          <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3 px-4 sm:px-6 lg:px-8">
-            {Array(6)
-              .fill(0)
-              .map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 space-y-3"
-                >
-                  <Skeleton className="h-48 w-full rounded-lg bg-gray-200" />
-                  <Skeleton className="h-6 w-3/4 rounded-md bg-gray-200" />
-                  <Skeleton className="h-4 w-1/2 rounded-md bg-gray-200" />
-                  <Skeleton className="h-4 w-5/6 rounded-md bg-gray-200" />
-                  <Skeleton className="h-4 w-full rounded-md bg-gray-200" />
+      {/* Latest Blogs Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        {/* Section Header */}
+        <h2 className="text-3xl font-bold text-gray-900 mb-8">Latest Blogs</h2>
+
+        {/* Blog Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+          {blogPosts.map((post) => (
+            <Link key={post.id} href={`/blog/${post.id}`}>
+              <article className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow cursor-pointer">
+                {/* Image */}
+                <div className="relative h-56">
+                  <img
+                    src={post.image}
+                    alt={post.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-4 left-4">
+                    <span className="bg-cyan-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold">
+                      {post.category}
+                    </span>
+                  </div>
                 </div>
-              ))}
-          </div>
+
+                {/* Content */}
+                <div className="p-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 leading-snug line-clamp-2">
+                    {post.title}
+                  </h3>
+                  
+                  <p className="text-gray-600 text-sm mb-6 line-clamp-2">
+                    {post.excerpt}
+                  </p>
+                  
+                  <button className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors w-full">
+                    Read Now
+                  </button>
+                </div>
+              </article>
+            </Link>
+          ))}
         </div>
 
-        {/* ✨ Background Glow */}
-        <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-indigo-200/40 via-transparent to-transparent blur-3xl" />
-      </div>
-    );
-  }
+        {/* Second Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {blogPosts.map((post) => (
+            <Link key={`second-${post.id}`} href={`/blog/${post.id}`}>
+              <article className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow cursor-pointer">
+                {/* Image */}
+                <div className="relative h-56">
+                  <img
+                    src={post.image}
+                    alt={post.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-4 left-4">
+                    <span className="bg-cyan-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold">
+                      {post.category}
+                    </span>
+                  </div>
+                </div>
 
-  // 🫥 Empty state
-  if (!blogPosts?.length) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-50">
-        <Header />
-        <p className="text-gray-500 text-lg">No blog posts found.</p>
-      </div>
-    );
-  }
-
-  // ✅ Main Content
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-indigo-50/50 to-white">
-      <Header />
-
-      {/* 🔍 Search + Filter */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative top-4 z-40 max-w-5xl mx-auto mb-12 px-6"
-      >
-        <div className="bg-white/80 backdrop-blur-lg shadow-lg rounded-2xl p-6 border border-gray-100 transition-all duration-300 hover:shadow-xl">
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            {/* Search Input */}
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-2.5 text-gray-400 w-5 h-5" />
-              <Input
-                type="text"
-                placeholder="Search blogs..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 w-full rounded-xl border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-            </div>
-
-            {/* Category Filters */}
-            <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-              {categories.map((cat) => (
-                <Button
-                  key={cat}
-                  variant={selectedCategory === cat ? "default" : "outline"}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`rounded-full px-4 text-sm transition-all ${
-                    selectedCategory === cat
-                      ? "bg-primary text-white shadow-md"
-                      : "bg-white hover:bg-primary/10 text-gray-700"
-                  }`}
-                >
-                  {cat}
-                </Button>
-              ))}
-            </div>
-          </div>
+                {/* Content */}
+                <div className="p-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 leading-snug line-clamp-2">
+                    {post.title}
+                  </h3>
+                  
+                  <p className="text-gray-600 text-sm mb-6 line-clamp-2">
+                    {post.excerpt}
+                  </p>
+                  
+                  <button className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors w-full">
+                    Read Now
+                  </button>
+                </div>
+              </article>
+            </Link>
+          ))}
         </div>
-      </motion.section>
-
-      {/* 📚 Blog List */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <motion.h2
-          initial={{ opacity: 0, x: -30 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-2xl font-semibold text-gray-800 mb-8 flex items-center"
-        >
-          <span className="h-8 w-1 rounded-full bg-primary mr-3" />
-        </motion.h2>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="grid gap-8 md:grid-cols-2 xl:grid-cols-3"
-        >
-          {filteredPosts.length > 0 ? (
-            filteredPosts.map((post: BlogPost) => (
-              <motion.div
-                key={post.id}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-              >
-                <BlogCard post={post} />
-              </motion.div>
-            ))
-          ) : (
-            <p className="text-gray-500 text-center col-span-full">
-              No articles match your search.
-            </p>
-          )}
-        </motion.div>
       </div>
 
-      {/* ✨ Background Glow */}
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-indigo-200/40 via-transparent to-transparent blur-3xl" />
+      <Footer />
     </div>
   );
 }

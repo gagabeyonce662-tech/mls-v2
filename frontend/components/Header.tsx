@@ -18,17 +18,13 @@ export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
 
   const navigation = [
-    { name: "Home", href: "/" },
-    { name: "Pre-Construction", href: "/pre-construction" },
-    {
-      name: "Resale",
-      href: "/resale",
-      submenu: [{ name: "Our Listings", href: "/resale-listing" }],
-    },
-    { name: "Services", href: "/services" },
-    { name: "About", href: "/about" },
-    { name: "Blog", href: "/blog" },
-    { name: "Contact", href: "/contact" },
+    { name: "Map Search", href: "/" },
+    { name: "Trends", href: "/trends" },
+    { name: "Home Valuation", href: "/valuation" },
+    { name: "Agents", href: "/agents" },
+    { name: "Tools", href: "/tools" },
+    { name: "Watched", href: "/watched" },
+    {name:"Blog", href:"/blog" },   
   ];
 
   return (
@@ -38,176 +34,106 @@ export default function Header() {
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="hidden lg:block top-[-10] z-50 text-white shadow-lg transition-all duration-500 "
-        style={{
-          height: "300px",
-          backgroundImage: "url('https://res.cloudinary.com/dlk9jjdvo/image/upload/v1762439828/1366-asbl-landmark_xbc0v9.webp')", // 🔥 change this to your image link
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
+        className="hidden lg:block absolute top-0 left-0 right-0 z-50 bg-white shadow-sm transition-all duration-500"
       >
-        {/* Translucent Overlay */}
-        <div className="backdrop-blur-md bg-black/50">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="flex items-center justify-between h-20">
-              {/* 🏠 Logo */}
-              <Link href="/" className="flex items-center space-x-3">
-                <Image
-                  src="https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
-                  alt="Estate-4u Logo"
-                  width={120}
-                  height={60}
-                  className="object-contain brightness-110"
-                />
-                <span className="text-xl font-semibold tracking-tight">
-                  Estate<span className="text-orange-500">4U</span>
-                </span>
-              </Link>
-
-              {/* 🧭 Navigation */}
-              <nav className="flex items-center space-x-8">
-                {navigation.map((item) =>
-                  item.submenu ? (
-                    <DropdownMenu key={item.name}>
-                      <DropdownMenuTrigger asChild>
-                        <span className="flex items-center space-x-1 cursor-pointer text-gray-100 hover:text-orange-400 font-medium transition-all duration-200">
-                          <span>{item.name}</span>
-                          <ChevronDown className="w-4 h-4 mt-[1px]" />
-                        </span>
-                      </DropdownMenuTrigger>
-
-                      <DropdownMenuContent className="mt-2 bg-black/70 backdrop-blur-lg text-white shadow-lg rounded-xl border border-white/10">
-                        {item.submenu.map((subItem) => (
-                          <DropdownMenuItem key={subItem.name} asChild>
-                            <Link
-                              href={subItem.href}
-                              className="block px-3 py-2 text-sm text-gray-100 hover:text-orange-400 transition-colors"
-                            >
-                              {subItem.name}
-                            </Link>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className="relative text-gray-100 font-medium hover:text-orange-400 transition-all duration-300 group"
-                    >
-                      {item.name}
-                      <motion.span
-                        layoutId="underline"
-                        className="absolute left-0 bottom-0 w-0 h-[2px] bg-orange-500 group-hover:w-full transition-all duration-300"
-                      />
-                    </Link>
-                  )
-                )}
-              </nav>
-
-              {/* 📞 Contact + User */}
-              <div className="flex items-center space-x-5">
-                <Link
-                  href="tel:647-515-2000"
-                  className="flex items-center text-gray-100 hover:text-orange-400 font-medium transition-all"
-                >
-                  <Phone className="w-4 h-4 mr-2" />
-                  647-515-2000
-                </Link>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-white/30 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white transition-all"
-                >
-                  <User className="w-4 h-4" />
-                </Button>
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-center justify-between h-16">
+            {/* 🏠 Logo */}
+            <Link href="/" className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-10 h-10 bg-ds-primary rounded-lg flex items-center justify-center">
+                  <HomeIcon className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xl font-bold text-ds-heading font-inter">LOGOSIPSUM</span>
               </div>
+            </Link>
+
+            {/* 🧭 Navigation */}
+            <nav className="flex items-center space-x-8">
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="text-sm font-medium text-ds-heading hover:text-ds-primary transition-all duration-200 font-inter"
+                >
+                  {item.name}
+                </Link>
+              ))}
+            </nav>
+
+            {/* 📞 Login Button */}
+            <div className="flex items-center space-x-3">
+              <Button
+                variant="ghost"
+                className="text-ds-heading hover:text-ds-primary px-4 font-inter"
+              >
+                Login
+              </Button>
+              <Button
+                className="bg-cyan-400 hover:bg-cyan-500 text-ds-heading px-6 font-semibold font-inter"
+              >
+                Get Started
+              </Button>
             </div>
           </div>
         </div>
       </motion.header>
 
       {/* 📱 Mobile Header */}
-      <header
-        className="lg:hidden sticky top-0 z-50 text-white"
-        style={{
-          backgroundImage: "url('/hero-bg.jpg')", // same image for mobile too
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        <div className="backdrop-blur-md bg-black/50">
-          <div className="flex items-center justify-between px-4 h-20">
-            {/* Hamburger Menu */}
-            <Sheet open={isOpen} onOpenChange={setIsOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="w-6 h-6 text-white" />
+      <header className="lg:hidden absolute top-0 left-0 right-0 z-50 bg-white shadow-sm">
+        <div className="flex items-center justify-between px-4 h-16">
+          {/* Hamburger Menu */}
+          <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="w-6 h-6 text-gray-700" />
+              </Button>
+            </SheetTrigger>
+
+            <SheetContent side="left" className="w-72 bg-white">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
+                <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+                  <X className="w-5 h-5 text-gray-700" />
                 </Button>
-              </SheetTrigger>
+              </div>
 
-              <SheetContent side="left" className="w-72 bg-black/70 backdrop-blur-lg text-white">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-semibold">Menu</h2>
-                  <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-                    <X className="w-5 h-5 text-white" />
-                  </Button>
-                </div>
-
-                <nav className="space-y-4">
-                  {navigation.map((item) => (
-                    <div key={item.name}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setIsOpen(false)}
-                        className="block text-lg font-medium text-gray-100 hover:text-orange-400 transition-all"
-                      >
-                        {item.name}
-                      </Link>
-
-                      {item.submenu && (
-                        <div className="ml-3 mt-2 space-y-2 border-l border-white/20 pl-3">
-                          {item.submenu.map((subItem) => (
-                            <Link
-                              key={subItem.name}
-                              href={subItem.href}
-                              onClick={() => setIsOpen(false)}
-                              className="block text-sm text-gray-300 hover:text-orange-400"
-                            >
-                              {subItem.name}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </nav>
-
-                <div className="mt-8 border-t border-white/20 pt-4">
+              <nav className="space-y-4">
+                {navigation.map((item) => (
                   <Link
-                    href="tel:647-515-2000"
-                    className="flex items-center text-gray-100 hover:text-orange-400"
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => setIsOpen(false)}
+                    className="block text-lg font-medium text-gray-700 hover:text-blue-900 transition-all"
                   >
-                    <Phone className="w-4 h-4 mr-2" />
-                    647-515-2000
+                    {item.name}
                   </Link>
-                </div>
-              </SheetContent>
-            </Sheet>
+                ))}
+              </nav>
 
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2">
-              <HomeIcon className="w-6 h-6 text-orange-500" />
-              <span className="text-lg font-semibold">
-                Estate<span className="text-orange-500">4U</span>
-              </span>
-            </Link>
+              <div className="mt-8 border-t border-gray-200 pt-4 space-y-3">
+                <Button className="w-full" variant="outline">
+                  Login
+                </Button>
+                <Button className="w-full bg-cyan-400 hover:bg-cyan-500 text-gray-900 font-semibold">
+                  Get Started
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
 
-            {/* User Icon */}
-            <Button variant="ghost" size="icon">
-              <User className="w-6 h-6 text-white" />
-            </Button>
-          </div>
+          {/* Logo */}
+          <Link href="/" className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-ds-primary rounded-full flex items-center justify-center">
+              <HomeIcon className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-lg font-bold text-ds-primary font-inter">LOGOSIPSUM</span>
+          </Link>
+
+          {/* User Icon */}
+          <Button variant="ghost" size="icon">
+            <User className="w-6 h-6 text-gray-700" />
+          </Button>
         </div>
       </header>
     </>

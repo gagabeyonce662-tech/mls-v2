@@ -1,83 +1,57 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Filter } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Search, MapPin } from "lucide-react";
 
 export default function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
 
   return (
-    <div className="relative w-full ">
+    <div className="relative w-full bg-gradient-to-r from-gray-50 to-gray-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          {/* Left Side - Text and Search */}
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                Find Your Place
+              </h1>
+              <p className="text-lg text-gray-600 max-w-lg">
+                We are a community-led collaborative sales app that integrates your local
+                Multiple Listing Service (MLS).
+              </p>
+            </div>
 
-<div className="max-w-4xl mx-auto -mt-8 relative z-20">
-  <div className="bg-white shadow-lg overflow-hidden">
-    <div className="flex items-stretch">
-      {/* Text input */}
-      <div className="flex-1">
-        <input
-          type="text"
-          placeholder="City, Area, Postal Code, ID#, or Addr"
-          className="w-full h-16 px-6 text-gray-700 placeholder-gray-400 focus:outline-none"
-        />
-      </div>
+            {/* Search Bar */}
+            <div className="bg-white rounded-lg shadow-lg p-2 flex items-center gap-2">
+              <div className="flex-1 flex items-center gap-2 px-4">
+                <MapPin className="w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Enter city, neighborhood or address"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full py-3 text-gray-700 placeholder-gray-400 focus:outline-none"
+                />
+              </div>
+              <button className="bg-blue-900 hover:bg-blue-800 text-white px-8 py-3 rounded-md font-medium flex items-center gap-2 transition-colors">
+                <Search className="w-5 h-5" />
+                Search
+              </button>
+            </div>
+          </div>
 
-      {/* Dropdowns group */}
-      <div className="flex space-x-0">
-        <select className="h-16 px-6 border-l border-gray-200 text-gray-700 focus:outline-none">
-          <option>Single Family, Condo</option>
-        </select>
-
-        <select className="h-16 px-6 border-l border-gray-200 text-gray-700 focus:outline-none">
-          <option>Beds</option>
-        </select>
-
-        <select className="h-16 px-6 border-l border-gray-200 text-gray-700 focus:outline-none">
-          <option>Baths</option>
-        </select>
-
-        <select className="h-16 px-6 border-l border-gray-200 text-gray-700 focus:outline-none">
-          <option>Min</option>
-        </select>
-
-        <select className="h-16 px-6 border-l border-gray-200 text-gray-700 focus:outline-none">
-          <option>Max</option>
-        </select>
-      </div>
-
-      {/* Search button */}
-      <div className="flex-shrink-0">
-        <button
-          type="button"
-          className="h-16 px-8 bg-blue-800 text-white font-semibold focus:outline-none"
-        >
-          Search
-        </button>
+          {/* Right Side - House Image */}
+          <div className="relative">
+            <img
+              src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80"
+              alt="Modern House"
+              className="w-full h-auto rounded-2xl shadow-2xl"
+            />
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-
-  {/* More Options centered below */}
-  <div className="flex justify-center mt-4">
-    <button
-      type="button"
-      className="inline-flex items-center gap-2 bg-blue-800 text-white text-sm px-5 py-2 shadow"
-    >
-      More Options
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-      </svg>
-    </button>
-  </div>
-</div>
-
-      <div className="h-20" /> {/* Spacer to prevent content overlap */}
-    </div>
-    
   );
 }
 
