@@ -1,5 +1,7 @@
 "use client";
 
+import { colors } from "@/config/design-system";
+
 export default function FeaturedCollections() {
   const collections = [
     {
@@ -32,7 +34,7 @@ export default function FeaturedCollections() {
             <h2 className="text-ds-h2 text-ds-heading font-inter">Featured Collections</h2>
             <p className="text-ds-body-regular text-ds-body mt-2 font-inter">Explore curated collections</p>
           </div>
-          <button className="bg-cyan-400 hover:bg-cyan-500 text-ds-heading font-semibold px-6 py-2 rounded-md flex items-center gap-2 transition-colors font-inter">
+          <button className="font-semibold px-6 py-2 rounded-md flex items-center gap-2 transition-opacity hover:opacity-90 font-inter" style={{ backgroundColor: colors.icon, color: colors.cards }}>
             View All
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

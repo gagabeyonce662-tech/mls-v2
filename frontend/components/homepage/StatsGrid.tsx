@@ -1,12 +1,13 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Home, DollarSign, TrendingUp, Users } from "lucide-react";
+import { colors } from "@/config/design-system";
 
 export default function StatsGrid() {
   const stats = [
-    { label: "Active Listings", value: "12,456", change: "+12%", icon: Home, color: "text-blue-600", bgColor: "bg-blue-50" },
-    { label: "Avg. Price", value: "$1.2M", change: "+5.3%", icon: DollarSign, color: "text-green-600", bgColor: "bg-green-50" },
-    { label: "Sales This Month", value: "3,842", change: "+8.1%", icon: TrendingUp, color: "text-orange-600", bgColor: "bg-orange-50" },
-    { label: "Active Users", value: "45K+", change: "+15%", icon: Users, color: "text-purple-600", bgColor: "bg-purple-50" },
+    { label: "Active Listings", value: "12,456", change: "+12%", icon: Home, color: colors.primary, bgColor: colors.cards },
+    { label: "Avg. Price", value: "$1.2M", change: "+5.3%", icon: DollarSign, color: colors.icon, bgColor: colors.cards },
+    { label: "Sales This Month", value: "3,842", change: "+8.1%", icon: TrendingUp, color: colors.primary, bgColor: colors.cards },
+    { label: "Active Users", value: "45K+", change: "+15%", icon: Users, color: colors.heading, bgColor: colors.cards },
   ];
 
   return (

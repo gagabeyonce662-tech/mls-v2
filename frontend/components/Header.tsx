@@ -13,6 +13,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { colors } from "@/config/design-system";
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -66,11 +67,13 @@ export default function Header() {
               <Button
                 variant="ghost"
                 className="text-ds-heading hover:text-ds-primary px-4 font-inter"
+                style={{ backgroundColor: colors.icon, color: colors.cards }}
               >
                 Login
               </Button>
               <Button
-                className="bg-cyan-400 hover:bg-cyan-500 text-ds-heading px-6 font-semibold font-inter"
+                className="px-6 font-semibold font-inter transition-opacity hover:opacity-90"
+                style={{ backgroundColor: colors.icon, color: colors.cards }}
               >
                 Get Started
               </Button>
@@ -86,15 +89,15 @@ export default function Header() {
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon">
-                <Menu className="w-6 h-6 text-gray-700" />
+                <Menu className="w-6 h-6" style={{ color: colors.heading }} />
               </Button>
             </SheetTrigger>
 
             <SheetContent side="left" className="w-72 bg-white">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
+                <h2 className="text-lg font-semibold" style={{ color: colors.heading }}>Menu</h2>
                 <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-                  <X className="w-5 h-5 text-gray-700" />
+                  <X className="w-5 h-5" style={{ color: colors.heading }} />
                 </Button>
               </div>
 
@@ -104,18 +107,19 @@ export default function Header() {
                     key={item.name}
                     href={item.href}
                     onClick={() => setIsOpen(false)}
-                    className="block text-lg font-medium text-gray-700 hover:text-blue-900 transition-all"
+                    className="block text-lg font-medium transition-all"
+                    style={{ color: colors.body }}
                   >
                     {item.name}
                   </Link>
                 ))}
               </nav>
 
-              <div className="mt-8 border-t border-gray-200 pt-4 space-y-3">
+              <div className="mt-8 border-t pt-4 space-y-3" style={{ borderColor: colors.boarder }}>
                 <Button className="w-full" variant="outline">
                   Login
                 </Button>
-                <Button className="w-full bg-cyan-400 hover:bg-cyan-500 text-gray-900 font-semibold">
+                <Button className="w-full font-semibold" style={{ backgroundColor: colors.icon, color: colors.cards }}>
                   Get Started
                 </Button>
               </div>
@@ -132,7 +136,7 @@ export default function Header() {
 
           {/* User Icon */}
           <Button variant="ghost" size="icon">
-            <User className="w-6 h-6 text-gray-700" />
+            <User className="w-6 h-6" style={{ color: colors.heading }} />
           </Button>
         </div>
       </header>

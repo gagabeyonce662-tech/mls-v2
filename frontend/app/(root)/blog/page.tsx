@@ -2,6 +2,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ds } from "@/lib/design-system-utils";
+import { colors } from "@/config/design-system";
 
 export default function BlogPage() {
   const blogPosts = [
@@ -127,7 +128,7 @@ export default function BlogPage() {
           {blogPosts.map((post) => (
             <Link key={post.id} href={`/blog/${post.id}`}>
               <article className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow cursor-pointer">
-                {/* Image */}
+                /* Image */
                 <div className="relative h-56">
                   <img
                     src={post.image}
@@ -135,7 +136,7 @@ export default function BlogPage() {
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute top-4 left-4">
-                    <span className="bg-cyan-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold">
+                    <span className="px-3 py-1.5 rounded-md text-xs font-semibold" style={{ backgroundColor: colors.icon, color: colors.cards }}>
                       {post.category}
                     </span>
                   </div>
@@ -173,7 +174,7 @@ export default function BlogPage() {
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute top-4 left-4">
-                    <span className="bg-cyan-500 text-white px-3 py-1.5 rounded-md text-xs font-semibold">
+                    <span className="px-3 py-1.5 rounded-md text-xs font-semibold" style={{ backgroundColor: colors.icon, color: colors.cards }}>
                       {post.category}
                     </span>
                   </div>

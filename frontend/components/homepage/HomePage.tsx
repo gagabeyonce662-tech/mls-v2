@@ -6,12 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { colors } from '@/config/design-system';
 
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const stats = [
-    { label: 'Active Listings', value: '12,456', change: '+12%', icon: Home, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    { label: 'Active Listings', value: '12,456', change: '+12%', icon: Home, color: colors.primary, bgColor: colors.cards },
     { label: 'Avg. Price', value: '$1.2M', change: '+5.3%', icon: DollarSign, color: 'text-green-600', bgColor: 'bg-green-50' },
     { label: 'Sales This Month', value: '3,842', change: '+8.1%', icon: TrendingUp, color: 'text-orange-600', bgColor: 'bg-orange-50' },
     { label: 'Active Users', value: '45K+', change: '+15%', icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-50' },
@@ -212,7 +213,8 @@ export default function HomePage() {
             <h2 className="text-2xl md:text-3xl font-bold mb-2">Featured Listings</h2>
             <p className="text-muted-foreground">Hand-picked premium properties</p>
           </div>
-          <Button variant="ghost" className="hidden md:flex">
+          <Button variant="ghost" className="hidden md:flex"
+          style={{ backgroundColor: colors.icon, color: colors.cards }}>
             View All
             <ChevronRight className="w-4 h-4 ml-2" />
           </Button>
@@ -398,7 +400,7 @@ export default function HomePage() {
                 </Card>
                 <Card className="border-0">
                   <CardContent className="p-4">
-                    <TrendingUp className="w-8 h-8 text-blue-600 mb-2" />
+                    <TrendingUp className="w-8 h-8 mb-2" style={{ color: colors.primary }} />
                     <p className="font-semibold text-sm">Market Data</p>
                   </CardContent>
                 </Card>

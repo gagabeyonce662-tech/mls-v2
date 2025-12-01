@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Heart, Bed, Bath, Maximize } from "lucide-react";
+import { colors } from "@/config/design-system";
 
 export default function FeaturedListings() {
   const properties = [
@@ -75,7 +76,7 @@ export default function FeaturedListings() {
             <h2 className="text-ds-h2 text-ds-heading font-inter">Featured Properties</h2>
             <p className="text-ds-body-regular text-ds-body mt-2 font-inter">Explore our handpicked selection</p>
           </div>
-          <button className="text-blue-900 hover:text-blue-800 font-medium flex items-center gap-2">
+          <button className="font-medium flex items-center gap-2 transition-opacity hover:opacity-80" style={{ backgroundColor: colors.icon, color: colors.cards }}>
             View All
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

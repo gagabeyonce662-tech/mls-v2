@@ -3,6 +3,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ds } from "@/lib/design-system-utils";
+import { colors } from "@/config/design-system";
 
 export function generateStaticParams() {
   // Generate params for blog slugs (1-6 for now)
@@ -104,7 +105,7 @@ export default function BlogPostPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/30" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-end pb-12">
           <div className="max-w-4xl">
-            <span className="inline-block bg-cyan-500 text-white px-3 py-1.5 rounded-md text-sm font-semibold mb-4">
+            <span className="inline-block px-3 py-1.5 rounded-md text-sm font-semibold mb-4" style={{ backgroundColor: colors.icon, color: colors.cards }}>
               {post.category}
             </span>
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
@@ -192,7 +193,7 @@ export default function BlogPostPage() {
                         />
                       </div>
                       <div className="flex-1">
-                        <span className="inline-block text-xs font-semibold text-cyan-600 mb-1">
+                        <span className="inline-block text-xs font-semibold mb-1" style={{ color: colors.icon }}>
                           {relatedPost.category}
                         </span>
                         <h4 className="text-sm font-semibold text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
