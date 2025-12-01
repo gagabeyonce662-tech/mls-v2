@@ -53,6 +53,7 @@
     "framer-motion": "^12.23.15",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.446.0",
+    "maplibre-gl": "^5.13.0",
     "next": "^13.5.11",
     "next-themes": "^0.3.0",
     "react": "^18.2.0",
@@ -71,6 +72,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.13",
+    "@types/maplibre-gl": "^1.14.0",
     "@types/node": "^24.5.2",
     "@types/react": "^19.1.13",
     "autoprefixer": "^10.4.21",
