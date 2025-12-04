@@ -1,115 +1,220 @@
 "use client";
 
-import { useState } from "react";
-import { Search, MapPin } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, ChevronDown } from "lucide-react";
+import { colors } from "@/config/design-system";
+import { fetchProperties, type PropertyFilterParams, type Property } from "@/lib/api";
+import { useProvince } from "@/contexts/ProvinceContext";
 
-export default function HeroSection() {
+interface HeroSectionProps {
+  onPropertiesUpdate: (properties: Property[], query: string) => void;
+}
+
+export default function HeroSection({ onPropertiesUpdate }: HeroSectionProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchType, setSearchType] = useState("Buy");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const { selectedProvince, getProvinceName } = useProvince();
 
   return (
-    <div className="relative w-full bg-gradient-to-r from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          {/* Left Side - Text and Search */}
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
-                Find Your Place
-              </h1>
-              <p className="text-lg text-gray-600 max-w-lg">
-                We are a community-led collaborative sales app that integrates your local
-                Multiple Listing Service (MLS).
-              </p>
+    <section
+      className="relative w-full bg-cover bg-center border-t border-b"
+      style={{
+        borderColor: colors.boarder,
+        backgroundImage:
+          "url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1600&q=80')",
+      }}
+    >
+      {/* top navbar (minimal to match design) */}
+      <header className="absolute inset-x-0 top-0 z-30">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="h-16 flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/90 rounded-md flex items-center justify-center shadow-sm">
+                  <span className="font-bold" style={{ color: colors.primary }}>CR</span>
+                </div>
+                <span className="hidden md:inline font-semibold text-white drop-shadow">LOGOIPSUM</span>
+              </div>
+
+              <nav className="hidden md:flex items-center gap-6 text-sm text-white/90">
+                <a className="hover:underline" href="#">Map Search</a>
+                <a className="hover:underline" href="#">Trends</a>
+                <a className="hover:underline" href="#">Home Valuation</a>
+                <a className="hover:underline" href="#">Agents</a>
+                <a className="hover:underline" href="#">Tools</a>
+                <a className="hover:underline" href="#">Watched</a>
+              </nav>
             </div>
 
-            {/* Search Bar */}
-            <div className="bg-white rounded-lg shadow-lg p-2 flex items-center gap-2">
-              <div className="flex-1 flex items-center gap-2 px-4">
-                <MapPin className="w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Enter city, neighborhood or address"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full py-3 text-gray-700 placeholder-gray-400 focus:outline-none"
-                />
-              </div>
-              <button className="bg-blue-900 hover:bg-blue-800 text-white px-8 py-3 rounded-md font-medium flex items-center gap-2 transition-colors">
-                <Search className="w-5 h-5" />
-                Search
-              </button>
+            <div className="flex items-center gap-3">
+              <button className="hidden md:inline px-3 py-1 rounded bg-white/90 font-medium" style={{ color: colors.primary }}>Login</button>
+              <button className="px-3 py-2 rounded font-medium shadow" style={{ backgroundColor: colors.primary, color: colors.cards }}>Get Started</button>
             </div>
           </div>
+        </div>
+      </header>
 
-          {/* Right Side - House Image */}
-          <div className="relative">
-            <img
-              src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80"
-              alt="Modern House"
-              className="w-full h-auto rounded-2xl shadow-2xl"
-            />
+      {/* dark overlay + subtle gradient to better match screenshot */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden>
+        <div className="absolute inset-0 bg-white/20 mix-blend-lighten"></div>
+        <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-black/40 to-transparent"></div>
+      </div>
+
+      {/* main content */}
+      <div className="relative z-20 max-w-7xl mx-auto px-6 lg:px-8 py-24 md:py-28 lg:py-32">
+        <div className="max-w-3xl text-white/95">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight drop-shadow">
+            Find Your Place
+          </h1>
+          <p className="mt-4 text-lg text-white/85 max-w-xl">
+            Watch listings, communities and custom areas. Stay informed when listings are added and sold.
+          </p>
+
+          {/* Search box centered and overlapping the hero like the design */}
+          <div className="mt-8">
+            <div className="mx-auto mt-6 max-w-4xl">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+
+                  setIsLoading(true);
+                  setError("");
+                  try {
+                    const query = searchQuery.trim();
+                    const provinceName = getProvinceName(selectedProvince);
+                    
+                    console.log('Global search initiated:', { query, searchType, selectedProvince, provinceName });
+                    
+                    // Fetch all properties from selected province
+                    const filters: PropertyFilterParams = {
+                      province: provinceName
+                    };
+
+                    // Add status filter based on search type
+                    if (searchType === 'Buy') {
+                      filters.status = 'Active';
+                    } else if (searchType === 'Rent') {
+                      filters.status = 'Active';
+                    }
+
+                    const allProperties = await fetchProperties(filters);
+                    console.log('Fetched properties for filtering:', allProperties.length);
+                    
+                    // If no search query, show all properties
+                    if (!query) {
+                      onPropertiesUpdate(allProperties, provinceName);
+                      console.log('No search query - showing all properties');
+                      return;
+                    }
+
+                    // Global search: filter properties by matching query against multiple fields
+                    const searchLower = query.toLowerCase();
+                    const filteredProperties = allProperties.filter(property => {
+                      // Search in address fields
+                      const address = property.UnparsedAddress?.toLowerCase() || '';
+                      const streetName = property.StreetName?.toLowerCase() || '';
+                      const streetNumber = property.StreetNumber?.toLowerCase() || '';
+                      
+                      // Search in location fields
+                      const city = property.City?.toLowerCase() || '';
+                      const postalCode = property.PostalCode?.toLowerCase() || '';
+                      const neighborhood = property.NeighborhoodName?.toLowerCase() || '';
+                      
+                      // Search in property details
+                      const propertyType = property.PropertyType?.toLowerCase() || '';
+                      const propertySubType = property.PropertySubType?.toLowerCase() || '';
+                      const listingKey = property.ListingKey?.toLowerCase() || '';
+                      const propertyKey = property.PropertyKey?.toLowerCase() || '';
+                      const mlsNumber = property.MLSNumber?.toLowerCase() || '';
+                      
+                      // Check if query matches any field
+                      return (
+                        address.includes(searchLower) ||
+                        streetName.includes(searchLower) ||
+                        streetNumber.includes(searchLower) ||
+                        city.includes(searchLower) ||
+                        postalCode.includes(searchLower) ||
+                        neighborhood.includes(searchLower) ||
+                        propertyType.includes(searchLower) ||
+                        propertySubType.includes(searchLower) ||
+                        listingKey.includes(searchLower) ||
+                        propertyKey.includes(searchLower) ||
+                        mlsNumber.includes(searchLower)
+                      );
+                    });
+
+                    console.log('Filtered properties:', filteredProperties.length);
+                    onPropertiesUpdate(filteredProperties, query);
+                    
+                    if (filteredProperties.length === 0) {
+                      setError(`No properties found matching "${query}" in ${provinceName}. Try a different search term.`);
+                    }
+                  } catch (error) {
+                    console.error('Error searching properties:', error);
+                    setError('Search failed. Please try again.');
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                className="flex items-stretch rounded-full shadow-xl overflow-hidden ring-1 ring-black/5"
+                style={{ backgroundColor: colors.cards }}
+              >
+                <label htmlFor="search" className="sr-only">Search</label>
+
+                <div className="flex-1 flex items-center gap-4 px-5">
+                  <Search className="w-5 h-5 flex-shrink-0" style={{ color: colors.body }} />
+                  <input
+                    id="search"
+                    type="text"
+                    placeholder={`Search by address, city, MLS#, property type in ${getProvinceName(selectedProvince)}`}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full py-4 focus:outline-none bg-transparent"
+                    style={{ color: colors.heading }}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div className="flex items-center border-l px-3" style={{ borderColor: colors.boarder }}>
+                  <select
+                    value={searchType}
+                    onChange={(e) => setSearchType(e.target.value)}
+                    className="appearance-none bg-transparent text-sm py-3 pr-6 pl-2 focus:outline-none cursor-pointer"
+                    style={{ color: colors.heading }}
+                    aria-label="Search Type"
+                  >
+                    <option value="Buy">Buy</option>
+                    <option value="Rent">Rent</option>
+                    <option value="Sell">Sell</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 -ml-2 pointer-events-none" style={{ color: colors.body }} />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="px-8 py-3 font-medium rounded-r-full flex items-center gap-3 shadow-md transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: colors.icon, color: colors.cards }}
+                >
+                  {isLoading ? 'Searching...' : 'Search'}
+                </button>
+              </form>
+              
+              {/* Error message */}
+              {error && (
+                <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                  {error}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* spacing at bottom so hero feels like the screenshot */}
+      <div className="h-8 md:h-12 lg:h-16" />
+    </section>
   );
 }
-
-
-//       {/* Floating Search Box (centered overlapping image and white section) */}
-      // <div className="absolute left-1/2 bottom-[4rem] transform -translate-x-1/2 w-full max-w-3xl px-4 z-20 -top-16">
-      //   <Card className="shadow-2xl bg-white border-0 rounded-2xl">
-      //     <CardContent className="p-5">
-      //       <div className="flex flex-col md:flex-row gap-4">
-      //         <div className="flex-1 relative">
-      //           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-      //           <Input
-      //             placeholder="Enter address, neighborhood, or postal code..."
-      //             value={searchQuery}
-      //             onChange={(e) => setSearchQuery(e.target.value)}
-      //             className="pl-10 h-12 bg-white text-gray-800 border-gray-200"
-      //           />
-      //         </div>
-
-      //         <Button
-      //           size="lg"
-      //           className="md:w-auto w-full bg-blue-600 hover:bg-blue-700 text-white"
-      //         >
-      //           <Search className="w-5 h-5 mr-2" />
-      //           Search
-      //         </Button>
-
-      //         <Button
-      //           size="lg"
-      //           variant="outline"
-      //           className="md:w-auto w-full border-gray-300 text-gray-700 hover:bg-gray-100"
-      //         >
-      //           <Filter className="w-5 h-5 mr-2" />
-      //           Filters
-      //         </Button>
-      //       </div>
-
-      //       <div className="flex flex-wrap gap-2 mt-4 justify-center md:justify-start">
-      //         {["Buy", "Rent", "Sold"].map((item) => (
-      //           <Badge
-      //             key={item}
-      //             variant="outline"
-      //             className="cursor-pointer border-gray-300 text-gray-600 hover:bg-gray-100"
-      //           >
-      //             {item}
-      //           </Badge>
-      //         ))}
-      //         <Separator orientation="vertical" className="h-6 mx-2 bg-gray-300" />
-      //         {["House", "Condo", "Townhouse"].map((type) => (
-      //           <Badge
-      //             key={type}
-      //             variant="outline"
-      //             className="cursor-pointer border-gray-300 text-gray-600 hover:bg-gray-100"
-      //           >
-      //             {type}
-      //           </Badge>
-      //         ))}
-      //       </div>
-      //     </CardContent>
-      //   </Card>
-      // </div>

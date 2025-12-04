@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { colors } from '@/config/design-system';
 
 const testimonials = [
   {
@@ -52,7 +53,7 @@ export default function Testimonials() {
   };
 
   return (
-    <section className="bg-gray-900 py-16 text-white">
+    <section className="py-16 text-white" style={{ backgroundColor: colors.primary }}>
       <div className="container mx-auto px-4">
         {/* Google Rating Header */}
         <div className="text-center mb-12">
@@ -67,11 +68,11 @@ export default function Testimonials() {
           </div>
           <div className="flex items-center justify-center mb-2">
             {[...Array(5)].map((_, i) => (
-              <Star key={i} className="w-6 h-6 text-yellow-400 fill-current" />
+              <Star key={i} className="w-6 h-6 fill-current" style={{ color: colors.icon }} />
             ))}
           </div>
           <div className="text-2xl font-bold mb-2">EXCELLENT</div>
-          <div className="text-gray-300">Based on <strong>53 reviews</strong></div>
+          <div style={{ color: colors.body }}>Based on <strong>53 reviews</strong></div>
         </div>
 
         {/* Testimonials Slider */}
@@ -83,7 +84,7 @@ export default function Testimonials() {
             >
               {testimonials.map((testimonial) => (
                 <div key={testimonial.id} className="w-full flex-shrink-0 px-4">
-                  <div className="bg-gray-800 rounded-lg p-8">
+                  <div className="rounded-lg p-8" style={{ backgroundColor: colors.icon }}>
                     <div className="flex items-center mb-4">
                       <Image
                         src={testimonial.avatar}
@@ -93,16 +94,16 @@ export default function Testimonials() {
                         className="rounded-full mr-4"
                       />
                       <div>
-                        <h4 className="font-semibold text-lg">{testimonial.name}</h4>
-                        <p className="text-gray-400 text-sm">{testimonial.date}</p>
+                        <h4 className="font-semibold text-lg" style={{ color: colors.heading }}>{testimonial.name}</h4>
+                        <p className="text-sm" style={{ color: colors.body }}>{testimonial.date}</p>
                       </div>
                       <div className="ml-auto flex">
                         {[...Array(testimonial.rating)].map((_, i) => (
-                          <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />
+                          <Star key={i} className="w-4 h-4 fill-current" style={{ color: colors.icon }} />
                         ))}
                       </div>
                     </div>
-                    <p className="text-gray-300 leading-relaxed">
+                    <p className="leading-relaxed" style={{ color: colors.body }}>
                       {testimonial.text}
                     </p>
                   </div>
@@ -117,7 +118,8 @@ export default function Testimonials() {
               variant="outline"
               size="icon"
               onClick={prevTestimonial}
-              className="bg-transparent border-white text-white hover:bg-white hover:text-gray-900"
+              className="bg-transparent text-white hover:text-black"
+              style={{ borderColor: colors.cards }}
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -125,7 +127,8 @@ export default function Testimonials() {
               variant="outline"
               size="icon"
               onClick={nextTestimonial}
-              className="bg-transparent border-white text-white hover:bg-white hover:text-gray-900"
+              className="bg-transparent text-white hover:text-black"
+              style={{ borderColor: colors.cards }}
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
@@ -136,9 +139,8 @@ export default function Testimonials() {
             {testimonials.map((_, index) => (
               <button
                 key={index}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  index === currentIndex ? 'bg-white' : 'bg-gray-600'
-                }`}
+                className="w-2 h-2 rounded-full transition-colors"
+                style={{ backgroundColor: index === currentIndex ? colors.cards : colors.body }}
                 onClick={() => setCurrentIndex(index)}
               />
             ))}
