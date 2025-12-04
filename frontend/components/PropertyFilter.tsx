@@ -3,8 +3,14 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { colors } from "@/config/design-system";
+import { useProvinceProperties } from "@/hooks/useProvinceProperties";
+import { type PropertyFilterParams } from "@/lib/api";
 
-export default function PropertyFilter() {
+interface PropertyFilterProps {
+  onPropertiesUpdate?: (properties: any[], query: string) => void;
+}
+
+export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [notifyFor, setNotifyFor] = useState("all");
   const [propertyType, setPropertyType] = useState("all");
@@ -16,30 +22,75 @@ export default function PropertyFilter() {
   const [lotFront, setLotFront] = useState({ min: "", max: "" });
   const [rentalYield, setRentalYield] = useState({ min: "", max: "" });
   const [schoolScore, setSchoolScore] = useState({ min: "", max: "" });
-  const [basement, setBasement] = useState([]);
+  const [basement, setBasement] = useState<string[]>([]);
   const [openHouse, setOpenHouse] = useState("unspecified");
   const [listingType, setListingType] = useState("all");
+  const { fetchProvinceProperties, provinceName } = useProvinceProperties();
 
-  const handleApply = () => {
-    console.log("Applying filters...", {
-      searchQuery,
-      notifyFor,
-      propertyType,
-      priceRange,
-      bedrooms,
-      bathrooms,
-      garage,
-      squareFootage,
-      lotFront,
-      rentalYield,
-      schoolScore,
-      basement,
-      openHouse,
-      listingType,
-    });
+  const handleApply = async () => {
+    console.log("Applying filters for province:", provinceName);
+    
+    if (!onPropertiesUpdate) return;
+    
+    try {
+      // Build filter object
+      const filters: PropertyFilterParams = {};
+      
+      // Price range
+      if (priceRange.min !== "20") {
+        filters.price_min = parseInt(priceRange.min);
+      }
+      if (priceRange.max !== "999100000") {
+        filters.price_max = parseInt(priceRange.max);
+      }
+      
+      // Bedrooms
+      if (bedrooms !== "all") {
+        const bedroomCount = bedrooms.replace("+", "");
+        filters.bedrooms = parseInt(bedroomCount);
+      }
+      
+      // Bathrooms  
+      if (bathrooms !== "all") {
+        const bathroomCount = bathrooms.replace("+", "");
+        filters.bathrooms = parseInt(bathroomCount);
+      }
+      
+      // Property type mapping
+      if (propertyType !== "all") {
+        const typeMapping: { [key: string]: string } = {
+          "detached": "Single Family Attached",
+          "semi-detached": "Single Family Detached", 
+          "condo-apt": "Condominium",
+          "freehold-townhouse": "Townhouse",
+          "condo-townhouse": "Townhouse"
+        };
+        filters.property_subtype = typeMapping[propertyType] || propertyType;
+      }
+      
+      // Status based on notify selection
+      if (notifyFor === "for-sale") {
+        filters.status = "Active";
+      } else if (notifyFor === "sold") {
+        filters.status = "Sold";
+      }
+      
+      // City search
+      if (searchQuery.trim()) {
+        filters.city = searchQuery.trim();
+      }
+      
+      console.log("Applying filters:", filters);
+      const filteredProperties = await fetchProvinceProperties(filters);
+      onPropertiesUpdate(filteredProperties, `${provinceName} - Filtered Results`);
+      console.log("Filter results:", filteredProperties.length, "properties found");
+      
+    } catch (error) {
+      console.error("Error applying filters:", error);
+    }
   };
 
-  const handleBasementChange = (option) => {
+  const handleBasementChange = (option: string) => {
     const value = option.toLowerCase().replace(" ", "-");
     if (basement.includes(value)) {
       setBasement(basement.filter(item => item !== value));

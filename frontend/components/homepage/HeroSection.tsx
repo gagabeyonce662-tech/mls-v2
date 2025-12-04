@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, ChevronDown } from "lucide-react";
 import { colors } from "@/config/design-system";
+import { fetchProperties, type PropertyFilterParams, type Property } from "@/lib/api";
+import { useProvince } from "@/contexts/ProvinceContext";
 
-export default function HeroSection() {
+interface HeroSectionProps {
+  onPropertiesUpdate: (properties: Property[], query: string) => void;
+}
+
+export default function HeroSection({ onPropertiesUpdate }: HeroSectionProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState("Buy");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const { selectedProvince, getProvinceName } = useProvince();
 
   return (
     <section
@@ -67,10 +76,87 @@ export default function HeroSection() {
           <div className="mt-8">
             <div className="mx-auto mt-6 max-w-4xl">
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  // invoke search
-                  console.log({ searchQuery, searchType });
+
+                  setIsLoading(true);
+                  setError("");
+                  try {
+                    const query = searchQuery.trim();
+                    const provinceName = getProvinceName(selectedProvince);
+                    
+                    console.log('Global search initiated:', { query, searchType, selectedProvince, provinceName });
+                    
+                    // Fetch all properties from selected province
+                    const filters: PropertyFilterParams = {
+                      province: provinceName
+                    };
+
+                    // Add status filter based on search type
+                    if (searchType === 'Buy') {
+                      filters.status = 'Active';
+                    } else if (searchType === 'Rent') {
+                      filters.status = 'Active';
+                    }
+
+                    const allProperties = await fetchProperties(filters);
+                    console.log('Fetched properties for filtering:', allProperties.length);
+                    
+                    // If no search query, show all properties
+                    if (!query) {
+                      onPropertiesUpdate(allProperties, provinceName);
+                      console.log('No search query - showing all properties');
+                      return;
+                    }
+
+                    // Global search: filter properties by matching query against multiple fields
+                    const searchLower = query.toLowerCase();
+                    const filteredProperties = allProperties.filter(property => {
+                      // Search in address fields
+                      const address = property.UnparsedAddress?.toLowerCase() || '';
+                      const streetName = property.StreetName?.toLowerCase() || '';
+                      const streetNumber = property.StreetNumber?.toLowerCase() || '';
+                      
+                      // Search in location fields
+                      const city = property.City?.toLowerCase() || '';
+                      const postalCode = property.PostalCode?.toLowerCase() || '';
+                      const neighborhood = property.NeighborhoodName?.toLowerCase() || '';
+                      
+                      // Search in property details
+                      const propertyType = property.PropertyType?.toLowerCase() || '';
+                      const propertySubType = property.PropertySubType?.toLowerCase() || '';
+                      const listingKey = property.ListingKey?.toLowerCase() || '';
+                      const propertyKey = property.PropertyKey?.toLowerCase() || '';
+                      const mlsNumber = property.MLSNumber?.toLowerCase() || '';
+                      
+                      // Check if query matches any field
+                      return (
+                        address.includes(searchLower) ||
+                        streetName.includes(searchLower) ||
+                        streetNumber.includes(searchLower) ||
+                        city.includes(searchLower) ||
+                        postalCode.includes(searchLower) ||
+                        neighborhood.includes(searchLower) ||
+                        propertyType.includes(searchLower) ||
+                        propertySubType.includes(searchLower) ||
+                        listingKey.includes(searchLower) ||
+                        propertyKey.includes(searchLower) ||
+                        mlsNumber.includes(searchLower)
+                      );
+                    });
+
+                    console.log('Filtered properties:', filteredProperties.length);
+                    onPropertiesUpdate(filteredProperties, query);
+                    
+                    if (filteredProperties.length === 0) {
+                      setError(`No properties found matching "${query}" in ${provinceName}. Try a different search term.`);
+                    }
+                  } catch (error) {
+                    console.error('Error searching properties:', error);
+                    setError('Search failed. Please try again.');
+                  } finally {
+                    setIsLoading(false);
+                  }
                 }}
                 className="flex items-stretch rounded-full shadow-xl overflow-hidden ring-1 ring-black/5"
                 style={{ backgroundColor: colors.cards }}
@@ -82,11 +168,12 @@ export default function HeroSection() {
                   <input
                     id="search"
                     type="text"
-                    placeholder="Enter city, neighbourhood, or address"
+                    placeholder={`Search by address, city, MLS#, property type in ${getProvinceName(selectedProvince)}`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full py-4 focus:outline-none bg-transparent"
                     style={{ color: colors.heading }}
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -107,12 +194,20 @@ export default function HeroSection() {
 
                 <button
                   type="submit"
-                  className="px-8 py-3 font-medium rounded-r-full flex items-center gap-3 shadow-md transition-opacity hover:opacity-90"
+                  disabled={isLoading}
+                  className="px-8 py-3 font-medium rounded-r-full flex items-center gap-3 shadow-md transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: colors.icon, color: colors.cards }}
                 >
-                  Search
+                  {isLoading ? 'Searching...' : 'Search'}
                 </button>
               </form>
+              
+              {/* Error message */}
+              {error && (
+                <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                  {error}
+                </div>
+              )}
             </div>
           </div>
         </div>

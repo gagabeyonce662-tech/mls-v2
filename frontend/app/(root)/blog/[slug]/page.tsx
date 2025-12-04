@@ -1,90 +1,82 @@
 import { Calendar, User, ArrowLeft, Share2, Facebook, Twitter, Linkedin } from "lucide-react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { ds } from "@/lib/design-system-utils";
 import { colors } from "@/config/design-system";
+import { fetchVlogPostBySlug, fetchVlogPosts } from "@/lib/api";
 
-export function generateStaticParams() {
-  // Generate params for blog slugs (1-6 for now)
-  return [
-    { slug: '1' },
-    { slug: '2' },
-    { slug: '3' },
-    { slug: '4' },
-    { slug: '5' },
-    { slug: '6' },
-  ];
+export async function generateStaticParams() {
+  try {
+    // Fetch all blog posts and generate params for their slugs
+    const posts = await fetchVlogPosts();
+    return posts.map((post) => ({
+      slug: post.slug,
+    }));
+  } catch (error) {
+    console.error('Error generating static params:', error);
+    return [];
+  }
 }
 
-export default function BlogPostPage() {
-  // Mock data - replace with actual data fetching
-  const post = {
-    id: 1,
-    title: "Mastering negotiations tips for buyers and sellers",
-    slug: "mastering-negotiations-tips",
-    excerpt: "Euth-tenant architecture supporting unlimited clients and 10,000+ concurrent connections. Learn the essential skills needed to negotiate successfully in today's real estate market.",
-    content: `
-      <p>Real estate negotiations can be one of the most challenging aspects of buying or selling a property. Whether you're a first-time buyer or an experienced investor, mastering the art of negotiation is crucial for getting the best deal possible.</p>
+interface BlogPostPageProps {
+  params: {
+    slug: string;
+  };
+}
 
-      <h2>Understanding the Market</h2>
-      <p>Before entering any negotiation, it's essential to understand the current market conditions. Are we in a buyer's market or a seller's market? What are comparable properties selling for in the area? This knowledge gives you leverage and confidence during negotiations.</p>
+export default async function BlogPostPage({ params }: BlogPostPageProps) {
+  const post = await fetchVlogPostBySlug(params.slug);
+  
+  if (!post) {
+    notFound();
+  }
 
-      <h2>Key Negotiation Strategies</h2>
-      <p>Successful negotiations require preparation, patience, and strategy. Here are some proven tactics:</p>
-      
-      <ul>
-        <li><strong>Do Your Research:</strong> Know the property's history, comparable sales, and any issues that might affect value.</li>
-        <li><strong>Set Your Limits:</strong> Determine your maximum price or minimum acceptable offer before negotiations begin.</li>
-        <li><strong>Stay Emotionally Detached:</strong> Don't let emotions drive your decisions. Treat it as a business transaction.</li>
-        <li><strong>Listen Actively:</strong> Understanding the other party's motivations can help you craft better offers.</li>
-        <li><strong>Be Willing to Walk Away:</strong> Sometimes the best negotiation tactic is being prepared to decline.</li>
-      </ul>
+  // Fetch related posts for sidebar
+  const allPosts = await fetchVlogPosts();
+  const relatedPosts = allPosts
+    .filter(p => p.id !== post.id && p.category?.name === post.category?.name)
+    .slice(0, 3);
 
-      <h2>Common Mistakes to Avoid</h2>
-      <p>Many buyers and sellers make critical errors during negotiations that cost them money or opportunities:</p>
-      
-      <ul>
-        <li>Making the first offer without proper research</li>
-        <li>Revealing your maximum budget or minimum price</li>
-        <li>Ignoring contingencies and inspection results</li>
-        <li>Being too aggressive or too passive</li>
-        <li>Not having proper representation</li>
-      </ul>
-
-      <h2>Working with Real Estate Professionals</h2>
-      <p>A skilled real estate agent can be invaluable during negotiations. They bring market knowledge, experience, and objectivity to the table. They can also handle difficult conversations and help you avoid common pitfalls.</p>
-
-      <h2>Conclusion</h2>
-      <p>Mastering real estate negotiations takes time and practice, but the rewards are worth it. By understanding market conditions, preparing thoroughly, and employing smart strategies, you can achieve better outcomes whether buying or selling property.</p>
-    `,
-    image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80",
-    category: "Industry Trends",
-    author: "Sarah Johnson",
-    publishDate: "November 28, 2025",
-    readTime: "8 min read"
+  const fallbackImage = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80";
+  
+  const getImageUrl = (imageUrl: string | undefined) => {
+    if (!imageUrl) return fallbackImage;
+    if (imageUrl.startsWith('/')) {
+      return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${imageUrl}`;
+    }
+    return imageUrl;
   };
 
-  const relatedPosts = [
-    {
-      id: 2,
-      title: "How location impacts property value insights buyer needs",
-      image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&q=80",
-      category: "Real Estate Strategies",
-    },
-    {
-      id: 3,
-      title: "The Power of Natural Light in Architectural Design",
-      image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&q=80",
-      category: "Finance",
-    },
-    {
-      id: 4,
-      title: "Market Analysis for Smart Investments",
-      image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400&q=80",
-      category: "Property Value",
-    },
-  ];
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
+  const getEmbedUrl = (url: string) => {
+    // Convert YouTube URLs to embed format
+    if (url.includes('youtube.com/watch')) {
+      const videoId = new URL(url).searchParams.get('v');
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    if (url.includes('youtu.be/')) {
+      const videoId = url.split('youtu.be/')[1].split('?')[0];
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    // Convert Vimeo URLs to embed format
+    if (url.includes('vimeo.com/')) {
+      const videoId = url.split('vimeo.com/')[1].split('?')[0];
+      return `https://player.vimeo.com/video/${videoId}`;
+    }
+    // Return as-is if already an embed URL or other format
+    return url;
+  };
+
+
 
   return (
     <div className="min-h-screen bg-white">
@@ -101,26 +93,34 @@ export default function BlogPostPage() {
       </div>
 
       {/* Hero Image */}
-      <div className="relative h-[400px] bg-cover bg-center" style={{ backgroundImage: `url('${post.image}')` }}>
+      <div className="relative h-[400px] bg-cover bg-center" style={{ backgroundImage: `url('${getImageUrl(post.thumbnail)}')` }}>
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/30" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-end pb-12">
           <div className="max-w-4xl">
-            <span className="inline-block px-3 py-1.5 rounded-md text-sm font-semibold mb-4" style={{ backgroundColor: colors.icon, color: colors.cards }}>
-              {post.category}
-            </span>
+            {post.category && (
+              <span className="inline-block px-3 py-1.5 rounded-md text-sm font-semibold mb-4" style={{ backgroundColor: colors.icon, color: colors.cards }}>
+                {post.category.name}
+              </span>
+            )}
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
               {post.title}
             </h1>
             <div className="flex items-center gap-6 text-white/90 text-sm">
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4" />
-                <span>{post.author}</span>
+                <span>{post.author || 'Editorial Team'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
-                <span>{post.publishDate}</span>
+                <span>{formatDate(post.publish_date || post.created_at)}</span>
               </div>
-              <span>{post.readTime}</span>
+              {post.status && (
+                <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                  post.status === 'published' ? 'bg-green-500 text-white' : 'bg-yellow-500 text-black'
+                }`}>
+                  {post.status.toUpperCase()}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -155,17 +155,106 @@ export default function BlogPostPage() {
               className="prose prose-lg max-w-none prose-headings:font-bold prose-headings:text-gray-900 prose-p:text-gray-700 prose-p:leading-relaxed prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-gray-900 prose-ul:text-gray-700 prose-li:text-gray-700"
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
+            
+            {/* Video Section - Handle both embed_url and video_file */}
+            {(post.embed_url || post.video_file) && (
+              <div className="mt-8">
+                <h3 className="text-xl font-bold mb-4" style={{ color: colors.heading }}>Watch Video</h3>
+                
+                {/* Embedded Video (YouTube/Vimeo) */}
+                {post.embed_url && (
+                  <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                    <iframe
+                      src={getEmbedUrl(post.embed_url)}
+                      title={post.title}
+                      className="absolute top-0 left-0 w-full h-full rounded-lg"
+                      allowFullScreen
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    />
+                  </div>
+                )}
+                
+                {/* Uploaded Video File */}
+                {!post.embed_url && post.video_file && (
+                  <div className="relative w-full">
+                    <video 
+                      controls 
+                      className="w-full h-auto rounded-lg"
+                      poster={getImageUrl(post.thumbnail)}
+                    >
+                      <source 
+                        src={post.video_file.startsWith('/') 
+                          ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${post.video_file}` 
+                          : post.video_file
+                        } 
+                        type="video/mp4" 
+                      />
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tags Section */}
+            {post.tags && post.tags.length > 0 && (
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Tags</h3>
+                <div className="flex flex-wrap gap-2">
+                  {post.tags.map((tag, index) => (
+                    <span
+                      key={index}
+                      className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-full transition-colors"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Article Metadata */}
+            <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Article Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">Published:</span>
+                  <span className="ml-2 font-medium text-gray-900">
+                    {post.publish_date ? formatDate(post.publish_date) : 'Not published'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Created:</span>
+                  <span className="ml-2 font-medium text-gray-900">
+                    {formatDate(post.created_at)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Last Updated:</span>
+                  <span className="ml-2 font-medium text-gray-900">
+                    {formatDate(post.updated_at)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Comments:</span>
+                  <span className="ml-2 font-medium text-gray-900">
+                    {post.allow_comments ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
+              </div>
+            </div>
 
             {/* Author Box */}
             <div className="mt-12 p-6 bg-gray-50 rounded-xl border border-gray-200">
               <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xl">
-                  {post.author.charAt(0)}
+                <div className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl" style={{ backgroundColor: colors.primary }}>
+                  A
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">About {post.author}</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">About the Author</h3>
                   <p className="text-gray-600 text-sm leading-relaxed">
-                    {post.author} is a real estate expert with over 10 years of experience in property negotiations and market analysis. She has helped hundreds of clients successfully buy and sell properties across the country.
+                    {post.author || 'Not Mentioned'}
                   </p>
                 </div>
               </div>
@@ -178,31 +267,39 @@ export default function BlogPostPage() {
             <div className="bg-white border border-gray-200 rounded-xl p-6 sticky top-24">
               <h3 className="text-xl font-bold text-gray-900 mb-6">Related Articles</h3>
               <div className="space-y-6">
-                {relatedPosts.map((relatedPost) => (
-                  <Link 
-                    key={relatedPost.id} 
-                    href={`/blog/${relatedPost.id}`}
-                    className="block group"
-                  >
-                    <div className="flex gap-4">
-                      <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden">
-                        <img
-                          src={relatedPost.image}
-                          alt={relatedPost.title}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                        />
+                {relatedPosts.length > 0 ? (
+                  relatedPosts.map((relatedPost) => (
+                    <Link 
+                      key={relatedPost.id} 
+                      href={`/blog/${relatedPost.slug}`}
+                      className="block group"
+                    >
+                      <div className="flex gap-4">
+                        <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden">
+                          <img
+                            src={getImageUrl(relatedPost.thumbnail)}
+                            alt={relatedPost.title}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          {relatedPost.category && (
+                            <span className="inline-block text-xs font-semibold mb-1" style={{ color: colors.icon }}>
+                              {relatedPost.category.name}
+                            </span>
+                          )}
+                          <h4 className="text-sm font-semibold line-clamp-2 group-hover:opacity-80 transition-colors" style={{ color: colors.heading }}>
+                            {relatedPost.title}
+                          </h4>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <span className="inline-block text-xs font-semibold mb-1" style={{ color: colors.icon }}>
-                          {relatedPost.category}
-                        </span>
-                        <h4 className="text-sm font-semibold text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                          {relatedPost.title}
-                        </h4>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))
+                ) : (
+                  <p className="text-sm" style={{ color: colors.body }}>
+                    No related articles found.
+                  </p>
+                )}
               </div>
 
               {/* Newsletter */}
@@ -216,7 +313,10 @@ export default function BlogPostPage() {
                   placeholder="Enter your email"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg mb-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
-                <button className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                <button 
+                  className="w-full py-2.5 rounded-lg font-semibold transition-colors hover:opacity-90"
+                  style={{ backgroundColor: colors.primary, color: colors.cards }}
+                >
                   Subscribe
                 </button>
               </div>

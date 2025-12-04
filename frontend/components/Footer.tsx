@@ -15,7 +15,7 @@ const Footer = () => {
               <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.cards }}>
                 <HomeIcon className="w-5 h-5" style={{ color: colors.primary }} />
               </div>
-              <span className="text-ds-h5 font-inter">LOGOSIPSUM</span>
+              <span className="text-ds-h5 font-inter">EstateforYou</span>
             </div>
             <p className="text-ds-body-regular leading-relaxed mb-6 font-inter" style={{ color: colors.cards, opacity: 0.8 }}>
               LogoIpsum is a cutting-edge property and real estate discovery portal for finding
