@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { ProvinceProvider } from "@/contexts/ProvinceContext";
 
 export const metadata: Metadata = {
   title:
@@ -16,7 +17,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-        <body>{children}</body>
+      <body>
+        <ProvinceProvider>
+          {children}
+        </ProvinceProvider>
+      </body>
     </html>
   );
 }

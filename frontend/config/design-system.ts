@@ -3,22 +3,23 @@
  * Central design tokens for colors, typography, spacing, etc.
  */
 
-// Color Palette
+// Color Palette - Based on brand guidelines
 export const colors = {
   // Primary Colors
-  primary: '#1E3A8A', // Primary colour (Dark Blue)
+  primary: '#1a2f5a', // Primary colour (Dark Navy Blue)
   
   // Secondary Colors
-  border: '#FFFFFF', // Border colour (White)
-  cards: '#F5F5F5', // Cards colour (Light Gray)
+  boarder: '#e5e5e5', // Boarder colour (Light Gray)
+  cards: '#ffffff', // Cards colour (White)
   
   // Accent Colors
-  cardsBorder: '#E5E5E5', // cards Boarder colour (Light Border)
-  icon: '#000000', // Icon colour (Black)
+  cardsBoarder: '#e0e0e0', // cards Boarder colour (Light Border Gray)
+  icon: '#0C1536', // Icon colour (Cyan/Turquoise)
   
-  // Text Colors
+ 
+
   heading: '#000000', // Heading Text (Black)
-  body: '#4B5563', // Body copy Text (Gray)
+  body: '#4a5568', // Body copy Text (Dark Gray)
 } as const;
 
 // Typography Scale using Inter font family
@@ -177,14 +178,16 @@ export const textStyles = {
 
 // Color class mappings
 export const colorStyles = {
-  primary: 'bg-[#1E3A8A] text-white',
-  primaryText: 'text-[#1E3A8A]',
-  border: 'border-white',
-  card: 'bg-[#F5F5F5]',
-  cardBorder: 'border-[#E5E5E5]',
-  icon: 'text-black',
+  primary: 'bg-[#1a2f5a] text-white',
+  primaryText: 'text-[#1a2f5a]',
+  primaryHover: 'hover:bg-[#152444]',
+  boarder: 'border-[#e5e5e5]',
+  card: 'bg-white',
+  cardBorder: 'border-[#e0e0e0]',
+  icon: 'text-[#00d9d9]',
+  iconBg: 'bg-[#00d9d9]',
   heading: 'text-black',
-  body: 'text-gray-600',
+  body: 'text-[#4a5568]',
 } as const;
 
 // Spacing scale

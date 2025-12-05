@@ -8,6 +8,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import Leaflet CSS */
+@import 'leaflet/dist/leaflet.css';
+@import 'leaflet-draw/dist/leaflet.draw.css';
+
 /* Custom Estate-4u Styles */
 
 /* Global styles for the body */

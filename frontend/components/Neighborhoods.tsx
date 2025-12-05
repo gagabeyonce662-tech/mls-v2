@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { colors } from '@/config/design-system';
 
 const neighborhoods = [
   {
@@ -32,14 +33,14 @@ const neighborhoods = [
 
 export default function Neighborhoods() {
   return (
-    <section className="py-16 bg-white">
+    <section className="py-16" style={{ backgroundColor: colors.cards }}>
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
           <div className="lg:col-span-1">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-6">
+            <h2 className="text-3xl lg:text-4xl font-bold mb-6" style={{ color: colors.heading }}>
               EXPLORE OUR NEIGHBOURHOODS
             </h2>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg" style={{ color: colors.body }}>
               Discover a community where convenience meets charm! Our neighbourhood is 
               thoughtfully designed to offer everything you need within easy reach.
             </p>
