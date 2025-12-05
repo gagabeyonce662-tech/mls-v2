@@ -294,3 +294,162 @@ class ExclusivePropertiesAPIView(APIView):
             "updated_to_exclusive": updated,
             "results": serializer.data
         })
+    
+
+
+# api/views.py
+import pandas as pd
+from io import BytesIO
+from django.db.models import Q, FloatField
+from django.db.models.functions import Cast, Substr, Lower
+from django.core.paginator import Paginator
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.parsers import MultiPartParser, FormParser
+from .serializers import PropertySerializer
+
+
+class UploadPreConnListingsAPIView(APIView):
+    """
+    POST /api/upload-pre-conn/
+    Upload CSV or Excel file with column: listing_id
+    Then GET /api/upload-pre-conn/ with filters to see updated listings
+    """
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Read file
+        try:
+            if file_obj.name.endswith('.csv'):
+                df = pd.read_csv(BytesIO(file_obj.read()))
+            elif file_obj.name.endswith(('.xlsx', '.xls')):
+                df = pd.read_excel(BytesIO(file_obj.read()))
+            else:
+                return Response({"error": "File must be CSV or Excel"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"Invalid file format: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Extract listing_ids
+        if 'listing_id' not in df.columns:
+            return Response({"error": "Column 'listing_id' not found in file"}, status=status.HTTP_400_BAD_REQUEST)
+
+        listing_ids = df['listing_id'].dropna().astype(str).tolist()
+        if not listing_ids:
+            return Response({"error": "No valid listing_ids found"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update properties
+        updated_qs = Property.objects.filter(listing_id__in=listing_ids)
+        updated_count = updated_qs.update(category_type=Property.PRE_CONN)
+
+        # Return summary + first page
+        return Response({
+            "message": f"Successfully updated {updated_count} properties to PRE_CONN",
+            "updated_count": updated_count,
+            "total_found": len(listing_ids),
+            "preview": PropertySerializer(updated_qs[:10], many=True).data
+        }, status=status.HTTP_200_OK)
+
+
+class PreConnPropertiesAPIView(APIView):
+    """
+    GET /api/pre-conn-properties/
+    Returns all properties with category_type = PRE_CONN
+    Supports ALL REALTOR.ca filters + limit/offset
+    """
+
+    def get(self, request):
+        limit = min(int(request.query_params.get('limit', 24)), 100)
+        offset = int(request.query_params.get('offset', 0))
+
+        # Base: only PRE_CONN properties
+        qs = Property.objects.filter(category_type=Property.PRE_CONN)
+
+        # === ALL REALTOR.CA FILTERS ===
+        params = request.query_params
+
+        if params.get('price_min'):
+            qs = qs.filter(list_price__gte=float(params['price_min']))
+        if params.get('price_max'):
+            qs = qs.filter(list_price__lte=float(params['price_max']))
+
+        if params.get('bedrooms'):
+            qs = qs.filter(bedrooms_total__gte=int(params['bedrooms']))
+        if params.get('bathrooms'):
+            qs = qs.filter(bathrooms_total_integer__gte=int(params['bathrooms']))
+
+        if params.get('property_type'):
+            types = [t.strip() for t in params['property_type'].split(',') if t.strip()]
+            if types:
+                qs = qs.filter(property_sub_type__in=types)
+
+        if params.get('city'):
+            cities = [c.strip() for c in params['city'].split(',') if c.strip()]
+            if cities:
+                qs = qs.filter(city__in=cities)
+        if params.get('province'):
+            provinces = [p.strip() for p in params['province'].split(',') if p.strip()]
+            if provinces:
+                qs = qs.filter(state_or_province__in=provinces)
+
+        if params.get('postal_code'):
+            codes = [c.strip().upper() for c in params['postal_code'].split(',') if c.strip()]
+            if codes:
+                qs = qs.filter(postal_code__in=codes)
+
+        # Map bounding box
+        if all(k in params for k in ['latitude_min', 'latitude_max', 'longitude_min', 'longitude_max']):
+            qs = qs.annotate(
+                lat_float=Cast('latitude', FloatField()),
+                lng_float=Cast('longitude', FloatField())
+            ).filter(
+                lat_float__gte=float(params['latitude_min']),
+                lat_float__lte=float(params['latitude_max']),
+                lng_float__gte=float(params['longitude_min']),
+                lng_float__lte=float(params['longitude_max']),
+            )
+
+        if params.get('building_area_min'):
+            qs = qs.filter(building_area_total__gte=float(params['building_area_min']))
+        if params.get('lot_size_min'):
+            qs = qs.filter(lot_size_area__gte=float(params['lot_size_min']))
+        if params.get('year_built_min'):
+            qs = qs.filter(year_built__gte=int(params['year_built_min']))
+
+        if params.get('keywords'):
+            keywords = [k.strip() for k in params['keywords'].split(',') if k.strip()]
+            kw_q = Q()
+            for kw in keywords:
+                kw_q |= Q(public_remarks__icontains=kw)
+            qs = qs.filter(kw_q)
+
+        if params.get('has_photos') in ('true', '1', 'True'):
+            qs = qs.filter(photos_count__gt=0)
+
+        if params.get('new_listings_days'):
+            days = int(params['new_listings_days'])
+            from django.utils import timezone
+            from datetime import timedelta
+            cutoff = timezone.now() - timedelta(days=days)
+            qs = qs.filter(modification_timestamp__gte=cutoff)
+
+        if params.get('standard_status'):
+            qs = qs.filter(standard_status=params['standard_status'])
+
+        # Order & paginate
+        qs = qs.order_by('-modification_timestamp', '-list_price')
+        paginator = Paginator(qs, limit)
+        page = paginator.get_page((offset // limit) + 1)
+
+        serializer = PropertySerializer(page.object_list, many=True, context={'request': request})
+
+        return Response({
+            "count": paginator.count,
+            "next": offset + limit if page.has_next() else None,
+            "previous": offset - limit if offset >= limit else None,
+            "results": serializer.data
+        })
