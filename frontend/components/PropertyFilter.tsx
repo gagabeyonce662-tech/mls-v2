@@ -348,7 +348,7 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
         <div className="mb-3 p-2 rounded text-xs" style={{ backgroundColor: colors.cards, color: colors.body }}>
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <span>Endpoint: /api/mls/properties/exclusive-properties1/</span>
+              <span>Endpoint: /api/mls/properties/exclusive-propertie/</span>
               <button 
                 onClick={handleTestEndpoint}
                 className="text-xs px-2 py-1 rounded border"

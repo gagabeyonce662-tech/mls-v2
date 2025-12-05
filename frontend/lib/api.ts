@@ -352,7 +352,7 @@ export async function fetchExclusiveProperties(filters?: ExclusivePropertyFilter
     // Main urls.py: path('api/mls/',include('mls.urls'))
     // mls/urls.py: path('properties/exclusive-properties1/', ...)
     // Full URL: /api/mls/properties/exclusive-properties1/
-    const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties1/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
     console.log('Fetching exclusive properties from:', url);
     
     const response = await fetch(url, {
@@ -602,7 +602,7 @@ export async function fetchOntarioProperties(): Promise<Property[]> {
 // Helper function to test the endpoint
 export async function testExclusiveEndpoint(): Promise<void> {
   try {
-    const testUrl = `${API_BASE_URL}/api/mls/properties/exclusive-properties1/`;
+    const testUrl = `${API_BASE_URL}/api/mls/properties/exclusive-properties/`;
     console.log('Testing exclusive endpoint:', testUrl);
     
     const response = await fetch(testUrl, {
@@ -640,7 +640,7 @@ export async function testPriceRangeEndpoint(minPrice?: number, maxPrice?: numbe
     if (minPrice) queryParams.append('price_min', minPrice.toString());
     if (maxPrice) queryParams.append('price_max', maxPrice.toString());
     
-    const testUrl = `${API_BASE_URL}/api/mls/properties/exclusive-properties1/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const testUrl = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
     console.log('Testing price range endpoint:', testUrl);
     
     const response = await fetch(testUrl, {
