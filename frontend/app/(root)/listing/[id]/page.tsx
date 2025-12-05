@@ -20,26 +20,80 @@ export default async function ListingPage({ params }: ListingPageProps) {
     notFound();
   }
   
-  // Extract property images from API data - no fallback to dummy images
-  const propertyImages = property.Media?.length > 0 
-    ? property.Media.map((media: any) => media.MediaURL || media.LargePhoto).filter(Boolean)
+  console.log('Property data received:', property);
+  
+  // Extract property images from new media structure
+  const propertyImages = property.media?.length > 0 
+    ? property.media.map((media: any) => media.media_url).filter(Boolean)
+    : property.Media?.length > 0 
+    ? property.Media.map((media: any) => media.MediaURL || media.media_url).filter(Boolean)
     : property.Photos?.length > 0 
     ? property.Photos.map((photo: any) => photo.PhotoURL || photo).filter(Boolean)
     : [];
 
   const hasImages = propertyImages.length > 0;
 
-  // Extract property history from API data
+  // Extract property history
   const propertyHistory = [
     {
-      date: property.ListingContractDate || property.OnMarketDate || new Date(property.ModificationTimestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-      event: property.StandardStatus || 'Listed',
-      price: property.ListPrice ? `$${property.ListPrice.toLocaleString()}` : 'Price on request',
-      source: `MLS # ${property.ListingKey || property.PropertyKey}`
+      date: property.ModificationTimestamp 
+        ? new Date(property.ModificationTimestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+        : 'Recent',
+      event: property.StandardStatus || property.standard_status || 'Listed',
+      price: property.list_price 
+        ? `$${parseFloat(property.list_price).toLocaleString()}`
+        : property.ListPrice 
+        ? `$${property.ListPrice.toLocaleString()}`
+        : 'Price on request',
+      source: `MLS # ${property.listing_key || property.ListingKey || property.PropertyKey}`
     },
   ];
 
+  // Helper function to get price
+  const getPrice = () => {
+    if (property.list_price) {
+      return `$${parseFloat(property.list_price).toLocaleString()}`;
+    }
+    if (property.ListPrice) {
+      return `$${property.ListPrice.toLocaleString()}`;
+    }
+    return 'Price on request';
+  };
 
+  // Helper function to get bed count
+  const getBedCount = () => {
+    return property.bedrooms_total || property.BedroomsTotal || 'N/A';
+  };
+
+  // Helper function to get bath count
+  const getBathCount = () => {
+    return property.bathrooms_total_integer || property.BathroomsTotalInteger || 'N/A';
+  };
+
+  // Helper function to get city
+  const getCity = () => {
+    return property.city || property.City || 'N/A';
+  };
+
+  // Helper function to get address
+  const getAddress = () => {
+    return property.unparsed_address || property.City || 'Address not available';
+  };
+
+  // Helper function to get property type
+  const getPropertyType = () => {
+    if (property.category_type) return property.category_type;
+    if (property.PropertySubType) return property.PropertySubType;
+    if (property.PropertyType) return property.PropertyType;
+    return 'Property';
+  };
+
+  // Helper function to get living area
+  const getLivingArea = () => {
+    if (property.building_area_total) return `${property.building_area_total} sq ft`;
+    if (property.LivingArea) return `${property.LivingArea} sq ft`;
+    return 'N/A';
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -50,13 +104,13 @@ export default async function ListingPage({ params }: ListingPageProps) {
         {/* Title and Price */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className={`${ds.h2} mb-2`}>{property.PropertySubType} Property in {property.City}</h1>
+            <h1 className={`${ds.h2} mb-2`}>{getPropertyType()} in {getCity()}</h1>
             <p className={`${ds.bodyRegular} text-ds-body`}>
-              {property.City}, {property.StateOrProvince} • {property.StandardStatus}
+              {getAddress()} • {property.StandardStatus || property.standard_status || 'Active'}
             </p>
           </div>
           <div className="text-right">
-            <p className={`${ds.h2} text-ds-primary`}>${property.ListPrice?.toLocaleString() || 'Price on request'}</p>
+            <p className={`${ds.h2} text-ds-primary`}>{getPrice()}</p>
           </div>
         </div>
 
@@ -81,20 +135,14 @@ export default async function ListingPage({ params }: ListingPageProps) {
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-8">
 
-
             {/* Overview */}
             <div>
               <h2 className={`${ds.h3} mb-4`}>Overview</h2>
               <p className={`${ds.bodyRegular} text-ds-body leading-relaxed`}>
-                {property.PublicRemarks || property.PrivateRemarks || property.Description || (
-                  `This ${property.PropertySubType || 'property'} is located in ${property.City}, ${property.StateOrProvince}. ` +
-                  `Built in ${property.YearBuilt || 'N/A'}, this property features ${property.BedroomsTotal || 'multiple'} bedrooms and ${property.BathroomsTotalInteger || 'multiple'} bathrooms` +
-                  `${property.LivingArea ? ` with ${property.LivingArea} square feet of living space` : ''}.` +
-                  `${property.LotSizeArea ? ` The lot size is ${property.LotSizeArea} square feet.` : ''}` +
-                  `${property.GarageSpaces ? ` Parking includes ${property.GarageSpaces} garage spaces.` : ''}`
-                )}
-                {property.DirectionsToProperty && (
-                  <><br /><br /><strong>Directions:</strong> {property.DirectionsToProperty}</>
+                {property.public_remarks || property.PublicRemarks || property.PrivateRemarks || property.Description || (
+                  `This ${getPropertyType()} is located in ${getCity()}, ${property.StateOrProvince || 'Ontario'}. ` +
+                  `Built in ${property.year_built || property.YearBuilt || 'N/A'}, this property features ${getBedCount()} bedrooms and ${getBathCount()} bathrooms` +
+                  `${getLivingArea() !== 'N/A' ? ` with ${getLivingArea()} of living space` : ''}.`
                 )}
               </p>
             </div>
@@ -150,13 +198,13 @@ export default async function ListingPage({ params }: ListingPageProps) {
                       <td className="p-4 border-r-2 border-gray-400">
                         <div className="flex justify-between">
                           <span className={ds.bodyRegular}>List Price</span>
-                          <span className={ds.body}>${property.ListPrice?.toLocaleString() || 'N/A'}</span>
+                          <span className={ds.body}>{getPrice()}</span>
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex justify-between">
                           <span className={ds.bodyRegular}>MLS Number</span>
-                          <span className={ds.body}>{property.ListingKey || property.PropertyKey}</span>
+                          <span className={ds.body}>{property.listing_key || property.ListingKey || property.PropertyKey}</span>
                         </div>
                       </td>
                     </tr>
@@ -165,14 +213,14 @@ export default async function ListingPage({ params }: ListingPageProps) {
                     <tr className="border-b-2 border-gray-400">
                       <td className="p-4 border-r-2 border-gray-400">
                         <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Original Price</span>
-                          <span className={ds.body}>${property.OriginalListPrice?.toLocaleString() || 'N/A'}</span>
+                          <span className={ds.bodyRegular}>Category Type</span>
+                          <span className={ds.body}>{property.category_type || property.PropertyType || 'N/A'}</span>
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex justify-between">
                           <span className={ds.bodyRegular}>Status</span>
-                          <span className={ds.body}>{property.StandardStatus || 'N/A'}</span>
+                          <span className={ds.body}>{property.standard_status || property.StandardStatus || 'N/A'}</span>
                         </div>
                       </td>
                     </tr>
@@ -181,14 +229,14 @@ export default async function ListingPage({ params }: ListingPageProps) {
                     <tr className="border-b-2 border-gray-400">
                       <td className="p-4 border-r-2 border-gray-400">
                         <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Price per Sq Ft</span>
-                          <span className={ds.body}>{property.ListPrice && property.LivingArea ? `$${(property.ListPrice / property.LivingArea).toFixed(2)}` : 'N/A'}</span>
+                          <span className={ds.bodyRegular}>Photos Count</span>
+                          <span className={ds.body}>{property.photos_count || property.Photos?.length || 'N/A'}</span>
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Days on Market</span>
-                          <span className={ds.body}>{property.DaysOnMarket || property.CumulativeDaysOnMarket || 'N/A'}</span>
+                          <span className={ds.bodyRegular}>Postal Code</span>
+                          <span className={ds.body}>{property.postal_code || property.PostalCode || 'N/A'}</span>
                         </div>
                       </td>
                     </tr>
@@ -205,13 +253,13 @@ export default async function ListingPage({ params }: ListingPageProps) {
                       <td className="p-4 border-r-2 border-gray-400">
                         <div className="flex justify-between">
                           <span className={ds.bodyRegular}>Property Type</span>
-                          <span className={ds.body}>{property.PropertyType || 'N/A'}</span>
+                          <span className={ds.body}>{getPropertyType()}</span>
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Zoning</span>
-                          <span className={ds.body}>{property.Zoning || 'N/A'}</span>
+                          <span className={ds.bodyRegular}>Year Built</span>
+                          <span className={ds.body}>{property.year_built || property.YearBuilt || 'N/A'}</span>
                         </div>
                       </td>
                     </tr>
@@ -220,72 +268,48 @@ export default async function ListingPage({ params }: ListingPageProps) {
                     <tr className="border-b-2 border-gray-400">
                       <td className="p-4 border-r-2 border-gray-400">
                         <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Property Sub Type</span>
-                          <span className={ds.body}>{property.PropertySubType || 'N/A'}</span>
+                          <span className={ds.bodyRegular}>Building Area</span>
+                          <span className={ds.body}>{getLivingArea()}</span>
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Lot Size</span>
-                          <span className={ds.body}>{property.LotSizeArea ? `${property.LotSizeArea} sq ft` : property.LotSizeDimensions || 'N/A'}</span>
+                          <span className={ds.bodyRegular}>Rooms</span>
+                          <span className={ds.body}>{property.rooms?.length || property.Rooms?.length || 'N/A'}</span>
                         </div>
                       </td>
                     </tr>
 
-                    {/* Building Facts Row 3 */}
-                    <tr>
-                      <td className="p-4 border-r-2 border-gray-400">
-                        <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Living Area</span>
-                          <span className={ds.body}>{property.LivingArea ? `${property.LivingArea} sq ft` : 'N/A'}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Construction</span>
-                          <span className={ds.body}>{property.ConstructionMaterials || property.Architectural_Style || 'N/A'}</span>
-                        </div>
-                      </td>
-                    </tr>
+                    {/* Room Details */}
+                    {property.rooms && property.rooms.length > 0 && (
+                      <>
+                        <tr>
+                          <th colSpan={2} className="bg-gray-100 p-4 text-left font-semibold border-b-2 border-gray-400">
+                            Room Details
+                          </th>
+                        </tr>
+                        {property.rooms.slice(0, 3).map((room: any, index: number) => (
+                          <tr key={index} className="border-b-2 border-gray-400">
+                            <td className="p-4 border-r-2 border-gray-400">
+                              <div className="flex justify-between">
+                                <span className={ds.bodyRegular}>{room.room_type}</span>
+                                <span className={ds.body}>{room.room_level}</span>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex justify-between">
+                                <span className={ds.bodyRegular}>Dimensions</span>
+                                <span className={ds.body}>{room.room_dimensions || 'N/A'}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
-
-            {/* School Information - Show only if available */}
-            {(property.ElementarySchool || property.MiddleSchool || property.HighSchool || property.School) && (
-              <div>
-                <h2 className={`${ds.h3} mb-4`}>School Information</h2>
-                <div className="border border-ds-card-border rounded-lg p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {property.ElementarySchool && (
-                      <div>
-                        <h4 className={`${ds.body} font-semibold mb-2`}>Elementary School</h4>
-                        <p className={ds.bodyRegular}>{property.ElementarySchool}</p>
-                      </div>
-                    )}
-                    {property.MiddleSchool && (
-                      <div>
-                        <h4 className={`${ds.body} font-semibold mb-2`}>Middle School</h4>
-                        <p className={ds.bodyRegular}>{property.MiddleSchool}</p>
-                      </div>
-                    )}
-                    {property.HighSchool && (
-                      <div>
-                        <h4 className={`${ds.body} font-semibold mb-2`}>High School</h4>
-                        <p className={ds.bodyRegular}>{property.HighSchool}</p>
-                      </div>
-                    )}
-                    {property.School && (
-                      <div>
-                        <h4 className={`${ds.body} font-semibold mb-2`}>School District</h4>
-                        <p className={ds.bodyRegular}>{property.School}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Right Column - Sidebar */}
@@ -294,7 +318,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
             <div className="bg-ds-card border border-ds-card-border rounded-xl p-4">
               <h3 className={`${ds.text} mb-4`}>Location</h3>
               <div className="h-64 rounded-lg overflow-hidden border border-gray-300">
-                {property.Latitude && property.Longitude ? (
+                {property.latitude && property.longitude ? (
                   <iframe
                     width="100%"
                     height="100%"
@@ -302,26 +326,23 @@ export default async function ListingPage({ params }: ListingPageProps) {
                     scrolling="no"
                     marginHeight={0}
                     marginWidth={0}
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${property.Longitude - 0.01},${property.Latitude - 0.01},${property.Longitude + 0.01},${property.Latitude + 0.01}&layer=mapnik&marker=${property.Latitude},${property.Longitude}`}
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(property.longitude) - 0.01},${parseFloat(property.latitude) - 0.01},${parseFloat(property.longitude) + 0.01},${parseFloat(property.latitude) + 0.01}&layer=mapnik&marker=${property.latitude},${property.longitude}`}
                     style={{ border: 'none' }}
                   ></iframe>
                 ) : (
                   <div className="h-full bg-gray-200 flex items-center justify-center">
                     <div className="text-center">
                       <MapPin className="w-8 h-8 text-ds-body mx-auto mb-2" />
-                      <p className="text-sm text-gray-600">{property.City}, {property.StateOrProvince}</p>
+                      <p className="text-sm text-gray-600">{getCity()}, {property.StateOrProvince || 'Ontario'}</p>
                     </div>
                   </div>
                 )}
               </div>
               <div className="mt-2 text-xs text-gray-600">
-                {property.Latitude && property.Longitude ? (
-                  <span>Lat: {property.Latitude}, Lng: {property.Longitude}</span>
+                {property.latitude && property.longitude ? (
+                  <span>Lat: {property.latitude}, Lng: {property.longitude}</span>
                 ) : (
-                  <span>{property.City}, {property.StateOrProvince}</span>
-                )}
-                {property.MapCoordinateSource && (
-                  <span className="ml-2">• Source: {property.MapCoordinateSource}</span>
+                  <span>{getCity()}, {property.StateOrProvince || 'Ontario'}</span>
                 )}
               </div>
             </div>
@@ -332,130 +353,65 @@ export default async function ListingPage({ params }: ListingPageProps) {
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <Bed className="w-5 h-5 text-ds-body" />
-                  <span className={ds.bodyRegular}>Bedrooms: <span className={ds.body}>{property.BedroomsTotal || 'N/A'}</span></span>
+                  <span className={ds.bodyRegular}>Bedrooms: <span className={ds.body}>{getBedCount()}</span></span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Bath className="w-5 h-5 text-ds-body" />
-                  <span className={ds.bodyRegular}>Bathrooms: <span className={ds.body}>{property.BathroomsTotalInteger || property.BathroomsTotal || 'N/A'}</span></span>
+                  <span className={ds.bodyRegular}>Bathrooms: <span className={ds.body}>{getBathCount()}</span></span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Maximize className="w-5 h-5 text-ds-body" />
-                  <span className={ds.bodyRegular}>Living Area: <span className={ds.body}>{property.LivingArea ? `${property.LivingArea} sq ft` : 'N/A'}</span></span>
-                </div>
-                {(property.LotSizeArea || property.LotSizeDimensions) && (
-                  <div className="flex items-center gap-3">
-                    <Maximize className="w-5 h-5 text-ds-body" />
-                    <span className={ds.bodyRegular}>Lot Size: <span className={ds.body}>{property.LotSizeArea ? `${property.LotSizeArea} sq ft` : property.LotSizeDimensions || 'N/A'}</span></span>
-                  </div>
-                )}
-                <div className="flex items-center gap-3">
-                  <Car className="w-5 h-5 text-ds-body" />
-                  <span className={ds.bodyRegular}>Parking: <span className={ds.body}>{property.GarageSpaces ? `${property.GarageSpaces} spaces` : property.ParkingTotal || 'N/A'}</span></span>
+                  <span className={ds.bodyRegular}>Building Area: <span className={ds.body}>{getLivingArea()}</span></span>
                 </div>
                 <div className="flex items-center gap-3">
                   <HomeIcon className="w-5 h-5 text-ds-body" />
-                  <span className={ds.bodyRegular}>Property Type: <span className={ds.body}>{property.PropertySubType || property.PropertyType || 'N/A'}</span></span>
+                  <span className={ds.bodyRegular}>Property Type: <span className={ds.body}>{getPropertyType()}</span></span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Calendar className="w-5 h-5 text-ds-body" />
-                  <span className={ds.bodyRegular}>Year Built: <span className={ds.body}>{property.YearBuilt || 'N/A'}</span></span>
+                  <span className={ds.bodyRegular}>Year Built: <span className={ds.body}>{property.year_built || property.YearBuilt || 'N/A'}</span></span>
                 </div>
-                {property.StoriesTotal && (
+                {property.postal_code && (
                   <div className="flex items-center gap-3">
-                    <HomeIcon className="w-5 h-5 text-ds-body" />
-                    <span className={ds.bodyRegular}>Stories: <span className={ds.body}>{property.StoriesTotal}</span></span>
+                    <MapPin className="w-5 h-5 text-ds-body" />
+                    <span className={ds.bodyRegular}>Postal Code: <span className={ds.body}>{property.postal_code}</span></span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Property Utility */}
-            <div className="bg-ds-card border border-ds-card-border rounded-xl p-6">
-              <h3 className={`${ds.text} mb-4`}>Property Utility & Features</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className={ds.bodyRegular}>Heating</span>
-                  <span className={ds.body}>{property.Heating || property.HeatingType || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={ds.bodyRegular}>Cooling</span>
-                  <span className={ds.body}>{property.Cooling || property.CoolingType || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={ds.bodyRegular}>Utilities</span>
-                  <span className={ds.body}>{property.Utilities || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={ds.bodyRegular}>Water Source</span>
-                  <span className={ds.body}>{property.WaterSource || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={ds.bodyRegular}>Sewer</span>
-                  <span className={ds.body}>{property.Sewer || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={ds.bodyRegular}>Foundation</span>
-                  <span className={ds.body}>{property.Foundation || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={ds.bodyRegular}>Roof</span>
-                  <span className={ds.body}>{property.Roof || 'N/A'}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Additional Property Information */}
-        <div className="mt-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Property Features */}
-            {(property.InteriorFeatures || property.ExteriorFeatures || property.Appliances) && (
-              <div className="bg-ds-card border border-ds-card-border rounded-xl p-6">
-                <h3 className={`${ds.h4} mb-4`}>Features & Amenities</h3>
-                <div className="space-y-4">
-                  {property.InteriorFeatures && (
-                    <div>
-                      <h4 className={`${ds.body} font-semibold mb-2`}>Interior Features</h4>
-                      <p className={`${ds.bodyRegular} text-ds-body`}>{property.InteriorFeatures}</p>
-                    </div>
-                  )}
-                  {property.ExteriorFeatures && (
-                    <div>
-                      <h4 className={`${ds.body} font-semibold mb-2`}>Exterior Features</h4>
-                      <p className={`${ds.bodyRegular} text-ds-body`}>{property.ExteriorFeatures}</p>
-                    </div>
-                  )}
-                  {property.Appliances && (
-                    <div>
-                      <h4 className={`${ds.body} font-semibold mb-2`}>Appliances</h4>
-                      <p className={`${ds.bodyRegular} text-ds-body`}>{property.Appliances}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            
-            {/* Location & Neighborhood */}
             <div className="bg-ds-card border border-ds-card-border rounded-xl p-6">
-              <h3 className={`${ds.h4} mb-4`}>Location Details</h3>
+              <h3 className={`${ds.text} mb-4`}>Property Features</h3>
               <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className={ds.bodyRegular}>Address</span>
-                  <span className={ds.body}>{property.UnparsedAddress || `${property.City}, ${property.StateOrProvince}`}</span>
+                <div>
+                  <h4 className={`${ds.body} font-semibold mb-2`}>Listing URL</h4>
+                  <a 
+                    href={property.listing_url || `https://www.realtor.ca/real-estate/${property.listing_key || property.ListingKey}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline break-all"
+                  >
+                    View on Realtor.ca
+                  </a>
                 </div>
-                <div className="flex justify-between">
-                  <span className={ds.bodyRegular}>Postal Code</span>
-                  <span className={ds.body}>{property.PostalCode || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={ds.bodyRegular}>County</span>
-                  <span className={ds.body}>{property.CountyOrParish || 'N/A'}</span>
-                </div>
-                {property.Directions && (
+                {property.photos_count && (
+                  <div className="flex justify-between">
+                    <span className={ds.bodyRegular}>Total Photos</span>
+                    <span className={ds.body}>{property.photos_count}</span>
+                  </div>
+                )}
+                {property.rooms && property.rooms.length > 0 && (
                   <div>
-                    <span className={ds.bodyRegular}>Directions</span>
-                    <p className={`${ds.body} mt-1`}>{property.Directions}</p>
+                    <h4 className={`${ds.body} font-semibold mb-2`}>Rooms ({property.rooms.length})</h4>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {property.rooms.map((room: any, index: number) => (
+                        <div key={index} className="flex justify-between text-sm">
+                          <span>{room.room_type}</span>
+                          <span className="text-gray-600">{room.room_dimensions}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -463,7 +419,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
           </div>
         </div>
 
-        {/* Similar Properties */}
+        {/* Similar Properties Section */}
         <div className="mt-16">
           <h2 className={`${ds.h2} mb-8`}>Similar Properties</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -473,113 +429,36 @@ export default async function ListingPage({ params }: ListingPageProps) {
                 image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&q=80",
                 price: "$850,000",
                 address: "123 Oak Street",
-                city: property.City,
-                province: property.StateOrProvince,
+                city: getCity(),
+                province: property.StateOrProvince || 'Ontario',
                 beds: 3,
                 baths: 2,
                 sqft: "2,100",
-                type: property.PropertySubType || "House"
+                type: getPropertyType()
               },
               {
                 id: 2,
                 image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80",
                 price: "$725,000",
                 address: "456 Maple Avenue",
-                city: property.City,
-                province: property.StateOrProvince,
+                city: getCity(),
+                province: property.StateOrProvince || 'Ontario',
                 beds: 4,
                 baths: 3,
                 sqft: "2,400",
-                type: property.PropertySubType || "House"
+                type: getPropertyType()
               },
               {
                 id: 3,
                 image: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80",
                 price: "$950,000",
                 address: "789 Pine Boulevard",
-                city: property.City,
-                province: property.StateOrProvince,
+                city: getCity(),
+                province: property.StateOrProvince || 'Ontario',
                 beds: 5,
                 baths: 4,
                 sqft: "3,200",
-                type: property.PropertySubType || "House"
-              }
-            ].map((similarProperty) => (
-              <div key={similarProperty.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="relative h-48">
-                  <img
-                    src={similarProperty.image}
-                    alt={similarProperty.address}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 left-3 bg-ds-primary text-white px-2 py-1 rounded text-sm font-semibold">
-                    {similarProperty.type}
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className={`${ds.h4} text-ds-primary mb-2`}>{similarProperty.price}</h3>
-                  <p className={`${ds.bodyRegular} text-ds-heading mb-1`}>{similarProperty.address}</p>
-                  <p className={`${ds.small} text-ds-body mb-3`}>{similarProperty.city}, {similarProperty.province}</p>
-                  <div className="flex items-center gap-4 text-ds-body text-sm">
-                    <div className="flex items-center gap-1">
-                      <Bed className="w-4 h-4" />
-                      <span>{similarProperty.beds}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Bath className="w-4 h-4" />
-                      <span>{similarProperty.baths}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Maximize className="w-4 h-4" />
-                      <span>{similarProperty.sqft} sq ft</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Similar Properties */}
-        <div className="mt-16">
-          <h2 className={`${ds.h2} mb-8`}>Similar Properties</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              {
-                id: 1,
-                image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&q=80",
-                price: "$850,000",
-                address: "123 Oak Street",
-                city: property.City,
-                province: property.StateOrProvince,
-                beds: 3,
-                baths: 2,
-                sqft: "2,100",
-                type: property.PropertySubType || "House"
-              },
-              {
-                id: 2,
-                image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80",
-                price: "$725,000",
-                address: "456 Maple Avenue",
-                city: property.City,
-                province: property.StateOrProvince,
-                beds: 4,
-                baths: 3,
-                sqft: "2,400",
-                type: property.PropertySubType || "House"
-              },
-              {
-                id: 3,
-                image: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80",
-                price: "$950,000",
-                address: "789 Pine Boulevard",
-                city: property.City,
-                province: property.StateOrProvince,
-                beds: 5,
-                baths: 4,
-                sqft: "3,200",
-                type: property.PropertySubType || "House"
+                type: getPropertyType()
               }
             ].map((similarProperty) => (
               <div key={similarProperty.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
@@ -622,4 +501,3 @@ export default async function ListingPage({ params }: ListingPageProps) {
     </div>
   );
 }
-
