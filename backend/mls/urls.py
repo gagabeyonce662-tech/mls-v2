@@ -10,6 +10,9 @@ urlpatterns = [
     path('properties/', FetchProperties.as_view(), name='fetch_properties'),
     path('properties/filter/', PropertyFilterView.as_view(), name='property_filter'),
     path('properties/lease-properties/', LeasePropertiesAPIView.as_view(), name='lease-properties'),
+
+
+    
     path('properties/<str:PropertyKey>/', PropertyDetailView.as_view(), name='property_detail_path'),
 ]
 
