@@ -453,3 +453,115 @@ class PreConnPropertiesAPIView(APIView):
             "previous": offset - limit if offset >= limit else None,
             "results": serializer.data
         })
+    
+
+class LeasePropertiesAPIView(APIView):
+    """
+    GET /api/lease-properties/
+
+    Returns ONLY properties with lease_amount > 0
+    (Commercial leases, income properties, businesses for lease, etc.)
+
+    Supports ALL realtor.ca filters + limit/offset pagination
+    """
+
+    def get(self, request):
+        limit = min(int(request.query_params.get('limit', 24)), 100)
+        offset = int(request.query_params.get('offset', 0))
+
+        # Base: only properties with actual lease amount
+        qs = Property.objects.filter(
+            lease_amount__gt=0
+        ).exclude(
+            lease_amount__isnull=True
+        )
+
+        # === ALL REALTOR.CA FILTERS ===
+        params = request.query_params
+
+        if params.get('price_min'):
+            qs = qs.filter(list_price__gte=float(params['price_min']))
+        if params.get('price_max'):
+            qs = qs.filter(list_price__lte=float(params['price_max']))
+
+        if params.get('lease_amount_min'):
+            qs = qs.filter(lease_amount__gte=float(params['lease_amount_min']))
+        if params.get('lease_amount_max'):
+            qs = qs.filter(lease_amount__lte=float(params['lease_amount_max']))
+
+        if params.get('bedrooms'):
+            qs = qs.filter(bedrooms_total__gte=int(params['bedrooms']))
+        if params.get('bathrooms'):
+            qs = qs.filter(bathrooms_total_integer__gte=int(params['bathrooms']))
+
+        if params.get('property_type'):
+            types = [t.strip() for t in params['property_type'].split(',') if t.strip()]
+            if types:
+                qs = qs.filter(property_sub_type__in=types)
+
+        if params.get('city'):
+            cities = [c.strip() for c in params['city'].split(',') if c.strip()]
+            if cities:
+                qs = qs.filter(city__in=cities)
+        if params.get('province'):
+            provinces = [p.strip() for p in params['province'].split(',') if p.strip()]
+            if provinces:
+                qs = qs.filter(state_or_province__in=provinces)
+
+        if params.get('postal_code'):
+            codes = [c.strip().upper() for c in params['postal_code'].split(',') if c.strip()]
+            if codes:
+                qs = qs.filter(postal_code__in=codes)
+
+        # Map bounding box
+        if all(k in params for k in ['latitude_min', 'latitude_max', 'longitude_min', 'longitude_max']):
+            qs = qs.annotate(
+                lat_float=Cast('latitude', FloatField()),
+                lng_float=Cast('longitude', FloatField())
+            ).filter(
+                lat_float__gte=float(params['latitude_min']),
+                lat_float__lte=float(params['latitude_max']),
+                lng_float__gte=float(params['longitude_min']),
+                lng_float__lte=float(params['longitude_max']),
+            )
+
+        if params.get('building_area_min'):
+            qs = qs.filter(building_area_total__gte=float(params['building_area_min']))
+        if params.get('lot_size_min'):
+            qs = qs.filter(lot_size_area__gte=float(params['lot_size_min']))
+        if params.get('year_built_min'):
+            qs = qs.filter(year_built__gte=int(params['year_built_min']))
+
+        if params.get('keywords'):
+            keywords = [k.strip() for k in params['keywords'].split(',') if k.strip()]
+            kw_q = Q()
+            for kw in keywords:
+                kw_q |= Q(public_remarks__icontains=kw)
+            qs = qs.filter(kw_q)
+
+        if params.get('has_photos') in ('true', '1', 'True'):
+            qs = qs.filter(photos_count__gt=0)
+
+        if params.get('new_listings_days'):
+            days = int(params['new_listings_days'])
+            cutoff = timezone.now() - timedelta(days=days)
+            qs = qs.filter(modification_timestamp__gte=cutoff)
+
+        if params.get('standard_status'):
+            qs = qs.filter(standard_status=params['standard_status'])
+
+        # Final ordering
+        qs = qs.order_by('-lease_amount', '-modification_timestamp')
+
+        # Pagination
+        paginator = Paginator(qs, limit)
+        page = paginator.get_page((offset // limit) + 1)
+
+        serializer = PropertySerializer(page.object_list, many=True, context={'request': request})
+
+        return Response({
+            "count": paginator.count,
+            "next": offset + limit if page.has_next() else None,
+            "previous": offset - limit if offset >= limit else None,
+            "results": serializer.data
+        })

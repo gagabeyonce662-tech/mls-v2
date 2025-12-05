@@ -22,8 +22,8 @@ class PropertySerializer(serializers.ModelSerializer):
     class Meta:
         model = Property
         fields = [
-            'listing_key', 'list_price', 'city', 'postal_code', 'unparsed_address',
-            'bedrooms_total', 'bathrooms_total_integer', 'building_area_total',
+            'listing_key', 'list_price',"property_sub_type",'city',"lease_amount", 'postal_code', 'unparsed_address',
+            'bedrooms_total', 'bathrooms_total_integer', 'building_area_total',"listing_id","city","directions","city_region",
             'year_built', 'public_remarks', 'listing_url', 'category_type',
             'latitude', 'longitude', 'photos_count', 'standard_status',
             'media', 'rooms'
