@@ -1,11 +1,10 @@
 import requests
 from django.conf import settings
-from django.utils import timezone
 from datetime import datetime, timedelta
-
-from django.utils import timezone
+import requests
 import logging
-
+from django.db import IntegrityError
+from celery import shared_task
 logger = logging.getLogger(__name__)
 
 def regenerate_access_token():
@@ -21,7 +20,6 @@ def regenerate_access_token():
         'client_secret': settings.CLIENT_SECRET,  
         'scope': 'DDFApi_Read'
     }
-
     response = requests.post(url, data=data, headers=headers)
 
     if response.status_code == 200:
@@ -31,17 +29,12 @@ def regenerate_access_token():
         refresh_token = token_data.get('refresh_token')
         access_token_expires_in = token_data.get('expires_in', 3600)  # Default to 3600 seconds if not provided
         refresh_token_expires_in = token_data.get('refresh_token_expires_in', 3600)  # Default to 3600 seconds if not provided
-        
         # Define current_time before using it
         current_time = datetime.now()
 
         # Calculate expiration times
         access_token_expiry = current_time + timedelta(seconds=access_token_expires_in)
         refresh_token_expiry = current_time + timedelta(seconds=refresh_token_expires_in)
-
-        # Print the expiration times for debugging
-        print(f"Access token expires at: {access_token_expiry}")
-        print(f"Refresh token expires at: {refresh_token_expiry}")
 
         # Create the AccessToken instance
         from mls.models import AccessToken
@@ -52,13 +45,9 @@ def regenerate_access_token():
                 access_token_expires_at=access_token_expiry,  # Store as DateTime
                 refresh_token_expires_at=refresh_token_expiry  # Store as DateTime
             )
-        
-        print(token)
         return token
     else:
         return None
-
-
 
 def regenerate_access_token_with_refresh_token(refresh_token):
     """
@@ -102,18 +91,6 @@ def get_access_token():
     
     return None
 
-
-
-
-
-
-
-import requests
-import logging
-from django.db import IntegrityError
-
-logger = logging.getLogger(__name__)
-
 def fetch_properties():
     from .models import Property, Room, Media
     access_token = get_access_token()
@@ -128,11 +105,8 @@ def fetch_properties():
         '$top': 100,
         '$orderby': 'ModificationTimestamp'
     }
-
     properties = []
-
     try:
-        # Fetch initial page of data
         response = requests.get(url, headers=headers, params=params)
         if response.status_code == 200:
             data = response.json()
@@ -152,15 +126,8 @@ def fetch_properties():
                 else:
                     logger.error(f"Failed to fetch next page: {response.status_code}")
                     break
-            print(len(properties),"1111111111111111111111")
-            # Process each property
             for property_data in properties:
                 try:
-                    # # Save or update Property
-                    # print(property_data.get('ListPrice'))
-
-                    # print(property_data.get('PropertySubType'))
-                    print(property_data.get('ListingKey'))
                     property_instance, created = Property.objects.update_or_create(
                         listing_key=property_data.get('ListingKey'),
                         defaults={
@@ -323,7 +290,6 @@ def fetch_properties():
     except requests.exceptions.RequestException as e: 
         logger.error(f"Request failed: {str(e)}")
 
-from celery import shared_task
 @shared_task
 def fetch_properties_by_property_data(property_data):
     print(property_data)
