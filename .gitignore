@@ -59,6 +59,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+/frontend/node_modules
+/frontend/.next
 
 # ===============================
 # Translations

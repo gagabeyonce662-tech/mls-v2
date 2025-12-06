@@ -1,502 +1,830 @@
-import { Bed, Bath, Maximize, Car, Calendar, Home as HomeIcon, MapPin } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import PropertyGallery from "@/components/listing/PropertyGallery";
-import { ds } from "@/lib/design-system-utils";
-import { fetchPropertyByKey, type Property } from "@/lib/api";
-import { notFound } from "next/navigation";
+"use client";
 
-interface ListingPageProps {
-  params: {
-    id: string;
-  };
-}
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { 
+  Bed, 
+  Bath, 
+  Maximize, 
+  Heart, 
+  Loader2, 
+  ArrowLeft, 
+  Search,
+  Filter,
+  SlidersHorizontal,
+  MapPin,
+  DollarSign,
+  Home,
+  Mail
+} from 'lucide-react';
+import Link from 'next/link';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { colors } from '@/config/design-system';
+import { fetchExclusiveProperties, type Property } from '@/lib/api';
 
-export default async function ListingPage({ params }: ListingPageProps) {
-  // Fetch property data using the PropertyKey from URL
-  const property = await fetchPropertyByKey(params.id);
+export default function ListingsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("All Exclusive Properties");
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentOffset, setCurrentOffset] = useState(0);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const lastPropertyRef = useRef<HTMLDivElement | null>(null);
   
-  if (!property) {
-    notFound();
-  }
+  // Search and filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [priceRange, setPriceRange] = useState({ min: '', max: '' });
+  const [bedrooms, setBedrooms] = useState('');
+  const [bathrooms, setBathrooms] = useState('');
+  const [propertyType, setPropertyType] = useState('all');
+  const [cityFilter, setCityFilter] = useState('');
+  const [postalCodeFilter, setPostalCodeFilter] = useState('');
   
-  console.log('Property data received:', property);
-  
-  // Extract property images from new media structure
-  const propertyImages = property.media?.length > 0 
-    ? property.media.map((media: any) => media.media_url).filter(Boolean)
-    : property.Media?.length > 0 
-    ? property.Media.map((media: any) => media.MediaURL || media.media_url).filter(Boolean)
-    : property.Photos?.length > 0 
-    ? property.Photos.map((photo: any) => photo.PhotoURL || photo).filter(Boolean)
-    : [];
+  const province = searchParams.get('province');
+  const city = searchParams.get('city');
 
-  const hasImages = propertyImages.length > 0;
-
-  // Extract property history
-  const propertyHistory = [
-    {
-      date: property.ModificationTimestamp 
-        ? new Date(property.ModificationTimestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-        : 'Recent',
-      event: property.StandardStatus || property.standard_status || 'Listed',
-      price: property.list_price 
-        ? `$${parseFloat(property.list_price).toLocaleString()}`
-        : property.ListPrice 
-        ? `$${property.ListPrice.toLocaleString()}`
-        : 'Price on request',
-      source: `MLS # ${property.listing_key || property.ListingKey || property.PropertyKey}`
-    },
-  ];
-
-  // Helper function to get price
-  const getPrice = () => {
-    if (property.list_price) {
-      return `$${parseFloat(property.list_price).toLocaleString()}`;
+  // Initialize filters from URL params
+  useEffect(() => {
+    if (searchParams.get('city')) {
+      setCityFilter(searchParams.get('city') || '');
     }
-    if (property.ListPrice) {
-      return `$${property.ListPrice.toLocaleString()}`;
+    if (searchParams.get('price_min')) {
+      setPriceRange(prev => ({ ...prev, min: searchParams.get('price_min') || '' }));
     }
-    return 'Price on request';
+    if (searchParams.get('price_max')) {
+      setPriceRange(prev => ({ ...prev, max: searchParams.get('price_max') || '' }));
+    }
+    if (searchParams.get('bedrooms')) {
+      setBedrooms(searchParams.get('bedrooms') || '');
+    }
+    if (searchParams.get('bathrooms')) {
+      setBathrooms(searchParams.get('bathrooms') || '');
+    }
+    if (searchParams.get('property_type')) {
+      setPropertyType(searchParams.get('property_type') || 'all');
+    }
+    if (searchParams.get('postal_code')) {
+      setPostalCodeFilter(searchParams.get('postal_code') || '');
+    }
+  }, [searchParams]);
+
+  const applyFilters = () => {
+    const params = new URLSearchParams();
+    
+    if (cityFilter) params.set('city', cityFilter);
+    if (priceRange.min) params.set('price_min', priceRange.min);
+    if (priceRange.max) params.set('price_max', priceRange.max);
+    if (bedrooms) params.set('bedrooms', bedrooms);
+    if (bathrooms) params.set('bathrooms', bathrooms);
+    if (propertyType !== 'all') params.set('property_type', propertyType);
+    if (postalCodeFilter) params.set('postal_code', postalCodeFilter);
+    
+    // Reset offset when applying new filters
+    setCurrentOffset(0);
+    
+    router.push(`/listings${params.toString() ? '?' + params.toString() : ''}`);
+    setShowFilters(false);
   };
 
-  // Helper function to get bed count
-  const getBedCount = () => {
-    return property.bedrooms_total || property.BedroomsTotal || 'N/A';
+  const clearFilters = () => {
+    setSearchTerm('');
+    setPriceRange({ min: '', max: '' });
+    setBedrooms('');
+    setBathrooms('');
+    setPropertyType('all');
+    setCityFilter('');
+    setPostalCodeFilter('');
+    setCurrentOffset(0);
+    router.push('/listings');
+    setShowFilters(false);
   };
 
-  // Helper function to get bath count
-  const getBathCount = () => {
-    return property.bathrooms_total_integer || property.BathroomsTotalInteger || 'N/A';
+  const loadProperties = useCallback(async (offset = 0, isInitialLoad = false) => {
+    if (isInitialLoad) {
+      setIsLoading(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+    
+    console.log(`Loading properties with offset: ${offset}`);
+    
+    try {
+      const filters: any = {};
+      
+      // Apply filters from URL params with proper type conversion
+      if (searchParams.get('province')) {
+        filters.province = searchParams.get('province');
+        setSearchQuery(`Exclusive Properties in ${searchParams.get('province')}`);
+      }
+      if (searchParams.get('city')) {
+        filters.city = searchParams.get('city');
+        setSearchQuery(`Exclusive Properties in ${searchParams.get('city')}`);
+      }
+      if (searchParams.get('postal_code')) {
+        filters.postal_code = searchParams.get('postal_code');
+        setSearchQuery(`Exclusive Properties in ${searchParams.get('postal_code')}`);
+      }
+      
+      // Apply numeric filters with proper parsing
+      const priceMin = searchParams.get('price_min');
+      const priceMax = searchParams.get('price_max');
+      const bedroomsParam = searchParams.get('bedrooms');
+      const bathroomsParam = searchParams.get('bathrooms');
+      
+      if (priceMin && !isNaN(parseInt(priceMin))) {
+        filters.price_min = parseInt(priceMin);
+      }
+      if (priceMax && !isNaN(parseInt(priceMax))) {
+        filters.price_max = parseInt(priceMax);
+      }
+      if (bedroomsParam && !isNaN(parseInt(bedroomsParam))) {
+        filters.bedrooms = parseInt(bedroomsParam);
+      }
+      if (bathroomsParam && !isNaN(parseInt(bathroomsParam))) {
+        filters.bathrooms = parseInt(bathroomsParam);
+      }
+      
+      // Apply other filters
+      if (searchParams.get('property_type')) {
+        filters.property_sub_type = searchParams.get('property_type');
+      }
+      
+      // Set pagination parameters
+      filters.limit = 24;
+      filters.offset = offset;
+      
+      console.log('Fetching with filters:', filters);
+      
+      const response = await fetchExclusiveProperties(filters);
+      
+      // Map the API results to Property interface
+      const mappedProperties: Property[] = (response.results || []).map((prop: any) => ({
+        PropertyKey: prop.listing_key || '',
+        ListingKey: prop.listing_key || '',
+        list_price: prop.list_price,
+        listing_key: prop.listing_key,
+        ListPrice: prop.list_price ? parseFloat(prop.list_price) : 0,
+        City: prop.city || '',
+        city: prop.city,
+        StateOrProvince: prop.StateOrProvince || 'ON',
+        PropertySubType: prop.category_type || 'Exclusive',
+        BedroomsTotal: prop.bedrooms_total || 0,
+        bedrooms_total: prop.bedrooms_total,
+        BathroomsTotalInteger: prop.bathrooms_total_integer || 0,
+        bathrooms_total_integer: prop.bathrooms_total_integer,
+        StandardStatus: prop.standard_status || 'Active',
+        standard_status: prop.standard_status,
+        ModificationTimestamp: prop.ModificationTimestamp || new Date().toISOString(),
+        unparsed_address: prop.unparsed_address,
+        postal_code: prop.postal_code,
+        latitude: prop.latitude,
+        longitude: prop.longitude,
+        public_remarks: prop.public_remarks,
+        media: prop.media,
+        rooms: prop.rooms,
+        category_type: prop.category_type,
+        photos_count: prop.photos_count,
+        listing_url: prop.listing_url,
+        building_area_total: prop.building_area_total,
+        year_built: prop.year_built,
+        
+        // Legacy fields
+        Photos: prop.media?.map((m: any) => ({ PhotoURL: m.media_url })) || [],
+        Media: prop.media,
+        Rooms: prop.rooms,
+        LivingArea: prop.building_area_total ? parseFloat(prop.building_area_total) : null,
+        YearBuilt: prop.year_built ? parseInt(prop.year_built) : null,
+        PublicRemarks: prop.public_remarks,
+        PostalCode: prop.postal_code,
+        Latitude: prop.latitude,
+        Longitude: prop.longitude,
+        Description: prop.public_remarks,
+        PropertyType: prop.category_type || 'Exclusive',
+      }));
+      
+      // Filter by search term if provided (client-side search) - only on initial load
+      let filteredProperties = mappedProperties;
+      if (isInitialLoad && searchTerm) {
+        filteredProperties = mappedProperties.filter(property => 
+          property.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          property.unparsed_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          property.public_remarks?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          property.postal_code?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+      
+      // Update properties
+      if (offset === 0) {
+        setProperties(filteredProperties);
+      } else {
+        setProperties(prev => [...prev, ...filteredProperties]);
+      }
+      
+      // Update offset and hasMore
+      setCurrentOffset(offset + filteredProperties.length);
+      setHasMore(filteredProperties.length === filters.limit);
+      
+      console.log(`Loaded ${filteredProperties.length} properties, total now: ${offset === 0 ? filteredProperties.length : properties.length + filteredProperties.length}`);
+      
+      // Update search query if no specific location filters
+      if (!province && !city && !searchParams.get('postal_code')) {
+        setSearchQuery("All Exclusive Properties");
+      }
+      
+    } catch (error) {
+      console.error('Error loading properties:', error);
+    } finally {
+      if (isInitialLoad) {
+        setIsLoading(false);
+      } else {
+        setIsLoadingMore(false);
+      }
+    }
+  }, [searchParams, searchTerm, province, city, properties.length]);
+
+  // Initial load
+  useEffect(() => {
+    setCurrentOffset(0);
+    loadProperties(0, true);
+  }, [searchParams]);
+
+  // Client-side search effect
+  useEffect(() => {
+    const searchTimer = setTimeout(() => {
+      if (searchTerm) {
+        setCurrentOffset(0);
+        // For client-side search, filter existing properties
+        const filtered = properties.filter(property => 
+          property.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          property.unparsed_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          property.public_remarks?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          property.postal_code?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setProperties(filtered);
+        setHasMore(false); // No more loading for client-side search
+      } else {
+        // If search term is cleared, reload from server
+        setCurrentOffset(0);
+        loadProperties(0, true);
+      }
+    }, 500);
+
+    return () => clearTimeout(searchTimer);
+  }, [searchTerm]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading && !isLoadingMore) {
+          loadProperties(currentOffset);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (lastPropertyRef.current) {
+      observer.observe(lastPropertyRef.current);
+    }
+
+    observerRef.current = observer;
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [hasMore, isLoading, isLoadingMore, currentOffset, loadProperties]);
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price);
   };
 
-  // Helper function to get city
-  const getCity = () => {
-    return property.city || property.City || 'N/A';
+  const getPropertyKey = (property: Property) => {
+    return property.listing_key || property.PropertyKey || `property-${property.city}-${property.ListPrice}`;
   };
 
-  // Helper function to get address
-  const getAddress = () => {
-    return property.unparsed_address || property.City || 'Address not available';
+  const getPlaceholderImage = (index: number) => {
+    const images = [
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80",
+      "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80",
+      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&q=80",
+      "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=600&q=80",
+      "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600&q=80",
+      "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=600&q=80",
+    ];
+    return images[index % images.length];
   };
 
-  // Helper function to get property type
-  const getPropertyType = () => {
-    if (property.category_type) return property.category_type;
-    if (property.PropertySubType) return property.PropertySubType;
-    if (property.PropertyType) return property.PropertyType;
-    return 'Property';
-  };
-
-  // Helper function to get living area
-  const getLivingArea = () => {
-    if (property.building_area_total) return `${property.building_area_total} sq ft`;
-    if (property.LivingArea) return `${property.LivingArea} sq ft`;
-    return 'N/A';
-  };
+  // Get unique cities for filter dropdown
+  const uniqueCities = Array.from(new Set(properties.map(p => p.city || p.City).filter(Boolean)));
 
   return (
     <div className="min-h-screen bg-white">
       <Header />
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-16">
-        {/* Title and Price */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className={`${ds.h2} mb-2`}>{getPropertyType()} in {getCity()}</h1>
-            <p className={`${ds.bodyRegular} text-ds-body`}>
-              {getAddress()} • {property.StandardStatus || property.standard_status || 'Active'}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className={`${ds.h2} text-ds-primary`}>{getPrice()}</p>
-          </div>
-        </div>
-
-        {/* Full Width Image Gallery */}
-        {hasImages ? (
-          <div className="mb-6">
-            <PropertyGallery images={propertyImages} />
-          </div>
-        ) : (
-          <div className="w-full h-96 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-8">
-            <div className="text-center">
-              <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <p className="text-lg font-medium text-gray-900 mb-2">No Images Available</p>
-              <p className="text-sm text-gray-600">Images for this property are not currently available.</p>
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-
-            {/* Overview */}
-            <div>
-              <h2 className={`${ds.h3} mb-4`}>Overview</h2>
-              <p className={`${ds.bodyRegular} text-ds-body leading-relaxed`}>
-                {property.public_remarks || property.PublicRemarks || property.PrivateRemarks || property.Description || (
-                  `This ${getPropertyType()} is located in ${getCity()}, ${property.StateOrProvince || 'Ontario'}. ` +
-                  `Built in ${property.year_built || property.YearBuilt || 'N/A'}, this property features ${getBedCount()} bedrooms and ${getBathCount()} bathrooms` +
-                  `${getLivingArea() !== 'N/A' ? ` with ${getLivingArea()} of living space` : ''}.`
+      
+      <div className="pt-20 pb-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <Link 
+                  href="/" 
+                  className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-2"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  Back to Home
+                </Link>
+                <h1 className="text-3xl font-bold text-gray-900">{searchQuery}</h1>
+                <p className="text-gray-600 mt-2">
+                  {isLoading ? 'Loading properties...' : `Showing ${properties.length} properties`}
+                  {hasMore && !isLoading && properties.length > 0 && ' • Scroll to load more'}
+                </p>
+              </div>
+              
+              {/* Filter Toggle Button */}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                Filters
+                {showFilters && (
+                  <span className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
+                    Active
+                  </span>
                 )}
-              </p>
-            </div>
-
-            {/* Property History */}
-            <div>
-              <h2 className={`${ds.h3} mb-4`}>Property History</h2>
-              <div className="border border-ds-card-border rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-ds-card">
-                    <tr>
-                      <th className={`${ds.body} text-left p-4`}>Date</th>
-                      <th className={`${ds.body} text-left p-4`}>Event & Source</th>
-                      <th className={`${ds.body} text-right p-4`}>Price</th>
-                      <th className={`${ds.body} text-right p-4`}>Appreciation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {propertyHistory.map((item, index) => (
-                      <tr key={index} className="border-t border-ds-card-border">
-                        <td className={`${ds.bodyRegular} p-4`}>{item.date}</td>
-                        <td className={`${ds.bodyRegular} p-4`}>
-                          <div>{item.event}</div>
-                          <div className="text-ds-body text-sm">{item.source}</div>
-                        </td>
-                        <td className={`${ds.body} text-right p-4`}>{item.price}</td>
-                        <td className={`${ds.bodyRegular} text-right p-4`}>-</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Property Records */}
-            <div>
-              <h2 className={`${ds.h3} mb-4`}>Property Records</h2>
-              <div className="overflow-hidden rounded-lg border-2 border-gray-400">
-                <table className="w-full border-collapse">
-                  <tbody>
-                    {/* Section Headers */}
-                    <tr>
-                      <th className="bg-gray-100 p-4 text-left font-semibold border-b-2 border-r-2 border-gray-400">
-                        Financial Information
-                      </th>
-                      <th className="bg-gray-100 p-4 text-left font-semibold border-b-2 border-gray-400">
-                        Property Details
-                      </th>
-                    </tr>
-                    
-                    {/* Row 1 */}
-                    <tr className="border-b-2 border-gray-400">
-                      <td className="p-4 border-r-2 border-gray-400">
-                        <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>List Price</span>
-                          <span className={ds.body}>{getPrice()}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>MLS Number</span>
-                          <span className={ds.body}>{property.listing_key || property.ListingKey || property.PropertyKey}</span>
-                        </div>
-                      </td>
-                    </tr>
-                    
-                    {/* Row 2 */}
-                    <tr className="border-b-2 border-gray-400">
-                      <td className="p-4 border-r-2 border-gray-400">
-                        <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Category Type</span>
-                          <span className={ds.body}>{property.category_type || property.PropertyType || 'N/A'}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Status</span>
-                          <span className={ds.body}>{property.standard_status || property.StandardStatus || 'N/A'}</span>
-                        </div>
-                      </td>
-                    </tr>
-                    
-                    {/* Row 3 */}
-                    <tr className="border-b-2 border-gray-400">
-                      <td className="p-4 border-r-2 border-gray-400">
-                        <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Photos Count</span>
-                          <span className={ds.body}>{property.photos_count || property.Photos?.length || 'N/A'}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Postal Code</span>
-                          <span className={ds.body}>{property.postal_code || property.PostalCode || 'N/A'}</span>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {/* Building Facts Header */}
-                    <tr>
-                      <th colSpan={2} className="bg-gray-100 p-4 text-left font-semibold border-b-2 border-gray-400">
-                        Building Facts
-                      </th>
-                    </tr>
-
-                    {/* Building Facts Row 1 */}
-                    <tr className="border-b-2 border-gray-400">
-                      <td className="p-4 border-r-2 border-gray-400">
-                        <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Property Type</span>
-                          <span className={ds.body}>{getPropertyType()}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Year Built</span>
-                          <span className={ds.body}>{property.year_built || property.YearBuilt || 'N/A'}</span>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {/* Building Facts Row 2 */}
-                    <tr className="border-b-2 border-gray-400">
-                      <td className="p-4 border-r-2 border-gray-400">
-                        <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Building Area</span>
-                          <span className={ds.body}>{getLivingArea()}</span>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>Rooms</span>
-                          <span className={ds.body}>{property.rooms?.length || property.Rooms?.length || 'N/A'}</span>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {/* Room Details */}
-                    {property.rooms && property.rooms.length > 0 && (
-                      <>
-                        <tr>
-                          <th colSpan={2} className="bg-gray-100 p-4 text-left font-semibold border-b-2 border-gray-400">
-                            Room Details
-                          </th>
-                        </tr>
-                        {property.rooms.slice(0, 3).map((room: any, index: number) => (
-                          <tr key={index} className="border-b-2 border-gray-400">
-                            <td className="p-4 border-r-2 border-gray-400">
-                              <div className="flex justify-between">
-                                <span className={ds.bodyRegular}>{room.room_type}</span>
-                                <span className={ds.body}>{room.room_level}</span>
-                              </div>
-                            </td>
-                            <td className="p-4">
-                              <div className="flex justify-between">
-                                <span className={ds.bodyRegular}>Dimensions</span>
-                                <span className={ds.body}>{room.room_dimensions || 'N/A'}</span>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              </button>
             </div>
           </div>
 
-          {/* Right Column - Sidebar */}
-          <div className="space-y-6">
-            {/* Location Map with OpenStreetMap */}
-            <div className="bg-ds-card border border-ds-card-border rounded-xl p-4">
-              <h3 className={`${ds.text} mb-4`}>Location</h3>
-              <div className="h-64 rounded-lg overflow-hidden border border-gray-300">
-                {property.latitude && property.longitude ? (
-                  <iframe
-                    width="100%"
-                    height="100%"
-                    frameBorder="0"
-                    scrolling="no"
-                    marginHeight={0}
-                    marginWidth={0}
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(property.longitude) - 0.01},${parseFloat(property.latitude) - 0.01},${parseFloat(property.longitude) + 0.01},${parseFloat(property.latitude) + 0.01}&layer=mapnik&marker=${property.latitude},${property.longitude}`}
-                    style={{ border: 'none' }}
-                  ></iframe>
-                ) : (
-                  <div className="h-full bg-gray-200 flex items-center justify-center">
-                    <div className="text-center">
-                      <MapPin className="w-8 h-8 text-ds-body mx-auto mb-2" />
-                      <p className="text-sm text-gray-600">{getCity()}, {property.StateOrProvince || 'Ontario'}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="mt-2 text-xs text-gray-600">
-                {property.latitude && property.longitude ? (
-                  <span>Lat: {property.latitude}, Lng: {property.longitude}</span>
-                ) : (
-                  <span>{getCity()}, {property.StateOrProvince || 'Ontario'}</span>
-                )}
-              </div>
+          {/* Search Bar */}
+          <div className="mb-8">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search by city, address, or keywords..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
             </div>
+          </div>
 
-            {/* Property Details */}
-            <div className="bg-ds-card border border-ds-card-border rounded-xl p-6">
-              <h3 className={`${ds.text} mb-4`}>Property Details</h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <Bed className="w-5 h-5 text-ds-body" />
-                  <span className={ds.bodyRegular}>Bedrooms: <span className={ds.body}>{getBedCount()}</span></span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Bath className="w-5 h-5 text-ds-body" />
-                  <span className={ds.bodyRegular}>Bathrooms: <span className={ds.body}>{getBathCount()}</span></span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Maximize className="w-5 h-5 text-ds-body" />
-                  <span className={ds.bodyRegular}>Building Area: <span className={ds.body}>{getLivingArea()}</span></span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <HomeIcon className="w-5 h-5 text-ds-body" />
-                  <span className={ds.bodyRegular}>Property Type: <span className={ds.body}>{getPropertyType()}</span></span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-ds-body" />
-                  <span className={ds.bodyRegular}>Year Built: <span className={ds.body}>{property.year_built || property.YearBuilt || 'N/A'}</span></span>
-                </div>
-                {property.postal_code && (
-                  <div className="flex items-center gap-3">
-                    <MapPin className="w-5 h-5 text-ds-body" />
-                    <span className={ds.bodyRegular}>Postal Code: <span className={ds.body}>{property.postal_code}</span></span>
-                  </div>
-                )}
+          {/* Filter Panel */}
+          {showFilters && (
+            <div className="mb-8 bg-gray-50 border border-gray-200 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <SlidersHorizontal className="w-5 h-5 mr-2" />
+                  Filter Properties
+                </h3>
+                <button
+                  onClick={clearFilters}
+                  className="text-sm text-gray-600 hover:text-gray-900"
+                >
+                  Clear all filters
+                </button>
               </div>
-            </div>
-
-            {/* Property Features */}
-            <div className="bg-ds-card border border-ds-card-border rounded-xl p-6">
-              <h3 className={`${ds.text} mb-4`}>Property Features</h3>
-              <div className="space-y-3">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* City Filter */}
                 <div>
-                  <h4 className={`${ds.body} font-semibold mb-2`}>Listing URL</h4>
-                  <a 
-                    href={property.listing_url || `https://www.realtor.ca/real-estate/${property.listing_key || property.ListingKey}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline break-all"
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <MapPin className="w-4 h-4 mr-1" />
+                    City
+                  </label>
+                  <select
+                    value={cityFilter}
+                    onChange={(e) => setCityFilter(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   >
-                    View on Realtor.ca
-                  </a>
+                    <option value="">All Cities</option>
+                    {uniqueCities.map(city => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
                 </div>
-                {property.photos_count && (
-                  <div className="flex justify-between">
-                    <span className={ds.bodyRegular}>Total Photos</span>
-                    <span className={ds.body}>{property.photos_count}</span>
+                
+                {/* Postal Code Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <Mail className="w-4 h-4 mr-1" />
+                    Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., M5V2T6"
+                    value={postalCodeFilter}
+                    onChange={(e) => setPostalCodeFilter(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                </div>
+                
+                {/* Price Range */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <DollarSign className="w-4 h-4 mr-1" />
+                    Price Range
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={priceRange.min}
+                      onChange={(e) => setPriceRange({...priceRange, min: e.target.value})}
+                      className="w-1/2 border border-gray-300 rounded-lg px-3 py-2"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={priceRange.max}
+                      onChange={(e) => setPriceRange({...priceRange, max: e.target.value})}
+                      className="w-1/2 border border-gray-300 rounded-lg px-3 py-2"
+                    />
                   </div>
+                </div>
+                
+                {/* Bedrooms */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <Bed className="w-4 h-4 mr-1" />
+                    Bedrooms
+                  </label>
+                  <select
+                    value={bedrooms}
+                    onChange={(e) => setBedrooms(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  >
+                    <option value="">Any</option>
+                    <option value="1">1+ Bedrooms</option>
+                    <option value="2">2+ Bedrooms</option>
+                    <option value="3">3+ Bedrooms</option>
+                    <option value="4">4+ Bedrooms</option>
+                    <option value="5">5+ Bedrooms</option>
+                  </select>
+                </div>
+                
+                {/* Bathrooms */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <Bath className="w-4 h-4 mr-1" />
+                    Bathrooms
+                  </label>
+                  <select
+                    value={bathrooms}
+                    onChange={(e) => setBathrooms(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  >
+                    <option value="">Any</option>
+                    <option value="1">1+ Bathrooms</option>
+                    <option value="2">2+ Bathrooms</option>
+                    <option value="3">3+ Bathrooms</option>
+                    <option value="4">4+ Bathrooms</option>
+                  </select>
+                </div>
+                
+                {/* Property Type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <Home className="w-4 h-4 mr-1" />
+                    Property Type
+                  </label>
+                  <select
+                    value={propertyType}
+                    onChange={(e) => setPropertyType(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="house">House</option>
+                    <option value="apartment">Apartment</option>
+                    <option value="condo">Condo</option>
+                    <option value="townhouse">Townhouse</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowFilters(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={applyFilters}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Apply Filters
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Active Filters Display */}
+          {(province || city || searchTerm || priceRange.min || priceRange.max || bedrooms || bathrooms || propertyType !== 'all' || cityFilter || postalCodeFilter) && (
+            <div className="mb-6">
+              <div className="flex flex-wrap gap-2">
+                {province && (
+                  <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                    Province: {province}
+                    <button
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete('province');
+                        router.push(`/listings${params.toString() ? '?' + params.toString() : ''}`);
+                      }}
+                      className="ml-2 text-blue-600 hover:text-blue-800"
+                    >
+                      ×
+                    </button>
+                  </span>
                 )}
-                {property.rooms && property.rooms.length > 0 && (
-                  <div>
-                    <h4 className={`${ds.body} font-semibold mb-2`}>Rooms ({property.rooms.length})</h4>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {property.rooms.map((room: any, index: number) => (
-                        <div key={index} className="flex justify-between text-sm">
-                          <span>{room.room_type}</span>
-                          <span className="text-gray-600">{room.room_dimensions}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                {city && (
+                  <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                    City: {city}
+                    <button
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete('city');
+                        router.push(`/listings${params.toString() ? '?' + params.toString() : ''}`);
+                      }}
+                      className="ml-2 text-blue-600 hover:text-blue-800"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {cityFilter && (
+                  <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                    City: {cityFilter}
+                    <button
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete('city');
+                        setCityFilter('');
+                        router.push(`/listings${params.toString() ? '?' + params.toString() : ''}`);
+                      }}
+                      className="ml-2 text-blue-600 hover:text-blue-800"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {postalCodeFilter && (
+                  <span className="inline-flex items-center px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
+                    Postal Code: {postalCodeFilter}
+                    <button
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete('postal_code');
+                        setPostalCodeFilter('');
+                        router.push(`/listings${params.toString() ? '?' + params.toString() : ''}`);
+                      }}
+                      className="ml-2 text-indigo-600 hover:text-indigo-800"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {priceRange.min && (
+                  <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                    Min: ${priceRange.min}
+                    <button
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete('price_min');
+                        setPriceRange({...priceRange, min: ''});
+                        router.push(`/listings${params.toString() ? '?' + params.toString() : ''}`);
+                      }}
+                      className="ml-2 text-green-600 hover:text-green-800"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {priceRange.max && (
+                  <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                    Max: ${priceRange.max}
+                    <button
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete('price_max');
+                        setPriceRange({...priceRange, max: ''});
+                        router.push(`/listings${params.toString() ? '?' + params.toString() : ''}`);
+                      }}
+                      className="ml-2 text-green-600 hover:text-green-800"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {bedrooms && (
+                  <span className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
+                    {bedrooms}+ Beds
+                    <button
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete('bedrooms');
+                        setBedrooms('');
+                        router.push(`/listings${params.toString() ? '?' + params.toString() : ''}`);
+                      }}
+                      className="ml-2 text-purple-600 hover:text-purple-800"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {bathrooms && (
+                  <span className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
+                    {bathrooms}+ Baths
+                    <button
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete('bathrooms');
+                        setBathrooms('');
+                        router.push(`/listings${params.toString() ? '?' + params.toString() : ''}`);
+                      }}
+                      className="ml-2 text-purple-600 hover:text-purple-800"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {propertyType !== 'all' && (
+                  <span className="inline-flex items-center px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm">
+                    Type: {propertyType}
+                    <button
+                      onClick={() => {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.delete('property_type');
+                        setPropertyType('all');
+                        router.push(`/listings${params.toString() ? '?' + params.toString() : ''}`);
+                      }}
+                      className="ml-2 text-orange-600 hover:text-orange-800"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {searchTerm && (
+                  <span className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">
+                    Search: {searchTerm}
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="ml-2 text-gray-600 hover:text-gray-800"
+                    >
+                      ×
+                    </button>
+                  </span>
                 )}
               </div>
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Similar Properties Section */}
-        <div className="mt-16">
-          <h2 className={`${ds.h2} mb-8`}>Similar Properties</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              {
-                id: 1,
-                image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&q=80",
-                price: "$850,000",
-                address: "123 Oak Street",
-                city: getCity(),
-                province: property.StateOrProvince || 'Ontario',
-                beds: 3,
-                baths: 2,
-                sqft: "2,100",
-                type: getPropertyType()
-              },
-              {
-                id: 2,
-                image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80",
-                price: "$725,000",
-                address: "456 Maple Avenue",
-                city: getCity(),
-                province: property.StateOrProvince || 'Ontario',
-                beds: 4,
-                baths: 3,
-                sqft: "2,400",
-                type: getPropertyType()
-              },
-              {
-                id: 3,
-                image: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80",
-                price: "$950,000",
-                address: "789 Pine Boulevard",
-                city: getCity(),
-                province: property.StateOrProvince || 'Ontario',
-                beds: 5,
-                baths: 4,
-                sqft: "3,200",
-                type: getPropertyType()
-              }
-            ].map((similarProperty) => (
-              <div key={similarProperty.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="relative h-48">
-                  <img
-                    src={similarProperty.image}
-                    alt={similarProperty.address}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 left-3 bg-ds-primary text-white px-2 py-1 rounded text-sm font-semibold">
-                    {similarProperty.type}
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className={`${ds.h4} text-ds-primary mb-2`}>{similarProperty.price}</h3>
-                  <p className={`${ds.bodyRegular} text-ds-heading mb-1`}>{similarProperty.address}</p>
-                  <p className={`${ds.small} text-ds-body mb-3`}>{similarProperty.city}, {similarProperty.province}</p>
-                  <div className="flex items-center gap-4 text-ds-body text-sm">
-                    <div className="flex items-center gap-1">
-                      <Bed className="w-4 h-4" />
-                      <span>{similarProperty.beds}</span>
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="w-8 h-8 animate-spin" style={{ color: colors.primary }} />
+              <span className="ml-3 text-gray-600">Loading properties...</span>
+            </div>
+          )}
+
+          {/* Properties Grid */}
+          {!isLoading && properties.length > 0 && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {properties.map((property, index) => {
+                  const propertyKey = getPropertyKey(property);
+                  const displayPrice = property.list_price ? parseFloat(property.list_price) : property.ListPrice || 0;
+                  const displayCity = property.city || property.City || 'Unknown City';
+                  const displayPropertyType = property.category_type || property.PropertySubType || 'Property';
+                  const bedCount = property.bedrooms_total || property.BedroomsTotal || 0;
+                  const bathCount = property.bathrooms_total_integer || property.BathroomsTotalInteger || 0;
+                  const status = property.standard_status || property.StandardStatus || 'Active';
+                  
+                  const isLastProperty = index === properties.length - 1;
+                  
+                  return (
+                    <div
+                      key={propertyKey}
+                      ref={isLastProperty ? lastPropertyRef : null}
+                    >
+                      <Link
+                        href={`/listing/${propertyKey}`}
+                        className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow block"
+                      >
+                        <div className="relative h-48">
+                          <img
+                            src={getPlaceholderImage(index)}
+                            alt={`Property in ${displayCity}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log('Toggle favorite for:', propertyKey);
+                            }}
+                            className="absolute top-4 right-4 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
+                          >
+                            <Heart className="w-5 h-5 text-gray-700" />
+                          </button>
+                          <div className="absolute bottom-4 left-4">
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                              status === 'Active' ? 'bg-green-500 text-white' :
+                              status === 'Pending' ? 'bg-yellow-500 text-white' :
+                              'bg-gray-500 text-white'
+                            }`}>
+                              {status}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <h3 className="font-semibold text-gray-900 mb-1 truncate">
+                            {displayPropertyType} in {displayCity}
+                          </h3>
+                          <p className="text-lg font-bold text-blue-600 mb-3">
+                            {formatPrice(displayPrice)}
+                          </p>
+                          <div className="flex items-center gap-4 text-gray-600 text-sm">
+                            {bedCount > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Bed className="w-4 h-4" />
+                                <span>{bedCount}</span>
+                              </div>
+                            )}
+                            {bathCount > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Bath className="w-4 h-4" />
+                                <span>{bathCount}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <Maximize className="w-4 h-4" />
+                              <span className="text-xs">{property.StateOrProvince}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Bath className="w-4 h-4" />
-                      <span>{similarProperty.baths}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Maximize className="w-4 h-4" />
-                      <span>{similarProperty.sqft} sq ft</span>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+
+              {/* Loading More Indicator */}
+              {isLoadingMore && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin mr-2" style={{ color: colors.primary }} />
+                  <span className="text-gray-600">Loading more properties...</span>
+                </div>
+              )}
+
+              {/* End of Results */}
+              {!hasMore && !isLoading && properties.length > 0 && (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">You've reached the end of the results</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && properties.length === 0 && (
+            <div className="text-center py-16">
+              <div className="text-xl font-semibold text-gray-900 mb-2">No properties found</div>
+              <p className="text-gray-600">
+                {searchTerm || province || city || priceRange.min || priceRange.max || bedrooms || bathrooms || propertyType !== 'all' || cityFilter || postalCodeFilter
+                  ? 'Try adjusting your search criteria or filters'
+                  : 'There are currently no exclusive properties available.'}
+              </p>
+              <button
+                onClick={clearFilters}
+                className="inline-block mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Clear All Filters
+              </button>
+            </div>
+          )}
         </div>
       </div>
-
+      
       <Footer />
     </div>
   );

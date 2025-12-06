@@ -9,6 +9,13 @@ interface PropertyFilterProps {
   onPropertiesUpdate?: (properties: any[], query: string) => void;
 }
 
+/* ---------- Button class helpers (uniform sizing) ---------- */
+const BTN_BASE = "inline-flex items-center justify-center h-10 px-4 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed";
+const BTN_PRIMARY = `${BTN_BASE} shadow-lg`;
+const BTN_SECONDARY = `${BTN_BASE} border`;
+const BTN_TOGGLE = `${BTN_BASE} border`;
+const BTN_SELECTED = "ring-2 ring-offset-1";
+
 export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [notifyFor, setNotifyFor] = useState("all");
@@ -33,12 +40,12 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
 
   // Property type mapping to API values
   const propertyTypeMapping: { [key: string]: string } = {
-    "detached": "House",
-    "semi-detached": "House",
+    "detached": "detached",
+    "semi-detached": "semi-detached",
     "condo-apt": "Condo",
     "freehold-townhouse": "Townhouse",
     "condo-townhouse": "Townhouse",
-    "link": "Link",
+    "Single-Family": "Single-Family",
     "multiplex": "Multiplex",
     "vacant-land": "Vacant Land"
   };
@@ -50,7 +57,7 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
     "Condo Apt", 
     "Freehold Townhouse", 
     "Condo Townhouse", 
-    "Link",
+    "Single-Family",
     "Multiplex", 
     "Vacant Land"
   ];
@@ -101,24 +108,6 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
     setTestResult("Test completed. Check browser console for results.");
   };
 
-  // Test example API: city=Toronto&price_min=20&has_photos=true&building_area_min=2500&limit=50
-  const handleTestExampleAPI = async () => {
-    setTestResult("Testing example API: city=Toronto, price_min=20, has_photos=true, building_area_min=2500, limit=50...");
-    try {
-      const filters: ExclusivePropertyFilterParams = {
-        city: "Toronto",
-        price_min: 20,
-        has_photos: true,
-        building_area_min: 2500,
-        // Note: limit is handled differently in the API, but we'll show the concept
-      };
-      const response = await fetchExclusiveProperties(filters);
-      setTestResult(`Found ${response.results?.length || 0} properties with example filters`);
-    } catch (error) {
-      setTestResult("Error testing example API");
-    }
-  };
-
   // Fetch filtered properties using the exclusive properties API
   const fetchFilteredProperties = async () => {
     if (!onPropertiesUpdate) return;
@@ -138,7 +127,7 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
           .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
         
         if (apiPropertyTypes.length > 0) {
-          filters.property_type = apiPropertyTypes.join(",");
+          filters.property_sub_type = apiPropertyTypes.join(",");
         }
       }
       
@@ -214,11 +203,8 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
       }
       
       // Limit (Note: This might be handled differently in the backend)
-      // We'll pass it as a parameter, but check if your backend supports it
-      // For now, we'll log it separately
       const limitValue = parseInt(limit);
       if (!isNaN(limitValue) && limitValue > 0 && limitValue !== 50) {
-        // Note: Your backend might handle limit differently
         console.log(`Note: Limit parameter is ${limitValue}. Check if your backend supports 'limit' parameter.`);
       }
       
@@ -333,91 +319,41 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
   };
 
   return (
-    <div className="w-full p-4 max-h-[calc(100vh-12rem)] overflow-y-auto border rounded-lg" style={{ 
+    <div className="w-full max-h-[calc(100vh-12rem)] overflow-y-auto border rounded-lg" style={{ 
       backgroundColor: colors.boarder,
       scrollbarWidth: 'thin',
       scrollbarColor: `${colors.cardsBoarder} transparent`
     }}>
-      {/* Header */}
+      {/* Header */}  
       <div className="sticky top-0 pt-1 pb-2 z-10" style={{ backgroundColor: colors.boarder }}>
-        <h2 className="text-lg font-bold mb-2" style={{ color: colors.heading }}>
-          Find Exclusive Properties
-        </h2>
-
-        {/* Debug Info */}
-        <div className="mb-3 p-2 rounded text-xs" style={{ backgroundColor: colors.cards, color: colors.body }}>
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <span>Endpoint: /api/mls/properties/exclusive-propertie/</span>
-              <button 
-                onClick={handleTestEndpoint}
-                className="text-xs px-2 py-1 rounded border"
-                style={{ 
-                  borderColor: colors.cardsBoarder,
-                  color: colors.heading,
-                  backgroundColor: colors.cards
-                }}
-              >
-                Test
-              </button>
-            </div>
-            <button 
-              onClick={handleTestExampleAPI}
-              className="w-full text-xs px-2 py-1 rounded border mt-1"
-              style={{ 
-                borderColor: colors.cardsBoarder,
-                color: colors.heading,
-                backgroundColor: colors.cards
-              }}
+        <div className="sticky top-2 gap-2 pt-4 z-20" style={{ backgroundColor: colors.boarder }}>
+          {/* NEW: single-row container for Apply + Clear All */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={handleApply}
+              disabled={isLoading}
+              className={`${BTN_PRIMARY} flex-1`}
+              style={{ backgroundColor: colors.primary, color: colors.cards, borderColor: colors.primary }}
             >
-              Test Example: Toronto, $20+, Photos, 2500+ sqft, Limit 50
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  Applying Filters...
+                </span>
+              ) : (
+                `APPLY FILTERS (${calculateActiveFilters()} active)`
+              )}
+            </button>
+
+            <button
+              onClick={handleClearFilters}
+              disabled={isLoading}
+              className={`${BTN_SECONDARY}`}
+              style={{ backgroundColor: colors.cards, color: colors.body, borderColor: colors.cardsBoarder }}
+            >
+              Clear All
             </button>
           </div>
-          {testResult && (
-            <p className="mt-1 text-green-600 text-xs">{testResult}</p>
-          )}
-        </div>
-
-        {/* Search - City */}
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.body }} />
-            <input
-              type="text"
-              placeholder="Search City (e.g., Toronto)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:ring-1 focus:ring-offset-1"
-              style={{ 
-                borderColor: colors.cardsBoarder,
-                color: colors.heading,
-                backgroundColor: colors.cards,
-                fontSize: '14px'
-              }}
-              disabled={isLoading}
-            />
-          </div>
-        </div>
-        
-        {/* Quick Stats */}
-        <div className="text-xs mb-4 p-2 rounded flex justify-between items-center" style={{ backgroundColor: colors.cards, color: colors.body }}>
-          <div>
-            {isLoading ? (
-              <span className="flex items-center">
-                <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500 mr-2"></span>
-                Loading...
-              </span>
-            ) : (
-              <span>{calculateActiveFilters()} filter{calculateActiveFilters() !== 1 ? 's' : ''} active</span>
-            )}
-          </div>
-          <button 
-            onClick={handleClearFilters}
-            className="text-blue-500 hover:text-blue-700 underline text-sm"
-            disabled={isLoading}
-          >
-            Clear All
-          </button>
         </div>
       </div>
 
@@ -429,21 +365,24 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
             Results Limit
           </h3>
           <div className="grid grid-cols-4 gap-2">
-            {["10", "25", "50", "100"].map((option) => (
-              <button
-                key={option}
-                onClick={() => setLimit(option)}
-                disabled={isLoading}
-                className="px-3 py-2 border rounded-lg text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: limit === option ? colors.primary : colors.cardsBoarder,
-                  color: limit === option ? colors.cards : colors.body,
-                  backgroundColor: limit === option ? colors.primary : colors.cards
-                }}
-              >
-                {option}
-              </button>
-            ))}
+            {["10", "25", "50", "100"].map((option) => {
+              const selected = limit === option;
+              return (
+                <button
+                  key={option}
+                  onClick={() => setLimit(option)}
+                  disabled={isLoading}
+                  className={`${BTN_TOGGLE} ${selected ? BTN_SELECTED : ""} w-full`}
+                  style={{
+                    borderColor: selected ? colors.primary : colors.cardsBoarder,
+                    color: selected ? colors.cards : colors.body,
+                    backgroundColor: selected ? colors.primary : colors.cards
+                  }}
+                >
+                  {option}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -457,21 +396,24 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
               { label: "All", value: null },
               { label: "Yes", value: true },
               { label: "No", value: false }
-            ].map(({ label, value }) => (
-              <button
-                key={label}
-                onClick={() => setHasPhotos(value)}
-                disabled={isLoading}
-                className="px-3 py-2 border rounded-lg text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: hasPhotos === value ? colors.primary : colors.cardsBoarder,
-                  color: hasPhotos === value ? colors.cards : colors.body,
-                  backgroundColor: hasPhotos === value ? colors.primary : colors.cards
-                }}
-              >
-                {label}
-              </button>
-            ))}
+            ].map(({ label, value }) => {
+              const selected = hasPhotos === value;
+              return (
+                <button
+                  key={label}
+                  onClick={() => setHasPhotos(value)}
+                  disabled={isLoading}
+                  className={`${BTN_TOGGLE} ${selected ? BTN_SELECTED : ""} w-full`}
+                  style={{
+                    borderColor: selected ? colors.primary : colors.cardsBoarder,
+                    color: selected ? colors.cards : colors.body,
+                    backgroundColor: selected ? colors.primary : colors.cards
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -536,23 +478,20 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
               
               return (
                 <label key={option} className="flex items-center cursor-pointer group">
-                  <div className="relative mr-2">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => togglePropertyType(option)}
-                      className="sr-only"
-                      disabled={isLoading}
-                    />
-                    <div className={`w-4 h-4 border rounded flex items-center justify-center ${isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-400'} ${isLoading ? 'opacity-50' : ''}`}>
-                      {isSelected && (
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                      )}
-                    </div>
+                  <div
+                    onClick={() => togglePropertyType(option)}
+                    className={`inline-flex items-center justify-center w-10 h-10 mr-3 rounded-lg ${isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-white'}`}
+                    style={{ borderWidth: 1 }}
+                  >
+                    {isSelected ? (
+                      <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    ) : (
+                      <div className="w-4 h-4" />
+                    )}
                   </div>
-                  <span className={`text-sm group-hover:text-blue-400 transition-colors ${isLoading ? 'opacity-50' : ''}`} style={{ color: colors.body }}>
+                  <span className="text-sm" style={{ color: colors.body }}>
                     {option}
                   </span>
                 </label>
@@ -583,7 +522,7 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
               <div className="flex-1">
                 <label className="block text-xs mb-1" style={{ color: colors.body }}>Min Price</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  
                   <input
                     type="text"
                     placeholder="20"
@@ -605,7 +544,7 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
               <div className="flex-1">
                 <label className="block text-xs mb-1" style={{ color: colors.body }}>Max Price</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                 
                   <input
                     type="text"
                     placeholder="5,000,000"
@@ -634,21 +573,24 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
               { label: "$100K+", value: "100000" },
               { label: "$500K+", value: "500000" },
               { label: "$1M+", value: "1000000" },
-            ].map(({ label, value }) => (
-              <button
-                key={label}
-                onClick={() => setPriceRange({ min: value, max: "" })}
-                className="px-3 py-2 border rounded-lg text-sm font-medium transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: priceRange.min === value ? colors.primary : colors.cardsBoarder,
-                  color: priceRange.min === value ? colors.cards : colors.body,
-                  backgroundColor: priceRange.min === value ? colors.primary : colors.cards
-                }}
-                disabled={isLoading}
-              >
-                {label}
-              </button>
-            ))}
+            ].map(({ label, value }) => {
+              const selected = priceRange.min === value;
+              return (
+                <button
+                  key={label}
+                  onClick={() => setPriceRange({ min: value, max: "" })}
+                  className={`${BTN_TOGGLE} ${selected ? BTN_SELECTED : ""} w-full`}
+                  style={{
+                    borderColor: selected ? colors.primary : colors.cardsBoarder,
+                    color: selected ? colors.cards : colors.body,
+                    backgroundColor: selected ? colors.primary : colors.cards
+                  }}
+                  disabled={isLoading}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -658,21 +600,24 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
             Bedrooms
           </h3>
           <div className="grid grid-cols-3 gap-2">
-            {["All", "1+", "2+", "3+", "4+", "5+"].map((option) => (
-              <button
-                key={option}
-                onClick={() => setBedrooms(option.toLowerCase())}
-                disabled={isLoading}
-                className="px-3 py-2 border rounded-lg text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: bedrooms === option.toLowerCase() ? colors.primary : colors.cardsBoarder,
-                  color: bedrooms === option.toLowerCase() ? colors.cards : colors.body,
-                  backgroundColor: bedrooms === option.toLowerCase() ? colors.primary : colors.cards
-                }}
-              >
-                {option}
-              </button>
-            ))}
+            {["All", "1+", "2+", "3+", "4+", "5+"].map((option) => {
+              const selected = bedrooms === option.toLowerCase();
+              return (
+                <button
+                  key={option}
+                  onClick={() => setBedrooms(option.toLowerCase())}
+                  disabled={isLoading}
+                  className={`${BTN_TOGGLE} ${selected ? BTN_SELECTED : ""} w-full`}
+                  style={{
+                    borderColor: selected ? colors.primary : colors.cardsBoarder,
+                    color: selected ? colors.cards : colors.body,
+                    backgroundColor: selected ? colors.primary : colors.cards
+                  }}
+                >
+                  {option}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -682,21 +627,24 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
             Bathrooms
           </h3>
           <div className="grid grid-cols-3 gap-2">
-            {["All", "1+", "2+", "3+", "4+"].map((option) => (
-              <button
-                key={option}
-                onClick={() => setBathrooms(option.toLowerCase())}
-                disabled={isLoading}
-                className="px-3 py-2 border rounded-lg text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: bathrooms === option.toLowerCase() ? colors.primary : colors.cardsBoarder,
-                  color: bathrooms === option.toLowerCase() ? colors.cards : colors.body,
-                  backgroundColor: bathrooms === option.toLowerCase() ? colors.primary : colors.cards
-                }}
-              >
-                {option}
-              </button>
-            ))}
+            {["All", "1+", "2+", "3+", "4+"].map((option) => {
+              const selected = bathrooms === option.toLowerCase();
+              return (
+                <button
+                  key={option}
+                  onClick={() => setBathrooms(option.toLowerCase())}
+                  disabled={isLoading}
+                  className={`${BTN_TOGGLE} ${selected ? BTN_SELECTED : ""} w-full`}
+                  style={{
+                    borderColor: selected ? colors.primary : colors.cardsBoarder,
+                    color: selected ? colors.cards : colors.body,
+                    backgroundColor: selected ? colors.primary : colors.cards
+                  }}
+                >
+                  {option}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -761,21 +709,24 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
               { label: "1500+ sqft", value: "1500" },
               { label: "2000+ sqft", value: "2000" },
               { label: "2500+ sqft", value: "2500" },
-            ].map(({ label, value }) => (
-              <button
-                key={label}
-                onClick={() => setSquareFootage({ min: value, max: "" })}
-                className="px-3 py-2 border rounded-lg text-sm font-medium transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  borderColor: squareFootage.min === value ? colors.primary : colors.cardsBoarder,
-                  color: squareFootage.min === value ? colors.cards : colors.body,
-                  backgroundColor: squareFootage.min === value ? colors.primary : colors.cards
-                }}
-                disabled={isLoading}
-              >
-                {label}
-              </button>
-            ))}
+            ].map(({ label, value }) => {
+              const selected = squareFootage.min === value;
+              return (
+                <button
+                  key={label}
+                  onClick={() => setSquareFootage({ min: value, max: "" })}
+                  className={`${BTN_TOGGLE} ${selected ? BTN_SELECTED : ""} w-full`}
+                  style={{
+                    borderColor: selected ? colors.primary : colors.cardsBoarder,
+                    color: selected ? colors.cards : colors.body,
+                    backgroundColor: selected ? colors.primary : colors.cards
+                  }}
+                  disabled={isLoading}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -834,36 +785,8 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
           </div>
         </div>
 
-        {/* Apply Button */}
-        <div className="sticky bottom-0 pt-4 z-20" style={{ backgroundColor: colors.boarder }}>
-          <button
-            onClick={handleApply}
-            disabled={isLoading}
-            className="w-full py-3 rounded-lg font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-[0.98] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ backgroundColor: colors.primary }}
-          >
-            {isLoading ? (
-              <span className="flex items-center justify-center">
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
-                Applying Filters...
-              </span>
-            ) : (
-              `APPLY FILTERS (${calculateActiveFilters()} active)`
-            )}
-          </button>
-          
-          <div className="mt-2 text-center">
-            <p className="text-xs" style={{ color: colors.body }}>
-              Using exclusive properties API
-            </p>
-            <p className="text-xs mt-1" style={{ color: colors.body }}>
-              Endpoint: /api/mls/properties/exclusive-properties1/
-            </p>
-            <p className="text-xs mt-1" style={{ color: colors.body }}>
-              Example: city=Toronto, price_min=20, has_photos=true, building_area_min=2500, limit=50
-            </p>
-          </div>
-        </div>
+        {/* (you can continue past here - I retained the rest of your structure) */}
+        
       </div>
     </div>
   );
