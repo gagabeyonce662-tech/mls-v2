@@ -441,10 +441,6 @@ export default function HeroSection({ onPropertiesUpdate }: HeroSectionProps) {
                 </button>
               </div>
 
-              {/* Search tips */}
-              <div className="mt-3 text-xs text-white/60 text-center">
-                Try searching by: City (Toronto), Postal Code (M5V 2T6), Province (Ontario), or Price (500000)
-              </div>
             </div>
           </div>
         </div>

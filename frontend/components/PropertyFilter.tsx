@@ -319,12 +319,12 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
   };
 
   return (
-    <div className="w-full p-4 max-h-[calc(100vh-12rem)] overflow-y-auto border rounded-lg" style={{ 
+    <div className="w-full max-h-[calc(100vh-12rem)] overflow-y-auto border rounded-lg" style={{ 
       backgroundColor: colors.boarder,
       scrollbarWidth: 'thin',
       scrollbarColor: `${colors.cardsBoarder} transparent`
     }}>
-      {/* Header */}
+      {/* Header */}  
       <div className="sticky top-0 pt-1 pb-2 z-10" style={{ backgroundColor: colors.boarder }}>
         <div className="sticky top-2 gap-2 pt-4 z-20" style={{ backgroundColor: colors.boarder }}>
           {/* NEW: single-row container for Apply + Clear All */}

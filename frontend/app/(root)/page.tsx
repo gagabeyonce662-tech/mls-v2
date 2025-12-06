@@ -172,7 +172,8 @@ export default function HomePage() {
         </div>
 
         {/* Main two-column layout for lg and above. On small screens everything stacks. */}
-        <div className="flex mt-4 relative px-4 lg:px-6 xl:px-8 gap-4 max-w-[1800px] mx-auto w-full">
+      <div className="flex mt-4 relative px-4 lg:px-6 xl:px-8 gap-0 max-w-[1800px] mx-auto w-full">
+
           {/* Left Sidebar - visible on lg+ */}
           <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0">
             <div 
@@ -215,9 +216,7 @@ export default function HomePage() {
             <MortgageSection />
 
             {/* On small screens show LatestArticles earlier to give mobile users easy access */}
-            <div className="mt-8 lg:mt-12">
-              <LatestArticles />
-            </div>
+            
           </main>
         </div>
 

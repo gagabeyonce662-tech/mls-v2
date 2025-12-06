@@ -32,8 +32,52 @@ export default function ListingsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentCity, setCurrentCity] = useState('');
 
+  // AUTH: Replace this with your real auth state (context/hook).
+  // For example: const { user } = useAuth(); const isLoggedIn = !!user;
+  const isLoggedIn = false; // <-- toggle to true to test logged-in behavior
+
+  // Return the first suitable image URL from the property (from backend). If none, return null.
+  const getPropertyImageUrl = (property: Property | any) => {
+    try {
+      if (Array.isArray(property.media) && property.media.length > 0) {
+        const img = property.media.find((m: any) => {
+          const t = (m.media_type || '').toLowerCase();
+          const url = (m.media_url || '').toString();
+          return t.includes('image') || /\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(url);
+        }) || property.media[0];
+        if (img && (img.media_url || img.url || img.url_full)) return img.media_url || img.url || img.url_full;
+      }
+
+      if (Array.isArray(property.Photos) && property.Photos.length > 0) {
+        const p = property.Photos[0];
+        if (p.PhotoURL) return p.PhotoURL;
+      }
+
+      if (Array.isArray(property.Media) && property.Media.length > 0) {
+        const m = property.Media.find((x: any) => x.media_url) || property.Media[0];
+        if (m && m.media_url) return m.media_url;
+      }
+
+      if (property.listing_image_url) return property.listing_image_url;
+      if (property.main_image) return property.main_image;
+
+      return null;
+    } catch (e) {
+      return null;
+    }
+  };
+
   // Load properties - either all or filtered by city
   const loadProperties = useCallback(async (offset = 0, isInitialLoad = false, city = '') => {
+    // If user not logged in and we're trying to load beyond first page, block further loads
+    // (this prevents fetching infinite pages for unauthenticated users).
+    if (!isLoggedIn && offset >= 24) {
+      setHasMore(false);
+      setIsLoading(false);
+      setIsLoadingMore(false);
+      return;
+    }
+
     if (isInitialLoad) {
       setIsLoading(true);
     } else {
@@ -48,7 +92,6 @@ export default function ListingsPage() {
         offset: offset
       };
       
-      // Add city filter if provided
       if (city) {
         filters.city = city;
         setCurrentCity(city);
@@ -62,7 +105,6 @@ export default function ListingsPage() {
       
       const response = await fetchExclusiveProperties(filters);
       
-      // Map the API results to Property interface
       const mappedProperties: Property[] = (response.results || []).map((prop: any) => ({
         PropertyKey: prop.listing_key || '',
         ListingKey: prop.listing_key || '',
@@ -93,7 +135,6 @@ export default function ListingsPage() {
         building_area_total: prop.building_area_total,
         year_built: prop.year_built,
         
-        // Legacy fields
         Photos: prop.media?.map((m: any) => ({ PhotoURL: m.media_url })) || [],
         Media: prop.media,
         Rooms: prop.rooms,
@@ -107,16 +148,20 @@ export default function ListingsPage() {
         PropertyType: prop.category_type || 'Exclusive',
       }));
       
-      // Update properties
       if (offset === 0) {
         setProperties(mappedProperties);
       } else {
         setProperties(prev => [...prev, ...mappedProperties]);
       }
       
-      // Update offset and hasMore
       setCurrentOffset(offset + mappedProperties.length);
-      setHasMore(mappedProperties.length === 24);
+
+      // When not logged in, we limit hasMore to false after the first page to avoid further loads.
+      if (!isLoggedIn) {
+        setHasMore(false);
+      } else {
+        setHasMore(mappedProperties.length === 24);
+      }
       
       console.log(`Loaded ${mappedProperties.length} properties`);
       
@@ -130,7 +175,7 @@ export default function ListingsPage() {
       }
       setIsSearching(false);
     }
-  }, []);
+  }, [isLoggedIn]);
 
   // Initial load - show all properties
   useEffect(() => {
@@ -141,13 +186,11 @@ export default function ListingsPage() {
   // Handle search button click
   const handleSearch = () => {
     if (!searchTerm.trim()) {
-      // If search is empty, load all properties
       setCurrentOffset(0);
       setCurrentCity('');
       setSearchQuery("All Exclusive Properties");
       loadProperties(0, true, '');
     } else {
-      // Search for the city
       setIsSearching(true);
       setCurrentOffset(0);
       loadProperties(0, true, searchTerm.trim());
@@ -174,9 +217,11 @@ export default function ListingsPage() {
   // Load more properties (infinite scroll)
   const loadMoreProperties = useCallback(() => {
     if (isLoadingMore || !hasMore) return;
+    // prevent loading more if user is not logged in (we already limited loadProperties but guard here as well)
+    if (!isLoggedIn) return;
     
     loadProperties(currentOffset, false, currentCity);
-  }, [currentOffset, currentCity, hasMore, isLoadingMore, loadProperties]);
+  }, [currentOffset, currentCity, hasMore, isLoadingMore, loadProperties, isLoggedIn]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -208,18 +253,6 @@ export default function ListingsPage() {
 
   const getPropertyKey = (property: Property) => {
     return property.listing_key || property.PropertyKey || `property-${property.city}-${property.ListPrice}`;
-  };
-
-  const getPlaceholderImage = (index: number) => {
-    const images = [
-      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80",
-      "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80",
-      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&q=80",
-      "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=600&q=80",
-      "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600&q=80",
-      "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=600&q=80",
-    ];
-    return images[index % images.length];
   };
 
   return (
@@ -263,7 +296,6 @@ export default function ListingsPage() {
                   disabled={isSearching}
                 />
                 
-                {/* Clear button when there's text */}
                 {searchTerm && (
                   <button
                     onClick={clearSearch}
@@ -292,56 +324,19 @@ export default function ListingsPage() {
             
             {/* Quick Search Examples */}
             <div className="mt-3 flex flex-wrap gap-2 justify-center">
-              <button
-                onClick={() => {
-                  setSearchTerm('Toronto');
-                  setTimeout(() => handleSearch(), 100);
-                }}
-                disabled={isSearching}
-                className="text-sm px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
-              >
-                Toronto
-              </button>
-              <button
-                onClick={() => {
-                  setSearchTerm('Vancouver');
-                  setTimeout(() => handleSearch(), 100);
-                }}
-                disabled={isSearching}
-                className="text-sm px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
-              >
-                Vancouver
-              </button>
-              <button
-                onClick={() => {
-                  setSearchTerm('Ottawa');
-                  setTimeout(() => handleSearch(), 100);
-                }}
-                disabled={isSearching}
-                className="text-sm px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
-              >
-                Ottawa
-              </button>
-              <button
-                onClick={() => {
-                  setSearchTerm('Montreal');
-                  setTimeout(() => handleSearch(), 100);
-                }}
-                disabled={isSearching}
-                className="text-sm px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
-              >
-                Montreal
-              </button>
-              <button
-                onClick={() => {
-                  setSearchTerm('Calgary');
-                  setTimeout(() => handleSearch(), 100);
-                }}
-                disabled={isSearching}
-                className="text-sm px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
-              >
-                Calgary
-              </button>
+              {['Toronto','Vancouver','Ottawa','Montreal','Calgary'].map((city) => (
+                <button
+                  key={city}
+                  onClick={() => {
+                    setSearchTerm(city);
+                    setTimeout(() => handleSearch(), 100);
+                  }}
+                  disabled={isSearching}
+                  className="text-sm px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                >
+                  {city}
+                </button>
+              ))}
               <button
                 onClick={clearSearch}
                 disabled={isSearching}
@@ -376,74 +371,185 @@ export default function ListingsPage() {
                   const status = property.standard_status || property.StandardStatus || 'Active';
                   
                   const isLastProperty = index === properties.length - 1;
-                  
+                  const imageUrl = getPropertyImageUrl(property);
+
+                  // locked view: after the first 8 items, show blurred photo + CTA when NOT logged in
+                  const locked = !isLoggedIn && index >= 8;
+
                   return (
                     <div
                       key={propertyKey}
                       ref={isLastProperty ? lastPropertyRef : null}
                     >
-                      <Link
-                        href={`/listing/${propertyKey}`}
-                        className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow block"
-                      >
-                        <div className="relative h-48">
-                          <img
-                            src={getPlaceholderImage(index)}
-                            alt={`Property in ${displayCity}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <button 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              console.log('Toggle favorite for:', propertyKey);
-                            }}
-                            className="absolute top-4 right-4 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
-                          >
-                            <Heart className="w-5 h-5 text-gray-700" />
-                          </button>
-                          <div className="absolute bottom-4 left-4">
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              status === 'Active' ? 'bg-green-500 text-white' :
-                              status === 'Pending' ? 'bg-yellow-500 text-white' :
-                              'bg-gray-500 text-white'
-                            }`}>
-                              {status}
-                            </span>
+                      {locked ? (
+                        // Locked card (not clickable)
+                        <div className="bg-white rounded-xl shadow-md overflow-hidden block relative">
+                          {/* Image container */}
+                          <div className="relative h-48 bg-gray-50 flex items-center justify-center overflow-hidden">
+                            {imageUrl ? (
+                              <img
+                                src={imageUrl}
+                                alt={`Property in ${displayCity}`}
+                                className="w-full h-full object-cover filter blur-md scale-105"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.onerror = null;
+                                  target.src = '';
+                                  target.style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 filter blur-md">
+                                <div className="text-sm font-medium">No image found</div>
+                              </div>
+                            )}
+
+                            {/* translucent overlay to dim the blurred image and hold CTA */}
+                            <div className="absolute inset-0 bg-black/35 flex items-center justify-center p-4">
+                              <div className="text-center space-y-3 pointer-events-none">
+                              
+                                {/* Buttons - allow pointer events only for buttons */}
+                                <div className="mt-2 flex gap-3 justify-center pointer-events-auto">
+                                  <Link href="/login" className="px-4 py-2 bg-white text-blue-700 rounded-lg font-medium hover:bg-gray-100">
+                                    Login
+                                  </Link>
+                                
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Favorite icon still visible but disabled */}
+                            <div className="absolute top-4 right-4 w-10 h-10 bg-white/80 rounded-full flex items-center justify-center">
+                              <Heart className="w-5 h-5 text-gray-700 opacity-60" />
+                            </div>
+
+                            <div className="absolute bottom-4 left-4">
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                status === 'Active' ? 'bg-green-500 text-white' :
+                                status === 'Pending' ? 'bg-yellow-500 text-white' :
+                                'bg-gray-500 text-white'
+                              }`}>
+                                {status}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                        <div className="p-4">
-                          <h3 className="font-semibold text-gray-900 mb-1 truncate">
-                            {displayPropertyType} in {displayCity}
-                          </h3>
-                          <p className="text-lg font-bold text-blue-600 mb-3">
-                            {new Intl.NumberFormat('en-US', {
-                              style: 'currency',
-                              currency: 'USD',
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 0,
-                            }).format(displayPrice)}
-                          </p>
-                          <div className="flex items-center gap-4 text-gray-600 text-sm">
-                            {bedCount > 0 && (
+
+                          {/* Card body (small preview, read-only) */}
+                          <div className="p-4">
+                            <h3 className="font-semibold text-gray-900 mb-1 truncate">
+                              {displayPropertyType} in {displayCity}
+                            </h3>
+                            <p className="text-lg font-bold text-blue-600 mb-3">
+                              {new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: 'USD',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              }).format(displayPrice)}
+                            </p>
+                            <div className="flex items-center gap-4 text-gray-600 text-sm">
+                              {bedCount > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <Bed className="w-4 h-4" />
+                                  <span>{bedCount}</span>
+                                </div>
+                              )}
+                              {bathCount > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <Bath className="w-4 h-4" />
+                                  <span>{bathCount}</span>
+                                </div>
+                              )}
                               <div className="flex items-center gap-1">
-                                <Bed className="w-4 h-4" />
-                                <span>{bedCount}</span>
+                                <Maximize className="w-4 h-4" />
+                                <span className="text-xs">{property.StateOrProvince}</span>
                               </div>
-                            )}
-                            {bathCount > 0 && (
-                              <div className="flex items-center gap-1">
-                                <Bath className="w-4 h-4" />
-                                <span>{bathCount}</span>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-1">
-                              <Maximize className="w-4 h-4" />
-                              <span className="text-xs">{property.StateOrProvince}</span>
                             </div>
                           </div>
                         </div>
-                      </Link>
+                      ) : (
+                        // Normal clickable card
+                        <Link
+                          href={`/listing/${propertyKey}`}
+                          className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow block"
+                        >
+                          <div className="relative h-48 bg-gray-50 flex items-center justify-center">
+                            {imageUrl ? (
+                              <img
+                                src={imageUrl}
+                                alt={`Property in ${displayCity}`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.onerror = null;
+                                  target.src = '';
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.querySelectorAll('.no-image-fallback').forEach(el => (el as HTMLElement).style.display = 'flex');
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <div className="no-image-fallback w-full h-full flex flex-col items-center justify-center text-gray-500">
+                                <div className="text-sm font-medium">No image found</div>
+                              </div>
+                            )}
+
+                            <button 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log('Toggle favorite for:', propertyKey);
+                              }}
+                              className="absolute top-4 right-4 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
+                            >
+                              <Heart className="w-5 h-5 text-gray-700" />
+                            </button>
+
+                            <div className="absolute bottom-4 left-4">
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                status === 'Active' ? 'bg-green-500 text-white' :
+                                status === 'Pending' ? 'bg-yellow-500 text-white' :
+                                'bg-gray-500 text-white'
+                              }`}>
+                                {status}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <h3 className="font-semibold text-gray-900 mb-1 truncate">
+                              {displayPropertyType} in {displayCity}
+                            </h3>
+                            <p className="text-lg font-bold text-blue-600 mb-3">
+                              {new Intl.NumberFormat('en-US', {
+                                style: 'currency',
+                                currency: 'USD',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              }).format(displayPrice)}
+                            </p>
+                            <div className="flex items-center gap-4 text-gray-600 text-sm">
+                              {bedCount > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <Bed className="w-4 h-4" />
+                                  <span>{bedCount}</span>
+                                </div>
+                              )}
+                              {bathCount > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <Bath className="w-4 h-4" />
+                                  <span>{bathCount}</span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-1">
+                                <Maximize className="w-4 h-4" />
+                                <span className="text-xs">{property.StateOrProvince}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      )}
                     </div>
                   );
                 })}
@@ -461,7 +567,7 @@ export default function ListingsPage() {
               {!hasMore && !isLoadingMore && properties.length > 0 && (
                 <div className="text-center py-8">
                   <p className="text-gray-500">
-                    {currentCity ? `Showing all properties in ${currentCity}` : 'You have reached the end of the results'}
+                    {currentCity ? `Showing all properties in ${currentCity}` : (isLoggedIn ? 'You have reached the end of the results' : 'Login to see more listings')}
                   </p>
                 </div>
               )}

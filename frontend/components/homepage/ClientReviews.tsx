@@ -31,7 +31,7 @@ export default function ClientReviews() {
   ];
 
   return (
-    <div className="py-16 bg-gray-50">
+    <div className="py-8 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-12">
           <h2 className="text-ds-h2 text-ds-heading font-inter">Clients Reviews</h2>

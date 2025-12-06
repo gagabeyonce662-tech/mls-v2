@@ -113,7 +113,7 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
   };
 
   return (
-    <div className="py-16">
+    <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header with View All button */}
         <div className="flex items-center justify-between mb-8">
