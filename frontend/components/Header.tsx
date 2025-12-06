@@ -99,19 +99,8 @@ export default function Header() {
 
             {/* 📞 Login Button */}
             <div className="flex items-center space-x-3">
-              <Button
-                variant="ghost"
-                className="text-ds-heading hover:text-ds-primary px-4 font-inter"
-                style={{ backgroundColor: colors.icon, color: colors.cards }}
-              >
-                Login
-              </Button>
-              <Button
-                className="px-6 font-semibold font-inter transition-opacity hover:opacity-90"
-                style={{ backgroundColor: colors.icon, color: colors.cards }}
-              >
-                Get Started
-              </Button>
+           
+             
             </div>
           </div>
         </div>

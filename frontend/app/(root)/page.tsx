@@ -19,6 +19,37 @@ import {
 } from '@/lib/api';
 import { useProvince } from '@/contexts/ProvinceContext';
 
+// A small mobile drawer for filters. Keeps the page responsive without changing other components.
+function MobileFilterDrawer({ open, onClose, onPropertiesUpdate }: { open: boolean; onClose: () => void; onPropertiesUpdate: (props: Property[], q?: string) => void }) {
+  return (
+    <div aria-hidden={!open} className={`fixed inset-0 z-50 transition-transform duration-300 ${open ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+      {/* backdrop */}
+      <div
+        onClick={onClose}
+        className={`absolute inset-0 bg-black/40 transition-opacity ${open ? 'opacity-100' : 'opacity-0'}`}
+      />
+
+      {/* drawer panel */}
+      <aside
+        role="dialog"
+        aria-modal="true"
+        className={`absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-xl transform transition-transform ${open ? 'translate-x-0' : 'translate-x-full'}`}
+        style={{ borderLeft: `1px solid ${colors.boarder}` }}
+      >
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="text-lg font-medium">Filters</h3>
+          <button onClick={onClose} aria-label="Close filters" className="text-sm px-2 py-1 rounded-md">Close</button>
+        </div>
+
+        <div className="p-4 overflow-auto" style={{ maxHeight: 'calc(100vh - 64px)' }}>
+          {/* PropertyFilter is designed to be embeddable; it will call onPropertiesUpdate when user applies filters */}
+          <PropertyFilter onPropertiesUpdate={onPropertiesUpdate} />
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,9 +60,11 @@ export default function HomePage() {
   const hasInitialLoadCompleted = useRef(false);
   const prevProvinceRef = useRef<string | null>(null);
 
+  // Mobile drawer state
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+
   // 1. INITIAL LOAD: Only ONCE when page loads
   useEffect(() => {
-    // Skip if already loaded
     if (hasInitialLoadCompleted.current) return;
     
     const loadInitialProperties = async () => {
@@ -39,18 +72,12 @@ export default function HomePage() {
       console.log('🚀 INITIAL PAGE LOAD - Fetching ALL exclusive properties (NO filters)...');
       
       try {
-        // Call exclusive-properties1/ with NO parameters
         const response = await fetchExclusiveProperties({});
-        
         console.log('✅ INITIAL LOAD COMPLETE:', response.results?.length || 0, 'properties');
-        
         setProperties(response.results || []);
         setSearchQuery("Exclusive Properties");
         hasInitialLoadCompleted.current = true;
-        
-        // Initialize previous province ref
         prevProvinceRef.current = selectedProvince;
-        
       } catch (error) {
         console.error('❌ Error in initial load:', error);
       } finally {
@@ -59,40 +86,24 @@ export default function HomePage() {
     };
 
     loadInitialProperties();
-  }, []); // Empty deps = runs ONLY on mount
+  }, []);
 
   // 2. Handle PROVINCE CHANGES from dropdown ONLY
   useEffect(() => {
-    // Skip if:
-    // 1. Initial load hasn't completed yet
-    // 2. No province selected (shouldn't happen but just in case)
-    // 3. Province hasn't actually changed
     if (!hasInitialLoadCompleted.current || !selectedProvince) return;
-    
     const currentProvince = selectedProvince;
     const previousProvince = prevProvinceRef.current;
-    
-    // If province hasn't changed, do nothing
     if (currentProvince === previousProvince) return;
-    
-    console.log('🔄 Province changed from', previousProvince, 'to', currentProvince);
     
     const loadPropertiesForProvince = async () => {
       setIsLoading(true);
-      
       try {
         const provinceName = getProvinceName(currentProvince);
-        console.log('📌 Loading properties for:', provinceName);
-        
         if (provinceName === "All Provinces") {
-          // If "All Provinces" selected, fetch without province filter
-          console.log('🌍 Fetching ALL properties (All Provinces selected)');
           const response = await fetchExclusiveProperties({});
           setProperties(response.results || []);
           setSearchQuery("All Exclusive Properties");
         } else {
-          // Convert province name to code
-          const filters: ExclusivePropertyFilterParams = {};
           const provinceMapping: { [key: string]: string } = {
             'Ontario': 'ON',
             'Quebec': 'QC',
@@ -109,16 +120,11 @@ export default function HomePage() {
             'Yukon': 'YT'
           };
           const provinceCode = provinceMapping[provinceName] || provinceName;
-          
-          console.log('🎯 Calling API with province filter:', provinceCode);
           const response = await fetchExclusiveProperties({ province: provinceCode });
           setProperties(response.results || []);
           setSearchQuery(`${provinceName} Exclusive Properties`);
         }
-        
-        // Update previous province
         prevProvinceRef.current = currentProvince;
-        
       } catch (error) {
         console.error('❌ Error loading province properties:', error);
       } finally {
@@ -126,63 +132,105 @@ export default function HomePage() {
       }
     };
     
-    // Use setTimeout to ensure this runs after state updates
-    const timer = setTimeout(() => {
-      loadPropertiesForProvince();
-    }, 0);
-    
+    // small delay to allow UI to update if needed
+    const timer = setTimeout(() => loadPropertiesForProvince(), 0);
     return () => clearTimeout(timer);
-    
-  }, [selectedProvince, getProvinceName]); // Only runs when selectedProvince changes
+  }, [selectedProvince, getProvinceName]);
 
-  // Handle properties update from PropertyFilter or HeroSection (search/filter)
   const handlePropertiesUpdate = React.useCallback((newProperties: Property[], query: string = "") => {
     setProperties(newProperties);
     setSearchQuery(query || "Filtered Properties");
   }, []);
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: colors.cards }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: colors.cards }}>
       <Header />
-      <HeroSection onPropertiesUpdate={handlePropertiesUpdate} />
-      
-      {/* Main Content with Sidebar - Sidebar starts below hero with spacing */}
-      <div className="flex mt-8">
-        {/* Left Sidebar - Property Filter with padding */}
-        <div className="hidden lg:block w-80 border-r p-4" style={{ borderColor: colors.boarder }}>
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm font-medium text-blue-800">
-              {searchQuery}
-            </p>
-            <p className="text-xs text-blue-600 mt-1">
-              {isLoading ? 'Loading properties...' : `${properties.length} properties found`}
-            </p>
-            <div className="mt-2 text-xs text-gray-500">
-              <p>API Status: {hasInitialLoadCompleted.current ? 'Initial load complete' : 'Loading...'}</p>
-              <p>Current Province: {getProvinceName(selectedProvince)}</p>
+
+      <main className="w-full flex-1">
+        <HeroSection onPropertiesUpdate={handlePropertiesUpdate} />
+
+        {/* Mobile filter button - visible on small screens */}
+        <div className="max-w-[1800px] mx-auto px-4 lg:px-6 xl:px-8 mt-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold">{searchQuery}</h2>
+              <p className="text-sm text-gray-500 hidden sm:block">{isLoading ? 'Loading properties...' : `${properties.length} properties found`}</p>
+            </div>
+
+            {/* Mobile filter toggle */}
+            <div className="lg:hidden">
+              <button
+                onClick={() => setMobileFilterOpen(true)}
+                className="inline-flex items-center gap-2 px-3 py-2 border rounded-md bg-white"
+                aria-expanded={mobileFilterOpen}
+                aria-controls="mobile-filter-drawer"
+              >
+                Filters
+              </button>
             </div>
           </div>
-          <PropertyFilter onPropertiesUpdate={handlePropertiesUpdate} />
         </div>
-        
-        {/* Main Content Area until Mortgage */}
-        <div className="flex-1">
-          <FeaturedCollections />
-          <FeaturedListings 
-            properties={properties} 
-            isLoading={isLoading} 
-            searchQuery={searchQuery} 
-          />
-          <LocationsSection />
-          <MortgageSection />
+
+        {/* Main two-column layout for lg and above. On small screens everything stacks. */}
+        <div className="flex mt-4 relative px-4 lg:px-6 xl:px-8 gap-4 max-w-[1800px] mx-auto w-full">
+          {/* Left Sidebar - visible on lg+ */}
+          <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0">
+            <div 
+              className="sticky top-4"
+              style={{ 
+                borderRight: `1px solid ${colors.boarder}`,
+                maxHeight: 'calc(100vh - 2rem)',
+                overflowY: 'auto',
+                paddingRight: 12 // avoid content touching the border
+              }}
+            >
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm font-medium text-blue-800">
+                  {searchQuery}
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  {isLoading ? 'Loading properties...' : `${properties.length} properties found`}
+                </p>
+              </div>
+
+              {/* PropertyFilter already has internal padding; avoid double-padding here */}
+              <div style={{ paddingBottom: 12 }}>
+                <PropertyFilter onPropertiesUpdate={handlePropertiesUpdate} />
+              </div>
+            </div>
+          </aside>
+
+          {/* Main Content Area - becomes full width on small screens */}
+          <main className="flex-1 min-w-0 px-0 lg:px-4">
+            <FeaturedCollections />
+
+            {/* FeaturedListings receives properties & will reflow depending on its internal layout - ensure it uses responsive grid */}
+            <FeaturedListings 
+              properties={properties} 
+              isLoading={isLoading} 
+              searchQuery={searchQuery} 
+            />
+
+            <LocationsSection />
+            <MortgageSection />
+
+            {/* On small screens show LatestArticles earlier to give mobile users easy access */}
+            <div className="mt-8 lg:mt-12">
+              <LatestArticles />
+            </div>
+          </main>
         </div>
-      </div>
-      
-      {/* Full Width Sections After Mortgage */}
-      <LatestArticles />
-      <ClientReviews />
-      
+
+        {/* Full Width Sections After Mortgage */}
+        <div className="mt-8 max-w-[1800px] mx-auto px-4 lg:px-6 xl:px-8">
+          <ClientReviews />
+        </div>
+      </main>
+
       <Footer />
+
+      {/* Mobile drawer component - rendered at root so it overlays everything */}
+      <MobileFilterDrawer open={mobileFilterOpen} onClose={() => setMobileFilterOpen(false)} onPropertiesUpdate={(newProps, q) => { setMobileFilterOpen(false); handlePropertiesUpdate(newProps, q); }} />
     </div>
   )
 }

@@ -5,45 +5,45 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 export interface Property {
   PropertyKey: string;
   ListingKey: string;
-  list_price?: string;  // New field from exclusive API
-  listing_key?: string; // New field from exclusive API
+  list_price?: string;
+  listing_key?: string;
   ListPrice: number;
   City: string;
-  city?: string; // New field from exclusive API
+  city?: string;
   StateOrProvince: string;
   PropertySubType: string;
   BedroomsTotal: number;
-  bedrooms_total?: number; // New field from exclusive API
+  bedrooms_total?: number;
   BathroomsTotalInteger: number;
-  bathrooms_total_integer?: number; // New field from exclusive API
+  bathrooms_total_integer?: number;
   StandardStatus: string;
-  standard_status?: string; // New field from exclusive API
+  standard_status?: string;
   ModificationTimestamp: string;
-  unparsed_address?: string; // New field from exclusive API
-  postal_code?: string; // New field from exclusive API
-  latitude?: string; // New field from exclusive API
-  longitude?: string; // New field from exclusive API
-  public_remarks?: string; // New field from exclusive API
-  media?: Array<{ // New field from exclusive API
+  unparsed_address?: string;
+  postal_code?: string;
+  latitude?: string;
+  longitude?: string;
+  public_remarks?: string;
+  media?: Array<{
     media_url: string;
     media_category: string;
     is_preferred: boolean;
     order: number;
   }>;
-  rooms?: Array<{ // New field from exclusive API
+  rooms?: Array<{
     room_type: string;
     room_level: string;
     room_length: string | null;
     room_width: string | null;
     room_dimensions: string;
   }>;
-  category_type?: string; // New field from exclusive API
-  photos_count?: number; // New field from exclusive API
-  listing_url?: string; // New field from exclusive API
-  building_area_total?: string | null; // New field from exclusive API
-  year_built?: string | null; // New field from exclusive API
+  category_type?: string;
+  photos_count?: number;
+  listing_url?: string;
+  building_area_total?: string | null;
+  year_built?: string | null;
   
-  // Legacy fields for backward compatibility
+  // Legacy fields
   Photos?: any[];
   Media?: any[];
   Rooms?: any[];
@@ -82,7 +82,7 @@ export interface Property {
   PostalCode?: string;
   Latitude?: string;
   Longitude?: string;
-  [key: string]: any; // For additional DDF fields
+  [key: string]: any;
 }
 
 export interface PropertyFilterParams {
@@ -102,7 +102,7 @@ export interface ExclusivePropertyFilterParams {
   price_max?: number;
   bedrooms?: number;
   bathrooms?: number;
-  property_type?: string; // Comma-separated list
+  property_sub_type?: string;
   city?: string;
   province?: string;
   postal_code?: string;
@@ -117,9 +117,11 @@ export interface ExclusivePropertyFilterParams {
   has_photos?: boolean;
   new_listings_days?: number;
   standard_status?: string;
+  limit?: number;
+  offset?: number;
 }
 
-// Vlog interfaces remain the same...
+// Vlog interfaces
 export interface VlogCategory {
   id: number;
   name: string;
@@ -145,7 +147,7 @@ export interface VlogPost {
   allow_comments: boolean;
 }
 
-// Vlog functions remain the same...
+// Vlog functions
 export async function fetchVlogPosts(): Promise<VlogPost[]> {
   try {
     console.log('Fetching vlog posts from:', `${API_BASE_URL}/api/vlog/`);
@@ -155,7 +157,7 @@ export async function fetchVlogPosts(): Promise<VlogPost[]> {
       headers: {
         'Content-Type': 'application/json',
       },
-      cache: 'no-store', // Disable caching for fresh data
+      cache: 'no-store',
     });
 
     console.log('API Response status:', response.status);
@@ -181,12 +183,13 @@ export async function fetchVlogPosts(): Promise<VlogPost[]> {
 export async function fetchVlogPostBySlug(slug: string): Promise<VlogPost | null> {
   try {
     console.log('Fetching vlog post by slug:', `${API_BASE_URL}/api/vlog/${slug}/`);
-    
+
     const response = await fetch(`${API_BASE_URL}/api/vlog/${slug}/`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
+      // consider using 'no-cache' or leaving default depending on your next config
       cache: 'no-store',
     });
 
@@ -198,8 +201,7 @@ export async function fetchVlogPostBySlug(slug: string): Promise<VlogPost | null
 
     const data = await response.json();
     console.log('Fetched vlog post:', data.title);
-    
-    // Process tags from comma-separated string to array
+
     return {
       ...data,
       tags: data.tags ? data.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean) : []
@@ -210,7 +212,8 @@ export async function fetchVlogPostBySlug(slug: string): Promise<VlogPost | null
   }
 }
 
-// UPDATED: Original Property API function - NOW USES EXCLUSIVE-PROPERTIES API WITHOUT PARAMS
+
+// Original Property API function
 export async function fetchProperties(filters?: PropertyFilterParams): Promise<Property[]> {
   try {
     console.log('fetchProperties called with filters:', filters);
@@ -219,30 +222,25 @@ export async function fetchProperties(filters?: PropertyFilterParams): Promise<P
     const exclusiveFilters: ExclusivePropertyFilterParams = {};
     
     if (filters) {
-      // Map province from full name to province code if needed
+      // Map filters to exclusive API format
       if (filters.province) {
-        // Check if it's already a province code (2 letters)
-        if (filters.province.length === 2 && filters.province === filters.province.toUpperCase()) {
-          exclusiveFilters.province = filters.province;
-        } else {
-          // Map full province name to code
-          const provinceMapping: { [key: string]: string } = {
-            'Ontario': 'ON',
-            'Quebec': 'QC',
-            'British Columbia': 'BC',
-            'Alberta': 'AB',
-            'Manitoba': 'MB',
-            'Saskatchewan': 'SK',
-            'Nova Scotia': 'NS',
-            'New Brunswick': 'NB',
-            'Newfoundland and Labrador': 'NL',
-            'Prince Edward Island': 'PE',
-            'Northwest Territories': 'NT',
-            'Nunavut': 'NU',
-            'Yukon': 'YT'
-          };
-          exclusiveFilters.province = provinceMapping[filters.province] || filters.province;
-        }
+        // Map full province name to code
+        const provinceMapping: { [key: string]: string } = {
+          'Ontario': 'ON',
+          'Quebec': 'QC',
+          'British Columbia': 'BC',
+          'Alberta': 'AB',
+          'Manitoba': 'MB',
+          'Saskatchewan': 'SK',
+          'Nova Scotia': 'NS',
+          'New Brunswick': 'NB',
+          'Newfoundland and Labrador': 'NL',
+          'Prince Edward Island': 'PE',
+          'Northwest Territories': 'NT',
+          'Nunavut': 'NU',
+          'Yukon': 'YT'
+        };
+        exclusiveFilters.province = provinceMapping[filters.province] || filters.province;
       }
       
       if (filters.city) exclusiveFilters.city = filters.city;
@@ -251,12 +249,10 @@ export async function fetchProperties(filters?: PropertyFilterParams): Promise<P
       if (filters.bedrooms) exclusiveFilters.bedrooms = filters.bedrooms;
       if (filters.bathrooms) exclusiveFilters.bathrooms = filters.bathrooms;
       
-      // Map property_subtype to property_type
       if (filters.property_subtype) {
-        exclusiveFilters.property_type = filters.property_subtype;
+        exclusiveFilters.property_sub_type = filters.property_subtype;
       }
       
-      // Map status to standard_status
       if (filters.status) {
         exclusiveFilters.standard_status = filters.status;
       }
@@ -324,7 +320,7 @@ export async function fetchProperties(filters?: PropertyFilterParams): Promise<P
   }
 }
 
-// NEW: Exclusive Properties API function - UPDATED WITH CORRECT ENDPOINT
+// UPDATED: Exclusive Properties API function for infinite scroll
 export async function fetchExclusiveProperties(filters?: ExclusivePropertyFilterParams): Promise<{
   results: any[];
   count: number;
@@ -335,8 +331,20 @@ export async function fetchExclusiveProperties(filters?: ExclusivePropertyFilter
   try {
     const queryParams = new URLSearchParams();
     
+    // Default values for infinite scroll
+    const limit = filters?.limit || 24;
+    const offset = filters?.offset || 0;
+    
+    // Set default pagination parameters
+    queryParams.append('limit', limit.toString());
+    queryParams.append('offset', offset.toString());
+    
+    // Add all other filters to query params
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
+        // Skip limit and offset as they're already added
+        if (key === 'limit' || key === 'offset') return;
+        
         if (value !== undefined && value !== null && value !== '') {
           // Handle boolean values
           if (typeof value === 'boolean') {
@@ -348,10 +356,7 @@ export async function fetchExclusiveProperties(filters?: ExclusivePropertyFilter
       });
     }
     
-    // CORRECTED URL: Add /mls/ to match your Django URL configuration
-    // Main urls.py: path('api/mls/',include('mls.urls'))
-    // mls/urls.py: path('properties/exclusive-properties1/', ...)
-    // Full URL: /api/mls/properties/exclusive-properties1/
+    // Use the correct endpoint with query parameters
     const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
     console.log('Fetching exclusive properties from:', url);
     
@@ -366,12 +371,14 @@ export async function fetchExclusiveProperties(filters?: ExclusivePropertyFilter
     console.log('Exclusive Properties API Response status:', response.status);
 
     if (!response.ok) {
+      console.error('API Error:', await response.text());
       throw new Error(`Failed to fetch exclusive properties: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
     console.log('Fetched exclusive properties:', data?.results?.length || 0, 'properties');
     
+    // Return the response with proper structure
     return {
       results: data.results || [],
       count: data.count || 0,
@@ -392,7 +399,7 @@ export async function fetchExclusiveProperties(filters?: ExclusivePropertyFilter
   }
 }
 
-// NEW: Function to get ALL exclusive properties without any filters
+// SIMPLIFIED function to get ALL exclusive properties without any filters
 export async function fetchAllExclusiveProperties(): Promise<Property[]> {
   try {
     console.log('Fetching ALL exclusive properties (no filters)');
@@ -455,7 +462,7 @@ export async function fetchAllExclusiveProperties(): Promise<Property[]> {
   }
 }
 
-// Fetch property by key - updated to handle both exclusive and regular properties
+// Fetch property by key
 export async function fetchPropertyByKey(propertyKey: string): Promise<Property | null> {
   try {
     console.log('Fetching property by key:', `${API_BASE_URL}/api/mls/properties/${propertyKey}/`);
@@ -481,111 +488,80 @@ export async function fetchPropertyByKey(propertyKey: string): Promise<Property 
     const data = await response.json();
     console.log('Fetched property data:', data);
     
-    // Check if this is an exclusive property response
-    if (data.listing_key || data.category_type === 'exclusive') {
-      // Map exclusive property to Property interface
-      return {
-        PropertyKey: data.listing_key || propertyKey,
-        ListingKey: data.listing_key || propertyKey,
-        listing_key: data.listing_key,
-        list_price: data.list_price,
-        ListPrice: data.list_price ? parseFloat(data.list_price) : 0,
-        City: data.city || '',
-        city: data.city,
-        StateOrProvince: data.StateOrProvince || 'ON',
-        PropertySubType: data.category_type || 'Exclusive',
-        BedroomsTotal: data.bedrooms_total || 0,
-        bedrooms_total: data.bedrooms_total,
-        BathroomsTotalInteger: data.bathrooms_total_integer || 0,
-        bathrooms_total_integer: data.bathrooms_total_integer,
-        StandardStatus: data.standard_status || 'Active',
-        standard_status: data.standard_status,
-        ModificationTimestamp: data.ModificationTimestamp || new Date().toISOString(),
-        unparsed_address: data.unparsed_address,
-        postal_code: data.postal_code,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        public_remarks: data.public_remarks,
-        media: data.media || [],
-        rooms: data.rooms || [],
-        category_type: data.category_type,
-        photos_count: data.photos_count,
-        listing_url: data.listing_url,
-        building_area_total: data.building_area_total,
-        year_built: data.year_built,
-        
-        // Legacy fields for backward compatibility
-        Photos: data.media?.map((m: any) => ({ PhotoURL: m.media_url })) || [],
-        Media: data.media,
-        Rooms: data.rooms,
-        LivingArea: data.building_area_total ? parseFloat(data.building_area_total) : null,
-        YearBuilt: data.year_built ? parseInt(data.year_built) : null,
-        LotSizeArea: null,
-        GarageSpaces: null,
-        ElementarySchool: null,
-        MiddleSchool: null,
-        HighSchool: null,
-        School: null,
-        DirectionsToProperty: null,
-        PrivateRemarks: null,
-        Description: data.public_remarks,
-        OriginalListPrice: null,
-        DaysOnMarket: null,
-        CumulativeDaysOnMarket: null,
-        PropertyType: data.category_type,
-        Zoning: null,
-        LotSizeDimensions: null,
-        ConstructionMaterials: null,
-        Architectural_Style: null,
-        Heating: null,
-        Cooling: null,
-        Utilities: null,
-        WaterSource: null,
-        Sewer: null,
-        Foundation: null,
-        Roof: null,
-        InteriorFeatures: null,
-        ExteriorFeatures: null,
-        Appliances: null,
-        CountyOrParish: null,
-        Directions: null,
-        PublicRemarks: data.public_remarks,
-        PostalCode: data.postal_code,
-        Latitude: data.latitude,
-        Longitude: data.longitude,
-        
-        // Add all other properties from the response
-        ...data
-      };
-    } else {
-      // It's a regular property
-      return {
-        ...data,
-        // Ensure backward compatibility
-        PropertyKey: data.PropertyKey || propertyKey,
-        ListingKey: data.ListingKey || data.PropertyKey || propertyKey,
-        ListPrice: data.ListPrice || 0,
-        City: data.City || '',
-        StateOrProvince: data.StateOrProvince || '',
-        PropertySubType: data.PropertySubType || '',
-        BedroomsTotal: data.BedroomsTotal || 0,
-        BathroomsTotalInteger: data.BathroomsTotalInteger || 0,
-        StandardStatus: data.StandardStatus || '',
-        ModificationTimestamp: data.ModificationTimestamp || new Date().toISOString(),
-        
-        // Map legacy fields if needed
-        Photos: data.Photos || data.Media || [],
-        Media: data.Media || data.Photos || [],
-        Rooms: data.Rooms || [],
-        LivingArea: data.LivingArea || null,
-        YearBuilt: data.YearBuilt || null,
-        PublicRemarks: data.PublicRemarks || data.Description || '',
-        PostalCode: data.PostalCode || '',
-        Latitude: data.Latitude || '',
-        Longitude: data.Longitude || '',
-        Description: data.Description || data.PublicRemarks || ''
-      };
-    }
+    // Map property to Property interface
+    return {
+      PropertyKey: data.listing_key || propertyKey,
+      ListingKey: data.listing_key || propertyKey,
+      listing_key: data.listing_key,
+      list_price: data.list_price,
+      ListPrice: data.list_price ? parseFloat(data.list_price) : 0,
+      City: data.city || '',
+      city: data.city,
+      StateOrProvince: data.StateOrProvince || 'ON',
+      PropertySubType: data.category_type || 'Exclusive',
+      BedroomsTotal: data.bedrooms_total || 0,
+      bedrooms_total: data.bedrooms_total,
+      BathroomsTotalInteger: data.bathrooms_total_integer || 0,
+      bathrooms_total_integer: data.bathrooms_total_integer,
+      StandardStatus: data.standard_status || 'Active',
+      standard_status: data.standard_status,
+      ModificationTimestamp: data.ModificationTimestamp || new Date().toISOString(),
+      unparsed_address: data.unparsed_address,
+      postal_code: data.postal_code,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      public_remarks: data.public_remarks,
+      media: data.media || [],
+      rooms: data.rooms || [],
+      category_type: data.category_type,
+      photos_count: data.photos_count,
+      listing_url: data.listing_url,
+      building_area_total: data.building_area_total,
+      year_built: data.year_built,
+      
+      // Legacy fields for backward compatibility
+      Photos: data.media?.map((m: any) => ({ PhotoURL: m.media_url })) || [],
+      Media: data.media,
+      Rooms: data.rooms,
+      LivingArea: data.building_area_total ? parseFloat(data.building_area_total) : null,
+      YearBuilt: data.year_built ? parseInt(data.year_built) : null,
+      LotSizeArea: null,
+      GarageSpaces: null,
+      ElementarySchool: null,
+      MiddleSchool: null,
+      HighSchool: null,
+      School: null,
+      DirectionsToProperty: null,
+      PrivateRemarks: null,
+      Description: data.public_remarks,
+      OriginalListPrice: null,
+      DaysOnMarket: null,
+      CumulativeDaysOnMarket: null,
+      PropertyType: data.category_type,
+      Zoning: null,
+      LotSizeDimensions: null,
+      ConstructionMaterials: null,
+      Architectural_Style: null,
+      Heating: null,
+      Cooling: null,
+      Utilities: null,
+      WaterSource: null,
+      Sewer: null,
+      Foundation: null,
+      Roof: null,
+      InteriorFeatures: null,
+      ExteriorFeatures: null,
+      Appliances: null,
+      CountyOrParish: null,
+      Directions: null,
+      PublicRemarks: data.public_remarks,
+      PostalCode: data.postal_code,
+      Latitude: data.latitude,
+      Longitude: data.longitude,
+      
+      // Add all other properties from the response
+      ...data
+    };
   } catch (error) {
     console.error('Error fetching property by key:', error);
     return null;
@@ -633,7 +609,7 @@ export async function testExclusiveEndpoint(): Promise<void> {
   }
 }
 
-// NEW: Test price range specifically
+// Test price range specifically
 export async function testPriceRangeEndpoint(minPrice?: number, maxPrice?: number): Promise<void> {
   try {
     const queryParams = new URLSearchParams();
@@ -691,5 +667,139 @@ export async function testMLSFilterEndpoint(): Promise<void> {
     }
   } catch (error) {
     console.error('Error testing MLS filter endpoint:', error);
+  }
+}
+
+// New function for infinite scroll with specific offset
+export async function fetchExclusivePropertiesWithOffset(
+  offset: number = 0,
+  limit: number = 24,
+  filters?: Omit<ExclusivePropertyFilterParams, 'limit' | 'offset'>
+): Promise<{
+  results: any[];
+  count: number;
+  next: number | null;
+  previous: number | null;
+  updated_to_exclusive: number;
+}> {
+  return fetchExclusiveProperties({
+    ...filters,
+    limit,
+    offset
+  });
+}
+
+export async function uploadPreConnProperties(
+  file?: File | null,
+  options?: {
+    fieldName?: string;
+    authToken?: string | null;
+    additionalFormFields?: Record<string, string>;
+    useGet?: boolean; // default true per your request
+  }
+): Promise<any> {
+  const fieldName = options?.fieldName ?? 'file';
+  const authToken = options?.authToken ?? null;
+  const additionalFormFields = options?.additionalFormFields ?? {};
+  const useGet = options?.useGet ?? true;
+
+  const urlBase = `${API_BASE_URL}/api/mls/properties/pre-conn-properties/`;
+
+  if (useGet) {
+    // GET mode: send small CSV content as query param `csv` (URL-encoded).
+    // If file is not provided, just call GET without csv param.
+    try {
+      let url = urlBase;
+      if (file) {
+        // read as text
+        const text = await file.text();
+        // encodeURIComponent to be safe
+        const encoded = encodeURIComponent(text);
+
+        // If you want to send filename too:
+        const filenameParam = file.name ? `&filename=${encodeURIComponent(file.name)}` : '';
+
+        // add additional fields as query params
+        const extra = Object.entries(additionalFormFields)
+          .map(([k, v]) => `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+          .join('');
+
+        // build final URL
+        url = `${url}?csv=${encoded}${filenameParam}${extra}`;
+      } else {
+        // no file => simple GET to endpoint (server may process default behavior)
+        url = urlBase;
+      }
+
+      console.log('GET uploading (via query) to:', urlBase, ' (length may be', url.length, 'chars )');
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json', // bodyless GET — content-type can be JSON
+      };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers,
+        credentials: 'same-origin',
+      });
+
+      const text = await resp.text();
+      let data: any = text;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        // not JSON, keep text
+      }
+
+      if (!resp.ok) {
+        const err = new Error(`GET upload failed: ${resp.status} ${resp.statusText}`);
+        (err as any).body = data;
+        throw err;
+      }
+
+      return data;
+    } catch (err) {
+      console.error('Error in uploadPreConnProperties (GET mode):', err);
+      throw err;
+    }
+  } else {
+    // POST mode: standard multipart/form-data upload
+    try {
+      if (!file) throw new Error('No file provided for POST upload');
+
+      const form = new FormData();
+      form.append(fieldName, file);
+      Object.entries(additionalFormFields).forEach(([k, v]) => form.append(k, v));
+
+      const headers: Record<string, string> = {};
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+      console.log('POST uploading to:', urlBase, 'file:', file.name);
+
+      const resp = await fetch(urlBase, {
+        method: 'POST',
+        headers, // do NOT set Content-Type — browser will set multipart boundary
+        body: form,
+        credentials: 'same-origin',
+      });
+
+      const text = await resp.text();
+      let data: any = text;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {}
+
+      if (!resp.ok) {
+        const err = new Error(`POST upload failed: ${resp.status} ${resp.statusText}`);
+        (err as any).body = data;
+        throw err;
+      }
+
+      return data;
+    } catch (err) {
+      console.error('Error in uploadPreConnProperties (POST mode):', err);
+      throw err;
+    }
   }
 }

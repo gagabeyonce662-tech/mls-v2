@@ -31,11 +31,11 @@ export default function FeaturedCollections() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12">
           {collections.map((collection) => (
             <div
               key={collection.id}
-              className="group relative h-64 rounded-xl overflow-hidden shadow-lg cursor-pointer transform transition-transform hover:scale-105"
+              className="group relative h-80 rounded-xl overflow-hidden shadow-lg cursor-pointer transform transition-transform hover:scale-105"
             >
               <img
                 src={collection.image}

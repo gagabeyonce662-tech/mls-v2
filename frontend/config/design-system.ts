@@ -1,3 +1,11 @@
+
+// Re-usable button class generator
+const BTN_BASE = "inline-flex items-center justify-center h-10 px-4 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed";
+const BTN_PRIMARY = `${BTN_BASE} shadow-lg`;
+const BTN_SECONDARY = `${BTN_BASE} border`;
+const BTN_TOGGLE = `${BTN_BASE} border`;
+const BTN_SELECTED = "ring-2 ring-offset-1";
+
 /**
  * Design System Configuration
  * Central design tokens for colors, typography, spacing, etc.

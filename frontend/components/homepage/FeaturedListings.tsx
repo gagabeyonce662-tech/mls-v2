@@ -13,63 +13,103 @@ interface FeaturedListingsProps {
 
 export default function FeaturedListings({ properties, isLoading, searchQuery }: FeaturedListingsProps) {
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(price);
   };
 
-  const getPlaceholderImage = (index: number) => {
-    const images = [
-      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80",
-      "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80",
-      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&q=80",
-      "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=600&q=80",
-      "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600&q=80",
-      "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=600&q=80",
-    ];
-    return images[index % images.length];
-  };
-
-  // Helper function to get the correct property key for the link
+  // Helper to produce a stable property key for links
   const getPropertyKey = (property: Property) => {
-    const key = property.listing_key || property.PropertyKey || `property-${property.city}-${property.ListPrice}`;
+    const key = (property as any).listing_key || (property as any).PropertyKey || `property-${(property as any).city || (property as any).City || "unknown"}-${(property as any).ListPrice || (property as any).list_price || "0"}`;
     return key;
   };
 
-  // Helper function to get price for display
+  // Helper to get numeric display price
   const getDisplayPrice = (property: Property) => {
-    if (property.list_price) {
-      return parseFloat(property.list_price);
+    const possible = (property as any).list_price ?? (property as any).ListPrice ?? (property as any).ListPriceNumeric ?? 0;
+    // If string, try parse
+    if (typeof possible === "string") {
+      const parsed = parseFloat(possible.replace(/[^0-9.-]+/g, ""));
+      return Number.isFinite(parsed) ? parsed : 0;
     }
-    return property.ListPrice || 0;
+    if (typeof possible === "number") return possible;
+    return 0;
   };
 
-  // Helper function to get city for display
   const getDisplayCity = (property: Property) => {
-    return property.city || property.City || 'Unknown City';
+    return (property as any).city || (property as any).City || "Unknown City";
   };
 
-  // Helper function to get property type for display
   const getDisplayPropertyType = (property: Property) => {
-    return property.category_type || property.PropertySubType || 'Property';
+    return (property as any).category_type || (property as any).PropertySubType || "Property";
   };
 
-  // Helper function to get bed count
   const getBedCount = (property: Property) => {
-    return property.bedrooms_total || property.BedroomsTotal || 0;
+    return (property as any).bedrooms_total ?? (property as any).BedroomsTotal ?? 0;
   };
 
-  // Helper function to get bath count
   const getBathCount = (property: Property) => {
-    return property.bathrooms_total_integer || property.BathroomsTotalInteger || 0;
+    return (property as any).bathrooms_total_integer ?? (property as any).BathroomsTotalInteger ?? 0;
   };
 
-  // Helper function to get status
   const getStatus = (property: Property) => {
-    return property.standard_status || property.StandardStatus || 'For Sale';
+    return (property as any).standard_status || (property as any).StandardStatus || "For Sale";
+  };
+
+  /**
+   * getThumbnail
+   * Attempts to find a usable thumbnail URL from different possible shapes:
+   * - photos: ["https://..."]
+   * - photos: [{ url: "...", MediaURL: "...", src: "..." }]
+   * - media / Media fields
+   * Returns string URL or null.
+   */
+  const getThumbnail = (property: Property): string | null => {
+    const candidateFields = [
+      (property as any).photos,
+      (property as any).Photos,
+      (property as any).media,
+      (property as any).Media,
+      (property as any).images,
+      (property as any).Images,
+    ];
+
+    for (const field of candidateFields) {
+      if (!field) continue;
+
+      // If it's an array
+      if (Array.isArray(field) && field.length > 0) {
+        const first = field[0];
+        // string case
+        if (typeof first === "string" && first.trim() !== "") return first;
+        // object case: try common keys
+        if (typeof first === "object" && first !== null) {
+          const possibleKeys = ["url", "media_url", "MediaURL", "MediaUrl", "src", "thumbnail", "thumbnailUrl", "ImageURL", "imageUrl"];
+          for (const k of possibleKeys) {
+            if (first[k]) return first[k];
+          }
+        }
+      }
+
+      // If it's a single object with URL-like keys
+      if (typeof field === "object" && !Array.isArray(field)) {
+        const possibleKeys = ["url", "media_url", "MediaURL", "MediaUrl", "src", "thumbnail", "thumbnailUrl", "ImageURL", "imageUrl"];
+        for (const k of possibleKeys) {
+          if ((field as any)[k]) return (field as any)[k];
+        }
+      }
+
+      // If it's a string (single url)
+      if (typeof field === "string" && field.trim() !== "") {
+        return field;
+      }
+    }
+
+    // No image found
+    return null;
   };
 
   return (
@@ -79,19 +119,14 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {searchQuery ? `Properties in ${searchQuery}` : 'Featured Properties'}
+              {searchQuery ? `Properties in ${searchQuery}` : "Featured Properties"}
             </h2>
-            <p className="text-gray-600">
-              {isLoading ? 'Finding properties...' : `${properties.length} properties found`}
-            </p>
+            <p className="text-gray-600">{isLoading ? "Finding properties..." : `${properties.length} properties found`}</p>
           </div>
-          
+
           {/* View All button - only show when there are properties */}
           {!isLoading && properties.length > 0 && (
-            <Link 
-              href="/listing" 
-              className="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
+            <Link href="/listing" className="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               View All Properties
               <ChevronRight className="w-4 h-4 ml-1" />
             </Link>
@@ -110,9 +145,7 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
         {!isLoading && properties.length === 0 && (
           <div className="text-center py-16">
             <div className="text-xl font-semibold text-gray-900 mb-2">No properties found</div>
-            <p className="text-gray-600">
-              Try searching for a different city or check your spelling.
-            </p>
+            <p className="text-gray-600">Try searching for a different city or check your spelling.</p>
           </div>
         )}
 
@@ -128,62 +161,76 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
                 const bedCount = getBedCount(property);
                 const bathCount = getBathCount(property);
                 const status = getStatus(property);
-                
+                const thumbnail = getThumbnail(property);
+
                 return (
                   <Link
                     key={propertyKey}
                     href={`/listing/${propertyKey}`}
                     className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow"
                   >
-                    <div className="relative h-56">
-                      <img
-                        src={getPlaceholderImage(index)}
-                        alt={`Property in ${displayCity}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <button 
+                    <div className="relative h-56 bg-gray-100">
+                      {thumbnail ? (
+                        // Real thumbnail
+                        // Using a plain <img/> is fine; swap to next/image if you want optimization
+                        <img src={thumbnail} alt={`Property in ${displayCity}`} className="w-full h-full object-cover" />
+                      ) : (
+                        // No image placeholder
+                        <div className="w-full h-full bg-gray-200 flex flex-col items-center justify-center text-gray-600 px-4">
+                          <div className="text-sm font-medium">No Image Available</div>
+                          <div className="text-xs mt-1">—</div>
+                        </div>
+                      )}
+
+                      <button
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log('Toggle favorite for:', propertyKey);
+                          console.log("Toggle favorite for:", propertyKey);
+                          // TODO: toggle favorite state
                         }}
                         className="absolute top-4 right-4 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
                       >
                         <Heart className="w-5 h-5 text-gray-700" />
                       </button>
+
                       <div className="absolute bottom-4 left-4">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          status === 'Active' ? 'bg-green-500 text-white' :
-                          status === 'Pending' ? 'bg-yellow-500 text-white' :
-                          'bg-gray-500 text-white'
-                        }`}>
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            status === "Active" ? "bg-green-500 text-white" : status === "Pending" ? "bg-yellow-500 text-white" : "bg-gray-500 text-white"
+                          }`}
+                        >
                           {status}
                         </span>
                       </div>
                     </div>
+
                     <div className="p-5">
                       <h3 className="font-semibold text-gray-900 mb-2 truncate">
                         {displayPropertyType} in {displayCity}
                       </h3>
-                      <p className="text-xl font-bold text-blue-600 mb-4">
-                        {formatPrice(displayPrice)}
-                      </p>
+                      <p className="text-xl font-bold text-blue-600 mb-4">{formatPrice(displayPrice)}</p>
+
                       <div className="flex items-center gap-4 text-gray-600 text-sm">
                         {bedCount > 0 && (
                           <div className="flex items-center gap-1">
                             <Bed className="w-4 h-4" />
-                            <span>{bedCount} {bedCount === 1 ? 'Bed' : 'Beds'}</span>
+                            <span>
+                              {bedCount} {bedCount === 1 ? "Bed" : "Beds"}
+                            </span>
                           </div>
                         )}
                         {bathCount > 0 && (
                           <div className="flex items-center gap-1">
                             <Bath className="w-4 h-4" />
-                            <span>{bathCount} {bathCount === 1 ? 'Bath' : 'Baths'}</span>
+                            <span>
+                              {bathCount} {bathCount === 1 ? "Bath" : "Baths"}
+                            </span>
                           </div>
                         )}
                         <div className="flex items-center gap-1">
                           <Maximize className="w-4 h-4" />
-                          <span className="text-xs">{property.StateOrProvince}</span>
+                          <span className="text-xs">{(property as any).StateOrProvince ?? (property as any).state ?? ""}</span>
                         </div>
                       </div>
                     </div>
@@ -191,13 +238,10 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
                 );
               })}
             </div>
-            
+
             {/* View All button at bottom (mobile friendly) */}
             <div className="mt-8 text-center lg:hidden">
-              <Link 
-                href="/listing" 
-                className="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
+              <Link href="/listing" className="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                 View All Properties ({properties.length})
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Link>
