@@ -293,14 +293,7 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
     setTestResult("");
   };
 
-  const handleBasementChange = (option: string) => {
-    const value = option.toLowerCase().replace(" ", "-");
-    if (basement.includes(value)) {
-      setBasement(basement.filter(item => item !== value));
-    } else {
-      setBasement([...basement, value]);
-    }
-  };
+
 
   // Format price for display
   const formatPrice = (price: string) => {
@@ -337,7 +330,7 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
-                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  <span className="animate-spin rounded-full h-4 w-2 border-b-2 border-white" />
                   Applying Filters...
                 </span>
               ) : (
@@ -416,36 +409,7 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
             })}
           </div>
         </div>
-
-        {/* Notify For */}
-        <div className="bg-white/5 p-3 rounded-lg">
-          <h3 className="font-semibold mb-3 text-sm" style={{ color: colors.heading }}>
-            Status
-          </h3>
-          <div className="space-y-2">
-            {["All", "For Sale", "Sold", "De-listed"].map((option) => (
-              <label key={option} className="flex items-center cursor-pointer group">
-                <div className="relative mr-2">
-                  <input
-                    type="radio"
-                    name="notify"
-                    value={option.toLowerCase().replace(" ", "-")}
-                    checked={notifyFor === option.toLowerCase().replace(" ", "-")}
-                    onChange={(e) => setNotifyFor(e.target.value)}
-                    className="sr-only"
-                    disabled={isLoading}
-                  />
-                  <div className={`w-4 h-4 border rounded-full flex items-center justify-center ${notifyFor === option.toLowerCase().replace(" ", "-") ? 'border-blue-500' : 'border-gray-400'} ${isLoading ? 'opacity-50' : ''}`}>
-                    {notifyFor === option.toLowerCase().replace(" ", "-") && (
-                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                    )}
-                  </div>
-                </div>
-                <span className={`text-sm group-hover:text-blue-400 transition-colors ${isLoading ? 'opacity-50' : ''}`} style={{ color: colors.body }}>{option}</span>
-              </label>
-            ))}
-          </div>
-        </div>
+       
 
         {/* Property Type - MULTIPLE SELECTION */}
         <div className="bg-white/5 p-3 rounded-lg">
