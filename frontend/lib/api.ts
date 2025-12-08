@@ -426,7 +426,7 @@ export async function fetchLeaseProperties(filters?: LeasePropertyFilterParams):
     const queryParams = new URLSearchParams();
     
     // Default values for pagination
-    const limit = filters?.limit || 24;
+    const limit = filters?.limit || 6;
     const offset = filters?.offset || 0;
     
     queryParams.append('limit', limit.toString());
