@@ -4,16 +4,19 @@ import React, { useState, useEffect, useRef } from 'react'
 import HeroSection from '@/components/homepage/HeroSection';
 import FeaturedCollections from '@/components/homepage/FeaturedCollections';
 import FeaturedListings from '@/components/homepage/FeaturedListings';
+import RentalProperties from '@/components/homepage/RentalProperties';
 import LocationsSection from '@/components/homepage/LocationsSection';
 import MortgageSection from '@/components/homepage/MortgageSection';
 import LatestArticles from '@/components/homepage/LatestArticles';
 import ClientReviews from '@/components/homepage/ClientReviews';
+
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PropertyFilter from '@/components/PropertyFilter';
 import { colors } from '@/config/design-system';
 import { 
   fetchExclusiveProperties, 
+  fetchLeaseProperties,
   type Property,
   type ExclusivePropertyFilterParams 
 } from '@/lib/api';
@@ -41,8 +44,7 @@ function MobileFilterDrawer({ open, onClose, onPropertiesUpdate }: { open: boole
           <button onClick={onClose} aria-label="Close filters" className="text-sm px-2 py-1 rounded-md">Close</button>
         </div>
 
-        <div className="p-4 overflow-auto" style={{ maxHeight: 'calc(100vh - 64px)' }}>
-          {/* PropertyFilter is designed to be embeddable; it will call onPropertiesUpdate when user applies filters */}
+        <div className="p-4 ">
           <PropertyFilter onPropertiesUpdate={onPropertiesUpdate} />
         </div>
       </aside>
@@ -52,12 +54,15 @@ function MobileFilterDrawer({ open, onClose, onPropertiesUpdate }: { open: boole
 
 export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([]);
+  const [rentalProperties, setRentalProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingRentals, setIsLoadingRentals] = useState(true);
   const [searchQuery, setSearchQuery] = useState("Exclusive Properties");
   const { selectedProvince, getProvinceName } = useProvince();
   
   // Use refs to track state
   const hasInitialLoadCompleted = useRef(false);
+  const hasRentalInitialLoadCompleted = useRef(false);
   const prevProvinceRef = useRef<string | null>(null);
 
   // Mobile drawer state
@@ -88,7 +93,30 @@ export default function HomePage() {
     loadInitialProperties();
   }, []);
 
-  // 2. Handle PROVINCE CHANGES from dropdown ONLY
+  // 2. INITIAL RENTAL PROPERTIES LOAD
+  useEffect(() => {
+    if (hasRentalInitialLoadCompleted.current) return;
+    
+    const loadInitialRentalProperties = async () => {
+      setIsLoadingRentals(true);
+      console.log('🚀 INITIAL PAGE LOAD - Fetching ALL rental properties...');
+      
+      try {
+        const response = await fetchLeaseProperties({});
+        console.log('✅ RENTAL INITIAL LOAD COMPLETE:', response.results?.length || 0, 'properties');
+        setRentalProperties(response.results || []);
+        hasRentalInitialLoadCompleted.current = true;
+      } catch (error) {
+        console.error('❌ Error in rental initial load:', error);
+      } finally {
+        setIsLoadingRentals(false);
+      }
+    };
+
+    loadInitialRentalProperties();
+  }, []);
+
+  // 3. Handle PROVINCE CHANGES from dropdown ONLY (for exclusive properties)
   useEffect(() => {
     if (!hasInitialLoadCompleted.current || !selectedProvince) return;
     const currentProvince = selectedProvince;
@@ -149,87 +177,101 @@ export default function HomePage() {
       <main className="w-full flex-1">
         <HeroSection onPropertiesUpdate={handlePropertiesUpdate} />
 
-        {/* Mobile filter button - visible on small screens */}
-        <div className="max-w-[1800px] mx-auto px-4 lg:px-6 xl:px-8 mt-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-semibold">{searchQuery}</h2>
-              <p className="text-sm text-gray-500 hidden sm:block">{isLoading ? 'Loading properties...' : `${properties.length} properties found`}</p>
-            </div>
+        {/* FeaturedCollections comes BEFORE the Exclusive Properties section */}
+        <div className="max-w-full mx-auto px-4 lg:px-6 xl:px-8 mt-6">
+          <FeaturedCollections />
+        </div>
 
-            {/* Mobile filter toggle */}
-            <div className="lg:hidden">
-              <button
-                onClick={() => setMobileFilterOpen(true)}
-                className="inline-flex items-center gap-2 px-3 py-2 border rounded-md bg-white"
-                aria-expanded={mobileFilterOpen}
-                aria-controls="mobile-filter-drawer"
-              >
-                Filters
-              </button>
+        {/* EXCLUSIVE PROPERTIES SECTION WITH SIDEBAR FILTERS */}
+        <div className="mt-8 lg:mt-12">
+          {/* Section Header with Title and Mobile Filter Button */}
+          <div className="max-w-[1800px] mx-auto px-4 lg:px-6 xl:px-8">
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+               
+              </div>
+
+              {/* Mobile filter toggle - ONLY for Exclusive Properties */}
+              <div className="lg:hidden">
+                <button
+                  onClick={() => setMobileFilterOpen(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 transition-colors"
+                  aria-expanded={mobileFilterOpen}
+                  aria-controls="mobile-filter-drawer"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                  </svg>
+                  Filters
+                </button>
+              </div>
             </div>
+          </div>
+
+          {/* Main two-column layout for Exclusive Properties ONLY */}
+          <div className="flex relative px-4 lg:px-6 xl:px-8 gap-0 max-w-[1800px] mx-auto w-full">
+            {/* Left Sidebar - visible on lg+ */}
+            <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0">
+              <div 
+                className="top-6"
+                style={{ 
+                  borderRight: `1px solid ${colors.boarder}`,
+                 
+                  paddingRight: 12
+                }}
+              >
+              
+
+                <div style={{ paddingBottom: 12 }}>
+                  <PropertyFilter onPropertiesUpdate={handlePropertiesUpdate} />
+                </div>
+              </div>
+            </aside>
+
+            {/* Main Content Area - FeaturedListings for Exclusive Properties */}
+            <main className="flex-1 min-w-0 px-0 lg:px-4">
+              <FeaturedListings 
+                properties={properties} 
+                isLoading={isLoading} 
+                searchQuery={searchQuery} 
+              />
+               <RentalProperties 
+            properties={rentalProperties} 
+            isLoading={isLoadingRentals} 
+          />
+            </main>
           </div>
         </div>
 
-        {/* Main two-column layout for lg and above. On small screens everything stacks. */}
-      <div className="flex mt-4 relative px-4 lg:px-6 xl:px-8 gap-0 max-w-[1800px] mx-auto w-full">
+        {/* Rental Properties Section - Comes AFTER Exclusive Properties */}
+     
 
-          {/* Left Sidebar - visible on lg+ */}
-          <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0">
-            <div 
-              className="sticky top-4"
-              style={{ 
-                borderRight: `1px solid ${colors.boarder}`,
-                maxHeight: 'calc(100vh - 2rem)',
-                overflowY: 'auto',
-                paddingRight: 12 // avoid content touching the border
-              }}
-            >
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm font-medium text-blue-800">
-                  {searchQuery}
-                </p>
-                <p className="text-xs text-blue-600 mt-1">
-                  {isLoading ? 'Loading properties...' : `${properties.length} properties found`}
-                </p>
-              </div>
+        {/* Other Sections */}
+        <div className="max-w-[1800px] mx-auto px-4 lg:px-6 xl:px-8 mt-12">
+          <LocationsSection />
+        </div>
 
-              {/* PropertyFilter already has internal padding; avoid double-padding here */}
-              <div style={{ paddingBottom: 12 }}>
-                <PropertyFilter onPropertiesUpdate={handlePropertiesUpdate} />
-              </div>
-            </div>
-          </aside>
-
-          {/* Main Content Area - becomes full width on small screens */}
-          <main className="flex-1 min-w-0 px-0 lg:px-4">
-            <FeaturedCollections />
-
-            {/* FeaturedListings receives properties & will reflow depending on its internal layout - ensure it uses responsive grid */}
-            <FeaturedListings 
-              properties={properties} 
-              isLoading={isLoading} 
-              searchQuery={searchQuery} 
-            />
-
-            <LocationsSection />
-            <MortgageSection />
-
-            {/* On small screens show LatestArticles earlier to give mobile users easy access */}
-            
-          </main>
+        <div className="max-w-[1800px] mx-auto px-4 lg:px-6 xl:px-8 mt-12">
+          <MortgageSection />
         </div>
 
         {/* Full Width Sections After Mortgage */}
-        <div className="mt-8 max-w-[1800px] mx-auto px-4 lg:px-6 xl:px-8">
+        <div className="mt-12 max-w-[1800px] mx-auto px-4 lg:px-6 xl:px-8">
           <ClientReviews />
         </div>
       </main>
 
       <Footer />
 
-      {/* Mobile drawer component - rendered at root so it overlays everything */}
-      <MobileFilterDrawer open={mobileFilterOpen} onClose={() => setMobileFilterOpen(false)} onPropertiesUpdate={(newProps, q) => { setMobileFilterOpen(false); handlePropertiesUpdate(newProps, q); }} />
+      {/* Mobile drawer component */}
+      <MobileFilterDrawer 
+        open={mobileFilterOpen} 
+        onClose={() => setMobileFilterOpen(false)} 
+        onPropertiesUpdate={(newProps, q) => { 
+          setMobileFilterOpen(false); 
+          handlePropertiesUpdate(newProps, q); 
+        }} 
+      />
     </div>
   )
 }
