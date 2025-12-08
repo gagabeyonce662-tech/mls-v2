@@ -673,7 +673,7 @@ export async function testMLSFilterEndpoint(): Promise<void> {
 // New function for infinite scroll with specific offset
 export async function fetchExclusivePropertiesWithOffset(
   offset: number = 0,
-  limit: number = 24,
+  limit: number = 6,
   filters?: Omit<ExclusivePropertyFilterParams, 'limit' | 'offset'>
 ): Promise<{
   results: any[];

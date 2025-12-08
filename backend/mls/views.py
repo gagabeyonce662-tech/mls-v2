@@ -1,32 +1,20 @@
 import requests
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import AccessToken
-from .helpers import get_access_token
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.db.models import Q, F, FloatField
-from django.db.models.functions import Cast
-from django.core.paginator import Paginator
-from django.utils import timezone
+from io import BytesIO
+import pandas as pd
 from datetime import timedelta
-from mls.models import Property
-from .serializers import PropertySerializer
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q, FloatField
 from django.db.models.functions import Cast, Substr, Lower
 from django.core.paginator import Paginator
 from django.utils import timezone
-from datetime import timedelta
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-import requests
 
-from .helpers import fetch_properties_by_property_data
+# Local imports
+from .models import AccessToken
+from .helpers import get_access_token, fetch_properties_by_property_data
 from mls.models import Property
 from .serializers import PropertySerializer
 
@@ -72,79 +60,150 @@ class DDFAPIClient:
         else:
             raise Exception(f"Error {response.status_code}: {response.text}")
 
+
 class PropertyFilterView(APIView):
     """
-    Fetches a list of properties from DDF® API with multiple filters
+    GET /api/properties/
+    
+    Full-featured property search using your local Property model (PostgreSQL)
+    No DDF API calls → No 400/500 errors → Super fast
     """
+
     def get(self, request):
-        # Collecting all possible filters from request params
-        filters = {
-            "$top": request.GET.get('$top', 100),  # Limit number of results, default to 100
-            "$skip": request.GET.get('$skip', 0),  # Pagination skip, default to 0
-            "$orderby": request.GET.get('$orderby', 'ModificationTimestamp desc'),  # Default sorting by price desc
-            # "$select": request.GET.get('$select', 'ListingKey,PropertySubType,ListPrice,City,StateOrProvince'),  # Default fields to select
-        }
-        
-        # List to accumulate filter conditions
-        filter_conditions = []
+        limit = min(int(request.GET.get('limit', 6)), 100)
+        offset = int(request.GET.get('offset', 0))
 
-        # Function to append filter condition
-        def add_filter(field, operator, value):
-            """Helper function to add filter conditions."""
-            if value:
-                filter_conditions.append(f"{field} {operator} {value}")
+        # Start with all properties
+        qs = Property.objects.all()
 
-        # Price Min filter
-        if 'price_min' in request.GET:
-            add_filter("ListPrice", "ge", request.GET['price_min'])
+        # === PRICE ===
+        if request.GET.get('price_min'):
+            qs = qs.filter(list_price__gte=float(request.GET['price_min']))
+        if request.GET.get('price_max'):
+            qs = qs.filter(list_price__lte=float(request.GET['price_max']))
 
-        # Price Max filter
-        if 'price_max' in request.GET:
-            add_filter("ListPrice", "le", request.GET['price_max'])
+        # === BEDS / BATHS ===
+        if request.GET.get('bedrooms'):
+            qs = qs.filter(bedrooms_total__gte=int(request.GET['bedrooms']))
+        if request.GET.get('bathrooms'):
+            qs = qs.filter(bathrooms_total_integer__gte=int(request.GET['bathrooms']))
 
-        # Bedrooms filter
-        if 'bedrooms' in request.GET:
-            add_filter("BedroomsTotal", "eq", request.GET['bedrooms'])
+        # === CITY / PROVINCE / POSTAL CODE (multiple) ===
+        if request.GET.get('city'):
+            cities = [c.strip() for c in request.GET['city'].split(',') if c.strip()]
+            qs = qs.filter(city__in=cities)
 
-        # Bathrooms filter
-        if 'bathrooms' in request.GET:
-            add_filter("BathroomsTotalInteger", "eq", request.GET['bathrooms'])
+        if request.GET.get('province'):
+            provs = [p.strip().upper() for p in request.GET['province'].split(',') if p.strip()]
+            qs = qs.filter(state_or_province__in=provs)
 
-        # City filter
-        if 'city' in request.GET:
-            add_filter("City", "eq", f"'{request.GET['city']}'")
+        if request.GET.get('postal_code'):
+            codes = [c.strip().upper() for c in request.GET['postal_code'].split(',') if c.strip()]
+            qs = qs.filter(postal_code__in=codes)
 
-        # Province filter
-        if 'province' in request.GET:
-            add_filter("StateOrProvince", "eq", f"'{request.GET['province']}'")
+        # === PROPERTY TYPE ===
+        if request.GET.get('property_type'):
+            types = [t.strip() for t in request.GET['property_type'].split(',') if t.strip()]
+            qs = qs.filter(property_sub_type__in=types)
 
-        # Status filter
-        if 'status' in request.GET:
-            add_filter("StandardStatus", "eq", f"'{request.GET['status']}'")
-        # Modified Since filter
-        if 'modified_since' in request.GET:
-            add_filter("ModificationTimestamp", "ge", request.GET['modified_since'])
+        # === STATUS ===
+        if request.GET.get('status'):
+            qs = qs.filter(standard_status=request.GET['status'].strip())
 
-        # PropertySubType filter (fixed)
-        if 'property_subtype' in request.GET:
-            add_filter("PropertySubType", "eq", f"'{request.GET['property_subtype']}'")
-        # Combine all filter conditions with 'and' if any are provided
-        if filter_conditions:
-            filters["$filter"] = " and ".join(filter_conditions)
+        # === LEASE AMOUNT (commercial) ===
+        if request.GET.get('has_lease') in ('true', '1'):
+            qs = qs.filter(lease_amount__gt=0)
 
-        try:
-            # Make the API call to DDF
-            ddf_client = DDFAPIClient()
-            properties = ddf_client.make_api_call('Property', filters)
+        # === MAP BOUNDING BOX ===
+        if all(k in request.GET for k in ['lat_min', 'lat_max', 'lng_min', 'lng_max']):
+            qs = qs.annotate(
+                lat_float=Cast('latitude', FloatField()),
+                lng_float=Cast('longitude', FloatField())
+            ).filter(
+                lat_float__gte=float(request.GET['lat_min']),
+                lat_float__lte=float(request.GET['lat_max']),
+                lng_float__gte=float(request.GET['lng_min']),
+                lng_float__lte=float(request.GET['lng_max']),
+            )
 
-            # Return the response
-            return Response(properties, status=status.HTTP_200_OK)
+        # === SOLD IN LAST N DAYS ===
+        if request.GET.get('sold_days'):
+            days = int(request.GET['sold_days'])
+            cutoff = timezone.now() - timedelta(days=days)
+            qs = qs.filter(status_change_timestamp__gte=cutoff)
 
-        except Exception as e:
-            # Handle errors and return appropriate response
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        # === MODIFIED SINCE ===
+        if request.GET.get('modified_since'):
+            qs = qs.filter(modification_timestamp__gte=request.GET['modified_since'])
 
+        # === HAS PHOTOS ===
+        if request.GET.get('has_photos') in ('true', '1'):
+            qs = qs.filter(photos_count__gt=0)
 
+        # === UNIVERSAL SEARCH (address, remarks, listing ID, etc.) ===
+        if request.GET.get('search'):
+            search_term = request.GET['search'].strip()
+            if search_term:
+                search_q = Q()
+
+                # Text fields (case-insensitive partial match)
+                text_fields = [
+                    'unparsed_address',
+                    'public_remarks',
+                    'city',
+                    'postal_code',
+                    'listing_id',
+                    'listing_key',
+                    'street_name',
+                    'street_number',
+                    'unit_number',
+                    'subdivision_name',
+                    'directions',
+                    'property_sub_type',
+                    'common_interest',
+                    'list_aor',
+                    'zoning',
+                    'zoning_description',
+                    'parcel_number',
+                    'anchors_co_tenants',
+                    'water_body_name',
+                ]
+
+                for field in text_fields:
+                    search_q |= Q(**{f"{field}__icontains": search_term})
+
+                # Exact match for numeric-like strings (e.g. postal code without space)
+                if len(search_term) >= 3:
+                    search_q |= Q(postal_code__iexact=search_term.replace(" ", ""))
+
+                # Search in remarks keywords
+                search_q |= Q(public_remarks__icontains=search_term)
+
+                q = qs.filter(search_q)
+        if request.GET.get('keywords'):
+            keywords = [k.strip().lower() for k in request.GET['keywords'].split(',') if k.strip()]
+            if keywords:
+                kw_q = Q()
+                for kw in keywords:
+                    kw_q |= Q(public_remarks__icontains=kw)
+                qs = qs.filter(kw_q)
+
+        # === ORDERING ===
+        order_by = request.GET.get('orderby', '-modification_timestamp')
+        qs = qs.order_by(order_by)
+
+        # === PAGINATION ===
+        paginator = Paginator(qs, limit)
+        page = paginator.get_page((offset // limit) + 1)
+
+        serializer = PropertySerializer(page.object_list, many=True, context={'request': request})
+
+        return Response({
+            "count": paginator.count,
+            "next": offset + limit if page.has_next() else None,
+            "previous": offset - limit if offset >= limit else None,
+            "results": serializer.data
+        })
 class PropertyDetailView(APIView):
     """
     Fetches a single property from DDF® API by PropertyKey.
@@ -204,7 +263,45 @@ class ExclusivePropertiesAPIView(APIView):
 
         # Start with all properties
         q = Property.objects.all()
+        if params.get('search'):
+            search_term = params['search'].strip()
+            if search_term:
+                search_q = Q()
 
+                # Text fields (case-insensitive partial match)
+                text_fields = [
+                    'unparsed_address',
+                    'public_remarks',
+                    'city',
+                    'postal_code',
+                    'listing_id',
+                    'listing_key',
+                    'street_name',
+                    'street_number',
+                    'unit_number',
+                    'subdivision_name',
+                    'directions',
+                    'property_sub_type',
+                    'common_interest',
+                    'list_aor',
+                    'zoning',
+                    'zoning_description',
+                    'parcel_number',
+                    'anchors_co_tenants',
+                    'water_body_name',
+                ]
+
+                for field in text_fields:
+                    search_q |= Q(**{f"{field}__icontains": search_term})
+
+                # Exact match for numeric-like strings (e.g. postal code without space)
+                if len(search_term) >= 3:
+                    search_q |= Q(postal_code__iexact=search_term.replace(" ", ""))
+
+                # Search in remarks keywords
+                search_q |= Q(public_remarks__icontains=search_term)
+
+                qs = q.filter(search_q)
         # === ALL REALTOR.CA FILTERS ===
         if params.get('price_min'):
             q = q.filter(list_price__gte=float(params['price_min']))
@@ -297,18 +394,6 @@ class ExclusivePropertiesAPIView(APIView):
     
 
 
-# api/views.py
-import pandas as pd
-from io import BytesIO
-from django.db.models import Q, FloatField
-from django.db.models.functions import Cast, Substr, Lower
-from django.core.paginator import Paginator
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.parsers import MultiPartParser, FormParser
-from .serializers import PropertySerializer
-
 
 class UploadPreConnListingsAPIView(APIView):
     """
@@ -363,7 +448,7 @@ class PreConnPropertiesAPIView(APIView):
     """
 
     def get(self, request):
-        limit = min(int(request.query_params.get('limit', 24)), 100)
+        limit = min(int(request.query_params.get('limit', 6)), 100)
         offset = int(request.query_params.get('offset', 0))
 
         # Base: only PRE_CONN properties
@@ -371,6 +456,45 @@ class PreConnPropertiesAPIView(APIView):
 
         # === ALL REALTOR.CA FILTERS ===
         params = request.query_params
+        if params.get('search'):
+            search_term = params['search'].strip()
+            if search_term:
+                search_q = Q()
+
+                # Text fields (case-insensitive partial match)
+                text_fields = [
+                    'unparsed_address',
+                    'public_remarks',
+                    'city',
+                    'postal_code',
+                    'listing_id',
+                    'listing_key',
+                    'street_name',
+                    'street_number',
+                    'unit_number',
+                    'subdivision_name',
+                    'directions',
+                    'property_sub_type',
+                    'common_interest',
+                    'list_aor',
+                    'zoning',
+                    'zoning_description',
+                    'parcel_number',
+                    'anchors_co_tenants',
+                    'water_body_name',
+                ]
+
+                for field in text_fields:
+                    search_q |= Q(**{f"{field}__icontains": search_term})
+
+                # Exact match for numeric-like strings (e.g. postal code without space)
+                if len(search_term) >= 3:
+                    search_q |= Q(postal_code__iexact=search_term.replace(" ", ""))
+
+                # Search in remarks keywords
+                search_q |= Q(public_remarks__icontains=search_term)
+
+                q = qs.filter(search_q)
 
         if params.get('price_min'):
             qs = qs.filter(list_price__gte=float(params['price_min']))
@@ -466,7 +590,7 @@ class LeasePropertiesAPIView(APIView):
     """
 
     def get(self, request):
-        limit = min(int(request.query_params.get('limit', 24)), 100)
+        limit = min(int(request.query_params.get('limit', 6)), 100)
         offset = int(request.query_params.get('offset', 0))
 
         # Base: only properties with actual lease amount
@@ -478,7 +602,45 @@ class LeasePropertiesAPIView(APIView):
 
         # === ALL REALTOR.CA FILTERS ===
         params = request.query_params
+        if params.get('search'):
+            search_term = params['search'].strip()
+            if search_term:
+                search_q = Q()
 
+                # Text fields (case-insensitive partial match)
+                text_fields = [
+                    'unparsed_address',
+                    'public_remarks',
+                    'city',
+                    'postal_code',
+                    'listing_id',
+                    'listing_key',
+                    'street_name',
+                    'street_number',
+                    'unit_number',
+                    'subdivision_name',
+                    'directions',
+                    'property_sub_type',
+                    'common_interest',
+                    'list_aor',
+                    'zoning',
+                    'zoning_description',
+                    'parcel_number',
+                    'anchors_co_tenants',
+                    'water_body_name',
+                ]
+
+                for field in text_fields:
+                    search_q |= Q(**{f"{field}__icontains": search_term})
+
+                # Exact match for numeric-like strings (e.g. postal code without space)
+                if len(search_term) >= 3:
+                    search_q |= Q(postal_code__iexact=search_term.replace(" ", ""))
+
+                # Search in remarks keywords
+                search_q |= Q(public_remarks__icontains=search_term)
+
+                q = qs.filter(search_q)
         if params.get('price_min'):
             qs = qs.filter(list_price__gte=float(params['price_min']))
         if params.get('price_max'):
@@ -570,108 +732,109 @@ class LeasePropertiesAPIView(APIView):
 
 
 
-class SoldPropertiesAPIView(APIView):
-    """
-    GET /api/sold-properties/
+# class SoldPropertiesAPIView(APIView):
+#     """
+#     GET /api/sold-properties/
 
-    Returns ONLY properties with StandardStatus = 'Sold'
-    (Recently sold homes, condos, commercial, land, etc.)
+#     Returns ONLY properties with StandardStatus = 'Sold'
+#     (Recently sold homes, condos, commercial, land, etc.)
 
-    Supports ALL realtor.ca filters + limit/offset pagination
-    """
+#     Supports ALL realtor.ca filters + limit/offset pagination
+#     """
 
-    def get(self, request):
-        limit = min(int(request.query_params.get('limit', 24)), 100)
-        offset = int(request.query_params.get('offset', 0))
+#     def get(self, request):
+#         limit = min(int(request.query_params.get('limit', 24)), 100)
+#         offset = int(request.query_params.get('offset', 0))
 
-        # Base: only SOLD properties
-        qs = Property.objects.filter(standard_status='Sold')
+#         # Base: only SOLD properties
+   
+#         qs = Property.objects.filter(standard_status="Sold")
 
-        # === ALL REALTOR.CA FILTERS ===
-        params = request.query_params
+#         # === ALL REALTOR.CA FILTERS ===
+#         params = request.query_params
 
-        # Price range (original list price or sold price — here we use list_price)
-        if params.get('price_min'):
-            qs = qs.filter(list_price__gte=float(params['price_min']))
-        if params.get('price_max'):
-            qs = qs.filter(list_price__lte=float(params['price_max']))
+#         # Price range (original list price or sold price — here we use list_price)
+#         if params.get('price_min'):
+#             qs = qs.filter(list_price__gte=float(params['price_min']))
+#         if params.get('price_max'):
+#             qs = qs.filter(list_price__lte=float(params['price_max']))
 
-        # Bedrooms / Bathrooms
-        if params.get('bedrooms'):
-            qs = qs.filter(bedrooms_total__gte=int(params['bedrooms']))
-        if params.get('bathrooms'):
-            qs = qs.filter(bathrooms_total_integer__gte=int(params['bathrooms']))
+#         # Bedrooms / Bathrooms
+#         if params.get('bedrooms'):
+#             qs = qs.filter(bedrooms_total__gte=int(params['bedrooms']))
+#         if params.get('bathrooms'):
+#             qs = qs.filter(bathrooms_total_integer__gte=int(params['bathrooms']))
 
-        # Property type
-        if params.get('property_type'):
-            types = [t.strip() for t in params['property_type'].split(',') if t.strip()]
-            if types:
-                qs = qs.filter(property_sub_type__in=types)
+#         # Property type
+#         if params.get('property_type'):
+#             types = [t.strip() for t in params['property_type'].split(',') if t.strip()]
+#             if types:
+#                 qs = qs.filter(property_sub_type__in=types)
 
-        # Location
-        if params.get('city'):
-            cities = [c.strip() for c in params['city'].split(',') if c.strip()]
-            if cities:
-                qs = qs.filter(city__in=cities)
-        if params.get('province'):
-            provinces = [p.strip() for p in params['province'].split(',') if p.strip()]
-            if provinces:
-                qs = qs.filter(state_or_province__in=provinces)
-        if params.get('postal_code'):
-            codes = [c.strip().upper() for c in params['postal_code'].split(',') if c.strip()]
-            if codes:
-                qs = qs.filter(postal_code__in=codes)
+#         # Location
+#         if params.get('city'):
+#             cities = [c.strip() for c in params['city'].split(',') if c.strip()]
+#             if cities:
+#                 qs = qs.filter(city__in=cities)
+#         if params.get('province'):
+#             provinces = [p.strip() for p in params['province'].split(',') if p.strip()]
+#             if provinces:
+#                 qs = qs.filter(state_or_province__in=provinces)
+#         if params.get('postal_code'):
+#             codes = [c.strip().upper() for c in params['postal_code'].split(',') if c.strip()]
+#             if codes:
+#                 qs = qs.filter(postal_code__in=codes)
 
-        # Map bounding box
-        if all(k in params for k in ['latitude_min', 'latitude_max', 'longitude_min', 'longitude_max']):
-            qs = qs.annotate(
-                lat_float=Cast('latitude', FloatField()),
-                lng_float=Cast('longitude', FloatField())
-            ).filter(
-                lat_float__gte=float(params['latitude_min']),
-                lat_float__lte=float(params['latitude_max']),
-                lng_float__gte=float(params['longitude_min']),
-                lng_float__lte=float(params['longitude_max']),
-            )
+#         # Map bounding box
+#         if all(k in params for k in ['latitude_min', 'latitude_max', 'longitude_min', 'longitude_max']):
+#             qs = qs.annotate(
+#                 lat_float=Cast('latitude', FloatField()),
+#                 lng_float=Cast('longitude', FloatField())
+#             ).filter(
+#                 lat_float__gte=float(params['latitude_min']),
+#                 lat_float__lte=float(params['latitude_max']),
+#                 lng_float__gte=float(params['longitude_min']),
+#                 lng_float__lte=float(params['longitude_max']),
+#             )
 
-        # Size & lot
-        if params.get('building_area_min'):
-            qs = qs.filter(building_area_total__gte=float(params['building_area_min']))
-        if params.get('lot_size_min'):
-            qs = qs.filter(lot_size_area__gte=float(params['lot_size_min']))
-        if params.get('year_built_min'):
-            qs = qs.filter(year_built__gte=int(params['year_built_min']))
+#         # Size & lot
+#         if params.get('building_area_min'):
+#             qs = qs.filter(building_area_total__gte=float(params['building_area_min']))
+#         if params.get('lot_size_min'):
+#             qs = qs.filter(lot_size_area__gte=float(params['lot_size_min']))
+#         if params.get('year_built_min'):
+#             qs = qs.filter(year_built__gte=int(params['year_built_min']))
 
-        # Keywords in remarks
-        if params.get('keywords'):
-            keywords = [k.strip() for k in params['keywords'].split(',') if k.strip()]
-            kw_q = Q()
-            for kw in keywords:
-                kw_q |= Q(public_remarks__icontains=kw)
-            qs = qs.filter(kw_q)
+#         # Keywords in remarks
+#         if params.get('keywords'):
+#             keywords = [k.strip() for k in params['keywords'].split(',') if k.strip()]
+#             kw_q = Q()
+#             for kw in keywords:
+#                 kw_q |= Q(public_remarks__icontains=kw)
+#             qs = qs.filter(kw_q)
 
-        # Has photos
-        if params.get('has_photos') in ('true', '1', 'True'):
-            qs = qs.filter(photos_count__gt=0)
+#         # Has photos
+#         if params.get('has_photos') in ('true', '1', 'True'):
+#             qs = qs.filter(photos_count__gt=0)
 
-        # Sold in last N days
-        if params.get('sold_days'):
-            days = int(params['sold_days'])
-            cutoff = timezone.now() - timedelta(days=days)
-            qs = qs.filter(status_change_timestamp__gte=cutoff)
+#         # Sold in last N days
+#         if params.get('sold_days'):
+#             days = int(params['sold_days'])
+#             cutoff = timezone.now() - timedelta(days=days)
+#             qs = qs.filter(status_change_timestamp__gte=cutoff)
 
-        # Final ordering: most recent sold first
-        qs = qs.order_by('-status_change_timestamp', '-list_price')
+#         # Final ordering: most recent sold first
+#         qs = qs.order_by('-status_change_timestamp', '-list_price')
 
-        # Pagination
-        paginator = Paginator(qs, limit)
-        page = paginator.get_page((offset // limit) + 1)
+#         # Pagination
+#         paginator = Paginator(qs, limit)
+#         page = paginator.get_page((offset // limit) + 1)
 
-        serializer = PropertySerializer(page.object_list, many=True, context={'request': request})
+#         serializer = PropertySerializer(page.object_list, many=True, context={'request': request})
 
-        return Response({
-            "count": paginator.count,
-            "next": offset + limit if page.has_next() else None,
-            "previous": offset - limit if offset >= limit else None,
-            "results": serializer.data
-        })
+#         return Response({
+#             "count": paginator.count,
+#             "next": offset + limit if page.has_next() else None,
+#             "previous": offset - limit if offset >= limit else None,
+#             "results": serializer.data
+#         })
