@@ -178,12 +178,12 @@ export default function HomePage() {
         <HeroSection onPropertiesUpdate={handlePropertiesUpdate} />
 
         {/* FeaturedCollections comes BEFORE the Exclusive Properties section */}
-        <div className="max-w-full mx-auto px-4 lg:px-6 xl:px-8 mt-6">
+        <div className="  lg:px-6 xl:px-8 mt-6">
           <FeaturedCollections />
         </div>
 
         {/* EXCLUSIVE PROPERTIES SECTION WITH SIDEBAR FILTERS */}
-        <div className="mt-8 lg:mt-12">
+        <div className="mt-0">
           {/* Section Header with Title and Mobile Filter Button */}
           <div className="max-w-[1800px] mx-auto px-4 lg:px-6 xl:px-8">
             <div className="flex items-center justify-between gap-4 mb-6">

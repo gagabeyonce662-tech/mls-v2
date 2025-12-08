@@ -321,11 +321,11 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
       <div className="sticky top-0 pt-1 pb-2 z-10" style={{ backgroundColor: colors.boarder }}>
         <div className="sticky top-2 gap-2 pt-4 z-20" style={{ backgroundColor: colors.boarder }}>
           {/* NEW: single-row container for Apply + Clear All */}
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
             <button
               onClick={handleApply}
               disabled={isLoading}
-              className={`${BTN_PRIMARY} flex-1`}
+              className={`${BTN_PRIMARY} w-40`}
               style={{ backgroundColor: colors.primary, color: colors.cards, borderColor: colors.primary }}
             >
               {isLoading ? (
@@ -380,7 +380,7 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
         </div>
 
         {/* Has Photos */}
-        <div className="bg-white/5 p-3 rounded-lg">
+        {/* <div className="bg-white/5 p-3 rounded-lg">
           <h3 className="font-semibold mb-3 text-sm" style={{ color: colors.heading }}>
             Has Photos
           </h3>
@@ -409,7 +409,7 @@ export default function PropertyFilter({ onPropertiesUpdate }: PropertyFilterPro
             })}
           </div>
         </div>
-       
+        */}
 
         {/* Property Type - MULTIPLE SELECTION */}
         <div className="bg-white/5 p-3 rounded-lg">
