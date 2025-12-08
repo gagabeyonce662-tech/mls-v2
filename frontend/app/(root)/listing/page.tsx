@@ -265,16 +265,10 @@ export default function ListingsPage() {
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div>
-                <Link 
-                  href="/" 
-                  className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-2"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-1" />
-                  Back to Home
-                </Link>
-                <h1 className="text-3xl font-bold text-gray-900">{searchQuery}</h1>
+              
+              
                 <p className="text-gray-600 mt-2">
-                  {isLoading || isSearching ? 'Loading properties...' : `Showing ${properties.length} properties`}
+                 
                   {hasMore && !isLoading && !isSearching && properties.length > 0 && ' • Scroll to load more'}
                 </p>
               </div>

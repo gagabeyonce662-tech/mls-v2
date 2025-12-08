@@ -1,17 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { Heart, Bed, Bath, Maximize, Loader2, ChevronRight } from "lucide-react";
+import { Heart, Bed, Bath, Loader2, ChevronRight } from "lucide-react";
 import { colors } from "@/config/design-system";
 import { type Property } from "@/lib/api";
 
-interface FeaturedListingsProps {
+interface RentalPropertiesProps {
   properties: Property[];
   isLoading: boolean;
-  searchQuery: string;
 }
 
-export default function FeaturedListings({ properties, isLoading, searchQuery }: FeaturedListingsProps) {
+export default function RentalProperties({ properties, isLoading }: RentalPropertiesProps) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -30,7 +29,6 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
   // Helper to get numeric display price
   const getDisplayPrice = (property: Property) => {
     const possible = (property as any).list_price ?? (property as any).ListPrice ?? (property as any).ListPriceNumeric ?? 0;
-    // If string, try parse
     if (typeof possible === "string") {
       const parsed = parseFloat(possible.replace(/[^0-9.-]+/g, ""));
       return Number.isFinite(parsed) ? parsed : 0;
@@ -44,7 +42,7 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
   };
 
   const getDisplayPropertyType = (property: Property) => {
-    return (property as any).category_type || (property as any).PropertySubType || "Property";
+    return (property as any).category_type || (property as any).PropertySubType || "Rental Property";
   };
 
   const getBedCount = (property: Property) => {
@@ -56,17 +54,9 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
   };
 
   const getStatus = (property: Property) => {
-    return (property as any).standard_status || (property as any).StandardStatus || "For Sale";
+    return (property as any).standard_status || (property as any).StandardStatus || "For Rent";
   };
 
-  /**
-   * getThumbnail
-   * Attempts to find a usable thumbnail URL from different possible shapes:
-   * - photos: ["https://..."]
-   * - photos: [{ url: "...", MediaURL: "...", src: "..." }]
-   * - media / Media fields
-   * Returns string URL or null.
-   */
   const getThumbnail = (property: Property): string | null => {
     const candidateFields = [
       (property as any).photos,
@@ -80,12 +70,9 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
     for (const field of candidateFields) {
       if (!field) continue;
 
-      // If it's an array
       if (Array.isArray(field) && field.length > 0) {
         const first = field[0];
-        // string case
         if (typeof first === "string" && first.trim() !== "") return first;
-        // object case: try common keys
         if (typeof first === "object" && first !== null) {
           const possibleKeys = ["url", "media_url", "MediaURL", "MediaUrl", "src", "thumbnail", "thumbnailUrl", "ImageURL", "imageUrl"];
           for (const k of possibleKeys) {
@@ -94,7 +81,6 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
         }
       }
 
-      // If it's a single object with URL-like keys
       if (typeof field === "object" && !Array.isArray(field)) {
         const possibleKeys = ["url", "media_url", "MediaURL", "MediaUrl", "src", "thumbnail", "thumbnailUrl", "ImageURL", "imageUrl"];
         for (const k of possibleKeys) {
@@ -102,13 +88,11 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
         }
       }
 
-      // If it's a string (single url)
       if (typeof field === "string" && field.trim() !== "") {
         return field;
       }
     }
 
-    // No image found
     return null;
   };
 
@@ -119,15 +103,18 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {searchQuery ? `Properties in ${searchQuery}` : "Featured Properties"}
+              Best for Rental
             </h2>
-            <p className="text-gray-600">{isLoading ? "Finding properties..." : `${properties.length} properties found`}</p>
+            <p className="text-gray-600">Find your perfect rental property</p>
           </div>
 
           {/* View All button - only show when there are properties */}
           {!isLoading && properties.length > 0 && (
-            <Link href="/listing" className="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-              View All Properties
+            <Link 
+              href="/listing/rental" 
+              className="inline-flex items-center px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              View All Rentals
               <ChevronRight className="w-4 h-4 ml-1" />
             </Link>
           )}
@@ -137,15 +124,15 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
         {isLoading && (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-8 h-8 animate-spin" style={{ color: colors.primary }} />
-            <span className="ml-3 text-gray-600">Loading properties...</span>
+            <span className="ml-3 text-gray-600">Loading rental properties...</span>
           </div>
         )}
 
         {/* Empty State */}
         {!isLoading && properties.length === 0 && (
           <div className="text-center py-16">
-            <div className="text-xl font-semibold text-gray-900 mb-2">No properties found</div>
-            <p className="text-gray-600">Try searching for a different city or check your spelling.</p>
+            <div className="text-xl font-semibold text-gray-900 mb-2">No rental properties found</div>
+            <p className="text-gray-600">Check back soon for new rental listings.</p>
           </div>
         )}
 
@@ -153,7 +140,7 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
         {!isLoading && properties.length > 0 && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {properties.slice(0, 6).map((property, index) => {
+              {properties.slice(0, 6).map((property) => {
                 const propertyKey = getPropertyKey(property);
                 const displayPrice = getDisplayPrice(property);
                 const displayCity = getDisplayCity(property);
@@ -166,19 +153,20 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
                 return (
                   <Link
                     key={propertyKey}
-                    href={`/listing/${propertyKey}`}
+                    href={`/listing/rental/${propertyKey}`}
                     className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow"
                   >
                     <div className="relative h-56 bg-gray-100">
                       {thumbnail ? (
-                        // Real thumbnail
-                        // Using a plain <img/> is fine; swap to next/image if you want optimization
-                        <img src={thumbnail} alt={`Property in ${displayCity}`} className="w-full h-full object-cover" />
+                        <img 
+                          src={thumbnail} 
+                          alt={`Rental property in ${displayCity}`} 
+                          className="w-full h-full object-cover" 
+                        />
                       ) : (
-                        // No image placeholder
-                        <div className="w-full h-full bg-gray-200 flex flex-col items-center justify-center text-gray-600 px-4">
+                        <div className="w-full h-full bg-gradient-to-br from-purple-100 to-blue-100 flex flex-col items-center justify-center text-gray-600 px-4">
                           <div className="text-sm font-medium">No Image Available</div>
-                          <div className="text-xs mt-1">—</div>
+                          <div className="text-xs mt-1">Rental Property</div>
                         </div>
                       )}
 
@@ -186,7 +174,7 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log("Toggle favorite for:", propertyKey);
+                          console.log("Toggle favorite for rental:", propertyKey);
                           // TODO: toggle favorite state
                         }}
                         className="absolute top-4 right-4 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
@@ -197,7 +185,7 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
                       <div className="absolute bottom-4 left-4">
                         <span
                           className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            status === "Active" ? "bg-green-500 text-white" : status === "Pending" ? "bg-yellow-500 text-white" : "bg-gray-500 text-white"
+                            status === "Active" ? "bg-purple-500 text-white" : status === "Pending" ? "bg-yellow-500 text-white" : "bg-gray-500 text-white"
                           }`}
                         >
                           {status}
@@ -209,7 +197,7 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
                       <h3 className="font-semibold text-gray-900 mb-2 truncate">
                         {displayPropertyType} in {displayCity}
                       </h3>
-                      <p className="text-xl font-bold text-blue-600 mb-4">{formatPrice(displayPrice)}</p>
+                      <p className="text-xl font-bold text-purple-600 mb-4">{formatPrice(displayPrice)}/month</p>
 
                       <div className="flex items-center gap-4 text-gray-600 text-sm">
                         {bedCount > 0 && (
@@ -228,9 +216,8 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
                             </span>
                           </div>
                         )}
-                        <div className="flex items-center gap-1">
-                          <Maximize className="w-4 h-4" />
-                          <span className="text-xs">{(property as any).StateOrProvince ?? (property as any).state ?? ""}</span>
+                        <div className="text-xs bg-gray-100 px-2 py-1 rounded">
+                          {(property as any).StateOrProvince ?? (property as any).state ?? ""}
                         </div>
                       </div>
                     </div>
@@ -241,8 +228,11 @@ export default function FeaturedListings({ properties, isLoading, searchQuery }:
 
             {/* View All button at bottom (mobile friendly) */}
             <div className="mt-8 text-center lg:hidden">
-              <Link href="/listing" className="inline-flex items-center px-5 py-2.5 bg-blue-800 text-white rounded-lg hover:bg-blue-700 transition-colors" style={{ backgroundColor: colors.primary, color: colors.cards, borderColor: colors.primary }}>
-                View All Properties ({properties.length})
+              <Link 
+                href="/listing/rental" 
+                className="inline-flex items-center px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                View All Rentals ({properties.length})
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Link>
             </div>

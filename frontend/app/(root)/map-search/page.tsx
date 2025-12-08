@@ -21,9 +21,9 @@ const Popup = dynamic(
   () => import("react-leaflet").then((m) => m.Popup),
   { ssr: false }
 );
+
 const { useMap } = (() => {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     return require("react-leaflet");
   } catch {
     return { useMap: () => null };
@@ -56,8 +56,41 @@ type NominatimResult = {
   lon: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Helper function to open Street View
+const openStreetView = (lat: number, lng: number, title?: string) => {
+  const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+  const streetViewWindow = window.open(url, "_blank");
+  if (streetViewWindow) {
+    streetViewWindow.focus();
+  } else {
+    alert("Please allow popups for this site to open Street View");
+  }
+};
+
+// Helper to call exclusive-properties API with bbox params
+async function fetchExclusivePropertiesForBBox(bbox: {
+  latitude_min: number;
+  latitude_max: number;
+  longitude_min: number;
+  longitude_max: number;
+}) {
+  const params = new URLSearchParams();
+  Object.entries(bbox).forEach(([k, v]) => params.append(k, String(v)));
+  const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/?${params.toString()}`;
+  console.log("Fetching exclusive properties:", url);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Exclusive API error ${res.status}: ${txt}`);
+  }
+  const data = await res.json();
+  return data;
+}
+
+// ---------------- PORTAL ----------------
 function ResultsPortal({
   anchorRect,
   results,
@@ -84,7 +117,7 @@ function ResultsPortal({
   };
 
   return ReactDOM.createPortal(
-    <div style={style} role="listbox" aria-label="Search results">
+    <div style={style} role="listbox">
       {results.map((r) => (
         <button
           key={r.place_id}
@@ -116,33 +149,48 @@ function ResultsPortal({
   );
 }
 
-// Helper to call exclusive-properties API with bbox params
-async function fetchExclusivePropertiesForBBox(bbox: {
-  latitude_min: number;
-  latitude_max: number;
-  longitude_min: number;
-  longitude_max: number;
+// ---------------- MAP CONTROLLER ----------------
+function MapController({ 
+  onMapReady,
+  onMapClick 
+}: { 
+  onMapReady: (map: any) => void;
+  onMapClick: (lat: number, lng: number) => void;
 }) {
-  const params = new URLSearchParams();
-  Object.entries(bbox).forEach(([k, v]) => params.append(k, String(v)));
-  const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/?${params.toString()}`;
-  console.log("Fetching exclusive properties:", url);
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`Exclusive API error ${res.status}: ${txt}`);
-  }
-  const data = await res.json();
-  return data; // expected shape: { results: [...], count, ... }
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!map) return;
+    
+    onMapReady(map);
+    
+    // Add click handler to the map
+    map.on('click', (e: any) => {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    });
+    
+    return () => {
+      map.off('click');
+    };
+  }, [map, onMapReady, onMapClick]);
+  
+  return null;
 }
 
-// MapController to capture map instance
-function MapController({ onMapReady }: { onMapReady: (map: any) => void }) {
-  const map = useMap();
-  useEffect(() => {
-    if (map) onMapReady(map);
-  }, [map, onMapReady]);
-  return null;
+// ---------------- STREET VIEW BUTTON IN POPUP ----------------
+function StreetViewButton({ lat, lng, title }: { lat: number; lng: number; title?: string }) {
+  return (
+    <button
+      onClick={() => openStreetView(lat, lng, title)}
+      className="mt-2 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center gap-2"
+      title="Open Street View in new tab"
+    >
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
+      </svg>
+      Open Street View
+    </button>
+  );
 }
 
 export default function MapOnlyPage() {
@@ -150,28 +198,24 @@ export default function MapOnlyPage() {
   const [L, setL] = useState<any>(null);
   const mapRef = useRef<any | null>(null);
 
-  // API markers & states
   const [apiMarkers, setApiMarkers] = useState<PropertyMarker[]>([]);
   const [loadingApi, setLoadingApi] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  // search/autocomplete state
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<NominatimResult[]>([]);
   const [searchResult, setSearchResult] = useState<{ lat: number; lng: number; display_name?: string } | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [resultsOpen, setResultsOpen] = useState(false);
 
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
-
-  // Drawing state
   const [drawing, setDrawing] = useState(false);
   const rectLayerRef = useRef<any | null>(null);
   const drawStartRef = useRef<{ lat: number; lng: number } | null>(null);
 
-  // Load Leaflet
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const [resultsOpen, setResultsOpen] = useState(false);
+
   useEffect(() => {
     setMounted(true);
     import("leaflet").then((leaflet) => {
@@ -228,6 +272,14 @@ export default function MapOnlyPage() {
     iconSize: [25, 41],
     iconAnchor: [12, 41],
   });
+
+  // Handle map click for Street View
+  const handleMapClick = (lat: number, lng: number) => {
+    // Only open Street View if not in drawing mode
+    if (!drawing) {
+      openStreetView(lat, lng);
+    }
+  };
 
   // Nominatim search helpers
   const fetchResults = async (q: string) => {
@@ -317,13 +369,11 @@ export default function MapOnlyPage() {
     if (!mapRef.current) return;
     setDrawing(true);
     drawStartRef.current = null;
-    // ensure any existing rectangle removed
     if (rectLayerRef.current) {
       try { rectLayerRef.current.remove(); } catch {}
       rectLayerRef.current = null;
     }
 
-    // attach leaflet events
     mapRef.current.dragging.disable();
     mapRef.current.on("mousedown", onMapMouseDown);
     mapRef.current.getContainer().style.cursor = "crosshair";
@@ -346,12 +396,9 @@ export default function MapOnlyPage() {
 
   // Rectangle event handlers
   const onMapMouseDown = (e: any) => {
-    // start point
     drawStartRef.current = { lat: e.latlng.lat, lng: e.latlng.lng };
-    // attach move & up
     mapRef.current.on("mousemove", onMapMouseMove);
     mapRef.current.on("mouseup", onMapMouseUp);
-    // ensure previous rect removed
     if (rectLayerRef.current) {
       try { rectLayerRef.current.remove(); } catch {}
       rectLayerRef.current = null;
@@ -370,7 +417,6 @@ export default function MapOnlyPage() {
   };
 
   const onMapMouseUp = async (e: any) => {
-    // finalize bounds
     mapRef.current.off("mousemove", onMapMouseMove);
     mapRef.current.off("mouseup", onMapMouseUp);
 
@@ -385,7 +431,6 @@ export default function MapOnlyPage() {
     const lngMin = Math.min(start.lng, end.lng);
     const lngMax = Math.max(start.lng, end.lng);
 
-    // build bbox object matching API params
     const bbox = {
       latitude_min: Number(latMin.toFixed(6)),
       latitude_max: Number(latMax.toFixed(6)),
@@ -393,7 +438,6 @@ export default function MapOnlyPage() {
       longitude_max: Number(lngMax.toFixed(6)),
     };
 
-    // fetch API results for bbox
     setLoadingApi(true);
     setApiError(null);
     setApiMarkers([]);
@@ -420,7 +464,6 @@ export default function MapOnlyPage() {
 
       setApiMarkers(markers);
       if (markers.length > 0) {
-        // fly to first result or fit bounds of all markers
         try {
           const group = markers.map((m) => [m.lat, m.lng]);
           const bounds = L.latLngBounds(group as any);
@@ -433,12 +476,10 @@ export default function MapOnlyPage() {
       setApiError(err.message || "Failed to fetch properties");
       setLoadingApi(false);
     } finally {
-      // leave rectangle visible (rectLayerRef) so user sees the search area; disable drawing mode
       setDrawing(false);
       drawStartRef.current = null;
       mapRef.current.dragging.enable();
       mapRef.current.getContainer().style.cursor = "";
-      // remove the event listeners (safe)
       mapRef.current.off("mousedown", onMapMouseDown);
       mapRef.current.off("mousemove", onMapMouseMove);
       mapRef.current.off("mouseup", onMapMouseUp);
@@ -456,23 +497,23 @@ export default function MapOnlyPage() {
     setLoadingApi(false);
   };
 
-  // Determine marker to show when no api markers: fallback to nothing
-  const markerToShow = searchResult ? { lat: searchResult.lat, lng: searchResult.lng, title: searchResult.display_name || "Search result" } : null;
-
   const handleMapReady = (map: any) => {
     mapRef.current = map;
-    // enable scroll wheel zoom if disabled in some setups
     try { map.scrollWheelZoom.enable(); } catch {}
   };
+
+  const markerToShow = searchResult ? { 
+    lat: searchResult.lat, 
+    lng: searchResult.lng, 
+    title: searchResult.display_name || "Search result" 
+  } : null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Map Search — Draw Area & Query API</h1>
-          <p className="text-sm text-gray-600">
-            Click <strong>Draw area</strong>, drag a rectangle on the map. When you release the mouse the bounding box is sent to the API and returned listings are marked.
-          </p>
+          
         </div>
 
         <div className="flex gap-2">
@@ -505,7 +546,7 @@ export default function MapOnlyPage() {
         {loadingApi && <span className="text-gray-600">Loading properties from API…</span>}
         {!loadingApi && apiError && <span className="text-red-600">API error: {apiError}</span>}
         {!loadingApi && !apiError && apiMarkers.length > 0 && (
-          <span className="text-gray-700">{apiMarkers.length} properties loaded in area.</span>
+          <span className="text-gray-700">{apiMarkers.length} properties loaded. Click on markers for details.</span>
         )}
         {!loadingApi && !apiError && apiMarkers.length === 0 && (
           <span className="text-gray-600">No properties loaded yet — draw an area to query the API.</span>
@@ -567,13 +608,13 @@ export default function MapOnlyPage() {
       {/* MAP */}
       <div className="rounded-lg overflow-hidden shadow-md" style={{ height: "90vh", minHeight: 640 }}>
         <MapContainer center={[43.65, -79.385]} zoom={13} className="w-full h-full">
-          <MapController onMapReady={handleMapReady} />
+          <MapController onMapReady={handleMapReady} onMapClick={handleMapClick} />
           <TileLayer
             attribution='&copy; <a href="https://carto.com/">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           />
 
-          {/* Render API markers (all results). These show only when API returned markers. */}
+          {/* Render API markers with Street View button in popup */}
           {apiMarkers.map((m) => (
             <Marker key={m.id} position={[m.lat, m.lng]} icon={customIcon}>
               <Popup>
@@ -581,23 +622,36 @@ export default function MapOnlyPage() {
                   <strong>{m.title}</strong>
                   <br />
                   {m.price ? `Price: ${m.price}` : null}
+                  <br />
+                  <small className="text-gray-500">
+                    Coordinates: {m.lat.toFixed(6)}, {m.lng.toFixed(6)}
+                  </small>
+                  <StreetViewButton lat={m.lat} lng={m.lng} title={m.title} />
                 </div>
               </Popup>
             </Marker>
           ))}
 
-          {/* Render search marker on top if present */}
+          {/* Render search marker on top if present (no Street View button for search result) */}
           {markerToShow && (
             <Marker position={[markerToShow.lat, markerToShow.lng]} icon={customIcon}>
               <Popup>
                 <div>
                   <strong>📍 {markerToShow.title}</strong>
+                  <br />
+                  <small className="text-gray-500">
+                    Coordinates: {markerToShow.lat.toFixed(6)}, {markerToShow.lng.toFixed(6)}
+                  </small>
+                  <StreetViewButton lat={markerToShow.lat} lng={markerToShow.lng} title={markerToShow.title} />
                 </div>
               </Popup>
             </Marker>
           )}
         </MapContainer>
       </div>
+
+      {/* Instructions */}
+ 
     </div>
   );
 }

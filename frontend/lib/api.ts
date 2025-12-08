@@ -121,6 +121,24 @@ export interface ExclusivePropertyFilterParams {
   offset?: number;
 }
 
+// New interface for Lease Properties filter parameters
+export interface LeasePropertyFilterParams {
+  price_min?: number;
+  price_max?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  property_sub_type?: string;
+  city?: string;
+  province?: string;
+  postal_code?: string;
+  keywords?: string;
+  has_photos?: boolean;
+  new_listings_days?: number;
+  standard_status?: string;
+  limit?: number;
+  offset?: number;
+}
+
 // Vlog interfaces
 export interface VlogCategory {
   id: number;
@@ -189,7 +207,6 @@ export async function fetchVlogPostBySlug(slug: string): Promise<VlogPost | null
       headers: {
         'Content-Type': 'application/json',
       },
-      // consider using 'no-cache' or leaving default depending on your next config
       cache: 'no-store',
     });
 
@@ -211,7 +228,6 @@ export async function fetchVlogPostBySlug(slug: string): Promise<VlogPost | null
     return null;
   }
 }
-
 
 // Original Property API function
 export async function fetchProperties(filters?: PropertyFilterParams): Promise<Property[]> {
@@ -332,7 +348,7 @@ export async function fetchExclusiveProperties(filters?: ExclusivePropertyFilter
     const queryParams = new URLSearchParams();
     
     // Default values for infinite scroll
-    const limit = filters?.limit || 24;
+    const limit = filters?.limit || 6;
     const offset = filters?.offset || 0;
     
     // Set default pagination parameters
@@ -399,6 +415,76 @@ export async function fetchExclusiveProperties(filters?: ExclusivePropertyFilter
   }
 }
 
+// NEW: Lease Properties API function
+export async function fetchLeaseProperties(filters?: LeasePropertyFilterParams): Promise<{
+  results: any[];
+  count: number;
+  next: number | null;
+  previous: number | null;
+}> {
+  try {
+    const queryParams = new URLSearchParams();
+    
+    // Default values for pagination
+    const limit = filters?.limit || 24;
+    const offset = filters?.offset || 0;
+    
+    queryParams.append('limit', limit.toString());
+    queryParams.append('offset', offset.toString());
+    
+    // Add all other filters to query params
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (key === 'limit' || key === 'offset') return;
+        
+        if (value !== undefined && value !== null && value !== '') {
+          if (typeof value === 'boolean') {
+            queryParams.append(key, value ? 'true' : 'false');
+          } else {
+            queryParams.append(key, value.toString());
+          }
+        }
+      });
+    }
+    
+    const url = `${API_BASE_URL}/api/mls/properties/lease-properties/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    console.log('Fetching lease properties from:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    console.log('Lease Properties API Response status:', response.status);
+
+    if (!response.ok) {
+      console.error('API Error:', await response.text());
+      throw new Error(`Failed to fetch lease properties: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Fetched lease properties:', data?.results?.length || 0, 'properties');
+    
+    return {
+      results: data.results || [],
+      count: data.count || 0,
+      next: data.next || null,
+      previous: data.previous || null
+    };
+  } catch (error) {
+    console.error('Error fetching lease properties:', error);
+    return {
+      results: [],
+      count: 0,
+      next: null,
+      previous: null
+    };
+  }
+}
+
 // SIMPLIFIED function to get ALL exclusive properties without any filters
 export async function fetchAllExclusiveProperties(): Promise<Property[]> {
   try {
@@ -458,6 +544,68 @@ export async function fetchAllExclusiveProperties(): Promise<Property[]> {
     }));
   } catch (error) {
     console.error('Error fetching all exclusive properties:', error);
+    return [];
+  }
+}
+
+// NEW: Helper to get ALL lease properties
+export async function fetchAllLeaseProperties(): Promise<Property[]> {
+  try {
+    console.log('Fetching ALL lease properties (no filters)');
+    
+    const response = await fetchLeaseProperties({});
+    
+    console.log('Fetched ALL lease properties:', response.results?.length || 0, 'properties');
+    
+    // Map the results to Property interface
+    return (response.results || []).map((prop: any) => ({
+      PropertyKey: prop.listing_key || '',
+      ListingKey: prop.listing_key || '',
+      list_price: prop.list_price,
+      listing_key: prop.listing_key,
+      ListPrice: prop.list_price ? parseFloat(prop.list_price) : 0,
+      City: prop.city || '',
+      city: prop.city,
+      StateOrProvince: prop.StateOrProvince || 'ON',
+      PropertySubType: prop.category_type || 'Lease',
+      BedroomsTotal: prop.bedrooms_total || 0,
+      bedrooms_total: prop.bedrooms_total,
+      BathroomsTotalInteger: prop.bathrooms_total_integer || 0,
+      bathrooms_total_integer: prop.bathrooms_total_integer,
+      StandardStatus: prop.standard_status || 'Active',
+      standard_status: prop.standard_status,
+      ModificationTimestamp: prop.ModificationTimestamp || new Date().toISOString(),
+      unparsed_address: prop.unparsed_address,
+      postal_code: prop.postal_code,
+      latitude: prop.latitude,
+      longitude: prop.longitude,
+      public_remarks: prop.public_remarks,
+      media: prop.media,
+      rooms: prop.rooms,
+      category_type: prop.category_type,
+      photos_count: prop.photos_count,
+      listing_url: prop.listing_url,
+      building_area_total: prop.building_area_total,
+      year_built: prop.year_built,
+      
+      // Legacy fields
+      Photos: prop.media?.map((m: any) => ({ PhotoURL: m.media_url })) || [],
+      Media: prop.media,
+      Rooms: prop.rooms,
+      LivingArea: prop.building_area_total ? parseFloat(prop.building_area_total) : null,
+      YearBuilt: prop.year_built ? parseInt(prop.year_built) : null,
+      PublicRemarks: prop.public_remarks,
+      PostalCode: prop.postal_code,
+      Latitude: prop.latitude,
+      Longitude: prop.longitude,
+      Description: prop.public_remarks,
+      PropertyType: prop.category_type || 'Lease',
+      
+      // Add all other properties from the response
+      ...prop
+    }));
+  } catch (error) {
+    console.error('Error fetching all lease properties:', error);
     return [];
   }
 }
@@ -609,6 +757,39 @@ export async function testExclusiveEndpoint(): Promise<void> {
   }
 }
 
+// NEW: Helper function to test lease endpoint
+export async function testLeaseEndpoint(): Promise<void> {
+  try {
+    const testUrl = `${API_BASE_URL}/api/mls/properties/lease-properties/`;
+    console.log('Testing lease endpoint:', testUrl);
+    
+    const response = await fetch(testUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    console.log('Lease test response status:', response.status);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Lease test response data:', data);
+      console.log('Lease endpoint is working! Found', data.count || 0, 'properties');
+    } else {
+      console.error('Lease endpoint test failed with status:', response.status);
+      try {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+      } catch (e) {
+        console.error('Could not read error response');
+      }
+    }
+  } catch (error) {
+    console.error('Error testing lease endpoint:', error);
+  }
+}
+
 // Test price range specifically
 export async function testPriceRangeEndpoint(minPrice?: number, maxPrice?: number): Promise<void> {
   try {
@@ -683,6 +864,24 @@ export async function fetchExclusivePropertiesWithOffset(
   updated_to_exclusive: number;
 }> {
   return fetchExclusiveProperties({
+    ...filters,
+    limit,
+    offset
+  });
+}
+
+// NEW: Function for lease properties infinite scroll
+export async function fetchLeasePropertiesWithOffset(
+  offset: number = 0,
+  limit: number = 6,
+  filters?: Omit<LeasePropertyFilterParams, 'limit' | 'offset'>
+): Promise<{
+  results: any[];
+  count: number;
+  next: number | null;
+  previous: number | null;
+}> {
+  return fetchLeaseProperties({
     ...filters,
     limit,
     offset
