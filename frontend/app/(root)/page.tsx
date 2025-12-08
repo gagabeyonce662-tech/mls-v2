@@ -4,7 +4,9 @@ import React, { useState, useEffect, useRef } from 'react'
 import HeroSection from '@/components/homepage/HeroSection';
 import FeaturedCollections from '@/components/homepage/FeaturedCollections';
 import FeaturedListings from '@/components/homepage/FeaturedListings';
+import SearchResults from '@/components/homepage/SearchResults';
 import RentalProperties from '@/components/homepage/RentalProperties';
+import PreConstructionProperties from '@/components/homepage/PreConstructionProperties';
 import LocationsSection from '@/components/homepage/LocationsSection';
 import MortgageSection from '@/components/homepage/MortgageSection';
 import LatestArticles from '@/components/homepage/LatestArticles';
@@ -17,6 +19,7 @@ import { colors } from '@/config/design-system';
 import { 
   fetchExclusiveProperties, 
   fetchLeaseProperties,
+  fetchPreConnProperties,
   type Property,
   type ExclusivePropertyFilterParams 
 } from '@/lib/api';
@@ -44,7 +47,7 @@ function MobileFilterDrawer({ open, onClose, onPropertiesUpdate }: { open: boole
           <button onClick={onClose} aria-label="Close filters" className="text-sm px-2 py-1 rounded-md">Close</button>
         </div>
 
-        <div className="p-4 ">
+        <div className="p-4 overflow-y-auto h-[calc(100%-65px)]">
           <PropertyFilter onPropertiesUpdate={onPropertiesUpdate} />
         </div>
       </aside>
@@ -55,14 +58,19 @@ function MobileFilterDrawer({ open, onClose, onPropertiesUpdate }: { open: boole
 export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [rentalProperties, setRentalProperties] = useState<Property[]>([]);
+  const [preConnProperties, setPreConnProperties] = useState<Property[]>([]);
+  const [searchResults, setSearchResults] = useState<Property[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingRentals, setIsLoadingRentals] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("Exclusive Properties");
+  const [isLoadingPreConn, setIsLoadingPreConn] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
   const { selectedProvince, getProvinceName } = useProvince();
   
   // Use refs to track state
   const hasInitialLoadCompleted = useRef(false);
   const hasRentalInitialLoadCompleted = useRef(false);
+  const hasPreConnInitialLoadCompleted = useRef(false);
   const prevProvinceRef = useRef<string | null>(null);
 
   // Mobile drawer state
@@ -80,7 +88,6 @@ export default function HomePage() {
         const response = await fetchExclusiveProperties({});
         console.log('✅ INITIAL LOAD COMPLETE:', response.results?.length || 0, 'properties');
         setProperties(response.results || []);
-        setSearchQuery("Exclusive Properties");
         hasInitialLoadCompleted.current = true;
         prevProvinceRef.current = selectedProvince;
       } catch (error) {
@@ -116,7 +123,30 @@ export default function HomePage() {
     loadInitialRentalProperties();
   }, []);
 
-  // 3. Handle PROVINCE CHANGES from dropdown ONLY (for exclusive properties)
+  // 3. INITIAL PRE-CONSTRUCTION PROPERTIES LOAD
+  useEffect(() => {
+    if (hasPreConnInitialLoadCompleted.current) return;
+    
+    const loadInitialPreConnProperties = async () => {
+      setIsLoadingPreConn(true);
+      console.log('🚀 INITIAL PAGE LOAD - Fetching ALL pre-construction properties...');
+      
+      try {
+        const response = await fetchPreConnProperties({});
+        console.log('✅ PRE-CONSTRUCTION INITIAL LOAD COMPLETE:', response.results?.length || 0, 'properties');
+        setPreConnProperties(response.results || []);
+        hasPreConnInitialLoadCompleted.current = true;
+      } catch (error) {
+        console.error('❌ Error in pre-construction initial load:', error);
+      } finally {
+        setIsLoadingPreConn(false);
+      }
+    };
+
+    loadInitialPreConnProperties();
+  }, []);
+
+  // 4. Handle PROVINCE CHANGES from dropdown ONLY (for exclusive properties)
   useEffect(() => {
     if (!hasInitialLoadCompleted.current || !selectedProvince) return;
     const currentProvince = selectedProvince;
@@ -130,7 +160,6 @@ export default function HomePage() {
         if (provinceName === "All Provinces") {
           const response = await fetchExclusiveProperties({});
           setProperties(response.results || []);
-          setSearchQuery("All Exclusive Properties");
         } else {
           const provinceMapping: { [key: string]: string } = {
             'Ontario': 'ON',
@@ -150,7 +179,6 @@ export default function HomePage() {
           const provinceCode = provinceMapping[provinceName] || provinceName;
           const response = await fetchExclusiveProperties({ province: provinceCode });
           setProperties(response.results || []);
-          setSearchQuery(`${provinceName} Exclusive Properties`);
         }
         prevProvinceRef.current = currentProvince;
       } catch (error) {
@@ -167,7 +195,24 @@ export default function HomePage() {
 
   const handlePropertiesUpdate = React.useCallback((newProperties: Property[], query: string = "") => {
     setProperties(newProperties);
-    setSearchQuery(query || "Filtered Properties");
+  }, []);
+
+  // Add this new function to handle search results from HeroSection
+  const handleSearchResults = React.useCallback((results: Property[], query: string = "") => {
+    setSearchResults(results);
+    setSearchQuery(query);
+    setIsSearching(false); // Search is complete
+  }, []);
+
+  // Add this function to handle search start
+  const handleSearchStart = React.useCallback(() => {
+    setIsSearching(true);
+  }, []);
+
+  // Function to clear search results
+  const handleClearSearch = React.useCallback(() => {
+    setSearchResults([]);
+    setSearchQuery("");
   }, []);
 
   return (
@@ -175,13 +220,18 @@ export default function HomePage() {
       <Header />
 
       <main className="w-full flex-1">
-        <HeroSection onPropertiesUpdate={handlePropertiesUpdate} />
+        <HeroSection 
+          onSearchStart={handleSearchStart}
+          onSearchResults={handleSearchResults}
+        />
 
         {/* FeaturedCollections comes BEFORE the Exclusive Properties section */}
-        <div className="  lg:px-6 xl:px-8 mt-6">
+        <div className="lg:px-6 xl:px-8 mt-6">
           <FeaturedCollections />
         </div>
 
+        {/* SEARCH RESULTS SECTION - Only shows when there's a search */}
+       
         {/* EXCLUSIVE PROPERTIES SECTION WITH SIDEBAR FILTERS */}
         <div className="mt-0">
           {/* Section Header with Title and Mobile Filter Button */}
@@ -210,19 +260,16 @@ export default function HomePage() {
 
           {/* Main two-column layout for Exclusive Properties ONLY */}
           <div className="flex relative px-4 lg:px-6 xl:px-8 gap-0 max-w-[1800px] mx-auto w-full">
-            {/* Left Sidebar - visible on lg+ */}
+            {/* Left Sidebar - visible on lg+ with sticky positioning */}
             <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0">
               <div 
-                className="top-6"
+                className="sticky top-6 h-[calc(100vh-100px)] overflow-y-auto"
                 style={{ 
                   borderRight: `1px solid ${colors.boarder}`,
-                 
-                  paddingRight: 12
+                  paddingRight: '12px'
                 }}
               >
-              
-
-                <div style={{ paddingBottom: 12 }}>
+                <div style={{ paddingBottom: '12px' }}>
                   <PropertyFilter onPropertiesUpdate={handlePropertiesUpdate} />
                 </div>
               </div>
@@ -230,21 +277,33 @@ export default function HomePage() {
 
             {/* Main Content Area - FeaturedListings for Exclusive Properties */}
             <main className="flex-1 min-w-0 px-0 lg:px-4">
+              {searchQuery && (
+                <div className="mt-8 max-w-[1800px] mx-auto px-4 lg:px-6 xl:px-8">
+                  <SearchResults 
+                    properties={searchResults} 
+                    isLoading={isSearching} 
+                    searchQuery={searchQuery}
+                    onClearSearch={handleClearSearch}
+                  />
+                </div>
+              )}
+
               <FeaturedListings 
                 properties={properties} 
                 isLoading={isLoading} 
-                searchQuery={searchQuery} 
+                searchQuery="Exclusive Properties"
               />
-               <RentalProperties 
-            properties={rentalProperties} 
-            isLoading={isLoadingRentals} 
-          />
+              <RentalProperties 
+                properties={rentalProperties} 
+                isLoading={isLoadingRentals} 
+              />
+              <PreConstructionProperties 
+                properties={preConnProperties} 
+                isLoading={isLoadingPreConn} 
+              />
             </main>
           </div>
         </div>
-
-        {/* Rental Properties Section - Comes AFTER Exclusive Properties */}
-     
 
         {/* Other Sections */}
         <div className="max-w-[1800px] mx-auto px-4 lg:px-6 xl:px-8 mt-12">
@@ -267,9 +326,9 @@ export default function HomePage() {
       <MobileFilterDrawer 
         open={mobileFilterOpen} 
         onClose={() => setMobileFilterOpen(false)} 
-        onPropertiesUpdate={(newProps, q) => { 
+        onPropertiesUpdate={(newProps) => { 
           setMobileFilterOpen(false); 
-          handlePropertiesUpdate(newProps, q); 
+          handlePropertiesUpdate(newProps); 
         }} 
       />
     </div>

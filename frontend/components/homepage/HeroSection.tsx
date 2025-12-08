@@ -3,13 +3,184 @@
 import { useState } from "react";
 import { Search, ChevronDown } from "lucide-react";
 import { colors } from "@/config/design-system";
-import { fetchExclusiveProperties, type Property } from "@/lib/api";
+import { type Property } from "@/lib/api";
 
 interface HeroSectionProps {
-  onPropertiesUpdate: (properties: Property[], query: string) => void;
+  onSearchStart: () => void;
+  onSearchResults: (properties: Property[], query: string) => void;
 }
 
-export default function HeroSection({ onPropertiesUpdate }: HeroSectionProps) {
+// API Base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+// New function specifically for the /filter/ endpoint with search parameter
+async function fetchPropertiesBySearch(searchQuery: string, filters?: any): Promise<Property[]> {
+  try {
+    console.log('Searching properties with query:', searchQuery);
+    
+    const queryParams = new URLSearchParams();
+    queryParams.append('search', searchQuery);
+    
+    // Add any additional filters
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    
+    const url = `${API_BASE_URL}/api/mls/properties/filter/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    console.log('Fetching from search endpoint:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    console.log('Search API Response status:', response.status);
+
+    if (!response.ok) {
+      throw new Error(`Failed to search properties: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Search response data:', data);
+    
+    // Map the API response to Property interface
+    return (data.results || data.value || []).map((prop: any) => ({
+      PropertyKey: prop.listing_key || prop.PropertyKey || '',
+      ListingKey: prop.listing_key || prop.ListingKey || '',
+      list_price: prop.list_price || prop.ListPrice?.toString(),
+      listing_key: prop.listing_key,
+      ListPrice: prop.list_price ? parseFloat(prop.list_price) : prop.ListPrice || "Price Not Available",
+      City: prop.city || prop.City || '',
+      city: prop.city,
+      StateOrProvince: prop.StateOrProvince || prop.state_or_province || 'ON',
+      PropertySubType: prop.category_type || prop.PropertySubType || 'Residential',
+      BedroomsTotal: prop.bedrooms_total || prop.BedroomsTotal || 0,
+      bedrooms_total: prop.bedrooms_total,
+      BathroomsTotalInteger: prop.bathrooms_total_integer || prop.BathroomsTotalInteger || 0,
+      bathrooms_total_integer: prop.bathrooms_total_integer,
+      StandardStatus: prop.standard_status || prop.StandardStatus || 'Active',
+      standard_status: prop.standard_status,
+      ModificationTimestamp: prop.ModificationTimestamp || prop.modification_timestamp || new Date().toISOString(),
+      unparsed_address: prop.unparsed_address || prop.UnparsedAddress,
+      postal_code: prop.postal_code || prop.PostalCode,
+      latitude: prop.latitude || prop.Latitude,
+      longitude: prop.longitude || prop.Longitude,
+      public_remarks: prop.public_remarks || prop.PublicRemarks,
+      media: prop.media || prop.Media || [],
+      rooms: prop.rooms || prop.Rooms || [],
+      category_type: prop.category_type || prop.PropertyType,
+      photos_count: prop.photos_count || prop.Photos?.length || 0,
+      listing_url: prop.listing_url,
+      building_area_total: prop.building_area_total || prop.LivingArea?.toString(),
+      year_built: prop.year_built || prop.YearBuilt?.toString(),
+      
+      // Legacy fields for backward compatibility
+      Photos: prop.media?.map((m: any) => ({ PhotoURL: m.media_url })) || prop.Photos || [],
+      Media: prop.media || prop.Media,
+      Rooms: prop.rooms || prop.Rooms,
+      LivingArea: prop.building_area_total ? parseFloat(prop.building_area_total) : prop.LivingArea || null,
+      YearBuilt: prop.year_built ? parseInt(prop.year_built) : prop.YearBuilt || null,
+      PublicRemarks: prop.public_remarks || prop.PublicRemarks,
+      PostalCode: prop.postal_code || prop.PostalCode,
+      Latitude: prop.latitude || prop.Latitude,
+      Longitude: prop.longitude || prop.Longitude,
+      Description: prop.public_remarks || prop.PublicRemarks || prop.Description,
+      PropertyType: prop.category_type || prop.PropertyType || 'Residential',
+      
+      // Add all other properties from the response
+      ...prop
+    }));
+  } catch (error) {
+    console.error('Error searching properties:', error);
+    return [];
+  }
+}
+
+// Function to get all properties (for clear search)
+async function fetchAllProperties(): Promise<Property[]> {
+  try {
+    console.log('Fetching all properties');
+    
+    // Try the /filter/ endpoint without search parameter to get all properties
+    const url = `${API_BASE_URL}/api/mls/properties/filter/`;
+    console.log('Fetching all from:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch properties: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('All properties response:', data);
+    
+    // Map the API response to Property interface
+    return (data.results || data.value || []).map((prop: any) => ({
+      PropertyKey: prop.listing_key || prop.PropertyKey || '',
+      ListingKey: prop.listing_key || prop.ListingKey || '',
+      list_price: prop.list_price || prop.ListPrice?.toString(),
+      listing_key: prop.listing_key,
+      ListPrice: prop.list_price ? parseFloat(prop.list_price) : prop.ListPrice || "Price Not Available",
+      City: prop.city || prop.City || '',
+      city: prop.city,
+      StateOrProvince: prop.StateOrProvince || prop.state_or_province || 'ON',
+      PropertySubType: prop.category_type || prop.PropertySubType || 'Residential',
+      BedroomsTotal: prop.bedrooms_total || prop.BedroomsTotal || 0,
+      bedrooms_total: prop.bedrooms_total,
+      BathroomsTotalInteger: prop.bathrooms_total_integer || prop.BathroomsTotalInteger || 0,
+      bathrooms_total_integer: prop.bathrooms_total_integer,
+      StandardStatus: prop.standard_status || prop.StandardStatus || 'Active',
+      standard_status: prop.standard_status,
+      ModificationTimestamp: prop.ModificationTimestamp || prop.modification_timestamp || new Date().toISOString(),
+      unparsed_address: prop.unparsed_address || prop.UnparsedAddress,
+      postal_code: prop.postal_code || prop.PostalCode,
+      latitude: prop.latitude || prop.Latitude,
+      longitude: prop.longitude || prop.Longitude,
+      public_remarks: prop.public_remarks || prop.PublicRemarks,
+      media: prop.media || prop.Media || [],
+      rooms: prop.rooms || prop.Rooms || [],
+      category_type: prop.category_type || prop.PropertyType,
+      photos_count: prop.photos_count || prop.Photos?.length || 0,
+      listing_url: prop.listing_url,
+      building_area_total: prop.building_area_total || prop.LivingArea?.toString(),
+      year_built: prop.year_built || prop.YearBuilt?.toString(),
+      
+      // Legacy fields for backward compatibility
+      Photos: prop.media?.map((m: any) => ({ PhotoURL: m.media_url })) || prop.Photos || [],
+      Media: prop.media || prop.Media,
+      Rooms: prop.rooms || prop.Rooms,
+      LivingArea: prop.building_area_total ? parseFloat(prop.building_area_total) : prop.LivingArea || null,
+      YearBuilt: prop.year_built ? parseInt(prop.year_built) : prop.YearBuilt || null,
+      PublicRemarks: prop.public_remarks || prop.PublicRemarks,
+      PostalCode: prop.postal_code || prop.PostalCode,
+      Latitude: prop.latitude || prop.Latitude,
+      Longitude: prop.longitude || prop.Longitude,
+      Description: prop.public_remarks || prop.PublicRemarks || prop.Description,
+      PropertyType: prop.category_type || prop.PropertyType || 'Residential',
+      
+      // Add all other properties from the response
+      ...prop
+    }));
+  } catch (error) {
+    console.error('Error fetching all properties:', error);
+    return [];
+  }
+}
+
+export default function HeroSection({ onSearchStart, onSearchResults }: HeroSectionProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState("Buy");
   const [isLoading, setIsLoading] = useState(false);
@@ -20,90 +191,32 @@ export default function HeroSection({ onPropertiesUpdate }: HeroSectionProps) {
     
     setIsLoading(true);
     setError("");
+    onSearchStart(); // Notify parent that search is starting
+    
     try {
       const query = searchQuery.trim();
       
       console.log('Homepage search initiated:', { query, searchType });
       
-      // If no search query, clear search and show all properties
+      // If no search query, clear search
       if (!query) {
-        console.log('Clearing search - showing all properties');
-        const response = await fetchExclusiveProperties({});
-        const properties = mapApiResponseToProperties(response);
-        onPropertiesUpdate(properties, "Exclusive Properties");
+        console.log('Clearing search');
+        onSearchResults([], ""); // Clear search results
         return;
       }
 
-      // Create filters object
-      const filters: any = {};
+      console.log('Searching for:', query);
       
-      // Clean query (remove extra spaces, handle case)
-      const cleanQuery = query.toUpperCase().trim();
-      
-      // Check if it's a postal code (Canadian format: A1A 1A1)
-      const postalCodeRegex = /^[A-Z]\d[A-Z]\s?\d[A-Z]\d$/;
-      const cleanPostalCode = cleanQuery.replace(/\s/g, '');
-      
-      if (postalCodeRegex.test(cleanPostalCode)) {
-        filters.postal_code = cleanPostalCode;
-        console.log('Searching by postal code:', cleanPostalCode);
-      } 
-      // Check if it's a city name (contains only letters, spaces, and hyphens)
-      else if (/^[A-Z\s\-]+$/i.test(query)) {
-        filters.city = query;
-        console.log('Searching by city:', query);
-      }
-      // Check if it's a province (common province names)
-      else if (isProvince(query)) {
-        filters.province = getProvinceCode(query);
-        console.log('Searching by province:', query, '->', getProvinceCode(query));
-      }
-      // Check if it's a number (might be price or part of address)
-      else if (/^\d+$/.test(query.replace(/[,\$]/g, ''))) {
-        // Could be a price search - check if it's a reasonable price range
-        const price = parseInt(query.replace(/[,\$]/g, ''));
-        if (price > 10000 && price < 10000000) { // Reasonable price range for properties
-          filters.price_min = Math.max(price - 100000, 0);
-          filters.price_max = price + 100000;
-          console.log('Searching by price range:', price);
-        } else {
-          // Otherwise, search in multiple fields (API will handle it as a general search)
-          // Since our API doesn't have a general search parameter, we'll search in city and address
-          filters.city = query;
-          console.log('Searching by city (fallback):', query);
-        }
-      }
-      // Otherwise try searching in multiple fields
-      else {
-        // Try as city first (most common)
-        filters.city = query;
-        console.log('Searching by city (default):', query);
-      }
-      
-      console.log('Searching with filters:', filters);
-      
-      // Call the API with filters
-      const response = await fetchExclusiveProperties(filters);
-      
-      // Map the API response to properties
-      const properties = mapApiResponseToProperties(response);
+      // Use the search endpoint with the query
+      const properties = await fetchPropertiesBySearch(query);
       
       console.log('Found properties:', properties.length);
       
-      // Create display query based on search type
-      let displayQuery = `Exclusive Properties`;
-      if (filters.city) {
-        displayQuery = `Exclusive Properties in ${filters.city}`;
-      } else if (filters.postal_code) {
-        displayQuery = `Exclusive Properties in ${filters.postal_code}`;
-      } else if (filters.province) {
-        const provinceName = getProvinceName(filters.province);
-        displayQuery = `Exclusive Properties in ${provinceName}`;
-      } else if (filters.price_min || filters.price_max) {
-        displayQuery = `Exclusive Properties with price around $${(filters.price_min || filters.price_max)?.toLocaleString()}`;
-      }
+      // Create display query
+      const displayQuery = query;
       
-      onPropertiesUpdate(properties, displayQuery);
+      // Pass results to parent
+      onSearchResults(properties, displayQuery);
       
       if (properties.length === 0) {
         setError(`No properties found matching "${query}". Try a different search term.`);
@@ -111,12 +224,13 @@ export default function HeroSection({ onPropertiesUpdate }: HeroSectionProps) {
     } catch (error) {
       console.error('Error searching properties:', error);
       setError('Search failed. Please try again.');
+      onSearchResults([], ""); // Clear on error
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Helper function to check if query is a province
+  // Helper function to check if query is a province (for quick search)
   const isProvince = (query: string): boolean => {
     const provinces = [
       'Ontario', 'Quebec', 'British Columbia', 'BC', 
@@ -126,46 +240,11 @@ export default function HeroSection({ onPropertiesUpdate }: HeroSectionProps) {
       'ON', 'QC', 'BC', 'AB', 'MB', 'SK', 'NS', 'NB', 'NL', 'PE', 'NT', 'NU', 'YT'
     ];
     
-    return provinces.includes(query.trim());
+    const cleanQuery = query.trim();
+    return provinces.includes(cleanQuery) || provinces.includes(cleanQuery.toUpperCase());
   };
 
-  // Helper function to get province code
-  const getProvinceCode = (query: string): string => {
-    const provinceMap: { [key: string]: string } = {
-      'Ontario': 'ON',
-      'Quebec': 'QC',
-      'British Columbia': 'BC',
-      'Alberta': 'AB',
-      'Manitoba': 'MB',
-      'Saskatchewan': 'SK',
-      'Nova Scotia': 'NS',
-      'New Brunswick': 'NB',
-      'Newfoundland and Labrador': 'NL',
-      'Newfoundland': 'NL',
-      'Prince Edward Island': 'PE',
-      'PEI': 'PE',
-      'Northwest Territories': 'NT',
-      'Nunavut': 'NU',
-      'Yukon': 'YT',
-      'ON': 'ON',
-      'QC': 'QC',
-      'BC': 'BC',
-      'AB': 'AB',
-      'MB': 'MB',
-      'SK': 'SK',
-      'NS': 'NS',
-      'NB': 'NB',
-      'NL': 'NL',
-      'PE': 'PE',
-      'NT': 'NT',
-      'NU': 'NU',
-      'YT': 'YT'
-    };
-    
-    return provinceMap[query.trim()] || query;
-  };
-
-  // Helper function to get province name from code
+  // Helper function to get province name from code (for display)
   const getProvinceName = (code: string): string => {
     const provinceMap: { [key: string]: string } = {
       'ON': 'Ontario',
@@ -183,54 +262,8 @@ export default function HeroSection({ onPropertiesUpdate }: HeroSectionProps) {
       'YT': 'Yukon'
     };
     
-    return provinceMap[code] || code;
-  };
-
-  // Helper function to map API response to Property interface
-  const mapApiResponseToProperties = (response: any): Property[] => {
-    return (response.results || []).map((prop: any) => ({
-      PropertyKey: prop.listing_key || '',
-      ListingKey: prop.listing_key || '',
-      list_price: prop.list_price,
-      listing_key: prop.listing_key,
-      ListPrice: prop.list_price ? parseFloat(prop.list_price) : 0,
-      City: prop.city || '',
-      city: prop.city,
-      StateOrProvince: prop.StateOrProvince || 'ON',
-      PropertySubType: prop.category_type || 'Exclusive',
-      BedroomsTotal: prop.bedrooms_total || 0,
-      bedrooms_total: prop.bedrooms_total,
-      BathroomsTotalInteger: prop.bathrooms_total_integer || 0,
-      bathrooms_total_integer: prop.bathrooms_total_integer,
-      StandardStatus: prop.standard_status || 'Active',
-      standard_status: prop.standard_status,
-      ModificationTimestamp: prop.ModificationTimestamp || new Date().toISOString(),
-      unparsed_address: prop.unparsed_address,
-      postal_code: prop.postal_code,
-      latitude: prop.latitude,
-      longitude: prop.longitude,
-      public_remarks: prop.public_remarks,
-      media: prop.media,
-      rooms: prop.rooms,
-      category_type: prop.category_type,
-      photos_count: prop.photos_count,
-      listing_url: prop.listing_url,
-      building_area_total: prop.building_area_total,
-      year_built: prop.year_built,
-      
-      // Legacy fields
-      Photos: prop.media?.map((m: any) => ({ PhotoURL: m.media_url })) || [],
-      Media: prop.media,
-      Rooms: prop.rooms,
-      LivingArea: prop.building_area_total ? parseFloat(prop.building_area_total) : null,
-      YearBuilt: prop.year_built ? parseInt(prop.year_built) : null,
-      PublicRemarks: prop.public_remarks,
-      PostalCode: prop.postal_code,
-      Latitude: prop.latitude,
-      Longitude: prop.longitude,
-      Description: prop.public_remarks,
-      PropertyType: prop.category_type || 'Exclusive',
-    }));
+    const cleanCode = code.trim().toUpperCase();
+    return provinceMap[cleanCode] || code;
   };
 
   // Handle Enter key press in the input field
@@ -242,19 +275,10 @@ export default function HeroSection({ onPropertiesUpdate }: HeroSectionProps) {
   };
 
   // Clear search and show all properties
-  const handleClearSearch = async () => {
+  const handleClearSearch = () => {
     setSearchQuery("");
     setError("");
-    setIsLoading(true);
-    try {
-      const response = await fetchExclusiveProperties({});
-      const properties = mapApiResponseToProperties(response);
-      onPropertiesUpdate(properties, "Exclusive Properties");
-    } catch (error) {
-      console.error('Error clearing search:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    onSearchResults([], ""); // Clear search results
   };
 
   // Handle quick search button clicks
@@ -335,7 +359,7 @@ export default function HeroSection({ onPropertiesUpdate }: HeroSectionProps) {
                   <input
                     id="search"
                     type="text"
-                    placeholder="Search by city, postal code, province, or address..."
+                    placeholder="Search by city, postal code, province, address, or keywords..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -430,6 +454,14 @@ export default function HeroSection({ onPropertiesUpdate }: HeroSectionProps) {
                   disabled={isLoading}
                 >
                   Ontario
+                </button>
+                <span className="text-white/60">•</span>
+                <button 
+                  onClick={() => handleQuickSearch("Brantford")}
+                  className="text-sm text-white/80 hover:text-white hover:underline px-2 py-1 rounded hover:bg-white/10 transition-colors"
+                  disabled={isLoading}
+                >
+                  Brantford
                 </button>
                 <span className="text-white/60">•</span>
                 <button 
