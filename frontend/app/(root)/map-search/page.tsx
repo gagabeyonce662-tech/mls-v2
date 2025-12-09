@@ -84,8 +84,7 @@ type NominatimResult = {
   lon: string;
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // Helper function to open Street View
 const openStreetView = (lat: number, lng: number, title?: string) => {
@@ -166,7 +165,7 @@ function ResultsPortal({
             (e.currentTarget as HTMLElement).style.background = "transparent";
           }}
         >
-          <div style={{ fontSize: 14 }}>{r.display_name}</div>
+          <div style={{ fontSize: 14, color: "#111" }}>{r.display_name}</div>
           <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
             {`${r.lat.slice(0, 9)}, ${r.lon.slice(0, 9)}`}
           </div>
@@ -219,6 +218,14 @@ function StreetViewButton({ lat, lng, title }: { lat: number; lng: number; title
       Open Street View
     </button>
   );
+}
+
+function debounce(fn: (...args: any[]) => void, delay: number) {
+  let timer: any;
+  return (...args: any[]) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
 }
 
 // ---------------- PROPERTY CARD COMPONENT ----------------
@@ -437,6 +444,7 @@ function PropertyCard({
 }
 
 export default function MapOnlyPage() {
+
   const [mounted, setMounted] = useState(false);
   const [L, setL] = useState<any>(null);
   const mapRef = useRef<any | null>(null);
@@ -461,6 +469,41 @@ export default function MapOnlyPage() {
 
   // State to track selected property
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+
+     // Nominatim search helpers
+  const fetchResults = async (q: string) => {
+    setSearching(true);
+    setSearchError(null);
+    setSearchResults([]);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=0`;
+      const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+      if (!res.ok) throw new Error(`Geocoding error: ${res.status}`);
+      const data = (await res.json()) as NominatimResult[];
+      setSearchResults(data ?? []);
+      setResultsOpen(true);
+      if (!data || data.length === 0) {
+        setSearchError("No results found.");
+      }
+      setAnchorRect(inputRef.current?.getBoundingClientRect() ?? null);
+    } catch (err) {
+      console.error(err);
+      setSearchError("Failed to fetch results. Try again.");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+    const debouncedSearch = useRef(
+      debounce((value: string) => {
+        if (value.trim().length > 0) {
+          fetchResults(value.trim());
+        } else {
+          setSearchResults([]);
+          setResultsOpen(false);
+        }
+      }, 400)
+    ).current;
 
   useEffect(() => {
     setMounted(true);
@@ -536,29 +579,7 @@ export default function MapOnlyPage() {
     }
   };
 
-  // Nominatim search helpers
-  const fetchResults = async (q: string) => {
-    setSearching(true);
-    setSearchError(null);
-    setSearchResults([]);
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=0`;
-      const res = await fetch(url, { headers: { "Accept-Language": "en" } });
-      if (!res.ok) throw new Error(`Geocoding error: ${res.status}`);
-      const data = (await res.json()) as NominatimResult[];
-      setSearchResults(data ?? []);
-      setResultsOpen(true);
-      if (!data || data.length === 0) {
-        setSearchError("No results found.");
-      }
-      setAnchorRect(inputRef.current?.getBoundingClientRect() ?? null);
-    } catch (err) {
-      console.error(err);
-      setSearchError("Failed to fetch results. Try again.");
-    } finally {
-      setSearching(false);
-    }
-  };
+ 
 
   const selectResult = (r: NominatimResult) => {
     const lat = Number(r.lat);
@@ -600,16 +621,17 @@ export default function MapOnlyPage() {
     }
   };
 
-  const onInputChange = async (value: string) => {
-    setSearchQuery(value);
-    setSearchError(null);
-    if (!value.trim()) {
-      setSearchResults([]);
-      setResultsOpen(false);
-      return;
-    }
-    await fetchResults(value.trim());
-  };
+ const onInputChange = (value: string) => {
+  setSearchQuery(value);
+  setSearchError(null);
+
+  setResultsOpen(true);
+  setAnchorRect(inputRef.current?.getBoundingClientRect() ?? null);
+
+  debouncedSearch(value);
+};
+
+
 
   const clearSearch = () => {
     setSearchQuery("");
@@ -783,33 +805,63 @@ export default function MapOnlyPage() {
   return (
     <div className="w-full px-4 pt-[140px] pb-6 pt-24">
       <Header />
-      
-      <div className="h-[120px]">
-        
+      {/* Search + Draw + Clear Row */}
+     <div className="mt-4 mb-6 flex items-center gap-4 justify-center">
 
-        <div className="flex gap-2">
-          {!drawing ? (
-            <button
-              onClick={enableDrawing}
-              className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
-            >
-              Draw area
-            </button>
-          ) : (
-            <button
-              onClick={disableDrawing}
-              className="px-4 py-2 rounded-md bg-yellow-500 text-white hover:bg-yellow-600"
-            >
-              Cancel drawing
-            </button>
-          )}
-          <button
-            onClick={clearRectAndResults}
-            className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
+        {/* Smaller Search Box */}
+        <div className="relative w-72">
+          <input
+            ref={inputRef}
+            value={searchQuery}
+            onChange={(e) => onInputChange(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="Search place…"
+            className="w-full px-3 py-2 rounded-md border focus:ring-2 focus:ring-blue-400 outline-none bg-white"
+            autoComplete="off"
+            onFocus={() => {
+              setAnchorRect(inputRef.current?.getBoundingClientRect() ?? null);
+              if (searchResults.length > 0) setResultsOpen(true);
+            }}
+          />
+          {/* <button
+            type="button"
+            onClick={clearSearch}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
           >
-            Clear results
-          </button>
+            ✕
+          </button> */}
         </div>
+
+        {/* Draw Area */}
+        {!drawing ? (
+          <button
+            onClick={enableDrawing}
+            className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
+          >
+            Draw Area
+          </button>
+        ) : (
+          <button
+            onClick={disableDrawing}
+            className="px-4 py-2 rounded-md bg-yellow-500 text-white hover:bg-yellow-600"
+          >
+            Cancel
+          </button>
+        )}
+
+        {/* Clear Results */}
+        <button
+          onClick={clearRectAndResults}
+          className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
+        >
+          Clear Results
+        </button>
+      </div>
+
+      {/* Search status */}
+      <div className="text-sm text-gray-700 mb-4">
+        {searchError && <span className="text-red-600">{searchError}</span>}
+        {!searchError && searchResult && <span>📍 Showing: {searchResult.display_name}</span>}
       </div>
 
       {/* API status */}
@@ -820,55 +872,8 @@ export default function MapOnlyPage() {
           <span className="text-gray-700">{apiMarkers.length} properties found. Click on cards or markers to select.</span>
         )}
         {!loadingApi && !apiError && apiMarkers.length === 0 && (
-          <span className="text-gray-600">No properties loaded yet — draw an area to query the API.</span>
+          <span className="text-gray-600 flex justify-center">No properties loaded yet — draw an area to query the API.</span>
         )}
-      </div>
-
-      {/* SEARCH BAR */}
-      <div className="mb-4 relative">
-        <div className="flex gap-2 items-center">
-          <input
-            ref={inputRef}
-            value={searchQuery}
-            onChange={(e) => onInputChange(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Search place or address (e.g., Toronto, Queen St)"
-            className="flex-1 px-3 py-2 rounded-md border focus:ring-2 focus:ring-blue-400 outline-none bg-white"
-            aria-label="Search places"
-            autoComplete="off"
-            onFocus={() => {
-              setAnchorRect(inputRef.current?.getBoundingClientRect() ?? null);
-              if (searchResults.length > 0) setResultsOpen(true);
-            }}
-          />
-          <button
-            type="button"
-            onClick={async () => {
-              if (searchResults.length > 0) {
-                selectResult(searchResults[0]);
-                return;
-              }
-              const trimmed = searchQuery.trim();
-              if (trimmed) await fetchResults(trimmed);
-            }}
-            className="px-4 py-2 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-60"
-            disabled={searching}
-          >
-            {searching ? "Searching..." : "Search"}
-          </button>
-          <button
-            type="button"
-            onClick={clearSearch}
-            className="px-3 py-2 rounded-md border bg-white hover:bg-gray-50"
-          >
-            Clear
-          </button>
-        </div>
-
-        <div className="mt-2 text-sm text-center text-gray-700">
-          {searchError && <span className="text-red-600">{searchError}</span>}
-          {!searchError && searchResult && <span>📍 Showing: {searchResult.display_name}</span>}
-        </div>
       </div>
 
       {/* Portal results */}
@@ -879,8 +884,8 @@ export default function MapOnlyPage() {
       {/* MAIN CONTENT: Map + Property Cards */}
       <div className="flex gap-6">
         {/* Map - Takes 2/3 of width when properties exist, full width otherwise */}
-        <div 
-          className={`${apiMarkers.length > 0 ? 'w-3/4' : 'w-full'} rounded-lg overflow-hidden shadow-md`} 
+       <div 
+          className="flex-1 rounded-lg overflow-hidden shadow-md"
           style={{ height: "80vh", minHeight: 640 }}
         >
           <MapContainer center={[43.65, -79.385]} zoom={13} className="w-full h-full">
