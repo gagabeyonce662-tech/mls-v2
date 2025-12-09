@@ -57,6 +57,7 @@ export default function Header() {
                 <Button
                   variant="ghost"
                   className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-ds-heading hover:text-ds-primary hover:bg-ds-card transition-colors border border-ds-card-border rounded-lg"
+                  style={{  backgroundColor: colors.primary,color: colors.cards }} 
                 >
                   <MapPin className="w-4 h-4" />
                   <span>{selectedProvince}</span>
