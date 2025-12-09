@@ -426,7 +426,7 @@ export async function fetchLeaseProperties(filters?: LeasePropertyFilterParams):
     const queryParams = new URLSearchParams();
     
     // Default values for pagination
-    const limit = filters?.limit || 24;
+    const limit = filters?.limit || 6;
     const offset = filters?.offset || 0;
     
     queryParams.append('limit', limit.toString());
@@ -870,6 +870,155 @@ export async function fetchExclusivePropertiesWithOffset(
   });
 }
 
+
+// Add to the filter params interfaces section
+export interface PreConnPropertyFilterParams {
+  price_min?: number;
+  price_max?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  property_sub_type?: string;
+  city?: string;
+  province?: string;
+  postal_code?: string;
+  keywords?: string;
+  has_photos?: boolean;
+  standard_status?: string;
+  limit?: number;
+  offset?: number;
+}
+
+// Add to the API functions section
+export async function fetchPreConnProperties(filters?: PreConnPropertyFilterParams): Promise<{
+  results: any[];
+  count: number;
+  next: number | null;
+  previous: number | null;
+}> {
+  try {
+    const queryParams = new URLSearchParams();
+    
+    // Default values for pagination
+    const limit = filters?.limit || 6;
+    const offset = filters?.offset || 0;
+    
+    queryParams.append('limit', limit.toString());
+    queryParams.append('offset', offset.toString());
+    
+    // Add all other filters to query params
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (key === 'limit' || key === 'offset') return;
+        
+        if (value !== undefined && value !== null && value !== '') {
+          if (typeof value === 'boolean') {
+            queryParams.append(key, value ? 'true' : 'false');
+          } else {
+            queryParams.append(key, value.toString());
+          }
+        }
+      });
+    }
+    
+    const url = `${API_BASE_URL}/api/mls/properties/pre-conn-properties/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    console.log('Fetching pre-construction properties from:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    console.log('Pre-Construction Properties API Response status:', response.status);
+
+    if (!response.ok) {
+      console.error('API Error:', await response.text());
+      throw new Error(`Failed to fetch pre-construction properties: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Fetched pre-construction properties:', data?.results?.length || 0, 'properties');
+    
+    return {
+      results: data.results || [],
+      count: data.count || 0,
+      next: data.next || null,
+      previous: data.previous || null
+    };
+  } catch (error) {
+    console.error('Error fetching pre-construction properties:', error);
+    return {
+      results: [],
+      count: 0,
+      next: null,
+      previous: null
+    };
+  }
+}
+
+// Helper to get ALL pre-construction properties
+export async function fetchAllPreConnProperties(): Promise<Property[]> {
+  try {
+    console.log('Fetching ALL pre-construction properties (no filters)');
+    
+    const response = await fetchPreConnProperties({});
+    
+    console.log('Fetched ALL pre-construction properties:', response.results?.length || 0, 'properties');
+    
+    // Map the results to Property interface
+    return (response.results || []).map((prop: any) => ({
+      PropertyKey: prop.listing_key || '',
+      ListingKey: prop.listing_key || '',
+      list_price: prop.list_price,
+      listing_key: prop.listing_key,
+      ListPrice: prop.list_price ? parseFloat(prop.list_price) : 0,
+      City: prop.city || '',
+      city: prop.city,
+      StateOrProvince: prop.StateOrProvince || 'ON',
+      PropertySubType: prop.category_type || 'Pre-Construction',
+      BedroomsTotal: prop.bedrooms_total || 0,
+      bedrooms_total: prop.bedrooms_total,
+      BathroomsTotalInteger: prop.bathrooms_total_integer || 0,
+      bathrooms_total_integer: prop.bathrooms_total_integer,
+      StandardStatus: prop.standard_status || 'Active',
+      standard_status: prop.standard_status,
+      ModificationTimestamp: prop.ModificationTimestamp || new Date().toISOString(),
+      unparsed_address: prop.unparsed_address,
+      postal_code: prop.postal_code,
+      latitude: prop.latitude,
+      longitude: prop.longitude,
+      public_remarks: prop.public_remarks,
+      media: prop.media,
+      rooms: prop.rooms,
+      category_type: prop.category_type,
+      photos_count: prop.photos_count,
+      listing_url: prop.listing_url,
+      building_area_total: prop.building_area_total,
+      year_built: prop.year_built,
+      
+      // Legacy fields
+      Photos: prop.media?.map((m: any) => ({ PhotoURL: m.media_url })) || [],
+      Media: prop.media,
+      Rooms: prop.rooms,
+      LivingArea: prop.building_area_total ? parseFloat(prop.building_area_total) : null,
+      YearBuilt: prop.year_built ? parseInt(prop.year_built) : null,
+      PublicRemarks: prop.public_remarks,
+      PostalCode: prop.postal_code,
+      Latitude: prop.latitude,
+      Longitude: prop.longitude,
+      Description: prop.public_remarks,
+      PropertyType: prop.category_type || 'Pre-Construction',
+      
+      // Add all other properties from the response
+      ...prop
+    }));
+  } catch (error) {
+    console.error('Error fetching all pre-construction properties:', error);
+    return [];
+  }
+}
 // NEW: Function for lease properties infinite scroll
 export async function fetchLeasePropertiesWithOffset(
   offset: number = 0,

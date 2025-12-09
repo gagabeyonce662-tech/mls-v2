@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import dynamic from "next/dynamic";
+import Header from "@/components/Header";
 
 // Dynamically import react-leaflet components (SSR safe)
 const MapContainer = dynamic(
@@ -780,12 +781,11 @@ export default function MapOnlyPage() {
   } : null;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Map Search — Draw Area & Query API</h1>
-          <p className="text-gray-600">Draw an area on the map to fetch exclusive properties</p>
-        </div>
+    <div className="w-full px-4 pt-[140px] pb-6 pt-24">
+      <Header />
+      
+      <div className="h-[120px]">
+        
 
         <div className="flex gap-2">
           {!drawing ? (

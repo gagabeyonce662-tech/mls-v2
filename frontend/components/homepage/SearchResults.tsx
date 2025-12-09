@@ -1,16 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { Bed, Bath, Loader2, ChevronRight } from "lucide-react";
+import { Bed, Bath, Loader2, ChevronRight, X } from "lucide-react";
 import { colors } from "@/config/design-system";
 import { type Property } from "@/lib/api";
 
-interface RentalPropertiesProps {
+interface SearchResultsProps {
   properties: Property[];
   isLoading: boolean;
+  searchQuery: string;
+  onClearSearch: () => void;
 }
 
-export default function RentalProperties({ properties, isLoading }: RentalPropertiesProps) {
+export default function SearchResults({
+  properties,
+  isLoading,
+  searchQuery,
+  onClearSearch,
+}: SearchResultsProps) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -21,13 +28,13 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
   };
 
   const getPropertyKey = (property: Property) => {
-    const key =
+    return (
       (property as any).listing_key ||
       (property as any).PropertyKey ||
-      `property-${(property as any).city || (property as any).City || "unknown"}-${
+      `search-${(property as any).city || (property as any).City || "unknown"}-${
         (property as any).ListPrice || (property as any).list_price || "0"
-      }`;
-    return key;
+      }`
+    );
   };
 
   const getDisplayPrice = (property: Property) => {
@@ -41,7 +48,6 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
       const parsed = parseFloat(possible.replace(/[^0-9.-]+/g, ""));
       return Number.isFinite(parsed) ? parsed : 0;
     }
-
     if (typeof possible === "number") return possible;
     return 0;
   };
@@ -51,7 +57,11 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
   };
 
   const getDisplayPropertyType = (property: Property) => {
-    return (property as any).category_type || (property as any).PropertySubType || "Rental Property";
+    return (
+      (property as any).category_type ||
+      (property as any).PropertySubType ||
+      "Property"
+    );
   };
 
   const getBedCount = (property: Property) => {
@@ -59,14 +69,19 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
   };
 
   const getBathCount = (property: Property) => {
-    return (property as any).bathrooms_total_integer ?? (property as any).BathroomsTotalInteger ?? 0;
+    return (
+      (property as any).bathrooms_total_integer ??
+      (property as any).BathroomsTotalInteger ??
+      0
+    );
   };
 
   const getStatus = (property: Property) => {
-    return (property as any).standard_status || (property as any).StandardStatus || "For Rent";
-  };
-   const getPrice = (property: Property) => {
-    return (property as any).lease_amount || (property as any).lease_amount || "Not available";
+    return (
+      (property as any).standard_status ||
+      (property as any).StandardStatus ||
+      "Active"
+    );
   };
 
   const getThumbnail = (property: Property): string | null => {
@@ -86,7 +101,7 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
         const first = field[0];
         if (typeof first === "string" && first.trim() !== "") return first;
         if (typeof first === "object" && first !== null) {
-          const possibleKeys = [
+          const keys = [
             "url",
             "media_url",
             "MediaURL",
@@ -97,14 +112,14 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
             "ImageURL",
             "imageUrl",
           ];
-          for (const k of possibleKeys) {
+          for (const k of keys) {
             if ((first as any)[k]) return (first as any)[k];
           }
         }
       }
 
       if (typeof field === "object" && !Array.isArray(field)) {
-        const possibleKeys = [
+        const keys = [
           "url",
           "media_url",
           "MediaURL",
@@ -115,14 +130,12 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
           "ImageURL",
           "imageUrl",
         ];
-        for (const k of possibleKeys) {
+        for (const k of keys) {
           if ((field as any)[k]) return (field as any)[k];
         }
       }
 
-      if (typeof field === "string" && field.trim() !== "") {
-        return field;
-      }
+      if (typeof field === "string" && field.trim() !== "") return field;
     }
 
     return null;
@@ -131,29 +144,44 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
   return (
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
+        {/* Header with Clear button */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-2xl font-bold mb-2" style={{ color: colors.heading }}>
-              Best for Rental
+              Search Results
             </h2>
-            <p style={{ color: colors.body }}>Find your perfect rental property</p>
+            <p style={{ color: colors.body }}>
+              {isLoading
+                ? "Searching properties..."
+                : `${properties.length} properties found for "${searchQuery}"`}
+            </p>
           </div>
 
-          {!isLoading && properties.length > 0 && (
-            <Link
-              href="/listing/rental"
-              className="inline-flex items-center justify-center h-10 px-4 rounded-lg text-sm font-medium shadow-lg transition-all"
-              style={{
-                backgroundColor: colors.primary,
-                color: colors.cards,
-                border: `1px solid ${colors.primary}`,
-              }}
+          <div className="flex items-center gap-4">
+            {!isLoading && properties.length > 0 && (
+              <Link
+                href="/listing"
+                className="inline-flex items-center justify-center h-10 px-4 rounded-lg text-sm font-medium shadow-lg transition-all"
+                style={{
+                  backgroundColor: colors.primary,
+                  color: colors.cards,
+                  border: `1px solid ${colors.primary}`,
+                }}
+              >
+                View All Properties
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Link>
+            )}
+            
+            <button
+              onClick={onClearSearch}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-gray-100"
+              style={{ color: colors.body }}
             >
-              View All Rentals
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Link>
-          )}
+              <X className="w-4 h-4" />
+              Clear Search
+            </button>
+          </div>
         </div>
 
         {/* Loading */}
@@ -161,7 +189,7 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-8 h-8 animate-spin" style={{ color: colors.primary }} />
             <span className="ml-3" style={{ color: colors.body }}>
-              Loading rental properties...
+              Searching for properties...
             </span>
           </div>
         )}
@@ -170,11 +198,21 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
         {!isLoading && properties.length === 0 && (
           <div className="text-center py-16">
             <div className="text-xl font-semibold mb-2" style={{ color: colors.heading }}>
-              No rental properties found
+              No properties found for "{searchQuery}"
             </div>
             <p style={{ color: colors.body }}>
-              Check back soon for new rental listings.
+              Try searching for a different city, postal code, or keyword.
             </p>
+            <button
+              onClick={onClearSearch}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: colors.primary,
+                color: colors.cards,
+              }}
+            >
+              Clear Search and Show All Properties
+            </button>
           </div>
         )}
 
@@ -195,23 +233,29 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
                 return (
                   <Link
                     key={propertyKey}
-                    href={`/listing/rental/${propertyKey}`}
+                    href={`/listing/${propertyKey}`}
                     className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow"
                   >
-                    <div className="relative h-56" style={{ backgroundColor: colors.cardsBoarder }}>
+                    <div
+                      className="relative h-56"
+                      style={{ backgroundColor: colors.cardsBoarder }}
+                    >
                       {thumbnail ? (
                         <img
                           src={thumbnail}
-                          alt={`Rental property in ${displayCity}`}
+                          alt={`Property in ${displayCity}`}
                           className="w-full h-full object-cover"
                         />
                       ) : (
                         <div
                           className="w-full h-full flex flex-col items-center justify-center px-4"
-                          style={{ backgroundColor: colors.boarder, color: colors.body }}
+                          style={{
+                            backgroundColor: colors.boarder,
+                            color: colors.body,
+                          }}
                         >
                           <div className="text-sm font-medium">No Image Available</div>
-                          <div className="text-xs mt-1">Rental Property</div>
+                          <div className="text-xs mt-1">—</div>
                         </div>
                       )}
 
@@ -245,10 +289,13 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
                         className="text-xl font-bold mb-4"
                         style={{ color: colors.primary }}
                       >
-                        {getPrice(property)}
+                        {formatPrice(displayPrice)}
                       </p>
 
-                      <div className="flex items-center gap-4 text-sm" style={{ color: colors.body }}>
+                      <div
+                        className="flex items-center gap-4 text-sm"
+                        style={{ color: colors.body }}
+                      >
                         {bedCount > 0 && (
                           <div className="flex items-center gap-1">
                             <Bed className="w-4 h-4" />
@@ -262,15 +309,6 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
                             <span>{bathCount} Baths</span>
                           </div>
                         )}
-
-                        <div
-                          className="text-xs px-2 py-1 rounded"
-                          style={{ backgroundColor: colors.boarder }}
-                        >
-                          {(property as any).StateOrProvince ??
-                            (property as any).state ??
-                            ""}
-                        </div>
                       </div>
                     </div>
                   </Link>
@@ -278,20 +316,41 @@ export default function RentalProperties({ properties, isLoading }: RentalProper
               })}
             </div>
 
-            {/* Mobile View All */}
+            {/* Show more results link if there are more than 6 */}
+            {properties.length > 6 && (
+              <div className="mt-8 text-center">
+                <p className="text-sm mb-4" style={{ color: colors.body }}>
+                  Showing 6 of {properties.length} properties
+                </p>
+                <Link
+                  href="/listing"
+                  className="inline-flex items-center justify-center h-10 px-6 rounded-lg text-sm font-medium shadow transition-all"
+                  style={{
+                    backgroundColor: "transparent",
+                    color: colors.primary,
+                    border: `2px solid ${colors.primary}`,
+                  }}
+                >
+                  View All {properties.length} Properties
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Link>
+              </div>
+            )}
+
+            {/* Mobile Clear Search */}
             <div className="mt-8 text-center lg:hidden">
-              <Link
-                href="/listing/rental"
+              <button
+                onClick={onClearSearch}
                 className="inline-flex items-center justify-center h-10 px-4 rounded-lg text-sm font-medium shadow-lg transition-all"
                 style={{
-                  backgroundColor: colors.primary,
-                  color: colors.cards,
-                  border: `1px solid ${colors.primary}`,
+                  backgroundColor: "transparent",
+                  color: colors.body,
+                  border: `1px solid ${colors.boarder}`,
                 }}
               >
-                View All Rentals ({properties.length})
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Link>
+                <X className="w-4 h-4 mr-2" />
+                Clear Search
+              </button>
             </div>
           </>
         )}
