@@ -411,9 +411,7 @@ export default function RentalListingsPage() {
                             </div>
 
                             {/* Favorite icon still visible but disabled */}
-                            <div className="absolute top-4 right-4 w-10 h-10 bg-white/80 rounded-full flex items-center justify-center">
-                              <Heart className="w-5 h-5 text-gray-700 opacity-60" />
-                            </div>
+                        
 
                             <div className="absolute bottom-4 left-4">
                               <span className={`px-3 py-1 rounded-full text-sm font-medium ${

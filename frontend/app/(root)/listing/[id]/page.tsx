@@ -382,19 +382,9 @@ export default async function ListingPage({ params }: ListingPageProps) {
 
             {/* Property Features */}
             <div className="bg-ds-card border border-ds-card-border rounded-xl p-6">
-              <h3 className={`${ds.text} mb-4`}>Property Features</h3>
+             
               <div className="space-y-3">
-                <div>
-                  <h4 className={`${ds.body} font-semibold mb-2`}>Listing URL</h4>
-                  <a 
-                    href={property.listing_url || `https://www.realtor.ca/real-estate/${property.listing_key || property.ListingKey}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline break-all"
-                  >
-                    View on Realtor.ca
-                  </a>
-                </div>
+                
                 {property.photos_count && (
                   <div className="flex justify-between">
                     <span className={ds.bodyRegular}>Total Photos</span>
