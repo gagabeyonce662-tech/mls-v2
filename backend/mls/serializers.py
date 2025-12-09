@@ -28,3 +28,24 @@ class PropertySerializer(serializers.ModelSerializer):
             'latitude', 'longitude', 'photos_count', 'standard_status',
             'media', 'rooms'
         ]
+
+class RoomDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Room
+        fields = '__all__'  
+
+
+
+class MediaDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Media
+        fields = '__all__' 
+
+
+class PropertyDetailSerializer(serializers.ModelSerializer):
+    rooms = RoomSerializer(many=True, read_only=True)
+    media = MediaSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Property
+        fields = '__all__' 

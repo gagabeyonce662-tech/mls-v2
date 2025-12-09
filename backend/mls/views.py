@@ -16,7 +16,7 @@ from django.utils import timezone
 from .models import AccessToken
 from .helpers import get_access_token, fetch_properties_by_property_data
 from mls.models import Property
-from .serializers import PropertySerializer
+from .serializers import PropertySerializer,PropertyDetailSerializer
 
 class FetchProperties(APIView):
     """
@@ -211,6 +211,8 @@ class PropertyDetailView(APIView):
     """
 
     def get(self, request, PropertyKey):
+
+        property_keys = request.GET.getlist('PropertyKey')
         # Validate PropertyKey
         if not PropertyKey:
             return Response({"error": "PropertyKey is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -235,6 +237,16 @@ class PropertyDetailView(APIView):
             # Handle the error and return it in a readable format
             return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
+class PropertyCompareDetailView(APIView):
+    def get(self, request, *args, **kwargs):
+        listing_keys = request.query_params.getlist('listing_key')
+        if not listing_keys:
+            return Response({"detail": "No listing_keys provided."}, status=status.HTTP_400_BAD_REQUEST)
+        properties = Property.objects.filter(listing_key__in=listing_keys)
+        if not properties.exists():
+            return Response({"detail": "No properties found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = PropertyDetailSerializer(properties, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ExclusivePropertiesAPIView(APIView):
     """
