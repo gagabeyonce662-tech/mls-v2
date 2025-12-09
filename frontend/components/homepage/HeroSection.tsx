@@ -422,56 +422,8 @@ export default function HeroSection({ onSearchStart, onSearchResults }: HeroSect
                 </div>
               )}
               
-              {/* Quick search examples */}
-              <div className="mt-4 flex flex-wrap gap-3 justify-center">
-                <button 
-                  onClick={() => handleQuickSearch("Toronto")}
-                  className="text-sm text-white/80 hover:text-white hover:underline px-2 py-1 rounded hover:bg-white/10 transition-colors"
-                  disabled={isLoading}
-                >
-                  Toronto
-                </button>
-                <span className="text-white/60">•</span>
-                <button 
-                  onClick={() => handleQuickSearch("Vancouver")}
-                  className="text-sm text-white/80 hover:text-white hover:underline px-2 py-1 rounded hover:bg-white/10 transition-colors"
-                  disabled={isLoading}
-                >
-                  Vancouver
-                </button>
-                <span className="text-white/60">•</span>
-                <button 
-                  onClick={() => handleQuickSearch("M5V 2T6")}
-                  className="text-sm text-white/80 hover:text-white hover:underline px-2 py-1 rounded hover:bg-white/10 transition-colors"
-                  disabled={isLoading}
-                >
-                  M5V 2T6
-                </button>
-                <span className="text-white/60">•</span>
-                <button 
-                  onClick={() => handleQuickSearch("Ontario")}
-                  className="text-sm text-white/80 hover:text-white hover:underline px-2 py-1 rounded hover:bg-white/10 transition-colors"
-                  disabled={isLoading}
-                >
-                  Ontario
-                </button>
-                <span className="text-white/60">•</span>
-                <button 
-                  onClick={() => handleQuickSearch("Brantford")}
-                  className="text-sm text-white/80 hover:text-white hover:underline px-2 py-1 rounded hover:bg-white/10 transition-colors"
-                  disabled={isLoading}
-                >
-                  Brantford
-                </button>
-                <span className="text-white/60">•</span>
-                <button 
-                  onClick={handleClearSearch}
-                  className="text-sm text-white/80 hover:text-white hover:underline px-2 py-1 rounded hover:bg-white/10 transition-colors"
-                  disabled={isLoading}
-                >
-                  View All Properties
-                </button>
-              </div>
+            
+            
 
             </div>
           </div>
