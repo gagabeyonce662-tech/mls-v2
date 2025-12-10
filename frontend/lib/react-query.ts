@@ -25,8 +25,10 @@ import {
   PropertyFilterParams,
   ExclusivePropertyFilterParams,
   LeasePropertyFilterParams,
+  fetchCompareProperties,
   PreConnPropertyFilterParams,
-  VlogPost
+  VlogPost,
+  fetchNewlyListedProperties
 } from './api';
 
 // Query keys for organized cache management
@@ -61,6 +63,15 @@ export const queryKeys = {
   vlog: {
     all: ['vlog'] as const,
     detail: (slug?: string) => ['vlog', 'detail', slug] as const,
+  },
+  compare: {
+    all: ['compare'] as const,
+    properties: (propertyKeys: string[]) => ['compare', 'properties', ...propertyKeys] as const,
+  },
+   newlyListed: {
+    all: ['properties', 'newly-listed'] as const,
+    filters: (filters?: PropertyFilterParams & { days_threshold?: number }) => 
+      ['properties', 'newly-listed', 'filters', filters] as const,
   },
 };
 
@@ -447,7 +458,7 @@ export const useTogglePropertyFavorite = (
     ...options,
   });
 };
-// Add this function to your lib/api/react-query.ts
+
 // Utility hook to fetch multiple properties at once
 export const useMultipleProperties = (
   propertyKeys: string[],
@@ -462,6 +473,39 @@ export const useMultipleProperties = (
       return results.filter((property): property is Property => property !== null);
     },
     enabled: propertyKeys.length > 0,
+    ...baseQueryOptions,
+    ...options,
+  });
+};
+
+// Hook to compare multiple properties
+export const useCompareProperties = (
+  propertyKeys: string[],
+  options?: UseQueryOptions<{ results: any[]; count: number }, Error>
+) => {
+  return useQuery<{ results: any[]; count: number }, Error>({
+    queryKey: queryKeys.compare.properties(propertyKeys),
+    queryFn: () => fetchCompareProperties(propertyKeys),
+    enabled: propertyKeys.length > 0,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    retry: 2,
+    ...options,
+  });
+};
+
+export const useNewlyListedProperties = (
+  filters?: PropertyFilterParams & { days_threshold?: number },
+  options?: UseQueryOptions<
+    { results: any[]; count: number; next: number | null; previous: number | null },
+    Error
+  >
+) => {
+  return useQuery({
+    queryKey: queryKeys.newlyListed.filters(filters),
+    queryFn: () => fetchNewlyListedProperties(filters),
     ...baseQueryOptions,
     ...options,
   });

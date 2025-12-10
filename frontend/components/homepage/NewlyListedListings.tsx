@@ -1,38 +1,83 @@
-// app/components/homepage/PreConstructionProperties.tsx
+// app/components/NewlyListedListings.tsx
 "use client";
 
 import Link from "next/link";
-import { Bed, Bath, Loader2, ChevronRight, Building, Calendar, Home } from "lucide-react";
+import { Bed, Bath, Loader2, ChevronRight, Calendar } from "lucide-react";
 import { colors } from "@/config/design-system";
-import { usePrefetchProperty } from "@/lib/react-query";
+import { Property } from "@/lib/api";
 import { useState, useEffect } from "react";
 
-interface PreConstructionPropertiesProps {
+interface NewlyListedListingsProps {
   searchQuery?: string;
-  properties: any[];
-  isLoading: boolean;
+  showLimit?: number; // How many properties to show
 }
 
-export default function PreConstructionProperties({
-  searchQuery,
-  properties, // Use the props passed from homepage
-  isLoading, // Use the props passed from homepage
-}: PreConstructionPropertiesProps) {
+export default function NewlyListedListings({
+  searchQuery = "",
+  showLimit = 6,
+}: NewlyListedListingsProps) {
   const [clickedProperty, setClickedProperty] = useState<string | null>(null);
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
-  
-  // Get the prefetch function
-  const prefetchProperty = usePrefetchProperty();
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
 
-  // REMOVED: const { data: properties = [], isLoading, isError, isFetching } = useAllPreConnProperties();
+  // Fetch newly listed properties from the API
+  useEffect(() => {
+    const fetchNewlyListedProperties = async () => {
+      setIsLoading(true);
+      try {
+        const url = `http://localhost:8000/api/mls/properties/newly-listed-properties/`;
+        console.log('Fetching newly listed properties from:', url);
+        
+        const response = await fetch(url, { 
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log('API response data:', result);
+        
+        // Handle different response formats
+        let propertiesData: any[] = [];
+        
+        if (result.results && Array.isArray(result.results)) {
+          propertiesData = result.results;
+        } else if (result.data && Array.isArray(result.data)) {
+          propertiesData = result.data;
+        } else if (Array.isArray(result)) {
+          propertiesData = result;
+        } else {
+          console.warn('Unexpected API response format:', result);
+        }
+        
+        setProperties(propertiesData);
+      } catch (error) {
+        console.error('Error fetching newly listed properties:', error);
+        setIsError(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNewlyListedProperties();
+  }, []); // Empty dependency array - fetches once on mount
 
   // Gradually load cards with staggered animation
   useEffect(() => {
     if (!isLoading && properties.length > 0) {
       // Load cards gradually
       const timer = setTimeout(() => {
-        const propertyKeys = properties.slice(0, 6).map(property => getPropertyKey(property));
+        const propertyKeys = properties.slice(0, showLimit).map(property => getPropertyKey(property));
         
         propertyKeys.forEach((propertyKey, index) => {
           setTimeout(() => {
@@ -41,13 +86,13 @@ export default function PreConstructionProperties({
               newSet.add(propertyKey);
               return newSet;
             });
-          }, 150 + (index * 150)); // Staggered delay
+          }, 100 + (index * 100)); // Staggered delay
         });
-      }, 200); // Small delay before starting
+      }, 100); // Small delay before starting
 
       return () => clearTimeout(timer);
     }
-  }, [properties, isLoading]);
+  }, [properties, isLoading, showLimit]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -62,7 +107,7 @@ export default function PreConstructionProperties({
     return (
       property.listing_key ||
       property.PropertyKey ||
-      `precon-${property.city || property.City || "unknown"}-${
+      `property-${property.city || property.City || "unknown"}-${
         property.ListPrice || property.list_price || "0"
       }`
     );
@@ -91,7 +136,7 @@ export default function PreConstructionProperties({
     return (
       property.category_type ||
       property.PropertySubType ||
-      "Pre-Construction"
+      "Property"
     );
   };
 
@@ -111,22 +156,37 @@ export default function PreConstructionProperties({
     return (
       property.standard_status ||
       property.StandardStatus ||
-      "Pre-Construction"
+      "For Sale"
     );
   };
 
-  const getCompletionYear = (property: any) => {
-    // Try to get completion year from various fields
-    const yearBuilt = property.year_built || property.YearBuilt;
-    const publicRemarks = property.public_remarks || property.PublicRemarks || "";
+  const getListingDate = (property: any) => {
+    // Try to get listing date from various field names
+    const possibleFields = [
+      property.listing_date,
+      property.ListingDate,
+      property.list_date,
+      property.ListDate,
+      property.ModificationTimestamp,
+      property.created_at,
+      property.CreatedAt,
+    ];
     
-    if (yearBuilt) return `Completion: ${yearBuilt}`;
+    for (const field of possibleFields) {
+      if (field) {
+        // Format the date nicely
+        const date = new Date(field);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          });
+        }
+      }
+    }
     
-    // Try to extract year from remarks
-    const yearMatch = publicRemarks.match(/20[2-9][0-9]/);
-    if (yearMatch) return `Completion: ${yearMatch[0]}`;
-    
-    return "Coming Soon";
+    return "Recently listed";
   };
 
   const getThumbnail = (property: any): string | null => {
@@ -186,25 +246,6 @@ export default function PreConstructionProperties({
     return null;
   };
 
-  const getProjectName = (property: any) => {
-    const address = property.unparsed_address || "";
-    const remarks = property.public_remarks || "";
-    
-    // Try to extract project name from remarks or address
-    if (remarks.includes("Project:") || remarks.includes("project:")) {
-      const projectMatch = remarks.match(/(?:[Pp]roject:|[Dd]evelopment:)\s*([^.\n]+)/);
-      if (projectMatch) return projectMatch[1].trim();
-    }
-    
-    // Use first part of address if available
-    if (address) {
-      const parts = address.split(',');
-      return parts[0] || "New Development";
-    }
-    
-    return "New Development Project";
-  };
-
   const handlePropertyClick = (propertyKey: string) => {
     setClickedProperty(propertyKey);
   };
@@ -222,7 +263,7 @@ export default function PreConstructionProperties({
   };
 
   // Show loading skeletons if data is still loading
-  const showLoadingSkeletons = isLoading; // REMOVED: || isFetching
+  const showLoadingSkeletons = isLoading;
 
   return (
     <div className="py-8">
@@ -230,49 +271,57 @@ export default function PreConstructionProperties({
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold mb-2" style={{ color: colors.heading }}>
-              {searchQuery
-                ? `Pre-Construction in ${searchQuery}`
-                : "Pre-Construction Properties"}
-            </h2>
+            <div className="flex items-center gap-2 mb-2">
+              <Calendar className="w-5 h-5" style={{ color: colors.primary }} />
+              <h2 className="text-2xl font-bold" style={{ color: colors.heading }}>
+                {searchQuery || "Newly Listed Properties"}
+              </h2>
+            </div>
             <p style={{ color: colors.body }}>
               {showLoadingSkeletons
-                ? "Finding upcoming projects..."
-                : `Discover ${properties.length} pre-construction opportunities`}
+                ? "Finding new listings..."
+                : `${properties.length} new properties available`}
             </p>
           </div>
 
           {!showLoadingSkeletons && properties.length > 0 && (
             <Link
-              href="/pre-construction"
-              className="inline-flex items-center justify-center h-10 px-4 rounded-lg text-sm font-medium shadow-lg transition-all"
+              href="/new-listings"
+              className="inline-flex items-center justify-center h-10 px-4 rounded-lg text-sm font-medium shadow-lg transition-all hover:scale-105"
               style={{
                 backgroundColor: colors.primary,
                 color: colors.cards,
                 border: `1px solid ${colors.primary}`,
               }}
             >
-              View All Projects
+              View All New Listings
               <ChevronRight className="w-4 h-4 ml-1" />
             </Link>
           )}
         </div>
 
-        {/* Error State - REMOVED since we're not handling errors internally anymore */}
+        {/* Error State */}
+        {isError && (
+          <div className="text-center py-16">
+            <div className="text-xl font-semibold mb-2" style={{ color: colors.heading }}>
+              Error loading newly listed properties
+            </div>
+            <p style={{ color: colors.body }}>
+              Please try again later or contact support.
+            </p>
+          </div>
+        )}
 
         {/* Grid - Always show cards immediately */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Show skeletons while loading or show actual properties */}
           {showLoadingSkeletons ? (
-            // Loading Skeletons for Pre-Construction
-            [...Array(6)].map((_, index) => (
+            // Loading Skeletons
+            [...Array(showLimit)].map((_, index) => (
               <div
                 key={`skeleton-${index}`}
-                className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse min-h-[420px]"
+                className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse min-h-[380px]"
               >
-                {/* Ribbon skeleton */}
-                <div className="h-8 w-32 mb-4" style={{ backgroundColor: colors.boarder }} />
-                
                 {/* Image skeleton */}
                 <div 
                   className="h-56 w-full" 
@@ -282,19 +331,17 @@ export default function PreConstructionProperties({
                 {/* Content skeleton */}
                 <div className="p-5 space-y-3">
                   <div className="h-5 w-3/4 rounded" style={{ backgroundColor: colors.boarder }} />
-                  <div className="h-4 w-1/2 rounded" style={{ backgroundColor: colors.boarder }} />
-                  <div className="h-7 w-2/3 rounded" style={{ backgroundColor: colors.boarder }} />
+                  <div className="h-7 w-1/2 rounded" style={{ backgroundColor: colors.boarder }} />
                   <div className="flex gap-4 mt-4">
                     <div className="h-4 w-16 rounded" style={{ backgroundColor: colors.boarder }} />
                     <div className="h-4 w-16 rounded" style={{ backgroundColor: colors.boarder }} />
                   </div>
-                  <div className="h-8 w-full rounded mt-4" style={{ backgroundColor: colors.boarder }} />
                 </div>
               </div>
             ))
           ) : properties.length > 0 ? (
-            // Actual Pre-Construction Property Cards
-            properties.slice(0, 6).map((property, index) => {
+            // Actual Property Cards
+            properties.slice(0, showLimit).map((property, index) => {
               const propertyKey = getPropertyKey(property);
               const displayPrice = getDisplayPrice(property);
               const displayCity = getDisplayCity(property);
@@ -302,9 +349,8 @@ export default function PreConstructionProperties({
               const bedCount = getBedCount(property);
               const bathCount = getBathCount(property);
               const status = getStatus(property);
+              const listingDate = getListingDate(property);
               const thumbnail = getThumbnail(property);
-              const completionYear = getCompletionYear(property);
-              const projectName = getProjectName(property);
               const isClicked = clickedProperty === propertyKey;
               const cardLoaded = isCardLoaded(property);
               const imageLoaded = isImageLoaded(propertyKey);
@@ -312,49 +358,43 @@ export default function PreConstructionProperties({
               return (
                 <div
                   key={propertyKey}
-                  className={`bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all relative min-h-[420px] group ${
+                  className={`bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all relative min-h-[380px] ${
                     cardLoaded ? 'opacity-100' : 'opacity-70'
                   }`}
                   style={{
-                    animationDelay: `${index * 0.15}s`,
-                    animation: cardLoaded ? 'fadeInUp 0.4s ease-out forwards' : 'none'
+                    animationDelay: `${index * 0.1}s`,
+                    animation: cardLoaded ? 'fadeInUp 0.3s ease-out forwards' : 'none'
                   }}
                 >
+                  {/* New Listing Badge */}
+                  <div className="absolute top-4 left-4 z-10">
+                    <span
+                      className="px-3 py-1 rounded-full text-sm font-medium"
+                      style={{
+                        backgroundColor: colors.primary,
+                        color: "#ffffff",
+                      }}
+                    >
+                      New Listing
+                    </span>
+                  </div>
+
                   {/* Click Loading Overlay */}
                   {isClicked && (
-                    <div className="absolute inset-0 bg-white/80 z-30 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-white/80 z-20 flex items-center justify-center">
                       <div className="flex flex-col items-center">
                         <Loader2 className="w-8 h-8 animate-spin" style={{ color: colors.primary }} />
                         <span className="mt-2 text-sm" style={{ color: colors.body }}>
-                          Loading project details...
+                          Loading property...
                         </span>
                       </div>
                     </div>
                   )}
 
-                  {/* Pre-Construction Ribbon */}
-                  <div className={`absolute top-4 left-0 z-20 transition-opacity duration-500 ${
-                    cardLoaded ? 'opacity-100' : 'opacity-0'
-                  }`}>
-                    <div 
-                      className="px-3 py-1 text-sm font-medium shadow-md"
-                      style={{
-                        backgroundColor: "#8B5CF6",
-                        color: "#FFFFFF",
-                        borderTopRightRadius: "4px",
-                        borderBottomRightRadius: "4px"
-                      }}
-                    >
-                      <Building className="w-4 h-4 inline-block mr-1" />
-                      Pre-Construction
-                    </div>
-                  </div>
-
-                  {/* Card Container */}
+                  {/* Card Container - Always visible */}
                   <Link
-                    href={`/pre-construction/${propertyKey}`}
+                    href={`/listing/${propertyKey}`}
                     onClick={() => handlePropertyClick(propertyKey)}
-                    onMouseEnter={() => prefetchProperty(propertyKey)}
                     className={isClicked ? "pointer-events-none" : ""}
                   >
                     {/* Image Section */}
@@ -365,12 +405,7 @@ export default function PreConstructionProperties({
                       {/* Image Loading State */}
                       {thumbnail && !imageLoaded && (
                         <div className="absolute inset-0 flex items-center justify-center z-10">
-                          <div className="flex flex-col items-center">
-                            <Building className="w-8 h-8 animate-spin" style={{ color: colors.primary }} />
-                            <span className="mt-2 text-xs" style={{ color: colors.body }}>
-                              Loading rendering...
-                            </span>
-                          </div>
+                          <Loader2 className="w-6 h-6 animate-spin" style={{ color: colors.primary }} />
                         </div>
                       )}
 
@@ -390,8 +425,8 @@ export default function PreConstructionProperties({
                       {thumbnail ? (
                         <img
                           src={thumbnail}
-                          alt={`${projectName} in ${displayCity}`}
-                          className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-700 ${
+                          alt={`New property in ${displayCity}`}
+                          className={`w-full h-full object-cover transition-opacity duration-700 ${
                             imageLoaded ? 'opacity-100' : 'opacity-0'
                           }`}
                           loading="lazy"
@@ -408,103 +443,83 @@ export default function PreConstructionProperties({
                             color: colors.body,
                           }}
                         >
-                          <Building className="w-12 h-12 mb-2 opacity-50" />
-                          <div className="text-sm font-medium">Rendering Coming Soon</div>
-                          <div className="text-xs mt-1">{projectName}</div>
+                          <div className="text-sm font-medium">No Image Available</div>
+                          <div className="text-xs mt-1">—</div>
                         </div>
                       )}
 
-                      {/* Completion year badge - Fades in when card loads */}
-                      <div className={`absolute bottom-4 right-4 transition-opacity duration-500 ${
+                      {/* Status Badge - Shows with fade-in */}
+                      <div className={`absolute bottom-4 left-4 transition-opacity duration-500 ${
                         cardLoaded ? 'opacity-100' : 'opacity-0'
                       }`}>
                         <span
-                          className="px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 shadow-md"
+                          className="px-3 py-1 rounded-full text-sm font-medium"
                           style={{
-                            backgroundColor: "rgba(0, 0, 0, 0.7)",
-                            color: "#FFFFFF",
+                            backgroundColor:
+                              status === "Active"
+                                ? "#10b981"
+                                : status === "Pending"
+                                ? "#facc15"
+                                : "#6b7280",
+                            color: "#ffffff",
                           }}
                         >
-                          <Calendar className="w-3 h-3" />
-                          {completionYear}
+                          {status}
                         </span>
                       </div>
                     </div>
 
                     {/* Content Section */}
                     <div className="p-5">
-                      {/* Project Name */}
-                      <h3
-                        className={`font-semibold mb-2 truncate transition-opacity duration-500 ${
+                      {/* Title and Date */}
+                      <div className="flex justify-between items-start mb-2">
+                        <h3
+                          className={`font-semibold truncate transition-opacity duration-500 ${
+                            cardLoaded ? 'opacity-100' : 'opacity-0'
+                          }`}
+                          style={{ color: colors.heading }}
+                        >
+                          {displayPropertyType} in {displayCity}
+                        </h3>
+                        <div className={`text-xs transition-opacity duration-500 flex items-center gap-1 ${
                           cardLoaded ? 'opacity-100' : 'opacity-0'
                         }`}
-                        style={{ color: colors.heading }}
-                      >
-                        {projectName}
-                      </h3>
-                      
-                      {/* Location & Type */}
-                      <div className={`text-sm mb-2 transition-opacity duration-500 ${
-                        cardLoaded ? 'opacity-100' : 'opacity-0'
-                      }`} style={{ color: colors.primary }}>
-                        <span className="font-medium">{displayCity}</span>
-                        <span className="mx-2">•</span>
-                        <span>{displayPropertyType}</span>
+                        style={{ color: colors.body }}>
+                          <Calendar className="w-3 h-3" />
+                          {listingDate}
+                        </div>
                       </div>
 
-                      {/* Price - From price */}
+                      {/* Price */}
                       <p
-                        className={`text-xl font-bold mb-4 transition-opacity duration-500 ${
+                        className={`text-xl font-bold mb-2 transition-opacity duration-500 ${
                           cardLoaded ? 'opacity-100' : 'opacity-0'
                         }`}
                         style={{ color: colors.primary }}
                       >
-                        From {formatPrice(displayPrice)}
+                        {formatPrice(displayPrice)}
                       </p>
 
                       {/* Features */}
-                      <div className={`flex flex-col gap-3 transition-opacity duration-500 ${
-                        cardLoaded ? 'opacity-100' : 'opacity-0'
-                      }`}>
-                        <div
-                          className="flex items-center gap-4 text-sm"
-                          style={{ color: colors.body }}
-                        >
-                          {bedCount > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Bed className="w-4 h-4" />
-                              <span>{bedCount} Bed{bedCount !== 1 ? 's' : ''}</span>
-                            </div>
-                          )}
+                      <div
+                        className={`flex items-center gap-4 text-sm transition-opacity duration-500 ${
+                          cardLoaded ? 'opacity-100' : 'opacity-0'
+                        }`}
+                        style={{ color: colors.body }}
+                      >
+                        {bedCount > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Bed className="w-4 h-4" />
+                            <span>{bedCount} Beds</span>
+                          </div>
+                        )}
 
-                          {bathCount > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Bath className="w-4 h-4" />
-                              <span>{bathCount} Bath{bathCount !== 1 ? 's' : ''}</span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Additional info */}
-                        <div className="flex items-center gap-2 text-xs" style={{ color: colors.bodyLight }}>
-                          <Home className="w-3 h-3" />
-                          <span>Floor Plans Available</span>
-                        </div>
-                      </div>
-
-                      {/* CTA Button */}
-                      <div className={`mt-4 transition-opacity duration-500 ${
-                        cardLoaded ? 'opacity-100' : 'opacity-0'
-                      }`}>
-                        <div
-                          className="w-full py-2 text-sm font-medium rounded-md transition-all text-center group-hover:scale-[1.02]"
-                          style={{
-                            backgroundColor: colors.primary,
-                            color: colors.cards,
-                          }}
-                        >
-                          View Floor Plans
-                        </div>
+                        {bathCount > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Bath className="w-4 h-4" />
+                            <span>{bathCount} Baths</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </Link>
@@ -516,10 +531,10 @@ export default function PreConstructionProperties({
             !showLoadingSkeletons && (
               <div className="col-span-3 text-center py-16">
                 <div className="text-xl font-semibold mb-2" style={{ color: colors.heading }}>
-                  No pre-construction properties found
+                  No newly listed properties found
                 </div>
                 <p style={{ color: colors.body }}>
-                  Check back soon for new development opportunities.
+                  Check back soon for new property listings.
                 </p>
               </div>
             )
@@ -530,7 +545,7 @@ export default function PreConstructionProperties({
         {!showLoadingSkeletons && properties.length > 0 && (
           <div className="mt-8 text-center lg:hidden">
             <Link
-              href="/pre-construction"
+              href="/new-listings"
               className="inline-flex items-center justify-center h-10 px-4 rounded-lg text-sm font-medium shadow-lg transition-all"
               style={{
                 backgroundColor: colors.primary,
@@ -538,7 +553,7 @@ export default function PreConstructionProperties({
                 border: `1px solid ${colors.primary}`,
               }}
             >
-              View All Pre-Construction Projects
+              View All New Listings
               <ChevronRight className="w-4 h-4 ml-1" />
             </Link>
           </div>
@@ -550,7 +565,7 @@ export default function PreConstructionProperties({
         @keyframes fadeInUp {
           from {
             opacity: 0.7;
-            transform: translateY(10px);
+            transform: translateY(5px);
           }
           to {
             opacity: 1;

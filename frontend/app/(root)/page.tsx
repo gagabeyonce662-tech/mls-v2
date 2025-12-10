@@ -11,7 +11,7 @@ import LocationsSection from '@/components/homepage/LocationsSection';
 import MortgageSection from '@/components/homepage/MortgageSection';
 import LatestArticles from '@/components/homepage/LatestArticles';
 import ClientReviews from '@/components/homepage/ClientReviews';
-
+import NewlyListedListings from '@/components/homepage/NewlyListedListings';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PropertyFilter from '@/components/PropertyFilter';
@@ -162,8 +162,12 @@ export default function HomePage() {
                 <SearchResults properties={searchResults} isLoading={isSearching} searchQuery={searchQuery} onClearSearch={handleClearSearch} />
               </div>
             )}
-
-            <FeaturedListings properties={properties} isLoading={isLoading} searchQuery="Exclusive Properties" />
+            <NewlyListedListings 
+      searchQuery={searchQuery || "Latest Properties"}
+      showLimit={6}
+    />
+            
+            <FeaturedListings properties={properties}  searchQuery="Exclusive Properties" />
             <RentalProperties properties={rentalProperties} isLoading={isLoadingRentals} />
             <PreConstructionProperties properties={preConnProperties} isLoading={isLoadingPreConn} />
           </main>
