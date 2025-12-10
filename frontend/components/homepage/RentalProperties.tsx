@@ -3,30 +3,25 @@
 import Link from "next/link";
 import { Bed, Bath, Loader2, ChevronRight } from "lucide-react";
 import { colors } from "@/config/design-system";
-import { useAllLeaseProperties, usePrefetchProperty } from "@/lib/react-query";
+import { usePrefetchProperty } from "@/lib/react-query";
 import { useState, useEffect } from "react";
 
 interface RentalPropertiesProps {
   searchQuery?: string;
+  properties: any[]; // Add this
+  isLoading: boolean; // Add this
 }
 
-export default function RentalProperties({ searchQuery }: RentalPropertiesProps) {
+export default function RentalProperties({ 
+  searchQuery,
+  properties, // Use props from homepage
+  isLoading, // Use props from homepage
+}: RentalPropertiesProps) {
   const [clickedProperty, setClickedProperty] = useState<string | null>(null);
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
 
-  // Use TanStack Query for data fetching
-  const { 
-    data: properties = [], 
-    isLoading, 
-    isError,
-    isFetching
-  } = useAllLeaseProperties({
-    placeholderData: [],
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-  });
-
+  // REMOVE: Internal data fetching with useAllLeaseProperties()
   // Get the prefetch function
   const prefetchProperty = usePrefetchProperty();
 
@@ -192,7 +187,7 @@ export default function RentalProperties({ searchQuery }: RentalPropertiesProps)
   };
 
   // Show loading skeletons if data is still loading
-  const showLoadingSkeletons = isLoading || isFetching;
+  const showLoadingSkeletons = isLoading; // REMOVED: || isFetching
 
   return (
     <div className="py-8">
@@ -226,17 +221,7 @@ export default function RentalProperties({ searchQuery }: RentalPropertiesProps)
           )}
         </div>
 
-        {/* Error State */}
-        {isError && (
-          <div className="text-center py-16">
-            <div className="text-xl font-semibold mb-2" style={{ color: colors.heading }}>
-              Error loading rental properties
-            </div>
-            <p style={{ color: colors.body }}>
-              Please try again later or contact support.
-            </p>
-          </div>
-        )}
+        {/* REMOVED: Error State - since we're not handling errors internally anymore */}
 
         {/* Grid - Always show cards immediately */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

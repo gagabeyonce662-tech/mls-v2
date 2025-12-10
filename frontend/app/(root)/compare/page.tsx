@@ -1,10 +1,11 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import React from "react";
-import { useMultipleProperties } from "@/lib/react-query";
+import React, { useState, useEffect, useMemo } from "react";
+import { useCompareProperties, useAllExclusiveProperties, Property } from "@/lib/react-query";
+import { X, Plus, Search, AlertCircle, RefreshCw, ExternalLink } from "lucide-react";
 
 interface ComparisonProperty {
   id: string;
@@ -24,241 +25,375 @@ interface ComparisonProperty {
   basement: string;
   zoning: string;
   error?: string;
+  rawData?: any;
 }
 
 export default function ComparePage() {
+  const router = useRouter();
   const params = useSearchParams();
   
-  // Extract property IDs from URL with proper decoding
-  const ids = React.useMemo(() => {
-    if (!params) return [];
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showAddPropertiesModal, setShowAddPropertiesModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debugMode, setDebugMode] = useState(process.env.NODE_ENV === 'development');
+  const [forceRefresh, setForceRefresh] = useState(0);
+
+  // Initialize selected IDs from URL
+  useEffect(() => {
+    if (!params) return;
     
     try {
-      // Get the 'ids' parameter
       const idsParam = params.get('ids');
+      console.log('Compare Page - URL IDs param:', idsParam);
+      
       if (!idsParam) {
-        // Check if there are multiple 'ids' parameters
         const allIds = params.getAll('ids');
         if (allIds.length > 0) {
-          return allIds.map(id => decodeURIComponent(id).trim()).filter(Boolean);
+          console.log('Compare Page - Multiple ID params found:', allIds);
+          setSelectedIds(allIds.map(id => decodeURIComponent(id).trim()).filter(Boolean));
         }
-        return [];
+        return;
       }
       
-      // Decode the parameter and split by comma
       const decodedIds = decodeURIComponent(idsParam);
-      return decodedIds
+      const ids = decodedIds
         .split(',')
         .map(id => id.trim())
         .filter(Boolean);
+      
+      console.log('Compare Page - Parsed IDs:', ids);
+      setSelectedIds(ids);
     } catch (error) {
-      console.error('Error parsing property IDs:', error);
-      return [];
+      console.error('Compare Page - Error parsing property IDs:', error);
     }
-  }, [params]);
+  }, [params, forceRefresh]);
 
-  // Use TanStack Query to fetch all properties at once
+  // Update URL when selectedIds change
+  useEffect(() => {
+    if (selectedIds.length > 0) {
+      const newParams = new URLSearchParams();
+      newParams.set('ids', selectedIds.join(','));
+      const newUrl = `/compare?${newParams.toString()}`;
+      console.log('Compare Page - Updating URL to:', newUrl);
+      router.replace(newUrl, { scroll: false });
+    } else if (params?.get('ids')) {
+      // Remove ids param if no properties selected
+      const newParams = new URLSearchParams(params);
+      newParams.delete('ids');
+      router.replace(`/compare?${newParams.toString()}`, { scroll: false });
+    }
+  }, [selectedIds, router, params]);
+
+  // Use the compare endpoint hook
   const { 
-    data: properties = [], 
+    data: compareData, 
     isLoading, 
     isError,
-    error 
-  } = useMultipleProperties(ids, {
-    enabled: ids.length > 0,
+    error,
+    refetch
+  } = useCompareProperties(selectedIds, {
+    enabled: selectedIds.length > 0,
   });
 
-  // Transform data for comparison - UPDATED for correct data structure
-  const comparisonProperties: ComparisonProperty[] = ids.map((id, index) => {
-    const property = properties[index];
+  console.log('Compare Page - Compare Data:', {
+    compareData,
+    isLoading,
+    isError,
+    error,
+    selectedIds,
+    resultsCount: compareData?.results?.length || 0
+  });
+
+  // Use existing API to fetch all available exclusive properties for the modal
+  const { 
+    data: availablePropertiesData = [], 
+    isLoading: isLoadingAvailable,
+    isError: isErrorAvailable 
+  } = useAllExclusiveProperties({
+    enabled: showAddPropertiesModal,
+  });
+
+  // Helper function to create error property
+  const createErrorProperty = (id: string, errorMessage: string): ComparisonProperty => {
+    return {
+      id,
+      image: "",
+      price: "Error",
+      address: errorMessage,
+      municipality: "Error",
+      province: "Error",
+      postalCode: "Error",
+      propertyType: "Error",
+      bedrooms: 0,
+      bathrooms: 0,
+      totalRooms: 0,
+      yearBuilt: null,
+      garage: "Error",
+      airConditioning: "Error",
+      basement: "Error",
+      zoning: "Error",
+      error: errorMessage
+    };
+  };
+
+  // Transform data for comparison using useMemo
+  const comparisonProperties = useMemo((): ComparisonProperty[] => {
+    if (!selectedIds.length) return [];
     
-    if (!property) {
-      return {
+    if (!compareData || !compareData.results || compareData.results.length === 0) {
+      console.log('No compare data available, returning loading state');
+      return selectedIds.map(id => ({
         id,
         image: "",
-        price: "N/A",
-        address: "Not Found",
-        municipality: "N/A",
-        province: "ON",
-        postalCode: "N/A",
-        propertyType: "Unknown",
+        price: "Loading...",
+        address: "Loading property...",
+        municipality: "",
+        province: "",
+        postalCode: "",
+        propertyType: "",
         bedrooms: 0,
         bathrooms: 0,
         totalRooms: 0,
         yearBuilt: null,
-        garage: "N/A",
-        airConditioning: "N/A",
-        basement: "N/A",
-        zoning: "N/A",
-        error: `Property ${id} not found or failed to load`
-      };
+        garage: "",
+        airConditioning: "",
+        basement: "",
+        zoning: "",
+        error: "Loading data..."
+      }));
     }
 
-    // Get image URL from Media array
-    const getImageUrl = (property: any): string => {
-      if (Array.isArray(property.Media) && property.Media.length > 0) {
-        // Find preferred photo or first photo
-        const preferredPhoto = property.Media.find((m: any) => m.PreferredPhotoYN === true);
-        const firstPhoto = property.Media[0];
-        const photo = preferredPhoto || firstPhoto;
-        if (photo?.MediaURL) return photo.MediaURL;
-      }
-      
-      // Alternative property structures
-      if (Array.isArray(property.media) && property.media.length > 0) {
-        const img = property.media.find((m: any) => m.media_url) || property.media[0];
-        if (img?.media_url) return img.media_url;
-      }
-      
-      if (Array.isArray(property.Photos) && property.Photos.length > 0) {
-        const p = property.Photos[0];
-        if (p.PhotoURL) return p.PhotoURL;
-      }
-      
-      return "";
-    };
+    console.log('Transforming compare data results:', compareData.results);
+    
+    return selectedIds.map((id) => {
+      // Find property in results
+      const property = compareData.results.find((p: any) => {
+        const possibleKeys = [
+          p.listing_key,
+          p.ListingKey,
+          p.PropertyKey,
+          p.id?.toString(),
+          p.ListingId?.toString(),
+          String(p.list_price),
+          String(p.property_id)
+        ].filter(Boolean);
+        
+        console.log(`Looking for ID ${id} in property keys:`, possibleKeys);
+        return possibleKeys.some(key => String(key) === String(id));
+      });
 
-    // Format price - check for ListPrice or other price fields
-    const formatPrice = (property: any): string => {
-      // First check ListPrice
-      if (property.ListPrice !== null && property.ListPrice !== undefined) {
-        return `$${Number(property.ListPrice).toLocaleString()}`;
+      if (!property) {
+        console.warn(`Property ${id} not found in results`);
+        return createErrorProperty(id, `Property ${id} not found in API response`);
       }
-      
-      // Check for lease amount if it's a rental
-      if (property.TotalActualRent) {
-        return `$${Number(property.TotalActualRent).toLocaleString()}/month`;
-      }
-      
-      // Check other common price fields
-      const priceFields = ['Price', 'price', 'list_price', 'SalePrice'];
-      for (const field of priceFields) {
-        if (property[field] !== null && property[field] !== undefined) {
-          const priceValue = property[field];
-          if (typeof priceValue === 'number') {
-            return `$${priceValue.toLocaleString()}`;
-          }
-          if (typeof priceValue === 'string') {
-            const parsed = parseFloat(priceValue.replace(/[^0-9.-]+/g, ""));
-            if (!isNaN(parsed)) {
-              return `$${parsed.toLocaleString()}`;
+
+      console.log(`Found property for ID ${id}:`, property);
+
+      // Helper functions
+      const getStringValue = (value: any, defaultValue: string = "N/A"): string => {
+        if (value === null || value === undefined || value === '') return defaultValue;
+        return String(value).trim() || defaultValue;
+      };
+
+      const getNumberValue = (value: any, defaultValue: number = 0): number => {
+        if (value === null || value === undefined || value === '') return defaultValue;
+        const num = Number(value);
+        return isNaN(num) ? defaultValue : num;
+      };
+
+      // Get image URL
+      const getImageUrl = (): string => {
+        if (Array.isArray(property.media) && property.media.length > 0) {
+          const preferredImage = property.media.find((m: any) => m.is_preferred === true);
+          if (preferredImage?.media_url) return preferredImage.media_url;
+          
+          const firstImage = property.media[0];
+          if (firstImage?.media_url) return firstImage.media_url;
+        }
+        
+        if (Array.isArray(property.Photos) && property.Photos.length > 0) {
+          if (property.Photos[0]?.PhotoURL) return property.Photos[0].PhotoURL;
+        }
+        
+        if (property.Media?.[0]?.MediaURL) return property.Media[0].MediaURL;
+        
+        if (property.photo_url) return property.photo_url;
+        if (property.image_url) return property.image_url;
+        if (property.thumbnail_url) return property.thumbnail_url;
+        
+        return "";
+      };
+
+      // Format price
+      const formatPrice = (): string => {
+        const priceFields = [
+          property.total_actual_rent,
+          property.ListPrice,
+          property.list_price,
+          property.lease_amount,
+          property.Price,
+          property.price,
+          property.asking_price,
+          property.sale_price
+        ];
+        
+        for (const priceField of priceFields) {
+          if (priceField !== null && priceField !== undefined && priceField !== '') {
+            const numPrice = Number(priceField);
+            if (!isNaN(numPrice) && numPrice > 0) {
+              const isLease = property.total_actual_rent || property.lease_amount || 
+                             property.StandardStatus?.toLowerCase().includes('lease') ||
+                             property.category_type?.toLowerCase().includes('lease');
+              
+              if (isLease) {
+                return `$${numPrice.toLocaleString()}/month`;
+              }
+              return `$${numPrice.toLocaleString()}`;
             }
           }
         }
-      }
-      
-      return "Price on request";
-    };
+        
+        return "Price on request";
+      };
 
-    // Get full address from UnparsedAddress or build it
-    const getAddress = (property: any): string => {
-      if (property.UnparsedAddress) return property.UnparsedAddress;
-      
-      // Build address from components
-      const parts = [];
-      if (property.UnitNumber) parts.push(`${property.UnitNumber}-`);
-      if (property.StreetNumber) parts.push(property.StreetNumber);
-      if (property.StreetDirPrefix) parts.push(property.StreetDirPrefix);
-      if (property.StreetName) parts.push(property.StreetName);
-      if (property.StreetSuffix) parts.push(property.StreetSuffix);
-      if (property.StreetDirSuffix) parts.push(property.StreetDirSuffix);
-      
-      return parts.join(' ').trim() || "N/A";
-    };
+      // Build the comparison property object
+      const comparisonProperty: ComparisonProperty = {
+        id: property.listing_key || property.ListingKey || property.PropertyKey || id,
+        image: getImageUrl(),
+        price: formatPrice(),
+        address: getStringValue(
+          property.address || property.unparsed_address || property.FullAddress || 
+          property.StreetAddress || property.Address || property.street_address,
+          "Address not available"
+        ),
+        municipality: getStringValue(
+          property.location || property.city || property.City || property.Municipality || property.town,
+          "N/A"
+        ),
+        province: getStringValue(
+          property.province || property.StateOrProvince || property.State || 
+          property.Province || "ON"
+        ),
+        postalCode: getStringValue(
+          property.postalCode || property.postal_code || property.PostalCode || property.zip_code,
+          "N/A"
+        ),
+        propertyType: getStringValue(
+          property.PropertySubType || property.PropertyType || property.property_type || 
+          property.category_type || property.type || "Property"
+        ),
+        bedrooms: getNumberValue(property.BedroomsTotal || property.bedrooms_total || property.bedrooms),
+        bathrooms: getNumberValue(property.BathroomsTotalInteger || property.bathrooms_total_integer || property.bathrooms),
+        totalRooms: getNumberValue(property.total_rooms || 
+          (Array.isArray(property.rooms) ? property.rooms.length : 
+           Array.isArray(property.Rooms) ? property.Rooms.length : 0)),
+        yearBuilt: (() => {
+          const yearFields = [
+            property.year_built,
+            property.YearBuilt,
+            property.ConstructionYear,
+            property.year_constructed
+          ];
+          
+          for (const yearField of yearFields) {
+            if (yearField) {
+              const year = Number(yearField);
+              if (!isNaN(year) && year > 1800 && year <= new Date().getFullYear() + 1) {
+                return year;
+              }
+            }
+          }
+          return null;
+        })(),
+        garage: (() => {
+          const parkingTotal = getNumberValue(property.parking_total || property.ParkingTotal);
+          if (parkingTotal > 0) return `${parkingTotal} space${parkingTotal > 1 ? 's' : ''}`;
+          
+          const parkingFeatures = getStringValue(property.parking_features || property.ParkingFeatures);
+          if (parkingFeatures && !parkingFeatures.toLowerCase().includes('no')) {
+            return parkingFeatures;
+          }
+          
+          const garageSpaces = getNumberValue(property.GarageSpaces || property.garage_spaces);
+          if (garageSpaces > 0) return `${garageSpaces} car garage`;
+          
+          return "None";
+        })(),
+        airConditioning: (() => {
+          const cooling = getStringValue(property.cooling || property.Cooling);
+          return cooling === "" || cooling.toLowerCase() === "none" ? "None" : cooling;
+        })(),
+        basement: (() => {
+          const basement = getStringValue(property.basement || property.Basement);
+          return basement === "" || basement.toLowerCase() === "none" ? "None" : basement;
+        })(),
+        zoning: getStringValue(property.zoning || property.Zoning, "Residential"),
+        rawData: property
+      };
 
-    // Get property type from PropertySubType or StructureType
-    const getPropertyType = (property: any): string => {
-      if (property.PropertySubType) return property.PropertySubType;
-      if (Array.isArray(property.StructureType) && property.StructureType.length > 0) {
-        return property.StructureType[0];
-      }
-      if (property.StructureType) return property.StructureType;
-      if (property.property_type) return property.property_type;
-      return "Property";
-    };
+      console.log(`Created comparison property for ${id}:`, comparisonProperty);
+      return comparisonProperty;
+    });
+  }, [selectedIds, compareData]);
 
-    // Get basement information
-    const getBasement = (property: any): string => {
-      if (Array.isArray(property.Basement) && property.Basement.length > 0) {
-        return property.Basement.filter((b: string) => b && b !== "N/A").join(", ") || "N/A";
-      }
-      if (property.Basement) return property.Basement;
-      if (property.basement) return property.basement;
-      return "N/A";
-    };
+  const handleAddProperty = (propertyId: string) => {
+    if (!selectedIds.includes(propertyId)) {
+      const newSelectedIds = [...selectedIds, propertyId];
+      setSelectedIds(newSelectedIds);
+      console.log('Added property:', propertyId, 'New IDs:', newSelectedIds);
+    }
+  };
 
-    // Get air conditioning information
-    const getAirConditioning = (property: any): string => {
-      if (Array.isArray(property.Cooling) && property.Cooling.length > 0) {
-        return property.Cooling.join(", ");
-      }
-      if (property.Cooling) return property.Cooling;
-      if (property.air_conditioning) return property.air_conditioning;
-      return "N/A";
-    };
+  const handleRemoveProperty = (propertyId: string) => {
+    const newSelectedIds = selectedIds.filter(id => id !== propertyId);
+    setSelectedIds(newSelectedIds);
+    console.log('Removed property:', propertyId, 'New IDs:', newSelectedIds);
+  };
 
-    // Get garage/parking information
-    const getGarage = (property: any): string => {
-      if (property.ParkingTotal && property.ParkingTotal > 0) {
-        return `${property.ParkingTotal} spaces`;
-      }
-      
-      if (Array.isArray(property.ParkingFeatures) && property.ParkingFeatures.length > 0) {
-        const features = property.ParkingFeatures.filter((f: string) => f && f !== "No Garage");
-        if (features.length > 0) {
-          return features.join(", ");
-        }
-        return "None";
-      }
-      
-      return "None";
-    };
+  const handleForceRefresh = () => {
+    console.log('Force refreshing...');
+    setForceRefresh(prev => prev + 1);
+    refetch();
+  };
 
-    // Get year built - handle null
-    const getYearBuilt = (property: any): number | null => {
-      if (property.YearBuilt !== null && property.YearBuilt !== undefined) {
-        const year = Number(property.YearBuilt);
-        return !isNaN(year) && year > 0 ? year : null;
-      }
-      if (property.year_built) {
-        const year = Number(property.year_built);
-        return !isNaN(year) && year > 0 ? year : null;
-      }
-      return null;
-    };
-
-    return {
-      id: property.ListingKey || property.listing_key || property.PropertyKey || property.id || id,
-      image: getImageUrl(property),
-      price: formatPrice(property),
-      address: getAddress(property),
-      municipality: property.City || property.city || property.Municipality || "N/A",
-      province: property.StateOrProvince || property.state || "ON",
-      postalCode: property.PostalCode || property.postal_code || "N/A",
-      propertyType: getPropertyType(property),
-      bedrooms: property.BedroomsTotal || property.bedrooms_total || property.bedrooms || 0,
-      bathrooms: property.BathroomsTotalInteger || property.bathrooms_total_integer || property.bathrooms || 0,
-      totalRooms: property.BedroomsTotal + property.BathroomsTotalInteger || 0, // Estimate total rooms
-      yearBuilt: getYearBuilt(property),
-      garage: getGarage(property),
-      airConditioning: getAirConditioning(property),
-      basement: getBasement(property),
-      zoning: property.Zoning || property.zoning || "Residential"
-    };
+  // Filter available properties based on search term and exclude already selected ones
+  const filteredAvailableProperties = availablePropertiesData.filter((property: Property) => {
+    const propertyId = property.listing_key || property.ListingKey || property.PropertyKey || '';
+    if (selectedIds.includes(propertyId)) {
+      return false;
+    }
+    
+    if (!searchTerm) return true;
+    
+    const searchLower = searchTerm.toLowerCase();
+    const address = property.address || property.unparsed_address || "";
+    const city = property.city || property.City || "";
+    const propertyType = property.PropertySubType || property.PropertyType || "";
+    const listingKey = property.listing_key || property.ListingKey || property.PropertyKey || "";
+    
+    return (
+      address.toLowerCase().includes(searchLower) ||
+      city.toLowerCase().includes(searchLower) ||
+      propertyType.toLowerCase().includes(searchLower) ||
+      listingKey.toLowerCase().includes(searchLower)
+    );
   });
 
-  // Filter out properties that failed to load
-  const validProperties = comparisonProperties.filter(p => !p.error);
-
   // Loading state
-  if (isLoading) {
+  if (isLoading && selectedIds.length > 0) {
     return (
       <div className="min-h-screen bg-[#0b1220]">
         <Header />
-        <div className="min-h-screen flex items-center justify-center text-white">
-          <div className="flex flex-col items-center">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p>Loading comparison for {ids.length} properties...</p>
-            <p className="text-sm text-gray-400 mt-2">Please wait</p>
+        <div className="min-h-screen flex flex-col items-center justify-center text-white p-4">
+          <div className="flex flex-col items-center max-w-md text-center">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+            <h2 className="text-2xl font-bold mb-2">Loading Properties</h2>
+            <p className="text-gray-400 mb-4">
+              Comparing {selectedIds.length} propert{selectedIds.length === 1 ? 'y' : 'ies'}...
+            </p>
+            <div className="text-sm text-gray-500">
+              <p>Selected IDs: {selectedIds.join(', ')}</p>
+            </div>
           </div>
         </div>
         <Footer />
@@ -268,26 +403,43 @@ export default function ComparePage() {
 
   // Error state
   if (isError) {
-    console.error('Error loading properties:', error);
+    console.error('Compare Page - Error loading properties:', error);
     return (
       <div className="min-h-screen bg-[#0b1220]">
         <Header />
-        <div className="min-h-screen flex flex-col items-center justify-center text-white">
-          <div className="text-xl mb-4">Error loading properties</div>
-          <p className="mb-6">Failed to load comparison data. Please try again.</p>
-          <div className="flex gap-4">
-            <a
-              href="/exclusive-properties"
-              className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 transition"
-            >
-              Browse Properties
-            </a>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-gray-700 rounded-lg hover:bg-gray-800 transition"
-            >
-              Retry
-            </button>
+        <div className="min-h-screen flex flex-col items-center justify-center text-white p-4">
+          <div className="max-w-md text-center">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Error Loading Properties</h2>
+            <p className="text-gray-300 mb-4">
+              Failed to load comparison data. Please try again.
+            </p>
+            <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 mb-6">
+              <p className="text-sm font-mono text-left break-all">
+                {error?.message || 'Unknown error'}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={handleForceRefresh}
+                className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Retry
+              </button>
+              <a
+                href="/exclusive-properties"
+                className="px-6 py-3 bg-gray-700 rounded-lg hover:bg-gray-800 transition text-center"
+              >
+                Browse Properties
+              </a>
+              <button
+                onClick={() => setSelectedIds([])}
+                className="px-6 py-3 bg-gray-600 rounded-lg hover:bg-gray-700 transition"
+              >
+                Clear Selection
+              </button>
+            </div>
           </div>
         </div>
         <Footer />
@@ -296,116 +448,176 @@ export default function ComparePage() {
   }
 
   // Empty state
-  if (!comparisonProperties.length || ids.length === 0) {
+  if (selectedIds.length === 0) {
     return (
       <div className="min-h-screen bg-[#0b1220]">
         <Header />
-        <div className="min-h-screen flex flex-col items-center justify-center text-white">
-          <div className="text-xl mb-4">No properties to compare</div>
-          <p className="mb-6">Select properties to compare from the listings page</p>
-          <a
-            href="/exclusive-properties"
-            className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 transition"
-          >
-            Browse Properties
-          </a>
+        <div className="min-h-screen flex flex-col items-center justify-center text-white p-4">
+          <div className="max-w-md text-center">
+            <div className="w-20 h-20 bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Plus className="w-10 h-10 text-blue-400" />
+            </div>
+            <h1 className="text-3xl font-bold mb-4">No Properties Selected</h1>
+          
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <a
+                href="/exclusive-properties"
+                className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 transition text-center"
+              >
+                Browse Exclusive Properties
+              </a>
+              <button
+                onClick={() => setShowAddPropertiesModal(true)}
+                className="px-6 py-3  rounded-lg  transition flex items-center justify-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                Add Properties
+              </button>
+            </div>
+          </div>
         </div>
         <Footer />
       </div>
     );
   }
 
+  const successfulProperties = comparisonProperties.filter(p => !p.error);
+  const errorProperties = comparisonProperties.filter(p => p.error);
+
   return (
     <div className="min-h-screen bg-[#0b1220]">
       <Header />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Property Comparison
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Comparing {validProperties.length} of {ids.length} properties
-              </p>
-            </div>
-            {comparisonProperties.some(p => p.error) && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <p className="text-yellow-800 text-sm">
-                  Some properties failed to load. Showing available data.
-                </p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          {/* Header */}
+          <div className=" p-6 border-b">
+       
+            
+            {/* Error Alert */}
+            {errorProperties.length > 0 && (
+              <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+                  <div>
+                    <p className="text-yellow-800 font-medium">
+                      {errorProperties.length} propert{errorProperties.length === 1 ? 'y' : 'ies'} failed to load
+                    </p>
+                    <p className="text-yellow-700 text-sm mt-1">
+                      Some properties could not be loaded. They may have been removed or there might be a temporary issue.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
-          {/* IMAGE ROW */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-            {comparisonProperties.map((property) => (
-              <div key={property.id} className="rounded-lg overflow-hidden shadow-lg border border-gray-200">
-                {property.image ? (
-                  <div className="relative h-64">
-                    <img 
-                      src={property.image} 
-                      alt={property.address}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjI0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
-                      }}
-                    />
+          {/* HORIZONTAL SCROLL IMAGE ROW */}
+          <div className="p-6 border-b">
+            <div className="flex space-x-6 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+              {comparisonProperties.map((property) => (
+                <div 
+                  key={property.id} 
+                  className="flex-shrink-0 w-80 rounded-lg overflow-hidden shadow-lg border border-gray-200 relative transition-transform hover:scale-[1.02]"
+                >
+                  <button
+                    onClick={() => handleRemoveProperty(property.id)}
+                    className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full z-10 hover:bg-red-600 transition-colors"
+                    title="Remove property"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  
+                  {property.image ? (
+                    <div className="h-48 bg-gray-100">
+                      <img 
+                        src={property.image} 
+                        alt={property.address}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjI0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-48 bg-gray-100 flex items-center justify-center">
+                      <span className="text-gray-500">No Image Available</span>
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <h3 className="font-semibold text-gray-900 truncate">
+                      {property.propertyType}
+                    </h3>
+                    <p className="text-gray-600 text-sm truncate">{property.address}</p>
+                    <p className="text-gray-600 text-sm truncate">{property.municipality}, {property.province}</p>
+                    <p className="text-lg font-bold mt-2 text-blue-600">{property.price}</p>
+                    <div className="flex items-center justify-between mt-2 text-sm text-gray-500">
+                      <span>{property.bedrooms} bed • {property.bathrooms} bath</span>
+                      {property.yearBuilt && <span>Built {property.yearBuilt}</span>}
+                    </div>
                     {property.error && (
-                      <div className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
-                        Error
+                      <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
+                        <p className="text-red-600 text-xs">{property.error}</p>
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div className="h-64 bg-gray-100 flex items-center justify-center">
-                    <span className="text-gray-500">No Image</span>
-                  </div>
-                )}
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 truncate">
-                    {property.propertyType}
-                    {property.error && <span className="text-red-500 text-sm ml-2">({property.error})</span>}
-                  </h3>
-                  <p className="text-gray-600 text-sm truncate">{property.municipality}, {property.province}</p>
-                  <p className="text-lg font-bold mt-2 text-blue-600">{property.price}</p>
                 </div>
+              ))}
+              
+              {/* ADD PROPERTY CARD */}
+              <div className="flex-shrink-0 w-80">
+                <button
+                  onClick={() => setShowAddPropertiesModal(true)}
+                  className="w-full h-full min-h-[280px] border-2 border-dashed border-gray-300 rounded-lg transition-colors flex flex-col items-center justify-center group"
+                >
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3  transition-colors">
+                    <Plus className="w-6 h-6 text-black" />
+                  </div>
+                  <p className="text-gray-700 font-medium">Add Property</p>
+                  <p className="text-gray-500 text-sm mt-1">Click to add more properties</p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Max 5 properties can be compared
+                  </p>
+                </button>
               </div>
-            ))}
+            </div>
           </div>
 
           {/* COMPARISON TABLE */}
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <tbody className="divide-y divide-gray-200">
                 {[
                   { label: "Price", key: "price", format: (value: any) => value },
                   { label: "Address", key: "address", format: (value: any) => value },
-                  { label: "Location", key: "municipality", format: (value: any) => value },
+                  { label: "City", key: "municipality", format: (value: any) => value },
                   { label: "Province", key: "province", format: (value: any) => value },
                   { label: "Postal Code", key: "postalCode", format: (value: any) => value },
                   { label: "Property Type", key: "propertyType", format: (value: any) => value },
-                  { label: "Bedrooms", key: "bedrooms", format: (value: any) => value || "—" },
-                  { label: "Bathrooms", key: "bathrooms", format: (value: any) => value || "—" },
+                  { label: "Bedrooms", key: "bedrooms", format: (value: any) => value > 0 ? value : "—" },
+                  { label: "Bathrooms", key: "bathrooms", format: (value: any) => value > 0 ? value : "—" },
+                  { label: "Total Rooms", key: "totalRooms", format: (value: any) => value > 0 ? value : "—" },
                   { label: "Year Built", key: "yearBuilt", format: (value: any) => value || "—" },
                   { label: "Garage/Parking", key: "garage", format: (value: any) => value },
                   { label: "Air Conditioning", key: "airConditioning", format: (value: any) => value },
                   { label: "Basement", key: "basement", format: (value: any) => value },
                   { label: "Zoning", key: "zoning", format: (value: any) => value }
                 ].map(({ label, key, format }) => (
-                  <tr key={key} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 bg-gray-50 font-semibold text-gray-900 whitespace-nowrap">
+                  <tr key={key} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 bg-gray-50 font-semibold text-gray-900 whitespace-nowrap w-48">
                       {label}
                     </td>
                     {comparisonProperties.map((property) => (
                       <td 
                         key={`${property.id}-${key}`} 
-                        className="px-6 py-4 text-center text-gray-700 whitespace-nowrap"
+                        className="px-6 py-4 text-center text-gray-700 whitespace-nowrap min-w-[200px]"
                       >
-                        {property.error ? "—" : format(property[key as keyof ComparisonProperty])}
+                        {property.error ? (
+                          <span className="text-gray-400">—</span>
+                        ) : (
+                          format(property[key as keyof ComparisonProperty])
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -415,28 +627,200 @@ export default function ComparePage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <a
-              href="/exclusive-properties"
-              className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition w-full sm:w-auto text-center"
-            >
-              ← Back to Listings
-            </a>
-            <div className="flex gap-4 w-full sm:w-auto">
-              {validProperties.length > 0 && (
-                <a
-                  href={`/listing/${validProperties[0].id}`}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition w-full sm:w-auto text-center"
-                >
-                  View Details
-                </a>
-              )}
-            </div>
-          </div>
+      
+          {/* Debug Info */}
+          
         </div>
       </div>
 
       <Footer />
+
+      {/* ADD PROPERTIES MODAL */}
+      {showAddPropertiesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Add Properties to Compare</h2>
+                  <p className="text-gray-600 mt-1">
+                    Select up to {5 - selectedIds.length} more propert{5 - selectedIds.length === 1 ? 'y' : 'ies'} to compare
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAddPropertiesModal(false)}
+                  className="text-gray-500 hover:text-gray-700 p-2"
+                  title="Close"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            
+            </div>
+            
+            <div className="flex-1 overflow-hidden">
+              {isLoadingAvailable ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : isErrorAvailable ? (
+                <div className="flex flex-col items-center justify-center h-64 p-6">
+                  <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+                  <p className="text-red-600 font-medium mb-2">Failed to load properties</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-y-auto h-full">
+                  {filteredAvailableProperties.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-64 p-6">
+                      <Search className="w-12 h-12 text-gray-400 mb-4" />
+                      <p className="text-gray-500 text-lg mb-2">
+                        {searchTerm ? "No matching properties found" : "No properties available"}
+                      </p>
+                      {searchTerm && (
+                        <p className="text-gray-400">Try a different search term</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+                      {filteredAvailableProperties.map((property: Property) => {
+                        const propertyId = property.listing_key || property.ListingKey || property.PropertyKey || '';
+                        const isSelected = selectedIds.includes(propertyId);
+                        const isMaxReached = selectedIds.length >= 5;
+                        
+                        // Get image URL
+                        const getImageUrl = () => {
+                          if (property.media?.[0]?.media_url) return property.media[0].media_url;
+                          if (property.Media?.[0]?.MediaURL) return property.Media[0].MediaURL;
+                          if (property.Photos?.[0]?.PhotoURL) return property.Photos[0].PhotoURL;
+                          return "";
+                        };
+                        
+                        // Get address
+                        const getAddress = () => {
+                          return property.address || property.unparsed_address || "Address not available";
+                        };
+                        
+                        // Get price
+                        const getPrice = () => {
+                          if (property.total_actual_rent) return `$${Number(property.total_actual_rent).toLocaleString()}/month`;
+                          if (property.ListPrice) return `$${Number(property.ListPrice).toLocaleString()}`;
+                          if (property.list_price) return `$${Number(property.list_price).toLocaleString()}`;
+                          return "Price on request";
+                        };
+                        
+                        return (
+                          <div 
+                            key={propertyId}
+                            className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${
+                              isSelected 
+                                ? 'border-blue-500 bg-blue-50' 
+                                : isMaxReached && !isSelected
+                                ? 'opacity-50 cursor-not-allowed'
+                                : 'border-gray-200 hover:border-blue-300'
+                            }`}
+                            onClick={() => {
+                              if (isMaxReached && !isSelected) return;
+                              if (isSelected) {
+                                handleRemoveProperty(propertyId);
+                              } else {
+                                handleAddProperty(propertyId);
+                              }
+                            }}
+                          >
+                            <div className="flex gap-4">
+                              {getImageUrl() ? (
+                                <img 
+                                  src={getImageUrl()} 
+                                  alt={getAddress()}
+                                  className="w-24 h-24 object-cover rounded"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM2NjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=';
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-24 h-24 bg-gray-200 rounded flex items-center justify-center">
+                                  <span className="text-gray-500 text-sm">No Image</span>
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-gray-900 truncate">
+                                  {getAddress()}
+                                </h3>
+                                <p className="text-gray-600 text-sm truncate">
+                                  {property.city || property.City || "N/A"}, {property.StateOrProvince || "ON"}
+                                </p>
+                                <p className="text-gray-600 text-sm truncate">
+                                  {property.PropertySubType || property.PropertyType || "Property"}
+                                </p>
+                                <p className="text-blue-600 font-semibold mt-1 truncate">{getPrice()}</p>
+                                <div className="flex justify-between items-center mt-2">
+                                  <div className="text-xs text-gray-500 truncate">
+                                    MLS: {propertyId || "N/A"}
+                                  </div>
+                                  <span className={`px-3 py-1 rounded text-xs font-medium whitespace-nowrap ${
+                                    isSelected 
+                                      ? 'bg-red-100 text-red-700' 
+                                      : isMaxReached && !isSelected
+                                      ? 'bg-gray-100 text-gray-500'
+                                      : 'bg-blue-100 text-blue-700'
+                                  }`}>
+                                    {isSelected ? 'Selected' : isMaxReached ? 'Max Reached' : 'Select'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <div className="p-6 border-t bg-gray-50">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-semibold">{selectedIds.length}</span> of 5 properties selected
+                  </p>
+                  {filteredAvailableProperties.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Showing {filteredAvailableProperties.length} of {availablePropertiesData.length} properties
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowAddPropertiesModal(false)}
+                    className="px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAddPropertiesModal(false);
+                      if (selectedIds.length === 0) {
+                        router.push('/exclusive-properties');
+                      }
+                    }}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    {selectedIds.length === 0 ? 'Browse Properties' : 'Done'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
