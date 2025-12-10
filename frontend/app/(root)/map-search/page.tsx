@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
+import { fetchFilteredProperties } from "@/lib/api";
 
 // Dynamically import react-leaflet components (SSR safe)
 const MapContainer = dynamic(
@@ -445,6 +446,80 @@ function PropertyCard({
 
 export default function MapOnlyPage() {
 
+  const [filters, setFilters] = useState({
+  price_min: "",
+  price_max: "",
+  bedrooms: "",
+  bathrooms: "",
+  city: "",
+  province: "",
+  postal_code: "",
+  property_type: "",
+  status: "",
+  has_lease: false,
+  has_photos: false,
+  search: "",
+  keywords: "",
+  sold_days: "",
+  modified_since: "",
+});
+ 
+const applyFilters = async () => {
+  setLoadingApi(true);
+  setApiError(null);
+  setApiMarkers([]);
+
+  try {
+    const data = await fetchFilteredProperties(filters);
+
+    const markers = data.results
+      .map((p: ApiProperty, idx: number) => {
+        const lat = Number(p.latitude);
+        const lng = Number(p.longitude);
+        if (isNaN(lat) || isNaN(lng)) return null;
+
+        return {
+          id: String(p.listing_key || idx),
+          title: p.unparsed_address || p.city || "Property",
+          price: p.list_price,
+          lat,
+          lng,
+          raw: p,
+        } as PropertyMarker;
+      })
+      .filter(Boolean);
+
+    setApiMarkers(markers);
+
+    if (mapRef.current && markers.length > 0) {
+      const bounds = L.latLngBounds(markers.map((m) => [m.lat, m.lng]));
+      mapRef.current.fitBounds(bounds.pad(0.2));
+    }
+
+    setShowFilter(false);
+  } catch (err: any) {
+    console.error(err);
+    setApiError(err.message);
+  } finally {
+    setLoadingApi(false);
+  }
+};
+
+// Ensure Leaflet map is removed on unmount to avoid "Map container is already initialized"
+useEffect(() => {
+  return () => {
+    try {
+      if (mapRef.current && typeof mapRef.current.remove === "function") {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    } catch (err) {
+      // swallow - this is just defensive cleanup
+      console.warn("Error while removing leaflet map on unmount:", err);
+    }
+  };
+}, []);
+
   const [mounted, setMounted] = useState(false);
   const [L, setL] = useState<any>(null);
   const mapRef = useRef<any | null>(null);
@@ -469,7 +544,8 @@ export default function MapOnlyPage() {
 
   // State to track selected property
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
-
+  const [showFilter, setShowFilter] = useState(false);
+ 
      // Nominatim search helpers
   const fetchResults = async (q: string) => {
     setSearching(true);
@@ -805,76 +881,45 @@ export default function MapOnlyPage() {
   return (
     <div className="w-full px-4 pt-[140px] pb-6 pt-24">
       <Header />
-      {/* Search + Draw + Clear Row */}
-     <div className="mt-4 mb-6 flex items-center gap-4 justify-center">
-
-        {/* Smaller Search Box */}
-        <div className="relative w-72">
+    {/* Search Box - Outside map */}
+      <div className="mb-4 flex items-center gap-4 justify-center">
+        <div className="relative w-96">
           <input
             ref={inputRef}
             value={searchQuery}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search place…"
-            className="w-full px-3 py-2 rounded-md border focus:ring-2 focus:ring-blue-400 outline-none bg-white"
+            placeholder="Search for a location..."
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white shadow-sm"
             autoComplete="off"
             onFocus={() => {
               setAnchorRect(inputRef.current?.getBoundingClientRect() ?? null);
               if (searchResults.length > 0) setResultsOpen(true);
             }}
           />
-          {/* <button
-            type="button"
-            onClick={clearSearch}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-          >
-            ✕
-          </button> */}
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          )}
         </div>
-
-        {/* Draw Area */}
-        {!drawing ? (
-          <button
-            onClick={enableDrawing}
-            className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
-          >
-            Draw Area
-          </button>
-        ) : (
-          <button
-            onClick={disableDrawing}
-            className="px-4 py-2 rounded-md bg-yellow-500 text-white hover:bg-yellow-600"
-          >
-            Cancel
-          </button>
-        )}
-
-        {/* Clear Results */}
-        <button
-          onClick={clearRectAndResults}
-          className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
-        >
-          Clear Results
-        </button>
       </div>
 
-      {/* Search status */}
-      <div className="text-sm text-gray-700 mb-4">
-        {searchError && <span className="text-red-600">{searchError}</span>}
-        {!searchError && searchResult && <span>📍 Showing: {searchResult.display_name}</span>}
-      </div>
-
-      {/* API status */}
-      <div className="mb-3 text-sm">
-        {loadingApi && <span className="text-gray-600">Loading properties from API…</span>}
-        {!loadingApi && apiError && <span className="text-red-600">API error: {apiError}</span>}
-        {!loadingApi && !apiError && apiMarkers.length > 0 && (
-          <span className="text-gray-700">{apiMarkers.length} properties found. Click on cards or markers to select.</span>
-        )}
-        {!loadingApi && !apiError && apiMarkers.length === 0 && (
-          <span className="text-gray-600 flex justify-center">No properties loaded yet — draw an area to query the API.</span>
-        )}
-      </div>
+      {(searchError || searchResult || loadingApi || apiError || apiMarkers.length > 0) && (
+        <div className="mb-4 text-center">
+          {searchError && <div className="text-sm text-red-600">{searchError}</div>}
+          {!searchError && searchResult && <div className="text-sm text-gray-700">📍 {searchResult.display_name}</div>}
+          {loadingApi && <div className="text-sm text-gray-600">Loading properties...</div>}
+          {!loadingApi && apiError && <div className="text-sm text-red-600">Error: {apiError}</div>}
+          {!loadingApi && !apiError && apiMarkers.length > 0 && (
+            <div className="text-sm text-gray-700">{apiMarkers.length} properties found</div>
+          )}
+        </div>
+      )}
 
       {/* Portal results */}
       {resultsOpen && searchResults.length > 0 && (
@@ -883,12 +928,100 @@ export default function MapOnlyPage() {
 
       {/* MAIN CONTENT: Map + Property Cards */}
       <div className="flex gap-6">
-        {/* Map - Takes 2/3 of width when properties exist, full width otherwise */}
-       <div 
-          className="flex-1 rounded-lg overflow-hidden shadow-md"
-          style={{ height: "80vh", minHeight: 640 }}
-        >
-          <MapContainer center={[43.65, -79.385]} zoom={13} className="w-full h-full">
+      {/* Map - Takes 2/3 of width when properties exist, full width otherwise */}
+<div
+  className="relative flex-1 rounded-lg shadow-lg border border-gray-200"
+  style={{ height: "80vh", zIndex: 0, overflow: "visible" }}
+>
+
+
+        {/* Floating Draw Controls - Bottom Right Corner */}
+          <div className="relative bottom-6 right-4 flex flex-col gap-2" style={{ zIndex: 9999, pointerEvents: 'auto' }}>
+            {/* Draw Area Button */}
+            {!drawing ? (
+              <button
+                onClick={enableDrawing}
+                className="px-4 py-2 bg-white shadow-md rounded-md hover:bg-gray-50 transition-colors border border-gray-300 text-sm font-medium text-gray-700 flex items-center gap-2"
+                title="Draw area to search"
+                style={{ pointerEvents: 'auto' }}
+              >
+                <span>✏️</span>
+                <span>Draw Area</span>
+              </button>
+            ) : (
+              <button
+                onClick={disableDrawing}
+                className="px-4 py-2 bg-red-500 text-white shadow-md rounded-md hover:bg-red-600 transition-colors text-sm font-medium flex items-center gap-2"
+                title="Cancel drawing"
+                style={{ pointerEvents: 'auto' }}
+              >
+                <span>✖</span>
+                <span>Cancel</span>
+              </button>
+            )}
+
+            {/* Clear Results Button */}
+            {(apiMarkers.length > 0 || rectLayerRef.current) && (
+              <button
+                onClick={clearRectAndResults}
+                className="px-4 py-2 bg-white shadow-md rounded-md hover:bg-gray-50 transition-colors border border-gray-300 text-sm font-medium text-gray-700 flex items-center gap-2"
+                title="Clear results"
+                style={{ pointerEvents: 'auto' }}
+              >
+                <span>🗑️</span>
+                <span>Clear</span>
+              </button>
+            )}
+          </div>
+        {/* Floating Toolbar - Top Right Corner */}
+          <div className="absolute top-4 right-4 flex gap-2" style={{ zIndex: 9999, pointerEvents: 'auto' }}>
+           {/* Filter Button */}
+            <button
+              onClick={() => setShowFilter(!showFilter)}
+              className="w-10 h-10 bg-white shadow-md rounded flex items-center justify-center hover:bg-gray-50 transition-colors border border-gray-200"
+              title="Filter"
+              style={{ pointerEvents: 'auto' }}
+            >
+              <svg className="w-5 h-5 " fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
+              </svg>
+            </button>
+
+            {/* Location/Recenter Button */}
+            <button
+              className="w-10 h-10 bg-white shadow-md rounded flex items-center justify-center hover:bg-gray-50 transition-colors border border-gray-200"
+              title="Recenter map"
+              style={{ pointerEvents: 'auto' }}
+              onClick={() => {
+                if (mapRef.current && searchResult) {
+                  mapRef.current.flyTo([searchResult.lat, searchResult.lng], 13);
+                }
+              }}
+            >
+              <span className="text-lg">📍</span>
+            </button>
+
+            {/* Search/Filter Button */}
+            <button
+              className="w-10 h-10 bg-white shadow-md rounded flex items-center justify-center hover:bg-gray-50 transition-colors border border-gray-200"
+              title="Search on map"
+              style={{ pointerEvents: 'auto' }}
+            >
+              <span className="text-lg">🔍</span>
+            </button>
+
+            {/* Zoom In Button */}
+            <button
+              onClick={() => mapRef.current?.zoomIn()}
+              className="w-10 h-10 bg-white shadow-md rounded flex items-center justify-center hover:bg-gray-50 transition-colors border border-gray-200"
+              title="Zoom in"
+              style={{ pointerEvents: 'auto' }}
+            >
+              <span className="text-xl font-semibold">+</span>
+            </button>
+          </div>
+
+          <MapContainer  key="main-map" center={[43.65, -79.385]} zoom={13} className="w-full h-full">
             <MapController onMapReady={handleMapReady} onMapClick={handleMapClick} />
             <TileLayer
               attribution='&copy; <a href="https://carto.com/">CARTO</a>'
@@ -945,6 +1078,191 @@ export default function MapOnlyPage() {
           </MapContainer>
         </div>
 
+        {/* Filter Panel - Slides in from left */}
+        {showFilter && (
+          <>
+            {/* Backdrop */}
+         <div 
+              className="fixed inset-0 bg-black bg-opacity-50 "
+              style={{ zIndex: 10000, pointerEvents: 'auto' }}
+              onClick={() => setShowFilter(false)}
+            />
+            
+            {/* Filter Panel */}
+            <div 
+              className="fixed left-0 top-0 h-full w-80 bg-white shadow-2xl overflow-y-auto"
+              style={{ zIndex: 10001, pointerEvents: 'auto' }}
+            >
+              <div className="p-6">
+                {/* Header */}
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold text-gray-800">Filter</h2>
+                  <button
+                    onClick={() => setShowFilter(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Notify For */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Notify For</label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option>New listings</option>
+                    <option>Price changes</option>
+                    <option>Status changes</option>
+                  </select>
+                </div>
+
+                {/* Property Type */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Property Type</label>
+                <select
+                  value={filters.property_type}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, property_type: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">All</option>
+                  <option value="House">House</option>
+                  <option value="Condo">Condo</option>
+                  <option value="Townhouse">Townhouse</option>
+                </select>
+                </div>
+
+                {/* Basement */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Basement</label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option>Finished</option>
+                    <option>Unfinished</option>
+                    <option>Partially finished</option>
+                    <option>None</option>
+                  </select>
+                </div>
+
+                {/* Open House */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Open House</label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option>Unspecified</option>
+                    <option>This weekend</option>
+                    <option>Next week</option>
+                  </select>
+                </div>
+
+                {/* Bedroom Counter */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Bedroom</label>
+                  <div className="flex items-center justify-between bg-gray-50 rounded-md p-2">
+                    <button className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-gray-100">−</button>
+                    <span className="text-lg font-medium">03</span>
+                    <button className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-gray-100">+</button>
+                  </div>
+                </div>
+
+                {/* Bathrooms Counter */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Bathrooms</label>
+                  <div className="flex items-center justify-between bg-gray-50 rounded-md p-2">
+                  <button
+                    className="w-8 h-8 bg-white border rounded"
+                    onClick={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        bedrooms: Math.max(0, Number(prev.bedrooms || 0) - 1),
+                      }))
+                    }
+                  >−</button>
+
+                  <span className="text-lg font-medium">
+                    {filters.bedrooms || 0}
+                  </span>
+
+                  <button
+                    className="w-8 h-8 bg-white border rounded"
+                    onClick={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        bedrooms: Number(prev.bedrooms || 0) + 1,
+                      }))
+                    }
+                  >+</button>
+                  </div>
+                </div>
+
+                {/* Garage Counter */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Garage</label>
+                  <div className="flex items-center justify-between bg-gray-50 rounded-md p-2">
+                    <button className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-gray-100">−</button>
+                    <span className="text-lg font-medium">03</span>
+                    <button className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-gray-100">+</button>
+                  </div>
+                </div>
+
+                {/* Square Footage */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Square Footage</label>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Min" className="w-1/2 px-3 py-2 border border-gray-300 rounded-md" />
+                    <input type="text" placeholder="Max" className="w-1/2 px-3 py-2 border border-gray-300 rounded-md" />
+                  </div>
+                </div>
+
+                {/* Lot Front */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Lot Front</label>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Min" className="w-1/2 px-3 py-2 border border-gray-300 rounded-md" />
+                    <input type="text" placeholder="Max" className="w-1/2 px-3 py-2 border border-gray-300 rounded-md" />
+                  </div>
+                </div>
+
+                {/* Rental Yield */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Rental Yield</label>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Min" className="w-1/2 px-3 py-2 border border-gray-300 rounded-md" />
+                    <input type="text" placeholder="Max" className="w-1/2 px-3 py-2 border border-gray-300 rounded-md" />
+                  </div>
+                </div>
+
+                {/* School Score */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">School Score</label>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Min" className="w-1/2 px-3 py-2 border border-gray-300 rounded-md" />
+                    <input type="text" placeholder="Max" className="w-1/2 px-3 py-2 border border-gray-300 rounded-md" />
+                  </div>
+                </div>
+
+                {/* Price Range */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Price Range</label>
+                  <input type="range" min="20" max="999100000" className="w-full" />
+                  <div className="flex justify-between text-sm text-gray-600 mt-1">
+                    <span>$20</span>
+                    <span>$999,100,000</span>
+                  </div>
+                </div>
+
+                {/* Apply Button */}
+                <button
+                onClick={applyFilters}
+                className="w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 font-medium"
+              >
+                Apply →
+              </button>
+
+              </div>
+            </div>
+          </>
+        )}
         {/* Property Cards - Takes 1/3 of width when properties exist */}
         {apiMarkers.length > 0 && (
           <div className="w-1/3">

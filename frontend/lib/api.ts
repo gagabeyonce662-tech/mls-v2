@@ -415,6 +415,33 @@ export async function fetchLeaseProperties(filters?: LeasePropertyFilterParams):
   }
 }
 
+export async function fetchFilteredProperties(filters: Record<string, any>) {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value === "" || value === null || value === undefined) return;
+
+    if (typeof value === "boolean") {
+      if (value) params.append(key, "true");
+    } else {
+      params.append(key, String(value));
+    }
+  });
+
+  // Change this line to match your Django URL structure
+  const url = `${API_BASE_URL}/api/mls/properties/filter/?${params.toString()}`;
+  console.log("FILTER URL →", url);
+
+  const res = await fetch(url, { cache: "no-store" });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Filter API error: ${res.status} → ${text}`);
+  }
+
+  return res.json();
+}
+
 // Fetch all exclusive properties
 export async function fetchAllExclusiveProperties(): Promise<Property[]> {
   try {
