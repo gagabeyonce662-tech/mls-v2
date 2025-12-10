@@ -4,33 +4,43 @@
 import Link from "next/link";
 import { Bed, Bath, Loader2, ChevronRight } from "lucide-react";
 import { colors } from "@/config/design-system";
-import { PropertyFilterParams } from "@/lib/api";
+import { Property, PropertyFilterParams } from "@/lib/api";
 import { useProperties } from "@/lib/react-query";
 import { useState, useEffect } from "react";
 
 interface FeaturedListingsProps {
   filters?: PropertyFilterParams;
+  properties?: Property[]; // Optional - if provided, use these instead of fetching
   searchQuery: string;
+  isLoading?: boolean; // Optional - if provided, use this instead of internal loading
 }
 
 export default function FeaturedListings({
   filters,
   searchQuery,
+  properties: propsProperties, // Rename to avoid conflict
+  isLoading: propsIsLoading, // Rename to avoid conflict
 }: FeaturedListingsProps) {
   const [clickedProperty, setClickedProperty] = useState<string | null>(null);
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
 
-  // Use TanStack Query for data fetching with caching
+  // Use TanStack Query for data fetching ONLY if propsProperties not provided
   const { 
-    data: properties = [], 
-    isLoading, 
+    data: hookProperties = [], 
+    isLoading: hookIsLoading, 
     isError,
     isFetching
   } = useProperties(filters, {
     // Show empty array immediately while loading
     placeholderData: [],
+    enabled: !propsProperties, // Only fetch if propsProperties not provided
   });
+
+  // Use props if provided, otherwise use hook data
+  const properties = propsProperties || hookProperties;
+  const isLoading = propsIsLoading !== undefined ? propsIsLoading : hookIsLoading;
+  const showLoadingSkeletons = isLoading || (propsProperties ? false : isFetching);
 
   // Gradually load cards with staggered animation
   useEffect(() => {
@@ -193,9 +203,6 @@ export default function FeaturedListings({
     return loadedImages.has(propertyKey);
   };
 
-  // Show loading skeletons if data is still loading
-  const showLoadingSkeletons = isLoading || isFetching;
-
   return (
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -230,8 +237,8 @@ export default function FeaturedListings({
           )}
         </div>
 
-        {/* Error State */}
-        {isError && (
+        {/* Error State - Only show if using hook and there's an error */}
+        {!propsProperties && isError && (
           <div className="text-center py-16">
             <div className="text-xl font-semibold mb-2" style={{ color: colors.heading }}>
               Error loading properties

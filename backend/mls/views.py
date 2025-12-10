@@ -16,7 +16,7 @@ from django.utils import timezone
 from .models import AccessToken
 from .helpers import get_access_token, fetch_properties_by_property_data
 from mls.models import Property
-from .serializers import PropertySerializer
+from .serializers import PropertySerializer,PropertyDetailSerializer
 
 class FetchProperties(APIView):
     """
@@ -211,6 +211,8 @@ class PropertyDetailView(APIView):
     """
 
     def get(self, request, PropertyKey):
+
+        property_keys = request.GET.getlist('PropertyKey')
         # Validate PropertyKey
         if not PropertyKey:
             return Response({"error": "PropertyKey is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -228,6 +230,7 @@ class PropertyDetailView(APIView):
             # Check if the property data is valid
             if not property_data:
                 return Response({"error": "Property not found for the given PropertyKey."}, status=status.HTTP_404_NOT_FOUND)
+            (property_data)
             fetch_properties_by_property_data.delay(property_data)
             return Response(property_data, status=status.HTTP_200_OK)
 
@@ -235,6 +238,16 @@ class PropertyDetailView(APIView):
             # Handle the error and return it in a readable format
             return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
+class PropertyCompareDetailView(APIView):
+    def get(self, request, *args, **kwargs):
+        listing_keys = request.query_params.getlist('listing_key')
+        if not listing_keys:
+            return Response({"detail": "No listing_keys provided."}, status=status.HTTP_400_BAD_REQUEST)
+        properties = Property.objects.filter(listing_key__in=listing_keys)
+        if not properties.exists():
+            return Response({"detail": "No properties found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = PropertyDetailSerializer(properties, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ExclusivePropertiesAPIView(APIView):
     """
@@ -838,3 +851,275 @@ class LeasePropertiesAPIView(APIView):
 #             "previous": offset - limit if offset >= limit else None,
 #             "results": serializer.data
 #         })
+# schools/views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+import requests
+from math import radians, sin, cos, sqrt, atan2
+
+
+class NearestSchoolAPIView(APIView):
+    """
+    GET /api/nearest-school/?lat=43.418&lon=-80.317
+    Returns the nearest school(s) within a specified radius with distance and full geometry.
+    """
+    
+    def get(self, request):
+        OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+        lat = request.query_params.get('lat')
+        lon = request.query_params.get('lon')
+        radius = request.query_params.get('radius', '5000')  # default 5 km
+
+        if not lat or not lon:
+            return Response(
+                {"error": "lat and lon parameters are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            lat = float(lat)
+            lon = float(lon)
+            radius = int(radius)
+        except ValueError:
+            return Response(
+                {"error": "lat, lon, radius must be numbers"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Step 1: Query Overpass for schools near the point
+        overpass_query = f"""
+        [out:json][timeout:25];
+        (
+          way(around:{radius},{lat},{lon})["amenity"="school"];
+          way(around:{radius},{lat},{lon})["landuse"="education"];
+        );
+        out geom;
+        """
+
+        try:
+            response = requests.get(
+                OVERPASS_URL,
+                params={'data': overpass_query},
+                timeout=30
+            )
+            response.raise_for_status()  # Raise an exception for HTTP errors
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": f"Failed to query OpenStreetMap: {str(e)}"},
+                status=status.HTTP_502_BAD_GATEWAY
+            )
+
+        data = response.json()
+
+        # Step 2: Parse the Overpass data and format the result
+        schools = []
+
+        for element in data.get('elements', []):
+            if element['type'] != 'way':
+                continue
+
+            # Build polygon coordinates
+            coords = [[node['lon'], node['lat']] for node in element.get('geometry', [])]
+            if not coords:
+                continue
+
+            # Close the ring
+            if coords[0] != coords[-1]:
+                coords.append(coords[0])
+
+            # Extract the school details from the Overpass API response
+            name = element.get('tags', {}).get('name', 'Unnamed School')
+            amenity = element.get('tags', {}).get('amenity', '')
+            operator = element.get('tags', {}).get('operator', '')
+            phone = element.get('tags', {}).get('phone', '')
+            website = element.get('tags', {}).get('website', '')
+            address = element.get('tags', {}).get('addr:street', '') + ", " + element.get('tags', {}).get('addr:city', '')
+
+            # Step 3: Calculate the distance using the Haversine formula
+            distance_m = self.haversine(lat, lon, coords[0][1], coords[0][0]) * 1000  # Convert to meters
+            distance_km = round(distance_m / 1000, 2)
+
+            schools.append({
+                "name": name,
+                "operator": operator,
+                "amenity": amenity,
+                "phone": phone,
+                "website": website,
+                "address": address,
+                "distance_meters": round(distance_m, 1),
+                "distance_km": distance_km,
+                "osm_id": element['id'],
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [coords]
+                }
+            })
+
+        # Sort by distance
+        schools.sort(key=lambda x: x['distance_meters'])
+
+        return Response({
+            "user_location": {"lat": lat, "lon": lon},
+            "nearest_schools": schools[:10],  # Return top 10 closest
+            "total_found": len(schools),
+            "search_radius_m": radius
+        }, status=status.HTTP_200_OK)
+
+    def haversine(self, lat1, lon1, lat2, lon2):
+        """
+        Calculate the great-circle distance between two points
+        on the Earth's surface given their latitude and longitude
+        in decimal degrees.
+        """
+        # Convert latitude and longitude from degrees to radians
+        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+
+        # Haversine formula
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        r = 6371  # Radius of the Earth in kilometers
+        return r * c  # Distance in kilometers
+
+
+
+class NewlyListedPropertiesAPIView(APIView):
+    def get(self, request):
+        limit = min(int(request.query_params.get('limit', 6)), 100)
+        offset = int(request.query_params.get('offset', 0))
+
+        # Base: only properties with actual lease amount
+        qs = Property.objects.filter(
+            original_entry_timestamp__isnull=False
+        ).order_by('-original_entry_timestamp')
+
+        # === ALL REALTOR.CA FILTERS ===
+        params = request.query_params
+        if params.get('search'):
+            search_term = params['search'].strip()
+            if search_term:
+                search_q = Q()
+
+                # Text fields (case-insensitive partial match)
+                text_fields = [
+                    'unparsed_address',
+                    'public_remarks',
+                    'city',
+                    'postal_code',
+                    'listing_id',
+                    'listing_key',
+                    'street_name',
+                    'street_number',
+                    'unit_number',
+                    'subdivision_name',
+                    'directions',
+                    'property_sub_type',
+                    'common_interest',
+                    'list_aor',
+                    'zoning',
+                    'zoning_description',
+                    'parcel_number',
+                    'anchors_co_tenants',
+                    'water_body_name',
+                ]
+
+                for field in text_fields:
+                    search_q |= Q(**{f"{field}__icontains": search_term})
+
+                # Exact match for numeric-like strings (e.g. postal code without space)
+                if len(search_term) >= 3:
+                    search_q |= Q(postal_code__iexact=search_term.replace(" ", ""))
+
+                # Search in remarks keywords
+                search_q |= Q(public_remarks__icontains=search_term)
+
+                q = qs.filter(search_q)
+        if params.get('price_min'):
+            qs = qs.filter(list_price__gte=float(params['price_min']))
+        if params.get('price_max'):
+            qs = qs.filter(list_price__lte=float(params['price_max']))
+
+        if params.get('lease_amount_min'):
+            qs = qs.filter(lease_amount__gte=float(params['lease_amount_min']))
+        if params.get('lease_amount_max'):
+            qs = qs.filter(lease_amount__lte=float(params['lease_amount_max']))
+
+        if params.get('bedrooms'):
+            qs = qs.filter(bedrooms_total__gte=int(params['bedrooms']))
+        if params.get('bathrooms'):
+            qs = qs.filter(bathrooms_total_integer__gte=int(params['bathrooms']))
+
+        if params.get('property_type'):
+            types = [t.strip() for t in params['property_type'].split(',') if t.strip()]
+            if types:
+                qs = qs.filter(property_sub_type__in=types)
+
+        if params.get('city'):
+            cities = [c.strip() for c in params['city'].split(',') if c.strip()]
+            if cities:
+                qs = qs.filter(city__in=cities)
+        if params.get('province'):
+            provinces = [p.strip() for p in params['province'].split(',') if p.strip()]
+            if provinces:
+                qs = qs.filter(state_or_province__in=provinces)
+
+        if params.get('postal_code'):
+            codes = [c.strip().upper() for c in params['postal_code'].split(',') if c.strip()]
+            if codes:
+                qs = qs.filter(postal_code__in=codes)
+
+        # Map bounding box
+        if all(k in params for k in ['latitude_min', 'latitude_max', 'longitude_min', 'longitude_max']):
+            qs = qs.annotate(
+                lat_float=Cast('latitude', FloatField()),
+                lng_float=Cast('longitude', FloatField())
+            ).filter(
+                lat_float__gte=float(params['latitude_min']),
+                lat_float__lte=float(params['latitude_max']),
+                lng_float__gte=float(params['longitude_min']),
+                lng_float__lte=float(params['longitude_max']),
+            )
+
+        if params.get('building_area_min'):
+            qs = qs.filter(building_area_total__gte=float(params['building_area_min']))
+        if params.get('lot_size_min'):
+            qs = qs.filter(lot_size_area__gte=float(params['lot_size_min']))
+        if params.get('year_built_min'):
+            qs = qs.filter(year_built__gte=int(params['year_built_min']))
+
+        if params.get('keywords'):
+            keywords = [k.strip() for k in params['keywords'].split(',') if k.strip()]
+            kw_q = Q()
+            for kw in keywords:
+                kw_q |= Q(public_remarks__icontains=kw)
+            qs = qs.filter(kw_q)
+
+        if params.get('has_photos') in ('true', '1', 'True'):
+            qs = qs.filter(photos_count__gt=0)
+
+        if params.get('new_listings_days'):
+            days = int(params['new_listings_days'])
+            cutoff = timezone.now() - timedelta(days=days)
+            qs = qs.filter(modification_timestamp__gte=cutoff)
+
+        if params.get('standard_status'):
+            qs = qs.filter(standard_status=params['standard_status'])
+
+        # Final ordering
+        qs = qs.order_by('-lease_amount', '-modification_timestamp')
+
+        # Pagination
+        paginator = Paginator(qs, limit)
+        page = paginator.get_page((offset // limit) + 1)
+
+        serializer = PropertySerializer(page.object_list, many=True, context={'request': request})
+
+        return Response({
+            "count": paginator.count,
+            "next": offset + limit if page.has_next() else None,
+            "previous": offset - limit if offset >= limit else None,
+            "results": serializer.data
+        })
+    
