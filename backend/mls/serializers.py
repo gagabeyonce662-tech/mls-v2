@@ -16,8 +16,9 @@ class RoomSerializer(serializers.ModelSerializer):
 
 
 class PropertySerializer(serializers.ModelSerializer):
-    media = MediaSerializer(many=True, read_only=True)
-    rooms = RoomSerializer(many=True, read_only=True)
+    # media = MediaSerializer(many=True, read_only=True)
+    media = serializers.SerializerMethodField()
+    # rooms = RoomSerializer(many=True, read_only=True)
 
     class Meta:
         model = Property
@@ -26,8 +27,30 @@ class PropertySerializer(serializers.ModelSerializer):
             'bedrooms_total', 'bathrooms_total_integer', 'building_area_total',"listing_id","city","directions","city_region",
             'year_built', 'public_remarks', 'listing_url', 'category_type',"state_or_province","lease_amount",
             'latitude', 'longitude', 'photos_count', 'standard_status',
-            'media', 'rooms'
+            'media', 
+            # 'rooms'
         ]
+    def get_media(self, obj):
+        # 1. Try to get the preferred photo
+        preferred = obj.media.filter(is_preferred=True).first()
+        if preferred:
+            return {
+                "media_url": preferred.media_url,
+                "media_category": preferred.media_category,
+                "is_preferred": True
+            }
+
+        # 2. Fallback: get the first photo by order
+        first = obj.media.order_by('order').first()
+        if first:
+            return {
+                "media_url": first.media_url,
+                "media_category": first.media_category,
+                "is_preferred": False
+            }
+
+        # 3. No photos
+        return None
 
 class RoomDetailSerializer(serializers.ModelSerializer):
     class Meta:
