@@ -29,7 +29,7 @@ import {
   PreConnPropertyFilterParams,
   VlogPost,
   fetchNewlyListedProperties
-} from './api';
+} from '../lib/api';
 
 // Query keys for organized cache management
 export const queryKeys = {
@@ -510,3 +510,5 @@ export const useNewlyListedProperties = (
     ...options,
   });
 };
+
+export { Property };

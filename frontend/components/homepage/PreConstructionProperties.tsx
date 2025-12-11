@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { Bed, Bath, Loader2, ChevronRight, Building, Calendar, Home } from "lucide-react";
 import { colors } from "@/config/design-system";
-import { usePrefetchProperty } from "@/lib/react-query";
+import { usePrefetchProperty } from "@/hooks/react-query";
 import { useState, useEffect } from "react";
 
 interface PreConstructionPropertiesProps {
