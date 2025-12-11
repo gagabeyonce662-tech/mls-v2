@@ -48,6 +48,11 @@ export default function PropertyCard({
   };
 
   const photo = getPropertyPhoto();
+  const listingUrl =
+  details.listingUrl && !details.listingUrl.startsWith("http")
+    ? `https://${details.listingUrl}`
+    : details.listingUrl;
+
 
   return (
     <div
@@ -104,7 +109,18 @@ export default function PropertyCard({
         <div className="mt-3 pt-3 border-t border-gray-100">
           <div className="flex justify-between items-center text-xs text-gray-500">
             <span>Listing ID: {details.listingId}</span>
-            {details.listingUrl && (<a href={details.listingUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:text-blue-800 hover:underline">View Details →</a>)}
+           {listingUrl && (
+              <a
+                href={listingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                View Details →
+              </a>
+            )}
+
           </div>
         </div>
       </div>
