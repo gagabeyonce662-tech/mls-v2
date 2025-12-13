@@ -10,7 +10,6 @@ import StreetViewButton from "@/components/map/StreetViewButton";
 import PropertyCard from "@/components/map/PropertyCard";
 
 import SearchBox from "@/components/map/SearchBox";
-import FilterBar from "@/components/map/FilterBar";
 import { fetchFilteredProperties } from "@/lib/api";
 import { ApiProperty, PropertyMarker, NominatimResult } from "@/components/map/types";
 
@@ -20,12 +19,136 @@ const TileLayer = dynamic(() => import("react-leaflet").then((m) => m.TileLayer)
 const Marker = dynamic(() => import("react-leaflet").then((m) => m.Marker), { ssr: false });
 const Popup = dynamic(() => import("react-leaflet").then((m) => m.Popup), { ssr: false });
 
+// SIMPLIFIED FilterBar - inline implementation
+function SimpleFilterBar({
+  filters,
+  setFilters,
+  onApply,
+}: {
+  filters: any;
+  setFilters: (updater: any) => void;
+  onApply: () => Promise<void> | void;
+}) {
+  const update = (key: string, value: any) => {
+    setFilters((prev: any) => ({ ...prev, [key]: value }));
+  };
+
+  return (
+    <div className="bg-white border border-gray-300 rounded-lg p-3 shadow-md">
+      <div className="flex items-center gap-3 p-2 overflow-x-auto">
+        <div className="flex flex-col min-w-[100px]">
+          <label className="text-xs font-medium text-gray-600 mb-1">Type</label>
+          <select
+            value={filters.property_type}
+            onChange={(e) => update("property_type", e.target.value)}
+            className="px-3 py-2 border rounded-md bg-white text-sm"
+          >
+            <option value="">All</option>
+            <option value="House">House</option>
+            <option value="Condo">Condo</option>
+            <option value="Townhouse">Townhouse</option>
+          </select>
+        </div>
+
+        <div className="flex flex-col min-w-[70px]">
+          <label className="text-xs font-medium text-gray-600 mb-1">Beds</label>
+          <input
+            type="number"
+            value={filters.bedrooms ?? ""}
+            onChange={(e) => update("bedrooms", e.target.value)}
+            className="px-3 py-2 border rounded-md text-sm w-full"
+            min={0}
+            placeholder="Any"
+          />
+        </div>
+
+        <div className="flex flex-col min-w-[70px]">
+          <label className="text-xs font-medium text-gray-600 mb-1">Baths</label>
+          <input
+            type="number"
+            value={filters.bathrooms ?? ""}
+            onChange={(e) => update("bathrooms", e.target.value)}
+            className="px-3 py-2 border rounded-md text-sm w-full"
+            min={0}
+            placeholder="Any"
+          />
+        </div>
+
+        <div className="flex flex-col min-w-[100px]">
+          <label className="text-xs font-medium text-gray-600 mb-1">Price Min</label>
+          <input
+            type="number"
+            value={filters.price_min ?? ""}
+            onChange={(e) => update("price_min", e.target.value)}
+            className="px-3 py-2 border rounded-md text-sm w-full"
+            placeholder="Min"
+            min={0}
+          />
+        </div>
+
+        <div className="flex flex-col min-w-[100px]">
+          <label className="text-xs font-medium text-gray-600 mb-1">Price Max</label>
+          <input
+            type="number"
+            value={filters.price_max ?? ""}
+            onChange={(e) => update("price_max", e.target.value)}
+            className="px-3 py-2 border rounded-md text-sm w-full"
+            placeholder="Max"
+            min={0}
+          />
+        </div>
+
+        <div className="flex flex-col min-w-[150px] flex-1">
+          <label className="text-xs font-medium text-gray-600 mb-1">Keywords</label>
+          <input
+            type="text"
+            value={filters.keywords ?? ""}
+            onChange={(e) => update("keywords", e.target.value)}
+            className="w-full px-3 py-2 border rounded-md text-sm"
+            placeholder="pool, renovated..."
+          />
+        </div>
+
+        <button
+          onClick={() =>
+            setFilters((prev: any) => ({
+              ...prev,
+              price_min: "",
+              price_max: "",
+              bedrooms: "",
+              bathrooms: "",
+              property_type: "",
+              garage: "",
+              keywords: "",
+            }))
+          }
+          className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+        >
+          Reset
+        </button>
+
+        <button
+          onClick={onApply}
+          className="flex items-center gap-2 px-4 py-2 rounded-md text-white font-medium bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
+          title="Search"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+          </svg>
+          <span className="text-sm">Search</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function MapOnlyPage() {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   const [mounted, setMounted] = useState(false);
   const [L, setL] = useState<any>(null);
   const mapRef = useRef<any | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
 
   const [filters, setFilters] = useState<any>({
     price_min: "",
@@ -43,6 +166,7 @@ export default function MapOnlyPage() {
     keywords: "",
     sold_days: "",
     modified_since: "",
+    garage: "",
   });
 
   const [apiMarkers, setApiMarkers] = useState<PropertyMarker[]>([]);
@@ -65,7 +189,6 @@ export default function MapOnlyPage() {
 
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
-  // helpers: debounce, formatPrice, fetchExclusivePropertiesForBBox, etc.
   function debounce(fn: (...args: any[]) => void, delay: number) {
     let timer: any;
     return (...args: any[]) => {
@@ -103,7 +226,7 @@ export default function MapOnlyPage() {
     return await res.json();
   }
 
-  // Nominatim search helpers (unchanged)
+  // Nominatim search
   const fetchResults = async (q: string) => {
     setSearching(true);
     setSearchError(null);
@@ -115,9 +238,7 @@ export default function MapOnlyPage() {
       const data = (await res.json()) as NominatimResult[];
       setSearchResults(data ?? []);
       setResultsOpen(true);
-      if (!data || data.length === 0) {
-        setSearchError("No results found.");
-      }
+      if (!data || data.length === 0) setSearchError("No results found.");
       setAnchorRect(inputRef.current?.getBoundingClientRect() ?? null);
     } catch (err) {
       console.error(err);
@@ -145,7 +266,6 @@ export default function MapOnlyPage() {
     });
   }, []);
 
-  // click-away handling for portal, updateRect, unmount cleanup - same as before
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!inputRef.current || inputRef.current.contains(e.target as Node)) return;
@@ -211,11 +331,11 @@ export default function MapOnlyPage() {
     iconAnchor: [12, 41],
   });
 
-  // applyFilters (unchanged)
   const applyFilters = async () => {
     setLoadingApi(true);
     setApiError(null);
     setApiMarkers([]);
+    setSelectedPropertyId(null);
 
     try {
       const data = await fetchFilteredProperties(filters);
@@ -253,13 +373,15 @@ export default function MapOnlyPage() {
     }
   };
 
-  // Drawing handlers (unchanged)
+  // Drawing handlers
   const enableDrawing = () => {
     if (!mapRef.current) return;
     setDrawing(true);
     drawStartRef.current = null;
     if (rectLayerRef.current) {
-      try { rectLayerRef.current.remove(); } catch {}
+      try {
+        rectLayerRef.current.remove();
+      } catch {}
       rectLayerRef.current = null;
     }
 
@@ -273,7 +395,9 @@ export default function MapOnlyPage() {
     setDrawing(false);
     drawStartRef.current = null;
     if (rectLayerRef.current) {
-      try { rectLayerRef.current.remove(); } catch {}
+      try {
+        rectLayerRef.current.remove();
+      } catch {}
       rectLayerRef.current = null;
     }
     mapRef.current.off("mousedown", onMapMouseDown);
@@ -283,17 +407,14 @@ export default function MapOnlyPage() {
     mapRef.current.getContainer().style.cursor = "";
   };
 
-  // (rest of the drawing + map/marker logic unchanged)...
-  // For brevity I have preserved the rest of your component logic unchanged from your previous file.
-  // (Select result handlers, onMapMouseDown/Move/Up, clearRectAndResults, handleMapReady, marker rendering, etc.)
-  // Inserted below exactly as in your existing file:
-
   const onMapMouseDown = (e: any) => {
     drawStartRef.current = { lat: e.latlng.lat, lng: e.latlng.lng };
     mapRef.current.on("mousemove", onMapMouseMove);
     mapRef.current.on("mouseup", onMapMouseUp);
     if (rectLayerRef.current) {
-      try { rectLayerRef.current.remove(); } catch {}
+      try {
+        rectLayerRef.current.remove();
+      } catch {}
       rectLayerRef.current = null;
     }
   };
@@ -347,7 +468,7 @@ export default function MapOnlyPage() {
           if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
           return {
             id: String(p.listing_key ?? p.listingKey ?? p.PropertyKey ?? idx),
-            title: (p.city ? `${p.city}` : (p.public_remarks ? String(p.public_remarks).slice(0, 40) : "Property")) ?? "Property",
+            title: (p.city ? `${p.city}` : p.public_remarks ? String(p.public_remarks).slice(0, 40) : "Property") ?? "Property",
             price: p.list_price ?? p.ListPrice,
             lat,
             lng,
@@ -382,7 +503,9 @@ export default function MapOnlyPage() {
 
   const clearRectAndResults = () => {
     if (rectLayerRef.current) {
-      try { rectLayerRef.current.remove(); } catch {}
+      try {
+        rectLayerRef.current.remove();
+      } catch {}
       rectLayerRef.current = null;
     }
     setApiMarkers([]);
@@ -393,7 +516,9 @@ export default function MapOnlyPage() {
 
   const handleMapReady = (map: any) => {
     mapRef.current = map;
-    try { map.scrollWheelZoom.enable(); } catch {}
+    try {
+      map.scrollWheelZoom.enable();
+    } catch {}
   };
 
   const handleViewOnMap = (property: PropertyMarker) => {
@@ -407,7 +532,10 @@ export default function MapOnlyPage() {
   };
 
   const handleViewStreetView = (property: PropertyMarker) => {
-    window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${property.lat},${property.lng}`, "_blank");
+    window.open(
+      `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${property.lat},${property.lng}`,
+      "_blank"
+    );
   };
 
   const markerToShow = searchResult ? { lat: searchResult.lat, lng: searchResult.lng, title: searchResult.display_name || "Search result" } : null;
@@ -466,119 +594,160 @@ export default function MapOnlyPage() {
   };
 
   return (
-    <div className="w-full px-4 pt-[140px] pb-6 pt-24">
+    <div className="w-full px-4 pt-24 pb-6">
       <Header />
 
-      {/* Single top container: merged visual header */}
-      <div className="mb-4">
-        <div className="bg-white rounded-lg shadow p-3 flex flex-wrap items-center gap-4">
-          {/* FilterBar rendered transparent (no card) so it visually lives inside the parent */}
-          <div className="flex-1 min-w-[360px]">
-            <FilterBar filters={filters} setFilters={setFilters} onApply={applyFilters} transparent />
-          </div>
-
-          {/* Search + Draw controls grouped on the right */}
-          <div className="flex items-center gap-3">
-            <div className="min-w-[320px]">
-              <SearchBox inputRef={inputRef} value={searchQuery} onChange={onInputChange} onKeyDown={onKeyDown} onClear={clearSearch} />
-            </div>
-
-            {!drawing ? (
-              <button onClick={enableDrawing} className="px-4 py-2 bg-white shadow-sm rounded-md hover:bg-gray-50 border border-gray-200 flex items-center gap-2" title="Draw area to search">
-                <span className="text-lg">✏️</span>
-                <span className="hidden md:inline text-black">Draw Area</span>
-              </button>
-            ) : (
-              <button onClick={disableDrawing} className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center gap-2" title="Cancel drawing">
-                <span className="text-lg">✖</span>
-                <span className="hidden md:inline">Cancel</span>
-              </button>
-            )}
-
-            {(apiMarkers.length > 0 || rectLayerRef.current) && (
-              <button onClick={clearRectAndResults} className="px-3 py-2 bg-white shadow-sm rounded-md hover:bg-gray-50 border border-gray-200" title="Clear results">
-                🗑️
-              </button>
+      <div className="flex flex-col gap-6">
+        {/* Status messages */}
+        {(searchError || searchResult || loadingApi || apiError || apiMarkers.length > 0) && (
+          <div className="text-center">
+            {searchError && <div className="text-sm text-red-600">{searchError}</div>}
+            {!searchError && searchResult && <div className="text-sm text-gray-700">📍 {searchResult.display_name}</div>}
+            {loadingApi && <div className="text-sm text-gray-600">Loading properties...</div>}
+            {!loadingApi && apiError && <div className="text-sm text-red-600">Error: {apiError}</div>}
+            {!loadingApi && !apiError && apiMarkers.length > 0 && (
+              <div className="text-sm text-gray-700 font-medium">{apiMarkers.length} properties found</div>
             )}
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* status/messages and map remain exactly the same as your previous implementation */}
-      {/* ... (rest of file continues unchanged - map, markers, popups, sidebar) */}
-      {/* For brevity, rest of file is unchanged from your previous version and should work as before. */}
-      {/* If you need the full file with no ellipses, tell me and I'll paste it verbatim. */}
-      {/* (Everything after the top container is unchanged.) */}
+        {/* MAP AND OVERLAY CONTAINER */}
+        <div className="relative" style={{ height: "65vh" }}>
+          {/* Map wrapper */}
+          <div ref={mapContainerRef} className="absolute inset-0 rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+            <MapContainer key="main-map" center={[43.65, -79.385]} zoom={13} className="w-full h-full">
+              <MapController
+                onMapReady={handleMapReady}
+                onMapClick={(lat, lng) => {
+                  if (!drawing) window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`, "_blank");
+                }}
+              />
+              <TileLayer attribution='&copy; <a href="https://carto.com/">CARTO</a>' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
 
-      {/* status / messages */}
-      {(searchError || searchResult || loadingApi || apiError || apiMarkers.length > 0) && (
-        <div className="mb-4 text-center">
-          {searchError && <div className="text-sm text-red-600">{searchError}</div>}
-          {!searchError && searchResult && <div className="text-sm text-gray-700">📍 {searchResult.display_name}</div>}
-          {loadingApi && <div className="text-sm text-gray-600">Loading properties...</div>}
-          {!loadingApi && apiError && <div className="text-sm text-red-600">Error: {apiError}</div>}
-          {!loadingApi && !apiError && apiMarkers.length > 0 && <div className="text-sm text-gray-700">{apiMarkers.length} properties found</div>}
-        </div>
-      )}
-
-      {resultsOpen && searchResults.length > 0 && <ResultsPortal anchorRect={anchorRect} results={searchResults} onSelect={selectResult} />}
-
-      <div className="flex gap-6">
-        {/* Map container */}
-        <div className="relative flex-1 rounded-lg shadow-lg border border-gray-200" style={{ height: "80vh", zIndex: 0, overflow: "visible" }}>
-          <MapContainer key="main-map" center={[43.65, -79.385]} zoom={13} className="w-full h-full">
-            <MapController onMapReady={handleMapReady} onMapClick={(lat, lng) => { if (!drawing) window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`, "_blank"); }} />
-            <TileLayer attribution='&copy; <a href="https://carto.com/">CARTO</a>' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-
-            {apiMarkers.map((m) => (
-              <Marker key={m.id} position={[m.lat, m.lng]} icon={selectedPropertyId === m.id ? selectedIcon : customIcon} eventHandlers={{ click: () => setSelectedPropertyId(m.id) }}>
-                <Popup>
-                  <div className="max-w-xs">
-                    <strong className="text-lg">{m.title}</strong>
-                    <br />
-                    <div className="my-2"><span className="font-semibold">Price:</span> {formatPrice(m.price)}</div>
-                    <div className="text-sm text-gray-600">
-                      <div><span className="font-medium">Bedrooms:</span> {m.raw?.bedrooms_total || "N/A"}</div>
-                      <div><span className="font-medium">Bathrooms:</span> {m.raw?.bathrooms_total_integer || "N/A"}</div>
-                      <div><span className="font-medium">Property Type:</span> {m.raw?.property_sub_type || "N/A"}</div>
-                      <div><span className="font-medium">Status:</span> {m.raw?.standard_status || "N/A"}</div>
+              {apiMarkers.map((m) => (
+                <Marker key={m.id} position={[m.lat, m.lng]} icon={selectedPropertyId === m.id ? selectedIcon : customIcon} eventHandlers={{ click: () => setSelectedPropertyId(m.id) }}>
+                  <Popup>
+                    <div className="max-w-xs">
+                      <strong className="text-lg">{m.title}</strong>
+                      <br />
+                      <div className="my-2"><span className="font-semibold">Price:</span> {formatPrice(m.price)}</div>
+                      <div className="text-sm text-gray-600">
+                        <div><span className="font-medium">Bedrooms:</span> {m.raw?.bedrooms_total || "N/A"}</div>
+                        <div><span className="font-medium">Bathrooms:</span> {m.raw?.bathrooms_total_integer || "N/A"}</div>
+                        <div><span className="font-medium">Property Type:</span> {m.raw?.property_sub_type || "N/A"}</div>
+                        <div><span className="font-medium">Status:</span> {m.raw?.standard_status || "N/A"}</div>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-500">Coordinates: {m.lat.toFixed(6)}, {m.lng.toFixed(6)}</div>
+                      <StreetViewButton lat={m.lat} lng={m.lng} />
                     </div>
-                    <div className="mt-2 text-xs text-gray-500">Coordinates: {m.lat.toFixed(6)}, {m.lng.toFixed(6)}</div>
-                    <StreetViewButton lat={m.lat} lng={m.lng} />
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
+                  </Popup>
+                </Marker>
+              ))}
 
-            {markerToShow && (
-              <Marker position={[markerToShow.lat, markerToShow.lng]} icon={customIcon}>
-                <Popup>
-                  <div>
-                    <strong>📍 {markerToShow.title}</strong>
-                    <br />
-                    <small className="text-gray-500">Coordinates: {markerToShow.lat.toFixed(6)}, {markerToShow.lng.toFixed(6)}</small>
-                    <StreetViewButton lat={markerToShow.lat} lng={markerToShow.lng} />
-                  </div>
-                </Popup>
-              </Marker>
-            )}
-          </MapContainer>
+              {markerToShow && (
+                <Marker position={[markerToShow.lat, markerToShow.lng]} icon={customIcon}>
+                  <Popup>
+                    <div>
+                      <strong>📍 {markerToShow.title}</strong>
+                      <br />
+                      <small className="text-gray-500">Coordinates: {markerToShow.lat.toFixed(6)}, {markerToShow.lng.toFixed(6)}</small>
+                      <StreetViewButton lat={markerToShow.lat} lng={markerToShow.lng} />
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+            </MapContainer>
+          </div>
+
+          {/* FIXED OVERLAY BAR - Always visible, positioned outside map */}
+          <div className="absolute top-full left-0 right-0 mt-4 z-[1000]">
+            <div className="bg-white shadow-2xl border border-gray-300 rounded-xl p-4">
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                {/* Search box */}
+                <div className="w-full md:w-auto">
+                  <SearchBox
+                    inputRef={inputRef}
+                    value={searchQuery}
+                    onChange={onInputChange}
+                    onKeyDown={onKeyDown}
+                    onClear={clearSearch}
+                  />
+                </div>
+
+                {/* SIMPLE FilterBar - Inline implementation */}
+                <div className="flex-1 w-full">
+                  <SimpleFilterBar
+                    filters={filters}
+                    setFilters={setFilters}
+                    onApply={applyFilters}
+                  />
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {!drawing ? (
+                    <button
+                      onClick={enableDrawing}
+                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
+                      title="Draw area"
+                    >
+                      <span className="flex items-center gap-1">
+                        <span>✏️</span>
+                        <span>Draw Area</span>
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={disableDrawing}
+                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors whitespace-nowrap"
+                      title="Cancel drawing"
+                    >
+                      <span className="flex items-center gap-1">
+                        <span>✖</span>
+                        <span>Cancel</span>
+                      </span>
+                    </button>
+                  )}
+
+                  <button 
+                    onClick={clearRectAndResults} 
+                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap" 
+                    title="Clear results"
+                  >
+                    <span className="flex items-center gap-1">
+                      <span>🗑️</span>
+                      <span>Clear</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Property cards sidebar */}
+        {/* Search results portal */}
+        {resultsOpen && searchResults.length > 0 && <ResultsPortal anchorRect={anchorRect} results={searchResults} onSelect={selectResult} />}
+
+        {/* Property cards grid */}
         {apiMarkers.length > 0 && (
-          <div className="w-1/3">
+          <div className="mt-6">
             <div className="mb-4">
               <div className="flex justify-between items-center mb-2">
                 <h2 className="text-xl font-semibold">Properties ({apiMarkers.length})</h2>
-                <span className="text-sm text-gray-500">{selectedPropertyId ? "1 selected" : "Click to select"}</span>
+                <span className="text-sm text-gray-500">{selectedPropertyId ? "1 selected" : "Click a property to select"}</span>
               </div>
-              <p className="text-sm text-gray-600 mb-4">Click on a property card or marker to select it</p>
             </div>
 
-            <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: "75vh" }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {apiMarkers.map((property) => (
-                <PropertyCard key={property.id} property={property} onViewOnMap={() => handleViewOnMap(property)} onViewStreetView={() => handleViewStreetView(property)} isSelected={selectedPropertyId === property.id} />
+                <PropertyCard
+                  key={property.id}
+                  property={property}
+                  onViewOnMap={() => handleViewOnMap(property)}
+                  onViewStreetView={() => handleViewStreetView(property)}
+                  isSelected={selectedPropertyId === property.id}
+                  className="h-full"
+                />
               ))}
             </div>
           </div>
