@@ -238,6 +238,7 @@ export async function fetchVlogPostBySlug(slug: string): Promise<VlogPost | null
 }
 
 // Helper function to map API response to Property interface
+// Helper function to map API response to Property interface - FIXED VERSION
 function mapPropertyFromAPI(prop: any): Property {
   console.log('Mapping property from API:', prop);
   
@@ -254,6 +255,55 @@ function mapPropertyFromAPI(prop: any): Property {
   
   // Format price
   const listPrice = prop.list_price ? parseFloat(prop.list_price) : prop.ListPrice || 0;
+  
+  // FIXED: Handle media properly - it's an object, not an array
+  let mediaArray: Array<{
+    media_url: string;
+    media_category: string;
+    is_preferred: boolean;
+    order: number;
+  }> = [];
+  
+  if (prop.media) {
+    if (Array.isArray(prop.media)) {
+      // If media is already an array (legacy format)
+      mediaArray = prop.media;
+    } else if (typeof prop.media === 'object' && prop.media.media_url) {
+      // If media is a single object (your current API format)
+      mediaArray = [{
+        media_url: prop.media.media_url,
+        media_category: prop.media.media_category || 'Property Photo',
+        is_preferred: prop.media.is_preferred !== undefined ? prop.media.is_preferred : true,
+        order: 0
+      }];
+    } else if (typeof prop.media === 'string') {
+      // If media is a string URL
+      mediaArray = [{
+        media_url: prop.media,
+        media_category: 'Property Photo',
+        is_preferred: true,
+        order: 0
+      }];
+    }
+  }
+  
+  // FIXED: Handle rooms safely
+  let roomsArray: Array<{
+    room_type: string;
+    room_level: string;
+    room_length: string | null;
+    room_width: string | null;
+    room_dimensions: string;
+  }> = [];
+  
+  if (prop.rooms) {
+    if (Array.isArray(prop.rooms)) {
+      roomsArray = prop.rooms;
+    } else if (typeof prop.rooms === 'object') {
+      // If rooms is a single object, wrap it in array
+      roomsArray = [prop.rooms];
+    }
+  }
   
   const mappedProperty: Property = {
     PropertyKey: prop.listing_key || prop.PropertyKey || prop.id || '',
@@ -277,8 +327,8 @@ function mapPropertyFromAPI(prop: any): Property {
     latitude: prop.latitude,
     longitude: prop.longitude,
     public_remarks: prop.public_remarks,
-    media: prop.media,
-    rooms: prop.rooms,
+    media: mediaArray, // FIXED: Use the properly formatted array
+    rooms: roomsArray, // FIXED: Use the properly formatted array
     category_type: prop.category_type,
     photos_count: prop.photos_count,
     listing_url: prop.listing_url,
@@ -297,10 +347,10 @@ function mapPropertyFromAPI(prop: any): Property {
     parking_features: prop.parking_features || prop.ParkingFeatures || '',
     total_actual_rent: prop.total_actual_rent,
     
-    // Legacy fields
-    Photos: prop.media?.map((m: any) => ({ PhotoURL: m.media_url })) || [],
-    Media: prop.media,
-    Rooms: prop.rooms,
+    // Legacy fields - FIXED: Handle arrays safely
+    Photos: mediaArray.map(m => ({ PhotoURL: m.media_url })),
+    Media: mediaArray,
+    Rooms: roomsArray,
     LivingArea: prop.building_area_total ? parseFloat(prop.building_area_total) : null,
     YearBuilt: prop.year_built ? parseInt(prop.year_built) : null,
     PublicRemarks: prop.public_remarks,

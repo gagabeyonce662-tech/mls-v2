@@ -83,6 +83,13 @@ export default function ComparePage() {
   const [debugMode, setDebugMode] = useState(process.env.NODE_ENV === 'development');
   const [forceRefresh, setForceRefresh] = useState(0);
 
+  // Debug hook response
+  useEffect(() => {
+    if (showAddPropertiesModal) {
+      console.log('DEBUG MODAL - Modal opened');
+    }
+  }, [showAddPropertiesModal]);
+
   // Initialize selected IDs from URL
   useEffect(() => {
     if (!params) return;
@@ -151,50 +158,79 @@ export default function ComparePage() {
 
   // Use existing API to fetch all available exclusive properties for the modal
   const { 
-    data: availablePropertiesData = {}, 
+    data: availablePropertiesData, 
     isLoading: isLoadingAvailable,
     isError: isErrorAvailable 
   } = useAllExclusiveProperties({
     enabled: showAddPropertiesModal,
   });
 
-  // Transform the data correctly - UPDATED FOR YOUR API FORMAT
+  // DEBUG: Log what the hook returns
+  useEffect(() => {
+    if (showAddPropertiesModal && availablePropertiesData) {
+      console.log('DEBUG HOOK RESPONSE:', {
+        data: availablePropertiesData,
+        type: typeof availablePropertiesData,
+        isArray: Array.isArray(availablePropertiesData),
+        keys: Object.keys(availablePropertiesData),
+        hasResults: 'results' in availablePropertiesData,
+        resultsType: typeof availablePropertiesData.results,
+        resultsIsArray: Array.isArray(availablePropertiesData.results),
+        resultsLength: availablePropertiesData.results?.length || 0,
+        firstItem: availablePropertiesData.results?.[0]
+      });
+    }
+  }, [showAddPropertiesModal, availablePropertiesData]);
+
+  // Transform the data correctly - FIXED VERSION
   const availablePropertiesDataArray = useMemo(() => {
+    console.log('DEBUG TRANSFORMATION - Input data:', availablePropertiesData);
+    
     if (!availablePropertiesData) {
-      console.log('DEBUG - No available properties data');
+      console.log('DEBUG - No data available');
       return [];
     }
     
-    console.log('DEBUG - Available properties data structure:', {
-      rawData: availablePropertiesData,
-      type: typeof availablePropertiesData,
-      isArray: Array.isArray(availablePropertiesData),
-      hasResults: 'results' in availablePropertiesData,
-      resultsIsArray: Array.isArray(availablePropertiesData?.results),
-      resultsCount: availablePropertiesData?.results?.length
-    });
-    
-    // Your API response has the format: { count, next, previous, results: [...] }
-    if (availablePropertiesData && 
-        typeof availablePropertiesData === 'object' && 
-        'results' in availablePropertiesData && 
-        Array.isArray(availablePropertiesData.results)) {
-      console.log('DEBUG - Extracting from results array, count:', availablePropertiesData.results.length);
-      console.log('DEBUG - First property sample:', availablePropertiesData.results[0]);
-      return availablePropertiesData.results;
+    // CASE 1: If data is already an array (unlikely but handle it)
+    if (Array.isArray(availablePropertiesData)) {
+      console.log('DEBUG - Data is already an array, length:', availablePropertiesData.length);
+      return availablePropertiesData;
     }
     
-    // Fallback: if it's already an array, return it
-    if (Array.isArray(availablePropertiesData)) {
-      console.log('DEBUG - Data is already an array, count:', availablePropertiesData.length);
-      return availablePropertiesData;
+    // CASE 2: If data is an object with results property (YOUR API FORMAT)
+    if (availablePropertiesData && typeof availablePropertiesData === 'object') {
+      // Check if it has 'results' array
+      if ('results' in availablePropertiesData && Array.isArray(availablePropertiesData.results)) {
+        console.log('DEBUG - Found results array, length:', availablePropertiesData.results.length);
+        console.log('DEBUG - First result:', availablePropertiesData.results[0]);
+        return availablePropertiesData.results;
+      }
+      
+      // Check for other possible array properties
+      const arrayKeys = Object.keys(availablePropertiesData).filter(key => 
+        Array.isArray(availablePropertiesData[key])
+      );
+      
+      if (arrayKeys.length > 0) {
+        console.log('DEBUG - Found array keys:', arrayKeys);
+        // Return the first array property found
+        const firstArray = availablePropertiesData[arrayKeys[0]];
+        console.log('DEBUG - Using array from key:', arrayKeys[0], 'length:', firstArray.length);
+        return firstArray;
+      }
+      
+      // If no array found, check if it's a single property object
+      if (availablePropertiesData.listing_key) {
+        console.log('DEBUG - Single property object found');
+        return [availablePropertiesData];
+      }
     }
     
     console.log('DEBUG - Unknown data format, returning empty array');
     return [];
   }, [availablePropertiesData]);
 
-  console.log('DEBUG - Available Properties Array:', {
+  console.log('DEBUG FINAL ARRAY:', {
     array: availablePropertiesDataArray,
     length: availablePropertiesDataArray.length,
     firstItem: availablePropertiesDataArray[0]
@@ -530,12 +566,7 @@ export default function ComparePage() {
                 <RefreshCw className="w-4 h-4" />
                 Retry
               </button>
-              <a
-                href="/exclusive-properties"
-                className="px-6 py-3 bg-gray-700 rounded-lg hover:bg-gray-800 transition text-center"
-              >
-                Browse Properties
-              </a>
+             
               <button
                 onClick={() => setSelectedIds([])}
                 className="px-6 py-3 bg-gray-600 rounded-lg hover:bg-gray-700 transition"
@@ -564,21 +595,7 @@ export default function ComparePage() {
             <p className="text-gray-400 mb-8">
               Select properties from our exclusive listings to compare their features side by side.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a
-                href="/exclusive-properties"
-                className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 transition text-center"
-              >
-                Browse Exclusive Properties
-              </a>
-              <button
-                onClick={() => setShowAddPropertiesModal(true)}
-                className="px-6 py-3 bg-gray-700 rounded-lg hover:bg-gray-800 transition flex items-center justify-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                Add Properties
-              </button>
-            </div>
+          
           </div>
         </div>
         <Footer />
@@ -597,31 +614,7 @@ export default function ComparePage() {
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           {/* Header */}
           <div className="bg-gray-50 p-6 border-b">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Property Comparison</h1>
-                <p className="text-gray-600 mt-1">
-                  Comparing {comparisonProperties.length} propert{comparisonProperties.length === 1 ? 'y' : 'ies'}
-                  {errorProperties.length > 0 && ` (${errorProperties.length} failed to load)`}
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowAddPropertiesModal(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More
-                </button>
-                <button
-                  onClick={handleForceRefresh}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition flex items-center gap-2"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Refresh
-                </button>
-              </div>
-            </div>
+            
             
             {/* Error Alert */}
             {errorProperties.length > 0 && (
@@ -756,45 +749,10 @@ export default function ComparePage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="p-6 border-t bg-gray-50 flex justify-between">
-            <button
-              onClick={() => setShowAddPropertiesModal(true)}
-              className="px-4 py-2 text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Add More Properties
-            </button>
-            <div className="flex gap-3">
-              <a
-                href="/exclusive-properties"
-                className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium"
-              >
-                Browse All Properties
-              </a>
-              <button
-                onClick={() => setSelectedIds([])}
-                className="px-4 py-2 text-red-600 hover:text-red-800 font-medium"
-              >
-                Clear All
-              </button>
-            </div>
-          </div>
+        
 
           {/* Debug Info */}
-          {debugMode && (
-            <div className="p-4 bg-gray-900 text-white text-xs font-mono border-t">
-              <div className="flex justify-between items-center mb-2">
-                <span>Debug Info</span>
-                <button onClick={() => setDebugMode(false)} className="text-gray-400">×</button>
-              </div>
-              <div className="space-y-1">
-                <div>Selected IDs: {selectedIds.join(', ')}</div>
-                <div>Comparison Properties: {comparisonProperties.length}</div>
-                <div>Available Properties: {availablePropertiesDataArray.length}</div>
-                <div>Filtered Available: {filteredAvailableProperties.length}</div>
-                <div>API Response Count: {availablePropertiesData?.count || 0}</div>
-              </div>
-            </div>
-          )}
+         
         </div>
       </div>
 
@@ -823,45 +781,21 @@ export default function ComparePage() {
               
               {/* Search Bar in Modal */}
               <div className="mt-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    placeholder="Search by address, city, or property type..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {searchTerm && (
-                    <button
-                      onClick={() => setSearchTerm('')}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
+               
               </div>
 
               {/* Debug Info in Modal */}
-              {debugMode && (
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm font-medium text-blue-800">Debug Info:</p>
-                  <p className="text-xs text-blue-700">
-                    Total API Results: {availablePropertiesData?.count || 0} | 
-                    Loaded: {availablePropertiesDataArray.length} | 
-                    Filtered: {filteredAvailableProperties.length} | 
-                    Selected: {selectedIds.length}
-                  </p>
-                </div>
-              )}
+            
             </div>
             
             <div className="flex-1 overflow-hidden">
               {isLoadingAvailable ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="ml-3 text-gray-600">Loading available properties...</span>
+                <div className="flex flex-col items-center justify-center h-64 p-6">
+                  <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+                  <span className="text-gray-600">Loading available properties...</span>
+                  <span className="text-gray-400 text-sm mt-1">
+                    Please wait while we fetch properties...
+                  </span>
                 </div>
               ) : isErrorAvailable ? (
                 <div className="flex flex-col items-center justify-center h-64 p-6">
@@ -879,17 +813,9 @@ export default function ComparePage() {
                 <div className="overflow-y-auto h-full">
                   {filteredAvailableProperties.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 p-6">
-                      <Search className="w-12 h-12 text-gray-400 mb-4" />
-                      <p className="text-gray-500 text-lg mb-2">
-                        {searchTerm ? "No matching properties found" : "No properties available"}
-                      </p>
-                      {searchTerm ? (
-                        <p className="text-gray-400">Try a different search term</p>
-                      ) : availablePropertiesDataArray.length === 0 ? (
-                        <p className="text-gray-400">No properties found in the database</p>
-                      ) : (
-                        <p className="text-gray-400">All properties are already selected for comparison</p>
-                      )}
+                    
+                     
+                  
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
@@ -897,18 +823,10 @@ export default function ComparePage() {
                         // Get property ID - from your API response
                         const propertyId = property.listing_key;
                         
-                        console.log('Rendering property in modal:', {
-                          propertyId,
-                          property: property,
-                          hasMedia: !!property.media,
-                          mediaType: typeof property.media,
-                          mediaUrl: property.media?.media_url
-                        });
-                        
                         const isSelected = selectedIds.includes(propertyId);
                         const isMaxReached = selectedIds.length >= 5;
                         
-                        // Get image URL for YOUR API format
+                        // Get image URL - FIXED for your API structure
                         const getImageUrl = () => {
                           // Your API has media as an object with media_url
                           if (property?.media && typeof property.media === 'object') {
@@ -947,6 +865,10 @@ export default function ComparePage() {
                           return "Price on request";
                         };
                         
+                        // Get bedrooms and bathrooms
+                        const bedrooms = property.bedrooms_total || 0;
+                        const bathrooms = property.bathrooms_total_integer || 0;
+                        
                         return (
                           <div 
                             key={propertyId}
@@ -968,17 +890,19 @@ export default function ComparePage() {
                           >
                             <div className="flex gap-4">
                               {getImageUrl() ? (
-                                <img 
-                                  src={getImageUrl()} 
-                                  alt={getAddress()}
-                                  className="w-24 h-24 object-cover rounded"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM2NjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=';
-                                  }}
-                                />
+                                <div className="w-24 h-24 flex-shrink-0">
+                                  <img 
+                                    src={getImageUrl()} 
+                                    alt={getAddress()}
+                                    className="w-full h-full object-cover rounded"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM2NjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=';
+                                    }}
+                                  />
+                                </div>
                               ) : (
-                                <div className="w-24 h-24 bg-gray-200 rounded flex items-center justify-center">
+                                <div className="w-24 h-24 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
                                   <span className="text-gray-500 text-sm">No Image</span>
                                 </div>
                               )}
@@ -997,7 +921,7 @@ export default function ComparePage() {
                                 </p>
                                 <div className="flex justify-between items-center mt-2">
                                   <div className="text-xs text-gray-500 truncate">
-                                    {property.bedrooms_total || 0} bed • {property.bathrooms_total_integer || 0} bath
+                                    {bedrooms} bed • {bathrooms} bath
                                   </div>
                                   <span className={`px-3 py-1 rounded text-xs font-medium whitespace-nowrap ${
                                     isSelected 
@@ -1032,7 +956,6 @@ export default function ComparePage() {
                   {filteredAvailableProperties.length > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
                       Showing {filteredAvailableProperties.length} of {availablePropertiesDataArray.length} properties
-                      {availablePropertiesData?.count && ` (Total in API: ${availablePropertiesData.count})`}
                     </p>
                   )}
                 </div>
