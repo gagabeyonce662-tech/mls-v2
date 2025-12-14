@@ -611,8 +611,8 @@ export default function MapOnlyPage() {
           </div>
         )}
 
-        {/* MAP AND OVERLAY CONTAINER */}
-        <div className="relative" style={{ height: "65vh" }}>
+        {/* MAP CONTAINER */}
+        <div className="relative" style={{ height: "65vh", minHeight: "400px" }}>
           {/* Map wrapper */}
           <div ref={mapContainerRef} className="absolute inset-0 rounded-lg shadow-lg border border-gray-200 overflow-hidden">
             <MapContainer key="main-map" center={[43.65, -79.385]} zoom={13} className="w-full h-full">
@@ -658,69 +658,67 @@ export default function MapOnlyPage() {
               )}
             </MapContainer>
           </div>
+        </div>
 
-          {/* FIXED OVERLAY BAR - Always visible, positioned outside map */}
-          <div className="absolute top-full left-0 right-0 mt-4 z-[1000]">
-            <div className="bg-white shadow-2xl border border-gray-300 rounded-xl p-4">
-              <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                {/* Search box */}
-                <div className="w-full md:w-auto">
-                  <SearchBox
-                    inputRef={inputRef}
-                    value={searchQuery}
-                    onChange={onInputChange}
-                    onKeyDown={onKeyDown}
-                    onClear={clearSearch}
-                  />
-                </div>
+        {/* CONTROLS SECTION - Below map */}
+        <div className="bg-white shadow-2xl border border-gray-300 rounded-xl p-4 -mt-4 relative z-10">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            {/* Search box */}
+            <div className="w-full md:w-auto">
+              <SearchBox
+                inputRef={inputRef}
+                value={searchQuery}
+                onChange={onInputChange}
+                onKeyDown={onKeyDown}
+                onClear={clearSearch}
+              />
+            </div>
 
-                {/* SIMPLE FilterBar - Inline implementation */}
-                <div className="flex-1 w-full">
-                  <SimpleFilterBar
-                    filters={filters}
-                    setFilters={setFilters}
-                    onApply={applyFilters}
-                  />
-                </div>
+            {/* SIMPLE FilterBar - Inline implementation */}
+            <div className="flex-1 w-full">
+              <SimpleFilterBar
+                filters={filters}
+                setFilters={setFilters}
+                onApply={applyFilters}
+              />
+            </div>
 
-                {/* Action buttons */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {!drawing ? (
-                    <button
-                      onClick={enableDrawing}
-                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
-                      title="Draw area"
-                    >
-                      <span className="flex items-center gap-1">
-                        <span>✏️</span>
-                        <span>Draw Area</span>
-                      </span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={disableDrawing}
-                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors whitespace-nowrap"
-                      title="Cancel drawing"
-                    >
-                      <span className="flex items-center gap-1">
-                        <span>✖</span>
-                        <span>Cancel</span>
-                      </span>
-                    </button>
-                  )}
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {!drawing ? (
+                <button
+                  onClick={enableDrawing}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
+                  title="Draw area"
+                >
+                  <span className="flex items-center gap-1">
+                    <span>✏️</span>
+                    <span>Draw Area</span>
+                  </span>
+                </button>
+              ) : (
+                <button
+                  onClick={disableDrawing}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors whitespace-nowrap"
+                  title="Cancel drawing"
+                >
+                  <span className="flex items-center gap-1">
+                    <span>✖</span>
+                    <span>Cancel</span>
+                  </span>
+                </button>
+              )}
 
-                  <button 
-                    onClick={clearRectAndResults} 
-                    className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap" 
-                    title="Clear results"
-                  >
-                    <span className="flex items-center gap-1">
-                      <span>🗑️</span>
-                      <span>Clear</span>
-                    </span>
-                  </button>
-                </div>
-              </div>
+              <button 
+                onClick={clearRectAndResults} 
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap" 
+                title="Clear results"
+              >
+                <span className="flex items-center gap-1">
+                  <span>🗑️</span>
+                  <span>Clear</span>
+                </span>
+              </button>
             </div>
           </div>
         </div>
@@ -746,7 +744,6 @@ export default function MapOnlyPage() {
                   onViewOnMap={() => handleViewOnMap(property)}
                   onViewStreetView={() => handleViewStreetView(property)}
                   isSelected={selectedPropertyId === property.id}
-                  className="h-full"
                 />
               ))}
             </div>
