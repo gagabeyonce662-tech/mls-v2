@@ -17,184 +17,148 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { colors } from '@/config/design-system';
-import { fetchLeaseProperties, type Property } from '@/lib/api';
+import { 
+  useInfiniteLeaseProperties,
+  useLeaseProperties,
+  type Property 
+} from '@/hooks/react-query';
+
+// Helper function to fix media field in properties
+const fixPropertyMedia = (property: any): Property => {
+  // Ensure media is always an array
+  let mediaArray: Array<{
+    media_url: string;
+    media_category: string;
+    is_preferred: boolean;
+    order: number;
+  }> = [];
+
+  if (property.media) {
+    if (Array.isArray(property.media)) {
+      // Already an array
+      mediaArray = property.media;
+    } else if (typeof property.media === 'object' && property.media !== null) {
+      // Single media object
+      if (property.media.media_url) {
+        mediaArray = [{
+          media_url: property.media.media_url,
+          media_category: property.media.media_category || 'Property Photo',
+          is_preferred: property.media.is_preferred !== undefined ? property.media.is_preferred : true,
+          order: property.media.order !== undefined ? property.media.order : 0
+        }];
+      }
+    }
+  }
+
+  // Create fixed property
+  return {
+    ...property,
+    media: mediaArray,
+    // Ensure Photos array exists for legacy compatibility
+    Photos: mediaArray.map(m => ({ 
+      PhotoURL: m.media_url,
+      MediaCategory: m.media_category,
+      IsPreferred: m.is_preferred,
+      Order: m.order
+    })),
+    // Ensure Media array exists for legacy compatibility
+    Media: mediaArray,
+  };
+};
 
 export default function RentalListingsPage() {
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentCity, setCurrentCity] = useState('');
   const [searchQuery, setSearchQuery] = useState("All Rental Properties");
-  const [currentOffset, setCurrentOffset] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const lastPropertyRef = useRef<HTMLDivElement | null>(null);
-  
-  // Simple search state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentCity, setCurrentCity] = useState('');
 
   // AUTH: Replace this with your real auth state
   const isLoggedIn = false;
 
-  // Return the first suitable image URL from the property
+  // Use React Query hook for infinite loading with city filter
+  const {
+    data: infiniteData,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    status,
+    error,
+    refetch
+  } = useInfiniteLeaseProperties(
+    currentCity ? { city: currentCity } : undefined
+  );
+
+  // Calculate all properties from infinite query pages with fixed media
+  const properties = React.useMemo(() => {
+    if (!infiniteData?.pages) return [];
+    
+    const allProperties = infiniteData.pages.flatMap(page => page.results || []);
+    
+    // Fix the media field for each property
+    return allProperties.map(property => fixPropertyMedia(property));
+  }, [infiniteData]);
+
+  // Enhanced function to get property image URL
   const getPropertyImageUrl = (property: Property | any) => {
     try {
+      // First try to get from fixed media array
       if (Array.isArray(property.media) && property.media.length > 0) {
-        const img = property.media.find((m: any) => {
-          const t = (m.media_type || '').toLowerCase();
-          const url = (m.media_url || '').toString();
-          return t.includes('image') || /\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(url);
-        }) || property.media[0];
-        if (img && (img.media_url || img.url || img.url_full)) return img.media_url || img.url || img.url_full;
+        const mediaItem = property.media[0];
+        if (mediaItem && mediaItem.media_url) {
+          return mediaItem.media_url;
+        }
       }
 
+      // Fallback to legacy Photos array
       if (Array.isArray(property.Photos) && property.Photos.length > 0) {
-        const p = property.Photos[0];
-        if (p.PhotoURL) return p.PhotoURL;
+        const photo = property.Photos[0];
+        if (photo && photo.PhotoURL) {
+          return photo.PhotoURL;
+        }
       }
 
-      if (Array.isArray(property.Media) && property.Media.length > 0) {
-        const m = property.Media.find((x: any) => x.media_url) || property.Media[0];
-        if (m && m.media_url) return m.media_url;
+      // Fallback to raw media object (in case fixPropertyMedia wasn't applied)
+      if (property.media && typeof property.media === 'object' && !Array.isArray(property.media)) {
+        if (property.media.media_url) {
+          return property.media.media_url;
+        }
       }
 
-      if (property.listing_image_url) return property.listing_image_url;
-      if (property.main_image) return property.main_image;
+      // Try to construct URL from listing_id
+      if (property.listing_id) {
+        return `https://ddfcdn.realtor.ca/listing/TS638995365813630000/reb82/highres/0/${property.listing_id}_1.jpg`;
+      }
+
+      // Try listing_key as fallback
+      if (property.listing_key) {
+        return `https://ddfcdn.realtor.ca/listing/TS638995365813630000/reb82/highres/0/${property.listing_key}_1.jpg`;
+      }
 
       return null;
     } catch (e) {
+      console.error('Error getting property image:', e);
       return null;
     }
   };
 
-  // Load rental properties - either all or filtered by city
-  const loadProperties = useCallback(async (offset = 0, isInitialLoad = false, city = '') => {
-    // If user not logged in and we're trying to load beyond first page, block further loads
-    if (!isLoggedIn && offset >= 24) {
-      setHasMore(false);
-      setIsLoading(false);
-      setIsLoadingMore(false);
-      return;
-    }
-
-    if (isInitialLoad) {
-      setIsLoading(true);
-    } else {
-      setIsLoadingMore(true);
-    }
-    
-    console.log(`Loading rental properties with offset: ${offset}, city: ${city || 'all'}`);
-    
-    try {
-      const filters: any = {
-        limit: 24,
-        offset: offset
-      };
-      
-      if (city) {
-        filters.city = city;
-        setCurrentCity(city);
-        setSearchQuery(`Rental Properties in ${city}`);
-      } else {
-        setCurrentCity('');
-        setSearchQuery("All Rental Properties");
-      }
-      
-      console.log('Fetching rental properties with filters:', filters);
-      
-      const response = await fetchLeaseProperties(filters);
-      
-      const mappedProperties: Property[] = (response.results || []).map((prop: any) => ({
-        PropertyKey: prop.listing_key || '',
-        ListingKey: prop.listing_key || '',
-        list_price: prop.list_price,
-        listing_key: prop.listing_key,
-        ListPrice: prop.list_price ? parseFloat(prop.list_price) : 0,
-        City: prop.city || '',
-        city: prop.city,
-        StateOrProvince: prop.StateOrProvince || 'ON',
-        PropertySubType: prop.category_type || 'Rental',
-        BedroomsTotal: prop.bedrooms_total || 0,
-        bedrooms_total: prop.bedrooms_total,
-        BathroomsTotalInteger: prop.bathrooms_total_integer || 0,
-        bathrooms_total_integer: prop.bathrooms_total_integer,
-        StandardStatus: prop.standard_status || 'Active',
-        standard_status: prop.standard_status,
-        ModificationTimestamp: prop.ModificationTimestamp || new Date().toISOString(),
-        unparsed_address: prop.unparsed_address,
-        postal_code: prop.postal_code,
-        latitude: prop.latitude,
-        longitude: prop.longitude,
-        public_remarks: prop.public_remarks,
-        media: prop.media,
-        rooms: prop.rooms,
-        category_type: prop.category_type,
-        photos_count: prop.photos_count,
-        listing_url: prop.listing_url,
-        building_area_total: prop.building_area_total,
-        year_built: prop.year_built,
-        
-        Photos: prop.media?.map((m: any) => ({ PhotoURL: m.media_url })) || [],
-        Media: prop.media,
-        Rooms: prop.rooms,
-        LivingArea: prop.building_area_total ? parseFloat(prop.building_area_total) : null,
-        YearBuilt: prop.year_built ? parseInt(prop.year_built) : null,
-        PublicRemarks: prop.public_remarks,
-        PostalCode: prop.postal_code,
-        Latitude: prop.latitude,
-        Longitude: prop.longitude,
-        Description: prop.public_remarks,
-        PropertyType: prop.category_type || 'Rental',
-      }));
-      
-      if (offset === 0) {
-        setProperties(mappedProperties);
-      } else {
-        setProperties(prev => [...prev, ...mappedProperties]);
-      }
-      
-      setCurrentOffset(offset + mappedProperties.length);
-
-      // When not logged in, we limit hasMore to false after the first page
-      if (!isLoggedIn) {
-        setHasMore(false);
-      } else {
-        setHasMore(mappedProperties.length === 24);
-      }
-      
-      console.log(`Loaded ${mappedProperties.length} rental properties`);
-      
-    } catch (error) {
-      console.error('Error loading rental properties:', error);
-    } finally {
-      if (isInitialLoad) {
-        setIsLoading(false);
-      } else {
-        setIsLoadingMore(false);
-      }
-      setIsSearching(false);
-    }
-  }, [isLoggedIn]);
-
-  // Initial load - show all rental properties
-  useEffect(() => {
-    setCurrentOffset(0);
-    loadProperties(0, true, '');
-  }, [loadProperties]);
-
   // Handle search button click
   const handleSearch = () => {
     if (!searchTerm.trim()) {
-      setCurrentOffset(0);
       setCurrentCity('');
       setSearchQuery("All Rental Properties");
-      loadProperties(0, true, '');
     } else {
       setIsSearching(true);
-      setCurrentOffset(0);
-      loadProperties(0, true, searchTerm.trim());
+      setCurrentCity(searchTerm.trim());
+      setSearchQuery(`Rental Properties in ${searchTerm.trim()}`);
     }
+    // Trigger refetch with new filter
+    setTimeout(() => {
+      refetch();
+      setIsSearching(false);
+    }, 100);
   };
 
   // Handle Enter key press
@@ -210,17 +174,16 @@ export default function RentalListingsPage() {
     setSearchTerm('');
     setCurrentCity('');
     setSearchQuery("All Rental Properties");
-    setCurrentOffset(0);
-    loadProperties(0, true, '');
+    // Trigger refetch without filter
+    setTimeout(() => refetch(), 100);
   };
 
-  // Load more properties (infinite scroll)
+  // Load more properties when scrolled to bottom
   const loadMoreProperties = useCallback(() => {
-    if (isLoadingMore || !hasMore) return;
-    if (!isLoggedIn) return;
-    
-    loadProperties(currentOffset, false, currentCity);
-  }, [currentOffset, currentCity, hasMore, isLoadingMore, loadProperties, isLoggedIn]);
+    if (hasNextPage && !isFetching && !isFetchingNextPage && !isSearching) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetching, isFetchingNextPage, isSearching, fetchNextPage]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -230,7 +193,7 @@ export default function RentalListingsPage() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading && !isLoadingMore && !isSearching) {
+        if (entries[0].isIntersecting && hasNextPage && !isFetching && !isFetchingNextPage && !isSearching) {
           loadMoreProperties();
         }
       },
@@ -248,7 +211,7 @@ export default function RentalListingsPage() {
         observerRef.current.disconnect();
       }
     };
-  }, [hasMore, isLoading, isLoadingMore, isSearching, loadMoreProperties]);
+  }, [hasNextPage, isFetching, isFetchingNextPage, isSearching, loadMoreProperties]);
 
   const getPropertyKey = (property: Property) => {
     return property.listing_key || property.PropertyKey || `property-${property.city}-${property.ListPrice}`;
@@ -256,6 +219,8 @@ export default function RentalListingsPage() {
 
   // Format price as monthly rent
   const formatMonthlyPrice = (price: number) => {
+    if (!price || price === 0) return 'Price on request';
+    
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -264,6 +229,28 @@ export default function RentalListingsPage() {
     }).format(price);
   };
 
+  // Format lease amount (per square foot)
+  const formatLeaseAmount = (property: Property | any) => {
+    if (property.lease_amount) {
+      const amount = parseFloat(property.lease_amount);
+      return `$${amount.toFixed(2)}/sq ft`;
+    }
+    return 'Lease amount not specified';
+  };
+
+  // Get display price
+  const getDisplayPrice = (property: Property | any) => {
+    // For rentals, we might want to show lease_amount instead of list_price
+    if (property.lease_amount) {
+      return parseFloat(property.lease_amount);
+    }
+    return property.list_price ? parseFloat(property.list_price) : property.ListPrice || 0;
+  };
+
+  // Calculate loading states
+  const isLoading = status === 'pending' || isSearching;
+  const isLoadingMore = isFetchingNextPage;
+
   return (
     <div className="min-h-screen bg-white">
       <Header />
@@ -271,7 +258,25 @@ export default function RentalListingsPage() {
       <div className="pt-20 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
-       
+          <div className="mb-8">
+            <div className="flex items-center mb-2">
+              <Link 
+                href="/"
+                className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Back to Home
+              </Link>
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+              {searchQuery}
+            </h1>
+            <p className="text-gray-600">
+              {properties.length > 0 
+                ? `Found ${properties.length} rental propert${properties.length === 1 ? 'y' : 'ies'}`
+                : 'Browse available rental properties across Canada'}
+            </p>
+          </div>
 
           {/* Simple Search Bar */}
           <div className="mb-8 max-w-2xl mx-auto">
@@ -339,6 +344,24 @@ export default function RentalListingsPage() {
             </div>
           </div>
 
+          {/* Error State */}
+          {error && (
+            <div className="text-center py-16">
+              <div className="text-red-600 font-medium mb-2">
+                Error loading rental properties
+              </div>
+              <p className="text-gray-600 mb-4">
+                Please try again later or contact support if the problem persists.
+              </p>
+              <button
+                onClick={() => refetch()}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
           {/* Loading State */}
           {(isLoading || isSearching) && (
             <div className="flex items-center justify-center py-16">
@@ -350,17 +373,18 @@ export default function RentalListingsPage() {
           )}
 
           {/* Properties Grid */}
-          {!isLoading && !isSearching && properties.length > 0 && (
+          {!isLoading && !error && properties.length > 0 && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {properties.map((property, index) => {
                   const propertyKey = getPropertyKey(property);
-                  const displayPrice = property.list_price ? parseFloat(property.list_price) : property.ListPrice || 0;
+                  const displayPrice = getDisplayPrice(property);
                   const displayCity = property.city || property.City || 'Unknown City';
-                  const displayPropertyType = property.category_type || property.PropertySubType || 'Rental Property';
+                  const displayPropertyType = property.category_type || property.PropertySubType || 'Retail Property';
                   const bedCount = property.bedrooms_total || property.BedroomsTotal || 0;
                   const bathCount = property.bathrooms_total_integer || property.BathroomsTotalInteger || 0;
                   const status = property.standard_status || property.StandardStatus || 'Active';
+                  const leaseAmount = property.lease_amount ? parseFloat(property.lease_amount) : null;
                   
                   const isLastProperty = index === properties.length - 1;
                   const imageUrl = getPropertyImageUrl(property);
@@ -399,20 +423,20 @@ export default function RentalListingsPage() {
                             {/* translucent overlay to dim the blurred image and hold CTA */}
                             <div className="absolute inset-0 bg-black/35 flex items-center justify-center p-4">
                               <div className="text-center space-y-3 pointer-events-none">
-                              
+                             
+                                
                                 {/* Buttons - allow pointer events only for buttons */}
                                 <div className="mt-2 flex gap-3 justify-center pointer-events-auto">
                                   <Link href="/login" className="px-4 py-2 bg-white text-blue-700 rounded-lg font-medium hover:bg-gray-100">
                                     Login
                                   </Link>
-                               
+                              
                                 </div>
                               </div>
                             </div>
 
                             {/* Favorite icon still visible but disabled */}
-                        
-
+                         
                             <div className="absolute bottom-4 left-4">
                               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                                 status === 'Active' ? 'bg-green-500 text-white' :
@@ -429,10 +453,13 @@ export default function RentalListingsPage() {
                             <h3 className="font-semibold text-gray-900 mb-1 truncate">
                               {displayPropertyType} in {displayCity}
                             </h3>
-                            <div className="flex items-center text-lg font-bold text-blue-600 mb-3">
+                            <div className="flex items-center text-lg font-bold text-blue-600 mb-1">
                               <DollarSign className="w-5 h-5" />
-                              <span>{formatMonthlyPrice(displayPrice)}</span>
-                              <span className="text-sm font-normal text-gray-600 ml-1">/month</span>
+                              {leaseAmount ? (
+                                <span>{formatLeaseAmount(property)}</span>
+                              ) : (
+                                <span>{formatMonthlyPrice(displayPrice)}</span>
+                              )}
                             </div>
                             <div className="flex items-center gap-4 text-gray-600 text-sm">
                               {bedCount > 0 && (
@@ -457,7 +484,7 @@ export default function RentalListingsPage() {
                       ) : (
                         // Normal clickable card
                         <Link
-                          href={`/rental/${propertyKey}`}
+                          href={`/listing/rental/${propertyKey}`}
                           className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow block"
                         >
                           <div className="relative h-48 bg-gray-50 flex items-center justify-center">
@@ -483,17 +510,7 @@ export default function RentalListingsPage() {
                               </div>
                             )}
 
-                            <button 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                console.log('Toggle favorite for:', propertyKey);
-                              }}
-                              className="absolute top-4 right-4 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center hover:bg-white transition-colors"
-                            >
-                              <Heart className="w-5 h-5 text-gray-700" />
-                            </button>
-
+                          
                             <div className="absolute bottom-4 left-4">
                               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                                 status === 'Active' ? 'bg-green-500 text-white' :
@@ -508,11 +525,19 @@ export default function RentalListingsPage() {
                             <h3 className="font-semibold text-gray-900 mb-1 truncate">
                               {displayPropertyType} in {displayCity}
                             </h3>
-                            <div className="flex items-center text-lg font-bold text-blue-600 mb-3">
+                            <div className="flex items-center text-lg font-bold text-blue-600 mb-1">
                               <DollarSign className="w-5 h-5" />
-                              <span>{formatMonthlyPrice(displayPrice)}</span>
-                              <span className="text-sm font-normal text-gray-600 ml-1">/month</span>
+                              {leaseAmount ? (
+                                <span>{formatLeaseAmount(property)}</span>
+                              ) : (
+                                <span>{formatMonthlyPrice(displayPrice)}</span>
+                              )}
                             </div>
+                            {property.unparsed_address && (
+                              <p className="text-sm text-gray-500 mb-2 truncate">
+                                {property.unparsed_address}
+                              </p>
+                            )}
                             <div className="flex items-center gap-4 text-gray-600 text-sm">
                               {bedCount > 0 && (
                                 <div className="flex items-center gap-1">
@@ -548,7 +573,7 @@ export default function RentalListingsPage() {
               )}
 
               {/* End of Results */}
-              {!hasMore && !isLoadingMore && properties.length > 0 && (
+              {!hasNextPage && !isLoadingMore && properties.length > 0 && (
                 <div className="text-center py-8">
                   <p className="text-gray-500">
                     {currentCity ? `Showing all rental properties in ${currentCity}` : (isLoggedIn ? 'You have reached the end of the results' : 'Login to see more rental listings')}
@@ -559,7 +584,7 @@ export default function RentalListingsPage() {
           )}
 
           {/* Empty State */}
-          {!isLoading && !isSearching && properties.length === 0 && (
+          {!isLoading && !error && properties.length === 0 && (
             <div className="text-center py-16">
               <div className="text-xl font-semibold text-gray-900 mb-2">
                 {currentCity ? `No rental properties found in "${currentCity}"` : 'No rental properties available'}
