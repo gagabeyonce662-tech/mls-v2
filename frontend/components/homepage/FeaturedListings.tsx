@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Bed, Bath, Loader2, ChevronRight } from "lucide-react";
 import { colors } from "@/config/design-system";
 import { Property, PropertyFilterParams } from "@/lib/api";
-import { useProperties } from "@/lib/react-query";
+import { useProperties } from "@/hooks/react-query";
 import { useState, useEffect } from "react";
 
 interface FeaturedListingsProps {

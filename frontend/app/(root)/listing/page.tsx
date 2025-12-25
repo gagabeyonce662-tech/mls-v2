@@ -16,7 +16,7 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { colors } from '@/config/design-system';
-import { useInfiniteExclusiveProperties, usePrefetchProperty } from '@/lib/react-query';
+import { useInfiniteExclusiveProperties, usePrefetchProperty } from '@/hooks/react-query';
 
 export default function ListingsPage() {
   const router = useRouter();
