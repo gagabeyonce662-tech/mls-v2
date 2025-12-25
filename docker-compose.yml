@@ -1,0 +1,47 @@
+version: '3'
+
+services:
+  backend:
+    build:
+      context: ./backend  # Path to your backend Dockerfile
+      dockerfile: Dockerfile.prod  # Use your production Dockerfile
+    command: uvicorn Dental_Backend.asgi:application --host 0.0.0.0 --port 8000 --workers 2  # Command to run the backend
+    container_name: django_backend
+    environment:
+      # Uncomment and set your environment variables here
+      # - MODE=${MODE}
+      # - DATABASE_URL=${DATABASE_URL}
+    ports:
+      - "8000:8000"  # Expose port 8000 for backend (you won't need to access it directly)
+    networks:
+      - app_network  # Connect to the same network as the frontend and NGINX
+
+  frontend:
+    build:
+      context: ./frontend  # Path to your frontend Dockerfile
+      dockerfile: Dockerfile.prod  # Use your production Dockerfile
+      args:
+        # MODE: "${MODE}"  # You can pass build arguments here if needed
+    command: serve -s dist -l tcp://0.0.0.0:3000  # Command to run the frontend with serve on port 3000
+    container_name: frontend
+    networks:
+      - app_network  # Connect to the same network as the backend and NGINX
+    ports:
+      - "3000:3000"  # Expose port 3000 for frontend (you won't need to access it directly)
+
+  nginx:
+    image: nginx:latest  # Official NGINX image
+    container_name: nginx_reverse_proxy
+    ports:
+      - "80:80"  # Expose NGINX on port 80 (default HTTP port)
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf  # Mount a custom NGINX config file
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app_network  # Connect to the same network as frontend and backend
+
+networks:
+  app_network:
+    driver: bridge  # This ensures the containers can communicate with each other
