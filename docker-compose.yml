@@ -20,8 +20,8 @@ services:
     build:
       context: ./frontend  # Path to your frontend Dockerfile
       dockerfile: Dockerfile.dev  # Use your production Dockerfile
-      # args:
-        # MODE: "${MODE}"  # You can pass build arguments here if needed
+      args:
+        MODE: "production"
     command: serve -s dist -l tcp://0.0.0.0:3000  # Command to run the frontend with serve on port 3000
     container_name: frontend
     networks:
