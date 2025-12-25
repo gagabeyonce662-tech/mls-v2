@@ -4,7 +4,7 @@ services:
   backend:
     build:
       context: ./backend  # Path to your backend Dockerfile
-      dockerfile: Dockerfile.prod  # Use your production Dockerfile
+      dockerfile: Dockerfile.dev  # Use your production Dockerfile
     command: uvicorn Dental_Backend.asgi:application --host 0.0.0.0 --port 8000 --workers 2  # Command to run the backend
     container_name: django_backend
     # environment:
@@ -19,7 +19,7 @@ services:
   frontend:
     build:
       context: ./frontend  # Path to your frontend Dockerfile
-      dockerfile: Dockerfile.prod  # Use your production Dockerfile
+      dockerfile: Dockerfile.dev  # Use your production Dockerfile
       # args:
         # MODE: "${MODE}"  # You can pass build arguments here if needed
     command: serve -s dist -l tcp://0.0.0.0:3000  # Command to run the frontend with serve on port 3000
