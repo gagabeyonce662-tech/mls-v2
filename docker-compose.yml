@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile.prod  # Use your production Dockerfile
     command: uvicorn Dental_Backend.asgi:application --host 0.0.0.0 --port 8000 --workers 2  # Command to run the backend
     container_name: django_backend
-    environment:
+    # environment:
       # Uncomment and set your environment variables here
       # - MODE=${MODE}
       # - DATABASE_URL=${DATABASE_URL}
