@@ -183,7 +183,7 @@ export default function MapOnlyPage() {
   const rectLayerRef = useRef<any | null>(null);
   const drawStartRef = useRef<{ lat: number; lng: number } | null>(null);
 
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [resultsOpen, setResultsOpen] = useState(false);
 
@@ -363,7 +363,7 @@ export default function MapOnlyPage() {
         try {
           const bounds = L.latLngBounds(markers.map((m) => [m.lat, m.lng]));
           mapRef.current.fitBounds(bounds.pad(0.2));
-        } catch {}
+        } catch { }
       }
     } catch (err: any) {
       console.error(err);
@@ -381,7 +381,7 @@ export default function MapOnlyPage() {
     if (rectLayerRef.current) {
       try {
         rectLayerRef.current.remove();
-      } catch {}
+      } catch { }
       rectLayerRef.current = null;
     }
 
@@ -397,7 +397,7 @@ export default function MapOnlyPage() {
     if (rectLayerRef.current) {
       try {
         rectLayerRef.current.remove();
-      } catch {}
+      } catch { }
       rectLayerRef.current = null;
     }
     mapRef.current.off("mousedown", onMapMouseDown);
@@ -414,7 +414,7 @@ export default function MapOnlyPage() {
     if (rectLayerRef.current) {
       try {
         rectLayerRef.current.remove();
-      } catch {}
+      } catch { }
       rectLayerRef.current = null;
     }
   };
@@ -483,7 +483,7 @@ export default function MapOnlyPage() {
           const group = markers.map((m) => [m.lat, m.lng]);
           const bounds = L.latLngBounds(group as any);
           mapRef.current.fitBounds(bounds.pad(0.2));
-        } catch {}
+        } catch { }
       }
       setLoadingApi(false);
     } catch (err: any) {
@@ -505,7 +505,7 @@ export default function MapOnlyPage() {
     if (rectLayerRef.current) {
       try {
         rectLayerRef.current.remove();
-      } catch {}
+      } catch { }
       rectLayerRef.current = null;
     }
     setApiMarkers([]);
@@ -518,7 +518,7 @@ export default function MapOnlyPage() {
     mapRef.current = map;
     try {
       map.scrollWheelZoom.enable();
-    } catch {}
+    } catch { }
   };
 
   const handleViewOnMap = (property: PropertyMarker) => {
@@ -709,9 +709,9 @@ export default function MapOnlyPage() {
                 </button>
               )}
 
-              <button 
-                onClick={clearRectAndResults} 
-                className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap" 
+              <button
+                onClick={clearRectAndResults}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
                 title="Clear results"
               >
                 <span className="flex items-center gap-1">

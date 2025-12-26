@@ -7,7 +7,7 @@ export interface BlogPost {
   embed_url?: string;
   video_file?: string;
   thumbnail: string;
-  author: number; // could later be an object if you expose author details
+  author: number | string; // could later be an object if you expose author details
   category: {
     id: number;
     name: string;
@@ -16,6 +16,7 @@ export interface BlogPost {
   tags: string;
   status: string;
   publish_date: string;
+  views?: number;
   created_at: string;
   updated_at: string;
   allow_comments: boolean;

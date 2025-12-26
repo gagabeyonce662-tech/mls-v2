@@ -15,19 +15,20 @@ const BTN_SELECTED = "ring-2 ring-offset-1";
 export const colors = {
   // Primary Colors
   primary: '#1a2f5a', // Primary colour (Dark Navy Blue)
-  
+
   // Secondary Colors
   boarder: '#e5e5e5', // Boarder colour (Light Gray)
   cards: '#ffffff', // Cards colour (White)
-  
+
   // Accent Colors
   cardsBoarder: '#e0e0e0', // cards Boarder colour (Light Border Gray)
   icon: '#0C1536', // Icon colour (Cyan/Turquoise)
-  
- 
+
+
 
   heading: '#000000', // Heading Text (Black)
   body: '#4a5568', // Body copy Text (Dark Gray)
+  bodyLight: '#718096', // Lighter body text
 } as const;
 
 // Typography Scale using Inter font family
@@ -35,7 +36,7 @@ export const typography = {
   fontFamily: {
     primary: 'Inter, system-ui, -apple-system, sans-serif',
   },
-  
+
   // Desktop Typography
   desktop: {
     heading1: {
@@ -171,7 +172,7 @@ export const textStyles = {
   h4Regular: 'text-xl font-normal leading-normal',
   h5: 'text-xl font-semibold leading-normal',
   h5Regular: 'text-lg font-normal leading-normal',
-  
+
   // Body text
   text: 'text-base font-semibold leading-normal',
   textRegular: 'text-base font-normal leading-normal',

@@ -1,6 +1,6 @@
 // components/OttawaStatisticsChart.js
 import React from 'react';
-import { Line, Bar } from 'react-chartjs-2';
+import { Chart } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, LineElement, PointElement } from 'chart.js';
 
 // Register the required chart components
@@ -18,15 +18,15 @@ ChartJS.register(
 const OttawaStatisticsChart = () => {
   const chartData = {
     labels: [
-      '2020-09', '2021-01', '2021-05', '2021-09', '2022-01', '2022-05', 
-      '2022-09', '2023-01', '2023-05', '2023-09', '2024-01', '2024-05', 
+      '2020-09', '2021-01', '2021-05', '2021-09', '2022-01', '2022-05',
+      '2022-09', '2023-01', '2023-05', '2023-09', '2024-01', '2024-05',
       '2025-01', '2025-05'
     ],
     datasets: [
       {
         label: 'Median Price',
         data: [
-          500000, 520000, 540000, 560000, 580000, 590000, 600000, 620000, 
+          500000, 520000, 540000, 560000, 580000, 590000, 600000, 620000,
           630000, 650000, 670000, 690000, 700000, 720000
         ],
         borderColor: 'rgba(54, 162, 235, 1)',
@@ -40,7 +40,7 @@ const OttawaStatisticsChart = () => {
       {
         label: 'Total Sold',
         data: [
-          1200, 1300, 1400, 1500, 1600, 1700, 1500, 1800, 
+          1200, 1300, 1400, 1500, 1600, 1700, 1500, 1800,
           1600, 1550, 1650, 1700, 1800, 1900
         ],
         backgroundColor: 'rgba(255, 159, 64, 0.8)',
@@ -86,7 +86,7 @@ const OttawaStatisticsChart = () => {
       <h3 style={{ textAlign: 'center' }}>Ottawa Statistics * (All Property Types)</h3>
       <div className="chart-wrapper">
         <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
-          <Line data={chartData} options={options} />
+          <Chart type="line" data={chartData as any} options={options as any} />
         </div>
       </div>
       <div style={{ textAlign: 'center', marginTop: '20px' }}>
