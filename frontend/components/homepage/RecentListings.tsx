@@ -32,7 +32,7 @@ export default function RecentListings() {
                   {item.title}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  {item.location}
+                  {item.address}
                 </p>
                 <p
                   className="font-bold text-lg"

@@ -34,10 +34,9 @@ export function PropertyGallery({ mainImage, thumbnails }: PropertyGalleryProps)
         {thumbnails.map((thumb, index) => (
           <div
             key={index}
-            className={`relative cursor-pointer rounded-lg overflow-hidden bg-gray-200 ${
-              selectedImage === thumb ? "ring-2 ring-teal-600" : ""
-            }`}
-            onClick={() => setSelectedImage(thumb)}
+            className={`relative cursor-pointer rounded-lg overflow-hidden bg-gray-200 ${selectedImage === thumb ? "ring-2 ring-teal-600" : ""
+              }`}
+            onClick={() => thumb && setSelectedImage(thumb)}
           >
             {thumb ? (
               <img

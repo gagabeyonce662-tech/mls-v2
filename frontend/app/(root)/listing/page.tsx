@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { 
-  Bed, 
-  Bath, 
-  Maximize, 
-  Loader2, 
+import {
+  Bed,
+  Bath,
+  Maximize,
+  Loader2,
   Search,
   X,
   ChevronRight,
@@ -20,21 +20,21 @@ import { useInfiniteExclusiveProperties, usePrefetchProperty } from '@/hooks/rea
 
 export default function ListingsPage() {
   const router = useRouter();
-  
+
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [currentCity, setCurrentCity] = useState('');
-  
+
   // Compare state
   const [compareList, setCompareList] = useState<any[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [showCompareModal, setShowCompareModal] = useState(false);
-  
+
   // Loading and animation states
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
   const [clickedProperty, setClickedProperty] = useState<string | null>(null);
-  
+
   // Auth state (replace with actual auth context)
   const isLoggedIn = false;
 
@@ -59,14 +59,14 @@ export default function ListingsPage() {
 
   // Extract all properties from pages
   const allProperties = data?.pages.flatMap(page => page.results) || [];
-  
+
   // Gradually load cards with staggered animation
   useEffect(() => {
     if (!isLoading && allProperties.length > 0) {
       // Load cards gradually
       const timer = setTimeout(() => {
         const propertyKeys = allProperties.map(property => getPropertyKey(property));
-        
+
         propertyKeys.forEach((propertyKey, index) => {
           setTimeout(() => {
             setLoadedCards(prev => {
@@ -123,50 +123,50 @@ export default function ListingsPage() {
     return property.listing_key || property.PropertyKey || property.id || `property-${property.city || 'unknown'}-${property.ListPrice || '0'}`;
   };
 
-// Get image URL - FIXED for your API structure
-const getPropertyImageUrl = (property: any) => {
-  try {
-    console.log('Checking property for images:', property?.listing_key);
-    console.log('Media field:', property?.media);
-    console.log('Media field type:', typeof property?.media);
-    
-    // Check if media exists (it's an object, not an array)
-    if (property?.media && typeof property.media === 'object') {
-      console.log('Found media object:', property.media);
-      
-      // Get the media_url from the media object
-      const mediaUrl = property.media.media_url;
-      if (mediaUrl && typeof mediaUrl === 'string' && mediaUrl.trim() !== '') {
-        console.log('Found image URL in media object:', mediaUrl);
-        return mediaUrl.trim();
+  // Get image URL - FIXED for your API structure
+  const getPropertyImageUrl = (property: any) => {
+    try {
+      console.log('Checking property for images:', property?.listing_key);
+      console.log('Media field:', property?.media);
+      console.log('Media field type:', typeof property?.media);
+
+      // Check if media exists (it's an object, not an array)
+      if (property?.media && typeof property.media === 'object') {
+        console.log('Found media object:', property.media);
+
+        // Get the media_url from the media object
+        const mediaUrl = property.media.media_url;
+        if (mediaUrl && typeof mediaUrl === 'string' && mediaUrl.trim() !== '') {
+          console.log('Found image URL in media object:', mediaUrl);
+          return mediaUrl.trim();
+        }
       }
-    }
-    
-    // Fallback: Check other possible fields
-    const fallbackFields = [
-      property?.photo_url,
-      property?.thumbnail_url,
-      property?.image_url,
-      property?.PhotoURL,
-      property?.MediaURL,
-    ].filter(Boolean);
-    
-    if (fallbackFields.length > 0) {
-      const url = fallbackFields[0];
-      if (typeof url === 'string' && url.trim() !== '') {
-        console.log('Found image URL in fallback field:', url);
-        return url.trim();
+
+      // Fallback: Check other possible fields
+      const fallbackFields = [
+        property?.photo_url,
+        property?.thumbnail_url,
+        property?.image_url,
+        property?.PhotoURL,
+        property?.MediaURL,
+      ].filter(Boolean);
+
+      if (fallbackFields.length > 0) {
+        const url = fallbackFields[0];
+        if (typeof url === 'string' && url.trim() !== '') {
+          console.log('Found image URL in fallback field:', url);
+          return url.trim();
+        }
       }
+
+      console.log('No image URL found for property');
+      return null;
+
+    } catch (error) {
+      console.error('Error in getPropertyImageUrl:', error);
+      return null;
     }
-    
-    console.log('No image URL found for property');
-    return null;
-    
-  } catch (error) {
-    console.error('Error in getPropertyImageUrl:', error);
-    return null;
-  }
-};
+  };
 
   // Check if property is in compare list
   const isPropertySelected = (property: any) => {
@@ -189,7 +189,7 @@ const getPropertyImageUrl = (property: any) => {
   // Handle property click for compare/view selection
   const handlePropertyClick = (property: any) => {
     setClickedProperty(getPropertyKey(property));
-    
+
     const alreadySelected = isPropertySelected(property);
 
     // If compare mode is active (items already selected)
@@ -260,18 +260,18 @@ const getPropertyImageUrl = (property: any) => {
   };
 
   // Intersection Observer for infinite scroll
-  const observerRef = useRef<IntersectionObserver>();
+  const observerRef = useRef<IntersectionObserver | null>(null);
   const lastPropertyRef = useCallback((node: HTMLDivElement) => {
     if (isLoading || isFetchingNextPage) return;
-    
+
     if (observerRef.current) observerRef.current.disconnect();
-    
+
     observerRef.current = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
         fetchNextPage();
       }
     });
-    
+
     if (node) observerRef.current.observe(node);
   }, [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage]);
 
@@ -294,11 +294,11 @@ const getPropertyImageUrl = (property: any) => {
         className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse min-h-[300px]"
       >
         {/* Image skeleton */}
-        <div 
-          className="h-48 w-full" 
+        <div
+          className="h-48 w-full"
           style={{ backgroundColor: colors.boarder }}
         />
-        
+
         {/* Content skeleton */}
         <div className="p-4 space-y-3">
           <div className="h-4 w-3/4 rounded" style={{ backgroundColor: colors.boarder }} />
@@ -324,7 +324,7 @@ const getPropertyImageUrl = (property: any) => {
   return (
     <div className="min-h-screen bg-white">
       <Header />
-      
+
       {/* Compare Bar */}
       {compareList.length > 0 && (
         <div className="fixed top-20 left-0 right-0 z-40 bg-white border-b shadow-sm">
@@ -357,7 +357,7 @@ const getPropertyImageUrl = (property: any) => {
           </div>
         </div>
       )}
-      
+
       <div className="pt-24 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
@@ -383,7 +383,7 @@ const getPropertyImageUrl = (property: any) => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={handleKeyPress}
                   className="w-full pl-12 pr-12 py-4 border rounded-xl focus:ring-2 text-lg shadow-sm"
-                  style={{ 
+                  style={{
                     borderColor: colors.boarder,
                     color: colors.heading
                   }}
@@ -473,9 +473,8 @@ const getPropertyImageUrl = (property: any) => {
                   <div
                     key={propertyKey}
                     ref={isLastProperty ? lastPropertyRef : null}
-                    className={`transition-all duration-300 ${
-                      cardLoaded ? 'opacity-100 translate-y-0' : 'opacity-70 translate-y-2'
-                    }`}
+                    className={`transition-all duration-300 ${cardLoaded ? 'opacity-100 translate-y-0' : 'opacity-70 translate-y-2'
+                      }`}
                     style={{
                       animationDelay: `${index * 0.05}s`,
                       animation: cardLoaded ? 'fadeInUp 0.3s ease-out forwards' : 'none'
@@ -535,9 +534,8 @@ const getPropertyImageUrl = (property: any) => {
                       <div
                         onClick={() => handlePropertyClick(property)}
                         onMouseEnter={() => prefetchProperty(propertyKey)}
-                        className={`bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all block cursor-pointer relative min-h-[300px] ${
-                          isClicked ? 'pointer-events-none' : ''
-                        }`}
+                        className={`bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all block cursor-pointer relative min-h-[300px] ${isClicked ? 'pointer-events-none' : ''
+                          }`}
                       >
                         {/* Click Loading Overlay */}
                         {isClicked && (
@@ -559,7 +557,7 @@ const getPropertyImageUrl = (property: any) => {
                               ✓
                             </div>
                           )}
-                          
+
                           {/* Compare mode indicator */}
                           {compareList.length > 0 && !isSelected && (
                             <div className="absolute inset-0 bg-black/10 flex items-center justify-center z-5 pointer-events-none">
@@ -578,7 +576,7 @@ const getPropertyImageUrl = (property: any) => {
 
                           {/* Blurred background placeholder - only if we have an image */}
                           {imageUrl && !imageLoaded && (
-                            <div 
+                            <div
                               className="absolute inset-0 blur-sm opacity-30"
                               style={{
                                 backgroundImage: `url(${imageUrl})`,
@@ -593,18 +591,16 @@ const getPropertyImageUrl = (property: any) => {
                             <img
                               src={imageUrl}
                               alt={`Property in ${displayCity}`}
-                              className={`w-full h-full object-cover transition-opacity duration-700 ${
-                                imageLoaded ? 'opacity-100' : 'opacity-0'
-                              }`}
+                              className={`w-full h-full object-cover transition-opacity duration-700 ${imageLoaded ? 'opacity-100' : 'opacity-0'
+                                }`}
                               loading="lazy"
                               onLoad={() => handleImageLoad(propertyKey)}
                               onError={(e) => handleImageError(propertyKey, e)}
                             />
                           ) : (
                             <div
-                              className={`w-full h-full flex flex-col items-center justify-center px-4 transition-opacity duration-500 ${
-                                cardLoaded ? 'opacity-100' : 'opacity-0'
-                              }`}
+                              className={`w-full h-full flex flex-col items-center justify-center px-4 transition-opacity duration-500 ${cardLoaded ? 'opacity-100' : 'opacity-0'
+                                }`}
                               style={{
                                 color: colors.body,
                               }}
@@ -620,9 +616,8 @@ const getPropertyImageUrl = (property: any) => {
                         <div className="p-4">
                           {/* Title */}
                           <h3
-                            className={`font-semibold mb-1 truncate transition-opacity duration-500 ${
-                              cardLoaded ? 'opacity-100' : 'opacity-0'
-                            }`}
+                            className={`font-semibold mb-1 truncate transition-opacity duration-500 ${cardLoaded ? 'opacity-100' : 'opacity-0'
+                              }`}
                             style={{ color: colors.heading }}
                           >
                             {displayPropertyType} in {displayCity}
@@ -630,9 +625,8 @@ const getPropertyImageUrl = (property: any) => {
 
                           {/* Price */}
                           <p
-                            className={`text-lg font-bold mb-3 transition-opacity duration-500 ${
-                              cardLoaded ? 'opacity-100' : 'opacity-0'
-                            }`}
+                            className={`text-lg font-bold mb-3 transition-opacity duration-500 ${cardLoaded ? 'opacity-100' : 'opacity-0'
+                              }`}
                             style={{ color: colors.primary }}
                           >
                             {formatPrice(displayPrice)}
@@ -640,9 +634,8 @@ const getPropertyImageUrl = (property: any) => {
 
                           {/* Features */}
                           <div
-                            className={`flex items-center gap-4 text-sm transition-opacity duration-500 ${
-                              cardLoaded ? 'opacity-100' : 'opacity-0'
-                            }`}
+                            className={`flex items-center gap-4 text-sm transition-opacity duration-500 ${cardLoaded ? 'opacity-100' : 'opacity-0'
+                              }`}
                             style={{ color: colors.body }}
                           >
                             {bedCount > 0 && (
@@ -720,7 +713,7 @@ const getPropertyImageUrl = (property: any) => {
             <h3 className="text-xl font-semibold mb-4 text-center" style={{ color: colors.heading }}>
               What would you like to do?
             </h3>
-            
+
             <div className="mb-4 p-4 rounded-lg" style={{ backgroundColor: colors.boarder }}>
               <p className="font-medium" style={{ color: colors.heading }}>
                 {selectedProperty.category_type || selectedProperty.PropertySubType || 'Property'} in {selectedProperty.city || selectedProperty.City || 'Unknown City'}

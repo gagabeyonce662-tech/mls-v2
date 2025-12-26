@@ -23,13 +23,13 @@ export default async function ListingPage({ params }: ListingPageProps) {
   }
 
   // Extract property images from several possible shapes
-  const propertyImages = property.media?.length > 0
+  const propertyImages = (property.media && property.media.length > 0)
     ? property.media.map((m: any) => m.media_url).filter(Boolean)
-    : property.Media?.length > 0
-    ? property.Media.map((m: any) => m.MediaURL || m.media_url).filter(Boolean)
-    : property.Photos?.length > 0
-    ? property.Photos.map((p: any) => p.PhotoURL || p).filter(Boolean)
-    : [];
+    : (property.Media && property.Media.length > 0)
+      ? property.Media.map((m: any) => m.MediaURL || m.media_url).filter(Boolean)
+      : (property.Photos && property.Photos.length > 0)
+        ? property.Photos.map((p: any) => p.PhotoURL || p).filter(Boolean)
+        : [];
 
   const hasImages = propertyImages.length > 0;
 
@@ -70,8 +70,8 @@ export default async function ListingPage({ params }: ListingPageProps) {
       price: property.list_price
         ? `$${parseFloat(property.list_price).toLocaleString()}`
         : property.ListPrice
-        ? `$${property.ListPrice.toLocaleString()}`
-        : 'Price on request',
+          ? `$${property.ListPrice.toLocaleString()}`
+          : 'Price on request',
       source: `MLS # ${property.listing_key || property.ListingKey || property.PropertyKey}`
     },
   ];
@@ -376,7 +376,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
           <h2 className={`${ds.h2} mb-8`}>Similar Properties</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Placeholder similar properties - keep as-is */}
-            {[1,2,3].map((i) => (
+            {[1, 2, 3].map((i) => (
               <div key={i} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                 <div className="relative h-48">
                   <img

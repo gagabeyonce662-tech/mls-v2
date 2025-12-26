@@ -25,7 +25,7 @@ export default function BlogPage() {
   }, []);
 
   // Extract unique categories from posts
-  const categories = Array.from(new Set(vlogPosts.map(post => post.category?.name).filter(Boolean)));
+  const categories = Array.from(new Set(vlogPosts.map(post => post.category?.name).filter((name): name is string => !!name)));
 
   // Fallback image for posts without thumbnails
   const fallbackImage = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=600&q=80";

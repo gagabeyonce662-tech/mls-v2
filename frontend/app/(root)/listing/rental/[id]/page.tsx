@@ -23,13 +23,13 @@ export default async function RentalPropertyPage({ params }: RentalPropertyPageP
   }
 
   // Extract property images from several possible shapes
-  const propertyImages = property.media?.length > 0
+  const propertyImages = (property.media && property.media.length > 0)
     ? property.media.map((m: any) => m.media_url).filter(Boolean)
-    : property.Media?.length > 0
-    ? property.Media.map((m: any) => m.MediaURL || m.media_url).filter(Boolean)
-    : property.Photos?.length > 0
-    ? property.Photos.map((p: any) => p.PhotoURL || p).filter(Boolean)
-    : [];
+    : (property.Media && property.Media.length > 0)
+      ? property.Media.map((m: any) => m.MediaURL || m.media_url).filter(Boolean)
+      : (property.Photos && property.Photos.length > 0)
+        ? property.Photos.map((p: any) => p.PhotoURL || p).filter(Boolean)
+        : [];
 
   const hasImages = propertyImages.length > 0;
 
@@ -121,7 +121,7 @@ export default async function RentalPropertyPage({ params }: RentalPropertyPageP
               <li>
                 <div className="flex items-center">
                   <svg className="w-3 h-3 text-gray-400 mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
+                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4" />
                   </svg>
                   <a href="/listing/rental" className="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2">
                     Rental Properties
@@ -131,7 +131,7 @@ export default async function RentalPropertyPage({ params }: RentalPropertyPageP
               <li aria-current="page">
                 <div className="flex items-center">
                   <svg className="w-3 h-3 text-gray-400 mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
+                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4" />
                   </svg>
                   <span className="ml-1 text-sm font-medium text-gray-500 md:ml-2">{getCity()}</span>
                 </div>
@@ -182,10 +182,8 @@ export default async function RentalPropertyPage({ params }: RentalPropertyPageP
                   property.PublicRemarks ||
                   property.PrivateRemarks ||
                   property.Description ||
-                  `This ${getPropertyType()} is available for rent in ${getCity()}, ${property.StateOrProvince || 'Ontario'}. ${
-                    property.year_built || property.YearBuilt ? `Built in ${property.year_built || property.YearBuilt}, ` : ''
-                  }this rental property features ${getBedCount()} bedrooms and ${getBathCount()} bathrooms${
-                    getLivingArea() !== 'N/A' ? ` with ${getLivingArea()} of living space` : ''
+                  `This ${getPropertyType()} is available for rent in ${getCity()}, ${property.StateOrProvince || 'Ontario'}. ${property.year_built || property.YearBuilt ? `Built in ${property.year_built || property.YearBuilt}, ` : ''
+                  }this rental property features ${getBedCount()} bedrooms and ${getBathCount()} bathrooms${getLivingArea() !== 'N/A' ? ` with ${getLivingArea()} of living space` : ''
                   }. Available ${getAvailabilityDate().toLowerCase()}.`
                 }
                 maxChars={400}
@@ -205,7 +203,7 @@ export default async function RentalPropertyPage({ params }: RentalPropertyPageP
                       </div>
                       <span className={`${ds.body} font-semibold`}>{getPrice()}</span>
                     </div>
-                    
+
                     {property.total_actual_rent && (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -215,7 +213,7 @@ export default async function RentalPropertyPage({ params }: RentalPropertyPageP
                         <span className={`${ds.body} font-semibold text-green-600`}>{getMonthlyRent()}</span>
                       </div>
                     )}
-                    
+
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Calendar className="w-5 h-5 text-ds-body" />
@@ -223,7 +221,7 @@ export default async function RentalPropertyPage({ params }: RentalPropertyPageP
                       </div>
                       <span className={ds.body}>{getLeaseTerm()}</span>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Calendar className="w-5 h-5 text-ds-body" />
@@ -232,7 +230,7 @@ export default async function RentalPropertyPage({ params }: RentalPropertyPageP
                       <span className={ds.body}>{getAvailabilityDate()}</span>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -241,7 +239,7 @@ export default async function RentalPropertyPage({ params }: RentalPropertyPageP
                       </div>
                       <span className={ds.body}>{getBedCount()}</span>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Bath className="w-5 h-5 text-ds-body" />
@@ -249,7 +247,7 @@ export default async function RentalPropertyPage({ params }: RentalPropertyPageP
                       </div>
                       <span className={ds.body}>{getBathCount()}</span>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Maximize className="w-5 h-5 text-ds-body" />
@@ -257,7 +255,7 @@ export default async function RentalPropertyPage({ params }: RentalPropertyPageP
                       </div>
                       <span className={ds.body}>{getLivingArea()}</span>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Building className="w-5 h-5 text-ds-body" />

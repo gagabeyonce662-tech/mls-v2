@@ -1,12 +1,14 @@
 // lib/api/react-query.ts
-import { 
-  useQuery, 
-  useInfiniteQuery, 
-  useMutation, 
+import {
+  useQuery,
+  useSuspenseQuery,
+  useInfiniteQuery,
+  useMutation,
   useQueryClient,
   UseQueryOptions,
+  UseSuspenseQueryOptions,
   UseInfiniteQueryOptions,
-  UseMutationOptions
+  UseMutationOptions,
 } from '@tanstack/react-query';
 import {
   fetchProperties,
@@ -42,19 +44,19 @@ export const queryKeys = {
   exclusive: {
     all: ['properties', 'exclusive'] as const,
     filters: (filters?: ExclusivePropertyFilterParams) => ['properties', 'exclusive', 'filters', filters] as const,
-    infinite: (filters?: Omit<ExclusivePropertyFilterParams, 'limit' | 'offset'>) => 
+    infinite: (filters?: Omit<ExclusivePropertyFilterParams, 'offset'>) =>
       ['properties', 'exclusive', 'infinite', filters] as const,
   },
   lease: {
     all: ['properties', 'lease'] as const,
     filters: (filters?: LeasePropertyFilterParams) => ['properties', 'lease', 'filters', filters] as const,
-    infinite: (filters?: Omit<LeasePropertyFilterParams, 'limit' | 'offset'>) => 
+    infinite: (filters?: Omit<LeasePropertyFilterParams, 'offset'>) =>
       ['properties', 'lease', 'infinite', filters] as const,
   },
   preConn: {
     all: ['properties', 'pre-conn'] as const,
     filters: (filters?: PreConnPropertyFilterParams) => ['properties', 'pre-conn', 'filters', filters] as const,
-    infinite: (filters?: Omit<PreConnPropertyFilterParams, 'limit' | 'offset'>) => 
+    infinite: (filters?: Omit<PreConnPropertyFilterParams, 'offset'>) =>
       ['properties', 'pre-conn', 'infinite', filters] as const,
   },
   property: {
@@ -68,9 +70,9 @@ export const queryKeys = {
     all: ['compare'] as const,
     properties: (propertyKeys: string[]) => ['compare', 'properties', ...propertyKeys] as const,
   },
-   newlyListed: {
+  newlyListed: {
     all: ['properties', 'newly-listed'] as const,
-    filters: (filters?: PropertyFilterParams & { days_threshold?: number }) => 
+    filters: (filters?: PropertyFilterParams & { days_threshold?: number }) =>
       ['properties', 'newly-listed', 'filters', filters] as const,
   },
 };
@@ -87,7 +89,7 @@ const baseQueryOptions = {
 // React Query hooks for Properties
 export const useProperties = (
   filters?: PropertyFilterParams,
-  options?: UseQueryOptions<Property[], Error>
+  options?: Partial<UseQueryOptions<Property[], Error>>
 ) => {
   return useQuery<Property[], Error>({
     queryKey: queryKeys.properties.filters(filters),
@@ -99,7 +101,7 @@ export const useProperties = (
 };
 
 export const useOntarioProperties = (
-  options?: UseQueryOptions<Property[], Error>
+  options?: Partial<UseQueryOptions<Property[], Error>>
 ) => {
   return useQuery<Property[], Error>({
     queryKey: queryKeys.properties.ontario,
@@ -112,10 +114,10 @@ export const useOntarioProperties = (
 // React Query hooks for Exclusive Properties
 export const useExclusiveProperties = (
   filters?: ExclusivePropertyFilterParams,
-  options?: UseQueryOptions<
+  options?: Partial<UseQueryOptions<
     { results: any[]; count: number; next: number | null; previous: number | null; updated_to_exclusive: number },
     Error
-  >
+  >>
 ) => {
   return useQuery({
     queryKey: queryKeys.exclusive.filters(filters),
@@ -126,30 +128,30 @@ export const useExclusiveProperties = (
 };
 
 export const useInfiniteExclusiveProperties = (
-  filters?: Omit<ExclusivePropertyFilterParams, 'limit' | 'offset'>,
-  options?: UseInfiniteQueryOptions<
+  filters?: Omit<ExclusivePropertyFilterParams, 'offset'>,
+  options?: Partial<UseInfiniteQueryOptions<
     { results: any[]; count: number; next: number | null; previous: number | null; updated_to_exclusive: number },
     Error
-  >
+  >>
 ) => {
   const limit = filters?.limit || 6;
 
   return useInfiniteQuery({
     queryKey: queryKeys.exclusive.infinite(filters),
-    queryFn: ({ pageParam = 0 }) => 
-      fetchExclusiveProperties({ ...filters, limit, offset: pageParam }),
+    queryFn: ({ pageParam = 0 }) =>
+      fetchExclusiveProperties({ ...filters, limit, offset: pageParam as number }),
     getNextPageParam: (lastPage, allPages) => {
       const loadedItems = allPages.flatMap(page => page.results).length;
       return loadedItems < lastPage.count ? loadedItems : undefined;
     },
     initialPageParam: 0,
     ...baseQueryOptions,
-    ...options,
+    ...(options as any),
   });
 };
 
 export const useAllExclusiveProperties = (
-  options?: UseQueryOptions<Property[], Error>
+  options?: Partial<UseQueryOptions<Property[], Error>>
 ) => {
   return useQuery<Property[], Error>({
     queryKey: queryKeys.exclusive.all,
@@ -162,10 +164,10 @@ export const useAllExclusiveProperties = (
 // React Query hooks for Lease Properties
 export const useLeaseProperties = (
   filters?: LeasePropertyFilterParams,
-  options?: UseQueryOptions<
+  options?: Partial<UseQueryOptions<
     { results: any[]; count: number; next: number | null; previous: number | null },
     Error
-  >
+  >>
 ) => {
   return useQuery({
     queryKey: queryKeys.lease.filters(filters),
@@ -176,30 +178,30 @@ export const useLeaseProperties = (
 };
 
 export const useInfiniteLeaseProperties = (
-  filters?: Omit<LeasePropertyFilterParams, 'limit' | 'offset'>,
-  options?: UseInfiniteQueryOptions<
+  filters?: Omit<LeasePropertyFilterParams, 'offset'>,
+  options?: Partial<UseInfiniteQueryOptions<
     { results: any[]; count: number; next: number | null; previous: number | null },
     Error
-  >
+  >>
 ) => {
   const limit = filters?.limit || 6;
 
   return useInfiniteQuery({
     queryKey: queryKeys.lease.infinite(filters),
-    queryFn: ({ pageParam = 0 }) => 
-      fetchLeaseProperties({ ...filters, limit, offset: pageParam }),
+    queryFn: ({ pageParam = 0 }) =>
+      fetchLeaseProperties({ ...filters, limit, offset: pageParam as number }),
     getNextPageParam: (lastPage, allPages) => {
       const loadedItems = allPages.flatMap(page => page.results).length;
       return loadedItems < lastPage.count ? loadedItems : undefined;
     },
     initialPageParam: 0,
     ...baseQueryOptions,
-    ...options,
+    ...(options as any),
   });
 };
 
 export const useAllLeaseProperties = (
-  options?: UseQueryOptions<Property[], Error>
+  options?: Partial<UseQueryOptions<Property[], Error>>
 ) => {
   return useQuery<Property[], Error>({
     queryKey: queryKeys.lease.all,
@@ -212,10 +214,10 @@ export const useAllLeaseProperties = (
 // React Query hooks for Pre-Construction Properties
 export const usePreConnProperties = (
   filters?: PreConnPropertyFilterParams,
-  options?: UseQueryOptions<
+  options?: Partial<UseQueryOptions<
     { results: any[]; count: number; next: number | null; previous: number | null },
     Error
-  >
+  >>
 ) => {
   return useQuery({
     queryKey: queryKeys.preConn.filters(filters),
@@ -226,30 +228,30 @@ export const usePreConnProperties = (
 };
 
 export const useInfinitePreConnProperties = (
-  filters?: Omit<PreConnPropertyFilterParams, 'limit' | 'offset'>,
-  options?: UseInfiniteQueryOptions<
+  filters?: Omit<PreConnPropertyFilterParams, 'offset'>,
+  options?: Partial<UseInfiniteQueryOptions<
     { results: any[]; count: number; next: number | null; previous: number | null },
     Error
-  >
+  >>
 ) => {
   const limit = filters?.limit || 6;
 
   return useInfiniteQuery({
     queryKey: queryKeys.preConn.infinite(filters),
-    queryFn: ({ pageParam = 0 }) => 
-      fetchPreConnProperties({ ...filters, limit, offset: pageParam }),
+    queryFn: ({ pageParam = 0 }) =>
+      fetchPreConnProperties({ ...filters, limit, offset: pageParam as number }),
     getNextPageParam: (lastPage, allPages) => {
       const loadedItems = allPages.flatMap(page => page.results).length;
       return loadedItems < lastPage.count ? loadedItems : undefined;
     },
     initialPageParam: 0,
     ...baseQueryOptions,
-    ...options,
+    ...(options as any),
   });
 };
 
 export const useAllPreConnProperties = (
-  options?: UseQueryOptions<Property[], Error>
+  options?: Partial<UseQueryOptions<Property[], Error>>
 ) => {
   return useQuery<Property[], Error>({
     queryKey: queryKeys.preConn.all,
@@ -265,7 +267,7 @@ export const useAllPreConnProperties = (
 // React Query hook for individual property
 export const useProperty = (
   propertyKey?: string,
-  options?: UseQueryOptions<Property | null, Error>
+  options?: Partial<UseQueryOptions<Property | null, Error>>
 ) => {
   return useQuery<Property | null, Error>({
     queryKey: queryKeys.property.detail(propertyKey),
@@ -291,7 +293,7 @@ export const useUploadPreConnProperties = (
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ file, options: mutationOptions }) => 
+    mutationFn: ({ file, options: mutationOptions }) =>
       uploadPreConnProperties(file, mutationOptions),
     onSuccess: () => {
       // Invalidate pre-construction queries after successful upload
@@ -304,7 +306,7 @@ export const useUploadPreConnProperties = (
 
 // React Query hooks for Vlog
 export const useVlogPosts = (
-  options?: UseQueryOptions<VlogPost[], Error>
+  options?: Partial<UseQueryOptions<VlogPost[], Error>>
 ) => {
   return useQuery<VlogPost[], Error>({
     queryKey: queryKeys.vlog.all,
@@ -316,7 +318,7 @@ export const useVlogPosts = (
 
 export const useVlogPost = (
   slug?: string,
-  options?: UseQueryOptions<VlogPost | null, Error>
+  options?: Partial<UseQueryOptions<VlogPost | null, Error>>
 ) => {
   return useQuery<VlogPost | null, Error>({
     queryKey: queryKeys.vlog.detail(slug),
@@ -330,7 +332,7 @@ export const useVlogPost = (
 // Utility hook to prefetch property data on hover
 export const usePrefetchProperty = () => {
   const queryClient = useQueryClient();
-  
+
   return (propertyKey: string) => {
     queryClient.prefetchQuery({
       queryKey: queryKeys.property.detail(propertyKey),
@@ -344,7 +346,7 @@ export const usePrefetchProperty = () => {
 // Utility hook to prefetch multiple properties
 export const usePrefetchProperties = () => {
   const queryClient = useQueryClient();
-  
+
   return (propertyKeys: string[]) => {
     propertyKeys.forEach(propertyKey => {
       queryClient.prefetchQuery({
@@ -360,7 +362,7 @@ export const usePrefetchProperties = () => {
 // Utility hook to invalidate property queries
 export const useInvalidateProperties = () => {
   const queryClient = useQueryClient();
-  
+
   return () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.properties.all });
     queryClient.invalidateQueries({ queryKey: queryKeys.exclusive.all });
@@ -372,7 +374,7 @@ export const useInvalidateProperties = () => {
 // Hook to prefetch all property data for the homepage
 export const usePrefetchHomepageProperties = () => {
   const queryClient = useQueryClient();
-  
+
   return async () => {
     // Prefetch common property queries for homepage
     await Promise.all([
@@ -395,24 +397,22 @@ export const usePrefetchHomepageProperties = () => {
 // Hook to get property by key with suspense (for loading states)
 export const usePropertyWithSuspense = (
   propertyKey: string,
-  options?: Omit<UseQueryOptions<Property | null, Error>, 'suspense'>
+  options?: Partial<UseSuspenseQueryOptions<Property | null, Error>>
 ) => {
-  return useQuery<Property | null, Error>({
+  return useSuspenseQuery<Property | null, Error>({
     queryKey: queryKeys.property.detail(propertyKey),
     queryFn: () => fetchPropertyByKey(propertyKey),
-    enabled: !!propertyKey,
     ...baseQueryOptions,
-    suspense: true,
     ...options,
   });
 };
 
 // Optimistic updates for property favorites
 export const useTogglePropertyFavorite = (
-  options?: UseMutationOptions<void, Error, string>
+  options?: UseMutationOptions<void, Error, string, { previousProperty: Property | null | undefined }>
 ) => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (propertyKey: string) => {
       // API call to toggle favorite
@@ -420,15 +420,15 @@ export const useTogglePropertyFavorite = (
       await new Promise(resolve => setTimeout(resolve, 500));
       return;
     },
-    onMutate: async (propertyKey) => {
+    onMutate: async (propertyKey: string) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.property.detail(propertyKey) });
-      
+
       // Snapshot the previous value
       const previousProperty = queryClient.getQueryData<Property | null>(
         queryKeys.property.detail(propertyKey)
       );
-      
+
       // Optimistically update to the new value
       if (previousProperty) {
         queryClient.setQueryData<Property | null>(
@@ -439,7 +439,7 @@ export const useTogglePropertyFavorite = (
           }
         );
       }
-      
+
       return { previousProperty };
     },
     onError: (err, propertyKey, context) => {
@@ -462,7 +462,7 @@ export const useTogglePropertyFavorite = (
 // Utility hook to fetch multiple properties at once
 export const useMultipleProperties = (
   propertyKeys: string[],
-  options?: UseQueryOptions<Property[], Error>
+  options?: Partial<UseQueryOptions<Property[], Error>>
 ) => {
   return useQuery<Property[], Error>({
     queryKey: ['properties', 'multiple', ...propertyKeys],
@@ -481,7 +481,7 @@ export const useMultipleProperties = (
 // Hook to compare multiple properties
 export const useCompareProperties = (
   propertyKeys: string[],
-  options?: UseQueryOptions<{ results: any[]; count: number }, Error>
+  options?: Partial<UseQueryOptions<{ results: any[]; count: number }, Error>>
 ) => {
   return useQuery<{ results: any[]; count: number }, Error>({
     queryKey: queryKeys.compare.properties(propertyKeys),
@@ -498,10 +498,10 @@ export const useCompareProperties = (
 
 export const useNewlyListedProperties = (
   filters?: PropertyFilterParams & { days_threshold?: number },
-  options?: UseQueryOptions<
+  options?: Partial<UseQueryOptions<
     { results: any[]; count: number; next: number | null; previous: number | null },
     Error
-  >
+  >>
 ) => {
   return useQuery({
     queryKey: queryKeys.newlyListed.filters(filters),
@@ -511,4 +511,4 @@ export const useNewlyListedProperties = (
   });
 };
 
-export { Property };
+export type { Property };
