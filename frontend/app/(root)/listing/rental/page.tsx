@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  Bed, 
-  Bath, 
-  Maximize, 
-  Heart, 
-  Loader2, 
-  ArrowLeft, 
+import {
+  Bed,
+  Bath,
+  Maximize,
+  Heart,
+  Loader2,
+  ArrowLeft,
   Search,
   X,
   Calendar,
@@ -17,10 +17,10 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { colors } from '@/config/design-system';
-import { 
+import {
   useInfiniteLeaseProperties,
   useLeaseProperties,
-  type Property 
+  type Property
 } from '@/hooks/react-query';
 
 // Helper function to fix media field in properties
@@ -55,7 +55,7 @@ const fixPropertyMedia = (property: any): Property => {
     ...property,
     media: mediaArray,
     // Ensure Photos array exists for legacy compatibility
-    Photos: mediaArray.map(m => ({ 
+    Photos: mediaArray.map(m => ({
       PhotoURL: m.media_url,
       MediaCategory: m.media_category,
       IsPreferred: m.is_preferred,
@@ -84,7 +84,7 @@ export default function RentalListingsPage() {
     hasNextPage,
     isFetching,
     isFetchingNextPage,
-    status,
+    isLoading: isQueryLoading,
     error,
     refetch
   } = useInfiniteLeaseProperties(
@@ -94,9 +94,9 @@ export default function RentalListingsPage() {
   // Calculate all properties from infinite query pages with fixed media
   const properties = React.useMemo(() => {
     if (!infiniteData?.pages) return [];
-    
+
     const allProperties = infiniteData.pages.flatMap(page => page.results || []);
-    
+
     // Fix the media field for each property
     return allProperties.map(property => fixPropertyMedia(property));
   }, [infiniteData]);
@@ -220,7 +220,7 @@ export default function RentalListingsPage() {
   // Format price as monthly rent
   const formatMonthlyPrice = (price: number) => {
     if (!price || price === 0) return 'Price on request';
-    
+
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -248,19 +248,19 @@ export default function RentalListingsPage() {
   };
 
   // Calculate loading states
-  const isLoading = status === 'pending' || isSearching;
+  const isLoading = isQueryLoading || isSearching;
   const isLoadingMore = isFetchingNextPage;
 
   return (
     <div className="min-h-screen bg-white">
       <Header />
-      
+
       <div className="pt-20 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center mb-2">
-              <Link 
+              <Link
                 href="/"
                 className="flex items-center text-blue-600 hover:text-blue-800 transition-colors"
               >
@@ -272,7 +272,7 @@ export default function RentalListingsPage() {
               {searchQuery}
             </h1>
             <p className="text-gray-600">
-              {properties.length > 0 
+              {properties.length > 0
                 ? `Found ${properties.length} rental propert${properties.length === 1 ? 'y' : 'ies'}`
                 : 'Browse available rental properties across Canada'}
             </p>
@@ -292,7 +292,7 @@ export default function RentalListingsPage() {
                   className="w-full pl-12 pr-12 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg shadow-sm"
                   disabled={isSearching}
                 />
-                
+
                 {searchTerm && (
                   <button
                     onClick={clearSearch}
@@ -304,7 +304,7 @@ export default function RentalListingsPage() {
                   </button>
                 )}
               </div>
-              
+
               <button
                 onClick={handleSearch}
                 disabled={isSearching}
@@ -318,10 +318,10 @@ export default function RentalListingsPage() {
                 <span className="ml-2 hidden sm:inline">Search</span>
               </button>
             </div>
-            
+
             {/* Quick Search Examples */}
             <div className="mt-3 flex flex-wrap gap-2 justify-center">
-              {['Toronto','Vancouver','Ottawa','Montreal','Calgary'].map((city) => (
+              {['Toronto', 'Vancouver', 'Ottawa', 'Montreal', 'Calgary'].map((city) => (
                 <button
                   key={city}
                   onClick={() => {
@@ -385,7 +385,7 @@ export default function RentalListingsPage() {
                   const bathCount = property.bathrooms_total_integer || property.BathroomsTotalInteger || 0;
                   const status = property.standard_status || property.StandardStatus || 'Active';
                   const leaseAmount = property.lease_amount ? parseFloat(property.lease_amount) : null;
-                  
+
                   const isLastProperty = index === properties.length - 1;
                   const imageUrl = getPropertyImageUrl(property);
 
@@ -423,26 +423,25 @@ export default function RentalListingsPage() {
                             {/* translucent overlay to dim the blurred image and hold CTA */}
                             <div className="absolute inset-0 bg-black/35 flex items-center justify-center p-4">
                               <div className="text-center space-y-3 pointer-events-none">
-                             
-                                
+
+
                                 {/* Buttons - allow pointer events only for buttons */}
                                 <div className="mt-2 flex gap-3 justify-center pointer-events-auto">
                                   <Link href="/login" className="px-4 py-2 bg-white text-blue-700 rounded-lg font-medium hover:bg-gray-100">
                                     Login
                                   </Link>
-                              
+
                                 </div>
                               </div>
                             </div>
 
                             {/* Favorite icon still visible but disabled */}
-                         
+
                             <div className="absolute bottom-4 left-4">
-                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                status === 'Active' ? 'bg-green-500 text-white' :
-                                status === 'Pending' ? 'bg-yellow-500 text-white' :
-                                'bg-gray-500 text-white'
-                              }`}>
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${status === 'Active' ? 'bg-green-500 text-white' :
+                                  status === 'Pending' ? 'bg-yellow-500 text-white' :
+                                    'bg-gray-500 text-white'
+                                }`}>
                                 {status}
                               </span>
                             </div>
@@ -510,13 +509,12 @@ export default function RentalListingsPage() {
                               </div>
                             )}
 
-                          
+
                             <div className="absolute bottom-4 left-4">
-                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                status === 'Active' ? 'bg-green-500 text-white' :
-                                status === 'Pending' ? 'bg-yellow-500 text-white' :
-                                'bg-gray-500 text-white'
-                              }`}>
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${status === 'Active' ? 'bg-green-500 text-white' :
+                                  status === 'Pending' ? 'bg-yellow-500 text-white' :
+                                    'bg-gray-500 text-white'
+                                }`}>
                                 {status}
                               </span>
                             </div>
@@ -604,7 +602,7 @@ export default function RentalListingsPage() {
           )}
         </div>
       </div>
-      
+
       <Footer />
     </div>
   );

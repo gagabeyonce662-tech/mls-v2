@@ -1,5 +1,4 @@
 // utils/mapHelpers.ts
-import { PropertyMarker } from "@/types/property";
 
 export const formatPrice = (price: string | number | undefined) => {
   if (!price) return "Price not available";

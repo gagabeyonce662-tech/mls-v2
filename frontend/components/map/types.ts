@@ -25,7 +25,12 @@ export type ApiProperty = {
     media_category: string;
     is_preferred: boolean;
     order: number;
-  }>;
+  }> | {
+    media_url: string;
+    media_category: string;
+    is_preferred: boolean;
+    order: number;
+  };
   rooms?: Array<{
     room_type: string;
     room_level: string;
