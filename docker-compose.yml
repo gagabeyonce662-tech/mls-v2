@@ -18,16 +18,22 @@ services:
 
   frontend:
     build:
-      context: ./frontend  # Path to your frontend Dockerfile
-      dockerfile: Dockerfile.dev  # Use your production Dockerfile
+      context: ./frontend
+      dockerfile: Dockerfile.prod
       args:
         MODE: "production"
-    command: serve -s dist -l tcp://0.0.0.0:3000  # Command to run the frontend with serve on port 3000
+    command: npm start  # Use npm start for Next.js
     container_name: frontend
     networks:
-      - app_network  # Connect to the same network as the backend and NGINX
+      - app_network
     ports:
-      - "3000:3000"  # Expose port 3000 for frontend (you won't need to access it directly)
+      - "3000:3000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    restart: on-failure
 
   nginx:
     image: nginx:latest  # Official NGINX image
