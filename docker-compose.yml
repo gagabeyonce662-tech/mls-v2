@@ -19,7 +19,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile.dev
       args:
         MODE: "production"
     command: npm start  # Use npm start for Next.js
