@@ -26,7 +26,10 @@ SECRET_KEY = 'django-insecure-oaaa%9e+w*u8tv-u==dtu9(9rlp_akhahh!+5udiy%m3syaivx
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS =[
+    "http://localhost:8000",
+    "http://127.0.0.1:8000","https://staging.vsell4u.ca","http://staging.vsell4u.ca"
+]
 
 
 # Application definition
@@ -158,6 +161,10 @@ CKEDITOR_CONFIGS = {
     },
 }
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000","https://staging.vsell4u.ca","http://staging.vsell4u.ca"
+]
+CSRF_TRUSTED_ORIGINS  = [
     "http://localhost:3000",
     "http://127.0.0.1:3000","https://staging.vsell4u.ca","http://staging.vsell4u.ca"
 ]
