@@ -1,7 +1,5 @@
-# Production Configuration for aiinfluencer.ravan.ai
 staging.vsell4u.ca {
-    # Automatic HTTPS with Let's Encrypt
-    tls info@vsell4u.ca  # replace with your email
+    % email info@vsell4u.ca
 
     # API Routes - Django Backend
     handle /api/* {
@@ -14,7 +12,7 @@ staging.vsell4u.ca {
     }
 
     # Django Admin
-    handle /admin* {
+    handle /admin/* {
         reverse_proxy backend:8000 {
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-For {remote_host}
@@ -25,19 +23,19 @@ staging.vsell4u.ca {
 
     # Django Static Files
     handle /static/* {
-        root * /code
+        root * /app/staticfiles
         file_server
         header Cache-Control "public, max-age=31536000, immutable"
     }
 
     # Django Media Files
     handle /media/* {
-        root * /code
+        root * /app/media
         file_server
         header Cache-Control "public, max-age=604800"
     }
 
-    # WebSocket support (if using Django Channels)
+    # WebSocket support
     handle /ws/* {
         reverse_proxy backend:8000 {
             header_up Connection {>Connection}
@@ -48,7 +46,7 @@ staging.vsell4u.ca {
         }
     }
 
-    # Celery Flower (Monitoring) - Protected
+    # Celery Flower
     handle /flower* {
         reverse_proxy celery-flower:5555 {
             header_up X-Real-IP {remote_host}
@@ -57,17 +55,23 @@ staging.vsell4u.ca {
         }
     }
 
-    # Django-specific endpoints
+    # Django endpoints
     handle /sitemap.xml {
-        reverse_proxy backend:8000
+        reverse_proxy backend:8000 {
+            header_up X-Real-IP {remote_host}
+        }
     }
 
     handle /robots.txt {
-        reverse_proxy backend:8000
+        reverse_proxy backend:8000 {
+            header_up X-Real-IP {remote_host}
+        }
     }
 
     handle /.well-known/* {
-        reverse_proxy backend:8000
+        reverse_proxy backend:8000 {
+            header_up X-Real-IP {remote_host}
+        }
     }
 
     # Health check
@@ -82,8 +86,6 @@ staging.vsell4u.ca {
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
             header_up Host {host}
-
-            # Support Next.js hot reload in dev (if needed)
             header_up Connection {>Connection}
             header_up Upgrade {>Upgrade}
         }
