@@ -1,20 +1,26 @@
-version: '3'
-
 services:
   backend:
     build:
-      context: ./backend  # Path to your backend Dockerfile
-      dockerfile: Dockerfile.dev  # Use your production Dockerfile
-    command: uvicorn backend.asgi:application --host 0.0.0.0 --port 8000 --workers 2  # Command to run the backend
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    command: uvicorn backend.asgi:application --host 0.0.0.0 --port 8000 --workers 2
     container_name: django_backend
-    # environment:
-      # Uncomment and set your environment variables here
-      # - MODE=${MODE}
+    environment:
+      - PYTHONUNBUFFERED=1
       # - DATABASE_URL=${DATABASE_URL}
-    ports:
-      - "8000:8000"  # Expose port 8000 for backend (you won't need to access it directly)
+      # - SECRET_KEY=${SECRET_KEY}
+      # - DEBUG=False
+    expose:
+      - "8000"
     networks:
-      - app_network  # Connect to the same network as the frontend and NGINX
+      - app_network
+    restart: on-failure
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
 
   frontend:
     build:
@@ -22,18 +28,26 @@ services:
       dockerfile: Dockerfile.dev
       args:
         MODE: "production"
-    command: npm start  # Use npm start for Next.js
+    command: npm start
     container_name: frontend
+    environment:
+      - NODE_ENV=production
+    expose:
+      - "3000"
     networks:
       - app_network
-    ports:
-      - "3000:3000"
+    restart: on-failure
     logging:
       driver: "json-file"
       options:
         max-size: "50m"
         max-file: "5"
-    restart: on-failure
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:3000"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
 
   caddy:
     image: caddy:latest
@@ -59,3 +73,6 @@ networks:
   app_network:
     driver: bridge
 
+volumes:
+  caddy_data:
+  caddy_config:
