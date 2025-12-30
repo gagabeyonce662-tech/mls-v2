@@ -53,7 +53,7 @@ export default function BlogClient({ posts, categories, fallbackImage }: BlogCli
     if (post.thumbnail) {
       // Handle relative URLs from Django backend
       if (post.thumbnail.startsWith('/')) {
-        return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${post.thumbnail}`;
+        return `${process.env.NEXT_PUBLIC_API_URL || 'https://staging.vsell4u.ca'}${post.thumbnail}`;
       }
       return post.thumbnail;
     }

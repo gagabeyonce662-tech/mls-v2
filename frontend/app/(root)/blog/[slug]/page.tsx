@@ -43,7 +43,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const getImageUrl = (imageUrl: string | undefined) => {
     if (!imageUrl) return fallbackImage;
     if (imageUrl.startsWith('/')) {
-      return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${imageUrl}`;
+      return `${process.env.NEXT_PUBLIC_API_URL || 'https://staging.vsell4u.ca'}${imageUrl}`;
     }
     return imageUrl;
   };
@@ -185,7 +185,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                     >
                       <source 
                         src={post.video_file.startsWith('/') 
-                          ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${post.video_file}` 
+                          ? `${process.env.NEXT_PUBLIC_API_URL || 'https://staging.vsell4u.ca'}${post.video_file}` 
                           : post.video_file
                         } 
                         type="video/mp4" 

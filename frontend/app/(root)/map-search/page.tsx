@@ -143,7 +143,7 @@ function SimpleFilterBar({
 }
 
 export default function MapOnlyPage() {
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca";
 
   const [mounted, setMounted] = useState(false);
   const [L, setL] = useState<any>(null);

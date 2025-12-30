@@ -76,7 +76,7 @@ export default function SimilarProperties({
           params.set('bedrooms_max', (bedrooms + 1).toString());
         }
 
-        const apiUrl = `http://localhost:8000/api/mls/properties/exclusive-properties/?${params}`;
+        const apiUrl = `http://https://staging.vsell4u.ca/api/mls/properties/exclusive-properties/?${params}`;
         
         console.log('Fetching similar properties from:', apiUrl);
 

@@ -11,7 +11,7 @@ interface HeroSectionProps {
 }
 
 // API Base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://staging.vsell4u.ca';
 
 // New function specifically for the /filter/ endpoint with search parameter
 async function fetchPropertiesBySearch(searchQuery: string, filters?: any): Promise<Property[]> {

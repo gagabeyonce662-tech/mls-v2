@@ -28,7 +28,7 @@ export default function NewlyListedListings({
     const fetchNewlyListedProperties = async () => {
       setIsLoading(true);
       try {
-        const url = `http://localhost:8000/api/mls/properties/newly-listed-properties/`;
+        const url = `https://staging.vsell4u.ca/api/mls/properties/newly-listed-properties/`;
         console.log('Fetching newly listed properties from:', url);
         
         const response = await fetch(url, { 
