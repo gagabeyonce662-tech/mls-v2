@@ -2,12 +2,25 @@
 const nextConfig = {
   output: "standalone",
   eslint: {
-    ignoreDuringBuilds: true, // Ignores ESLint errors during builds
+    ignoreDuringBuilds: true,
   },
   images: {
-    domains: ["images.unsplash.com", "i.pravatar.cc"], // Add domains for external images
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.pravatar.cc',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.realtor.ca',
+      }
+    ],
   },
-  reactStrictMode: true, // Optional: Enable React Strict Mode for development
+  reactStrictMode: true,
 };
 
 module.exports = nextConfig;
