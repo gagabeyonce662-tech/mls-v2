@@ -65,7 +65,9 @@ export default function SearchResults({
   };
 
   const getBedCount = (property: Property) => {
-    return (property as any).bedrooms_total ?? (property as any).BedroomsTotal ?? 0;
+    return (
+      (property as any).bedrooms_total ?? (property as any).BedroomsTotal ?? 0
+    );
   };
 
   const getBathCount = (property: Property) => {
@@ -147,7 +149,10 @@ export default function SearchResults({
         {/* Header with Clear button */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold mb-2" style={{ color: colors.heading }}>
+            <h2
+              className="text-2xl font-bold mb-2"
+              style={{ color: colors.heading }}
+            >
               Search Results
             </h2>
             <p style={{ color: colors.body }}>
@@ -172,7 +177,7 @@ export default function SearchResults({
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Link>
             )}
-            
+
             <button
               onClick={onClearSearch}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-gray-100"
@@ -187,7 +192,10 @@ export default function SearchResults({
         {/* Loading */}
         {isLoading && (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin" style={{ color: colors.primary }} />
+            <Loader2
+              className="w-8 h-8 animate-spin"
+              style={{ color: colors.primary }}
+            />
             <span className="ml-3" style={{ color: colors.body }}>
               Searching for properties...
             </span>
@@ -197,8 +205,11 @@ export default function SearchResults({
         {/* Empty */}
         {!isLoading && properties.length === 0 && (
           <div className="text-center py-16">
-            <div className="text-xl font-semibold mb-2" style={{ color: colors.heading }}>
-              No properties found for "{searchQuery}"
+            <div
+              className="text-xl font-semibold mb-2"
+              style={{ color: colors.heading }}
+            >
+              No properties found for &quot;{searchQuery}&quot;
             </div>
             <p style={{ color: colors.body }}>
               Try searching for a different city, postal code, or keyword.
@@ -254,7 +265,9 @@ export default function SearchResults({
                             color: colors.body,
                           }}
                         >
-                          <div className="text-sm font-medium">No Image Available</div>
+                          <div className="text-sm font-medium">
+                            No Image Available
+                          </div>
                           <div className="text-xs mt-1">—</div>
                         </div>
                       )}
@@ -267,8 +280,8 @@ export default function SearchResults({
                               status === "Active"
                                 ? colors.primary
                                 : status === "Pending"
-                                ? "#facc15"
-                                : "#6b7280",
+                                  ? "#facc15"
+                                  : "#6b7280",
                             color: "#ffffff",
                           }}
                         >

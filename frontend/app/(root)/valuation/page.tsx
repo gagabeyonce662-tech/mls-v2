@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { colors } from '@/config/design-system';
+import { colors } from "@/config/design-system";
 
 interface PriceRange {
   low: string;
@@ -26,51 +26,51 @@ interface Consultant {
 }
 
 const HomeValuation: React.FC = () => {
-  const [propertyAddress, setPropertyAddress] = useState<string>('');
-  const [phoneNumber, setPhoneNumber] = useState<string>('');
-  const [email, setEmail] = useState<string>('');
-  const [comment, setComment] = useState<string>('');
+  const [propertyAddress, setPropertyAddress] = useState<string>("");
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [comment, setComment] = useState<string>("");
 
   const priceRange: PriceRange = {
-    low: '$757,000',
-    max: '$807,000',
-    high: '$905,600',
-    fast: '$0.40M - $0.60M'
+    low: "$757,000",
+    max: "$807,000",
+    high: "$905,600",
+    fast: "$0.40M - $0.60M",
   };
 
   const properties: Property[] = [
     {
-      name: 'Set All Vila',
-      price: '$12,750,000',
+      name: "Set All Vila",
+      price: "$12,750,000",
       bedrooms: 4,
       bathrooms: 6,
-      sqft: '3,800 sq ft.'
+      sqft: "3,800 sq ft.",
     },
     {
-      name: 'Del Air Vila',
-      price: '$13,750,000',
+      name: "Del Air Vila",
+      price: "$13,750,000",
       bedrooms: 4,
       bathrooms: 6,
-      sqft: '3,800 sq ft.'
+      sqft: "3,800 sq ft.",
     },
     {
-      name: 'Del Air Vila',
-      price: '$12,750,000',
+      name: "Del Air Vila",
+      price: "$12,750,000",
       bedrooms: 4,
       bathrooms: 6,
-      sqft: '3,800 sq ft.'
-    }
+      sqft: "3,800 sq ft.",
+    },
   ];
 
   const consultants: Consultant[] = [
     {
-      name: 'Leslie Alexander',
-      title: 'Senior Consultant'
+      name: "Leslie Alexander",
+      title: "Senior Consultant",
     },
     {
-      name: 'Leslie Alexander',
-      title: 'Senior Consultant'
-    }
+      name: "Leslie Alexander",
+      title: "Senior Consultant",
+    },
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -80,7 +80,7 @@ const HomeValuation: React.FC = () => {
       propertyAddress,
       phoneNumber,
       email,
-      comment
+      comment,
     });
   };
 
@@ -91,15 +91,29 @@ const HomeValuation: React.FC = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Hero Section */}
         <section className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4" style={{ color: colors.heading }}>Home Valuation</h1>
-          <p className="text-xl max-w-2xl mx-auto" style={{ color: colors.body }}>
-            Discover your home's current market value with our AI-powered valuation tool
+          <h1
+            className="text-4xl font-bold mb-4"
+            style={{ color: colors.heading }}
+          >
+            Home Valuation
+          </h1>
+          <p
+            className="text-xl max-w-2xl mx-auto"
+            style={{ color: colors.body }}
+          >
+            Discover your home&apos;s current market value with our AI-powered
+            valuation tool
           </p>
         </section>
 
         {/* Search Section */}
         <section className="bg-white rounded-xl shadow-sm p-8 mb-8">
-          <h2 className="text-2xl font-bold mb-6" style={{ color: colors.heading }}>Home Details</h2>
+          <h2
+            className="text-2xl font-bold mb-6"
+            style={{ color: colors.heading }}
+          >
+            Home Details
+          </h2>
           <div className="flex flex-col md:flex-row gap-4">
             <input
               type="text"
@@ -109,7 +123,10 @@ const HomeValuation: React.FC = () => {
               className="flex-1 px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent"
               style={{ borderColor: colors.boarder, color: colors.heading }}
             />
-            <button className="px-6 py-3 rounded-lg transition-opacity hover:opacity-90 font-medium" style={{ backgroundColor: colors.icon, color: colors.cards }}>
+            <button
+              className="px-6 py-3 rounded-lg transition-opacity hover:opacity-90 font-medium"
+              style={{ backgroundColor: colors.icon, color: colors.cards }}
+            >
               Search
             </button>
           </div>
@@ -117,54 +134,145 @@ const HomeValuation: React.FC = () => {
 
         {/* Price Range Section */}
         <section className="bg-white rounded-xl shadow-sm p-8 mb-8">
-          <h2 className="text-2xl font-bold mb-6" style={{ color: colors.heading }}>Estimated Value Range</h2>
+          <h2
+            className="text-2xl font-bold mb-6"
+            style={{ color: colors.heading }}
+          >
+            Estimated Value Range
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="rounded-lg p-6 border-l-4" style={{ backgroundColor: colors.cards, borderColor: colors.primary }}>
-              <h3 className="text-sm mb-2" style={{ color: colors.body }}>Low Estimate</h3>
-              <div className="text-2xl font-bold" style={{ color: colors.heading }}>{priceRange.low}</div>
+            <div
+              className="rounded-lg p-6 border-l-4"
+              style={{
+                backgroundColor: colors.cards,
+                borderColor: colors.primary,
+              }}
+            >
+              <h3 className="text-sm mb-2" style={{ color: colors.body }}>
+                Low Estimate
+              </h3>
+              <div
+                className="text-2xl font-bold"
+                style={{ color: colors.heading }}
+              >
+                {priceRange.low}
+              </div>
             </div>
-            <div className="rounded-lg p-6 border-l-4" style={{ backgroundColor: colors.cards, borderColor: colors.primary }}>
-              <h3 className="text-sm mb-2" style={{ color: colors.body }}>Max Estimate</h3>
-              <div className="text-2xl font-bold" style={{ color: colors.heading }}>{priceRange.max}</div>
+            <div
+              className="rounded-lg p-6 border-l-4"
+              style={{
+                backgroundColor: colors.cards,
+                borderColor: colors.primary,
+              }}
+            >
+              <h3 className="text-sm mb-2" style={{ color: colors.body }}>
+                Max Estimate
+              </h3>
+              <div
+                className="text-2xl font-bold"
+                style={{ color: colors.heading }}
+              >
+                {priceRange.max}
+              </div>
             </div>
-            <div className="rounded-lg p-6 border-l-4" style={{ backgroundColor: colors.cards, borderColor: colors.primary }}>
-              <h3 className="text-sm mb-2" style={{ color: colors.body }}>High Estimate</h3>
-              <div className="text-2xl font-bold" style={{ color: colors.heading }}>{priceRange.high}</div>
+            <div
+              className="rounded-lg p-6 border-l-4"
+              style={{
+                backgroundColor: colors.cards,
+                borderColor: colors.primary,
+              }}
+            >
+              <h3 className="text-sm mb-2" style={{ color: colors.body }}>
+                High Estimate
+              </h3>
+              <div
+                className="text-2xl font-bold"
+                style={{ color: colors.heading }}
+              >
+                {priceRange.high}
+              </div>
             </div>
-            <div className="rounded-lg p-6 border-l-4" style={{ backgroundColor: colors.cards, borderColor: colors.primary }}>
-              <h3 className="text-sm mb-2" style={{ color: colors.body }}>Fast Sale</h3>
-              <div className="text-2xl font-bold" style={{ color: colors.heading }}>{priceRange.fast}</div>
+            <div
+              className="rounded-lg p-6 border-l-4"
+              style={{
+                backgroundColor: colors.cards,
+                borderColor: colors.primary,
+              }}
+            >
+              <h3 className="text-sm mb-2" style={{ color: colors.body }}>
+                Fast Sale
+              </h3>
+              <div
+                className="text-2xl font-bold"
+                style={{ color: colors.heading }}
+              >
+                {priceRange.fast}
+              </div>
             </div>
           </div>
         </section>
 
         {/* Properties Section */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-6" style={{ color: colors.heading }}>Similar Properties in Your Area</h2>
+          <h2
+            className="text-2xl font-bold mb-6"
+            style={{ color: colors.heading }}
+          >
+            Similar Properties in Your Area
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {properties.map((property, index) => (
-              <div key={index} className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+              <div
+                key={index}
+                className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+              >
                 <div className="h-48 bg-gradient-to-br from-blue-700 to-blue-500 flex items-center justify-center">
-                  <div className="text-white text-2xl font-bold">{property.price}</div>
+                  <div className="text-white text-2xl font-bold">
+                    {property.price}
+                  </div>
                 </div>
                 <div className="p-6">
-                  <h3 className="text-xl font-bold mb-4" style={{ color: colors.heading }}>{property.name}</h3>
-                  <div className="flex flex-wrap gap-4" style={{ color: colors.body }}>
+                  <h3
+                    className="text-xl font-bold mb-4"
+                    style={{ color: colors.heading }}
+                  >
+                    {property.name}
+                  </h3>
+                  <div
+                    className="flex flex-wrap gap-4"
+                    style={{ color: colors.body }}
+                  >
                     <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                       </svg>
                       <span>{property.bedrooms} beds</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"/>
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
                       </svg>
                       <span>{property.bathrooms} baths</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd"/>
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                       <span>{property.sqft}</span>
                     </div>
@@ -177,7 +285,12 @@ const HomeValuation: React.FC = () => {
 
         {/* Consultation Form */}
         <section className="bg-white rounded-xl shadow-sm p-8 mb-12">
-          <h2 className="text-2xl font-bold mb-6" style={{ color: colors.heading }}>Get Free Consultation</h2>
+          <h2
+            className="text-2xl font-bold mb-6"
+            style={{ color: colors.heading }}
+          >
+            Get Free Consultation
+          </h2>
           <form onSubmit={handleSubmit} className="max-w-2xl">
             <div className="space-y-4">
               <input
@@ -224,17 +337,45 @@ const HomeValuation: React.FC = () => {
 
         {/* Consultants Section */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-6" style={{ color: colors.heading }}>Contact Us</h2>
+          <h2
+            className="text-2xl font-bold mb-6"
+            style={{ color: colors.heading }}
+          >
+            Contact Us
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {consultants.map((consultant, index) => (
-              <div key={index} className="bg-white rounded-xl shadow-sm p-6 flex items-center space-x-4">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: colors.cards, border: `1px solid ${colors.boarder}` }}>
-                  <svg className="w-6 h-6" style={{ color: colors.primary }} fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
+              <div
+                key={index}
+                className="bg-white rounded-xl shadow-sm p-6 flex items-center space-x-4"
+              >
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{
+                    backgroundColor: colors.cards,
+                    border: `1px solid ${colors.boarder}`,
+                  }}
+                >
+                  <svg
+                    className="w-6 h-6"
+                    style={{ color: colors.primary }}
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold" style={{ color: colors.heading }}>{consultant.name}</h3>
+                  <h3
+                    className="text-lg font-bold"
+                    style={{ color: colors.heading }}
+                  >
+                    {consultant.name}
+                  </h3>
                   <p style={{ color: colors.body }}>{consultant.title}</p>
                 </div>
               </div>

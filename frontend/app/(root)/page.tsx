@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { SlidersHorizontal } from "lucide-react";
 import HeroSection from "@/components/homepage/HeroSection";
 import FeaturedCollections from "@/components/homepage/FeaturedCollections";
 import FeaturedListings from "@/components/homepage/FeaturedListings";
@@ -14,6 +15,7 @@ import ClientReviews from "@/components/homepage/ClientReviews";
 import NewlyListedListings from "@/components/homepage/NewlyListedListings";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Container from "@/components/Container";
 import PropertyFilter from "@/components/PropertyFilter";
 import { colors } from "@/config/design-system";
 import {
@@ -182,11 +184,11 @@ export default function HomePage() {
           onSearchResults={handleSearchResults}
         />
 
-        <div className="max-w-[1320px] mx-auto px-4 lg:px-6 xl:px-8 section-gap-sm">
+        <Container className="section-gap-sm">
           <FeaturedCollections />
-        </div>
+        </Container>
 
-        <div className="flex relative px-4 lg:px-6 xl:px-8 gap-0 max-w-[1320px] mx-auto w-full section-gap">
+        <Container className="flex relative gap-0 w-full section-gap">
           <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0">
             <div
               className="sticky top-4 h-[calc(100vh-80px)] overflow-y-auto"
@@ -228,19 +230,34 @@ export default function HomePage() {
               isLoading={isLoadingPreConn}
             />
           </main>
-        </div>
+        </Container>
 
-        <div className="max-w-[1320px] mx-auto px-4 lg:px-6 xl:px-8 section-gap">
+        <Container className="section-gap">
           <LocationsSection />
-        </div>
+        </Container>
 
-        <div className="max-w-[1320px] mx-auto px-4 lg:px-6 xl:px-8 section-gap">
+        <Container className="section-gap">
+          <LatestArticles />
+        </Container>
+
+        <Container className="section-gap">
           <MortgageSection />
-        </div>
+        </Container>
 
-        <div className="max-w-[1320px] mx-auto px-4 lg:px-6 xl:px-8 section-gap">
+        <Container className="section-gap">
           <ClientReviews />
-        </div>
+        </Container>
+
+        {/* Mobile Filter FAB */}
+        <button
+          onClick={() => setMobileFilterOpen(true)}
+          className="lg:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3 rounded-full shadow-lg text-white text-sm font-medium transition-all hover:scale-105 active:scale-95"
+          style={{ backgroundColor: colors.primary }}
+          aria-label="Open filters"
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          Filters
+        </button>
       </main>
 
       <Footer />

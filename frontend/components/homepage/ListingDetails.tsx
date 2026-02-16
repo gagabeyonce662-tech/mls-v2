@@ -18,7 +18,6 @@ import { DemographicsSection } from "@/components/ui/DemographicsSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getListingDetails } from "@/data/listingDetails";
 
-
 export function MortgageCalculatorSection() {
   const [price, setPrice] = useState(286600);
   const [term, setTerm] = useState(25);
@@ -30,8 +29,7 @@ export function MortgageCalculatorSection() {
   const monthlyRate = rate / 100 / 12;
   const totalMonths = term * 12;
   const monthlyPayment =
-    (principal * monthlyRate) /
-    (1 - Math.pow(1 + monthlyRate, -totalMonths));
+    (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -totalMonths));
 
   return (
     <div className="bg-gray-50 p-6 border border-gray-200 rounded-lg mb-10">
@@ -43,7 +41,9 @@ export function MortgageCalculatorSection() {
         <div className="space-y-4">
           {/* Home Price */}
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Home Price:</label>
+            <label className="block text-sm text-gray-600 mb-1">
+              Home Price:
+            </label>
             <input
               type="number"
               className="w-full border rounded-md p-2"
@@ -65,7 +65,9 @@ export function MortgageCalculatorSection() {
 
           {/* Rate */}
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Rate (%):</label>
+            <label className="block text-sm text-gray-600 mb-1">
+              Rate (%):
+            </label>
             <input
               type="number"
               className="w-full border rounded-md p-2"
@@ -77,7 +79,8 @@ export function MortgageCalculatorSection() {
           {/* Down Payment */}
           <div>
             <label className="block text-sm text-gray-600 mb-1">
-              Down Payment: ${downPaymentAmount.toLocaleString()} ({downPaymentPercent}%)
+              Down Payment: ${downPaymentAmount.toLocaleString()} (
+              {downPaymentPercent}%)
             </label>
             <input
               type="range"
@@ -122,15 +125,15 @@ export function CashflowCalculatorSection() {
   const monthlyRate = rate / 100 / 12;
   const totalMonths = term * 12;
   const mortgagePayment =
-    (principal * monthlyRate) /
-    (1 - Math.pow(1 + monthlyRate, -totalMonths));
+    (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -totalMonths));
 
   // maintenance assumed yearly, propertyTax monthly
   const monthlyMaintenance = maintenance / 12;
 
   // core monthly cashflow logic
   const cashFlow =
-    rentalIncome - (mortgagePayment + propertyTax + monthlyMaintenance + otherPayment);
+    rentalIncome -
+    (mortgagePayment + propertyTax + monthlyMaintenance + otherPayment);
 
   // For circular progress ring
   const maxDisplay = 10000; // cap visualization range
@@ -149,7 +152,9 @@ export function CashflowCalculatorSection() {
         {/* Left Column - Inputs */}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Home Price:</label>
+            <label className="block text-sm text-gray-600 mb-1">
+              Home Price:
+            </label>
             <input
               type="number"
               className="w-full border rounded-md p-2"
@@ -159,7 +164,9 @@ export function CashflowCalculatorSection() {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Term (years):</label>
+            <label className="block text-sm text-gray-600 mb-1">
+              Term (years):
+            </label>
             <input
               type="number"
               className="w-full border rounded-md p-2"
@@ -169,7 +176,9 @@ export function CashflowCalculatorSection() {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Rate (%):</label>
+            <label className="block text-sm text-gray-600 mb-1">
+              Rate (%):
+            </label>
             <input
               type="number"
               className="w-full border rounded-md p-2"
@@ -180,7 +189,8 @@ export function CashflowCalculatorSection() {
 
           <div>
             <label className="block text-sm text-gray-600 mb-1">
-              Down Payment: ${downPaymentAmount.toLocaleString()} ({downPaymentPercent}%)
+              Down Payment: ${downPaymentAmount.toLocaleString()} (
+              {downPaymentPercent}%)
             </label>
             <input
               type="range"
@@ -245,7 +255,9 @@ export function CashflowCalculatorSection() {
         <div className="flex flex-col justify-center items-center border-l border-gray-200 pl-6">
           {/* Monthly Mortgage Section */}
           <div className="text-center mb-8">
-            <h3 className="font-semibold text-gray-700">Monthly Mortgage Payment</h3>
+            <h3 className="font-semibold text-gray-700">
+              Monthly Mortgage Payment
+            </h3>
             <p className="text-3xl font-bold text-teal-600">
               ${mortgagePayment.toFixed(0)}
             </p>
@@ -298,7 +310,6 @@ export function CashflowCalculatorSection() {
   );
 }
 
-
 export default function ListingDetails() {
   const params = useParams();
   const id = params?.id as string;
@@ -309,13 +320,16 @@ export default function ListingDetails() {
   const [noteText, setNoteText] = useState("");
   const [toured, setToured] = useState(false);
 
-
   if (!propertyData) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Listing Not Found</h1>
-          <p className="text-gray-600">The listing you're looking for doesn't exist.</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Listing Not Found
+          </h1>
+          <p className="text-gray-600">
+            The listing you&apos;re looking for doesn&apos;t exist.
+          </p>
         </div>
       </div>
     );
@@ -454,10 +468,14 @@ export default function ListingDetails() {
           {/* Amenities Tab */}
           <TabsContent value="amenities" className="mt-6">
             <div className="border border-gray-200 rounded-lg p-6 bg-white">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Amenities</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Amenities
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                  <h3 className="font-semibold text-gray-900 mb-2">Building Amenities</h3>
+                  <h3 className="font-semibold text-gray-900 mb-2">
+                    Building Amenities
+                  </h3>
                   <ul className="list-disc list-inside text-gray-700 space-y-1">
                     <li>Underground Parking</li>
                     <li>Storage Locker</li>
@@ -466,7 +484,9 @@ export default function ListingDetails() {
                   </ul>
                 </div>
                 <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                  <h3 className="font-semibold text-gray-900 mb-2">Unit Features</h3>
+                  <h3 className="font-semibold text-gray-900 mb-2">
+                    Unit Features
+                  </h3>
                   <ul className="list-disc list-inside text-gray-700 space-y-1">
                     <li>Balcony</li>
                     <li>Ensuite Laundry</li>
@@ -490,7 +510,9 @@ export default function ListingDetails() {
           {/* Taxes Tab */}
           <TabsContent value="taxes" className="mt-6">
             <div className="py-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Property Taxes</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Property Taxes
+              </h2>
               <PropertyDetailsTable
                 details={[
                   { label: "Property Tax", value: "$2,000 - $2,499" },
@@ -504,15 +526,23 @@ export default function ListingDetails() {
           {/* Schools Tab */}
           <TabsContent value="schools" className="mt-6">
             <div className="py-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Nearby Schools</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Nearby Schools
+              </h2>
               <div className="space-y-4">
                 <div className="p-4 border border-gray-200 rounded-lg">
-                  <h3 className="font-semibold text-gray-900">Elementary School</h3>
-                  <p className="text-gray-600">Centretown Public School - 0.5 km away</p>
+                  <h3 className="font-semibold text-gray-900">
+                    Elementary School
+                  </h3>
+                  <p className="text-gray-600">
+                    Centretown Public School - 0.5 km away
+                  </p>
                 </div>
                 <div className="p-4 border border-gray-200 rounded-lg">
                   <h3 className="font-semibold text-gray-900">High School</h3>
-                  <p className="text-gray-600">Lisgar Collegiate Institute - 1.2 km away</p>
+                  <p className="text-gray-600">
+                    Lisgar Collegiate Institute - 1.2 km away
+                  </p>
                 </div>
               </div>
             </div>
@@ -521,27 +551,39 @@ export default function ListingDetails() {
           {/* Walk Score Tab */}
           <TabsContent value="walk-score" className="mt-6">
             <div className="py-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Walk Score</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Walk Score
+              </h2>
               <div className="text-6xl font-bold text-teal-600 mb-4">92</div>
-              <p className="text-gray-700">Walker's Paradise - Daily errands do not require a car.</p>
+              <p className="text-gray-700">
+                Walker&apos;s Paradise - Daily errands do not require a car.
+              </p>
             </div>
           </TabsContent>
 
           {/* Transit Score Tab */}
           <TabsContent value="transit-score" className="mt-6">
             <div className="py-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Transit Score</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Transit Score
+              </h2>
               <div className="text-6xl font-bold text-teal-600 mb-4">95</div>
-              <p className="text-gray-700">Excellent Transit - World-class public transportation.</p>
+              <p className="text-gray-700">
+                Excellent Transit - World-class public transportation.
+              </p>
             </div>
           </TabsContent>
 
           {/* Bike Score Tab */}
           <TabsContent value="bike-score" className="mt-6">
             <div className="py-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Bike Score</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Bike Score
+              </h2>
               <div className="text-6xl font-bold text-teal-600 mb-4">88</div>
-              <p className="text-gray-700">Very Bikeable - Biking is convenient for most trips.</p>
+              <p className="text-gray-700">
+                Very Bikeable - Biking is convenient for most trips.
+              </p>
             </div>
           </TabsContent>
 
@@ -574,10 +616,14 @@ export default function ListingDetails() {
           {/* Documents Tab */}
           <TabsContent value="documents" className="mt-6">
             <div className="py-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Documents</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Documents
+              </h2>
               <div className="space-y-4">
                 <div className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <h3 className="font-semibold text-gray-900">Property Disclosure Statement</h3>
+                  <h3 className="font-semibold text-gray-900">
+                    Property Disclosure Statement
+                  </h3>
                   <p className="text-sm text-gray-600">PDF - 2.5 MB</p>
                 </div>
                 <div className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
@@ -585,7 +631,9 @@ export default function ListingDetails() {
                   <p className="text-sm text-gray-600">PDF - 1.2 MB</p>
                 </div>
                 <div className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <h3 className="font-semibold text-gray-900">Building Information</h3>
+                  <h3 className="font-semibold text-gray-900">
+                    Building Information
+                  </h3>
                   <p className="text-sm text-gray-600">PDF - 3.1 MB</p>
                 </div>
               </div>
@@ -614,15 +662,17 @@ export default function ListingDetails() {
                 {/* High-contrast Toggle Switch — fixed alignment */}
                 <button
                   onClick={() => setShowNote(!showNote)}
-                  className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 border ${showNote
+                  className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 border ${
+                    showNote
                       ? "bg-teal-500 border-teal-600 shadow-[0_0_6px_rgba(13,148,136,0.6)]"
                       : "bg-gray-600 border-gray-800 shadow-[0_0_4px_rgba(0,0,0,0.5)]"
-                    }`}
+                  }`}
                   aria-label="Toggle note section"
                 >
                   <span
-                    className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-md transform transition-transform duration-300 ${showNote ? "translate-x-5" : "translate-x-0"
-                      }`}
+                    className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
+                      showNote ? "translate-x-5" : "translate-x-0"
+                    }`}
                   />
                 </button>
               </div>
@@ -637,16 +687,15 @@ export default function ListingDetails() {
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
                   />
-
                 </>
               )}
             </div>
 
-
-
             {/* --- Tax History --- */}
             <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Tax History</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Tax History
+              </h2>
               <table className="w-full border-collapse">
                 <thead className="bg-gray-100 text-gray-700">
                   <tr>
@@ -691,7 +740,9 @@ export default function ListingDetails() {
 
             {/* --- Nearby Schools --- */}
             <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Nearby Schools</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Nearby Schools
+              </h2>
               <ul className="space-y-2 text-gray-800">
                 <li>🏫 Westdale Secondary School — 3.2 km</li>
                 <li>🏫 St. Lawrence Catholic Elementary School — 0.5 km</li>
@@ -700,7 +751,9 @@ export default function ListingDetails() {
 
             {/* --- Market Stats --- */}
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Market Statistics</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Market Statistics
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-gray-800">
                 <div className="border p-4 rounded-lg bg-white">
                   <p className="text-sm text-gray-500">October 2025</p>
@@ -714,7 +767,9 @@ export default function ListingDetails() {
                 </div>
                 <div className="border p-4 rounded-lg bg-white">
                   <p className="text-sm text-gray-500">October 2025</p>
-                  <h3 className="text-xl font-semibold">Median Days on Market</h3>
+                  <h3 className="text-xl font-semibold">
+                    Median Days on Market
+                  </h3>
                   <p className="text-teal-600 font-bold text-lg">47</p>
                 </div>
               </div>
@@ -727,16 +782,34 @@ export default function ListingDetails() {
 
             {/* --- Demographics --- */}
             <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Demographics</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Demographics
+              </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-gray-800">
-                <div>Population (2021): <strong>446</strong></div>
-                <div>Average Age: <strong>40.4</strong></div>
-                <div>Average Income: <strong>$72,500</strong></div>
-                <div>Renters: <strong>75.5%</strong></div>
-                <div>Condos: <strong>14.3%</strong></div>
-                <div>Education: <strong>41.1% College/University</strong></div>
-                <div>Average Home Value: <strong>$600,000</strong></div>
-                <div>Households with Children: <strong>36.4%</strong></div>
+                <div>
+                  Population (2021): <strong>446</strong>
+                </div>
+                <div>
+                  Average Age: <strong>40.4</strong>
+                </div>
+                <div>
+                  Average Income: <strong>$72,500</strong>
+                </div>
+                <div>
+                  Renters: <strong>75.5%</strong>
+                </div>
+                <div>
+                  Condos: <strong>14.3%</strong>
+                </div>
+                <div>
+                  Education: <strong>41.1% College/University</strong>
+                </div>
+                <div>
+                  Average Home Value: <strong>$600,000</strong>
+                </div>
+                <div>
+                  Households with Children: <strong>36.4%</strong>
+                </div>
               </div>
               <p className="text-sm text-gray-600 mt-4">
                 * Source: Statistics Canada - 2021 Census
@@ -745,17 +818,15 @@ export default function ListingDetails() {
 
             {/* --- Disclaimers --- */}
             <div className="text-xs text-gray-500 mt-8">
-              Data is provided courtesy of PROPTX. The information herein must only be
-              used by consumers with a bona fide interest in real estate transactions.
-              The information is deemed reliable but not guaranteed accurate by PROPTX.
-              <br />
-              © 2025 HouseSigma Inc. All rights reserved.
+              Data is provided courtesy of PROPTX. The information herein must
+              only be used by consumers with a bona fide interest in real estate
+              transactions. The information is deemed reliable but not
+              guaranteed accurate by PROPTX.
+              <br />© 2025 HouseSigma Inc. All rights reserved.
             </div>
           </section>
-
         </div>
       </div>
     </div>
   );
 }
-

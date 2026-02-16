@@ -21,8 +21,10 @@ export const colors = {
   cards: "#ffffff", // Cards colour (White)
 
   // Accent Colors
+  accent: "#2563EB", // Accent colour (Professional Blue)
+  accentHover: "#1D4ED8", // Accent hover colour (Darker Blue)
   cardsBoarder: "#e0e0e0", // cards Boarder colour (Light Border Gray)
-  icon: "#0C1536", // Icon colour (Cyan/Turquoise)
+  icon: "#0C1536", // Icon colour (Dark Navy)
 
   heading: "#000000", // Heading Text (Black)
   body: "#4a5568", // Body copy Text (Dark Gray)

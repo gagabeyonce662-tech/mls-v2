@@ -1,5 +1,6 @@
 // lib/api/api.ts
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://staging.vsell4u.ca';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca";
 
 export interface Property {
   PropertyKey: string;
@@ -185,15 +186,12 @@ export interface VlogPost {
 }
 
 // Enhanced fetch wrapper with better error handling
-async function fetchAPI<T>(
-  url: string,
-  options?: RequestInit
-): Promise<T> {
+async function fetchAPI<T>(url: string, options?: RequestInit): Promise<T> {
   try {
     const response = await fetch(url, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...options?.headers,
       },
     });
@@ -203,7 +201,9 @@ async function fetchAPI<T>(
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`API Error ${response.status}: ${errorText}`);
-      throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`);
+      throw new Error(
+        `API Error: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`,
+      );
     }
 
     const data = await response.json();
@@ -219,31 +219,43 @@ async function fetchAPI<T>(
 export async function fetchVlogPosts(): Promise<VlogPost[]> {
   try {
     const data = await fetchAPI<any[]>(`${API_BASE_URL}/api/vlog/`, {
-      cache: 'no-store',
+      cache: "no-store",
     });
 
     return data.map((post) => ({
       ...post,
-      tags: post.tags ? post.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean) : []
+      tags: post.tags
+        ? post.tags
+            .split(",")
+            .map((tag: string) => tag.trim())
+            .filter(Boolean)
+        : [],
     }));
   } catch (error) {
-    console.error('Error fetching vlog posts:', error);
+    console.error("Error fetching vlog posts:", error);
     return [];
   }
 }
 
-export async function fetchVlogPostBySlug(slug: string): Promise<VlogPost | null> {
+export async function fetchVlogPostBySlug(
+  slug: string,
+): Promise<VlogPost | null> {
   try {
     const data = await fetchAPI<any>(`${API_BASE_URL}/api/vlog/${slug}/`, {
-      cache: 'no-store',
+      cache: "no-store",
     });
 
     return {
       ...data,
-      tags: data.tags ? data.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean) : []
+      tags: data.tags
+        ? data.tags
+            .split(",")
+            .map((tag: string) => tag.trim())
+            .filter(Boolean)
+        : [],
     };
   } catch (error) {
-    console.error('Error fetching vlog post:', error);
+    console.error("Error fetching vlog post:", error);
     return null;
   }
 }
@@ -251,7 +263,7 @@ export async function fetchVlogPostBySlug(slug: string): Promise<VlogPost | null
 // Helper function to map API response to Property interface
 // Helper function to map API response to Property interface - FIXED VERSION
 function mapPropertyFromAPI(prop: any): Property {
-  console.log('Mapping property from API:', prop);
+  console.log("Mapping property from API:", prop);
 
   // Build address from components
   const addressParts = [];
@@ -262,10 +274,12 @@ function mapPropertyFromAPI(prop: any): Property {
   if (prop.street_suffix) addressParts.push(prop.street_suffix);
   if (prop.street_dir_suffix) addressParts.push(prop.street_dir_suffix);
 
-  const builtAddress = addressParts.join(' ').trim();
+  const builtAddress = addressParts.join(" ").trim();
 
   // Format price
-  const listPrice = prop.list_price ? parseFloat(prop.list_price) : prop.ListPrice || 0;
+  const listPrice = prop.list_price
+    ? parseFloat(prop.list_price)
+    : prop.ListPrice || 0;
 
   // FIXED: Handle media properly - it's an object, not an array
   let mediaArray: Array<{
@@ -279,22 +293,29 @@ function mapPropertyFromAPI(prop: any): Property {
     if (Array.isArray(prop.media)) {
       // If media is already an array (legacy format)
       mediaArray = prop.media;
-    } else if (typeof prop.media === 'object' && prop.media.media_url) {
+    } else if (typeof prop.media === "object" && prop.media.media_url) {
       // If media is a single object (your current API format)
-      mediaArray = [{
-        media_url: prop.media.media_url,
-        media_category: prop.media.media_category || 'Property Photo',
-        is_preferred: prop.media.is_preferred !== undefined ? prop.media.is_preferred : true,
-        order: 0
-      }];
-    } else if (typeof prop.media === 'string') {
+      mediaArray = [
+        {
+          media_url: prop.media.media_url,
+          media_category: prop.media.media_category || "Property Photo",
+          is_preferred:
+            prop.media.is_preferred !== undefined
+              ? prop.media.is_preferred
+              : true,
+          order: 0,
+        },
+      ];
+    } else if (typeof prop.media === "string") {
       // If media is a string URL
-      mediaArray = [{
-        media_url: prop.media,
-        media_category: 'Property Photo',
-        is_preferred: true,
-        order: 0
-      }];
+      mediaArray = [
+        {
+          media_url: prop.media,
+          media_category: "Property Photo",
+          is_preferred: true,
+          order: 0,
+        },
+      ];
     }
   }
 
@@ -310,29 +331,35 @@ function mapPropertyFromAPI(prop: any): Property {
   if (prop.rooms) {
     if (Array.isArray(prop.rooms)) {
       roomsArray = prop.rooms;
-    } else if (typeof prop.rooms === 'object') {
+    } else if (typeof prop.rooms === "object") {
       // If rooms is a single object, wrap it in array
       roomsArray = [prop.rooms];
     }
   }
 
   const mappedProperty: Property = {
-    PropertyKey: prop.listing_key || prop.PropertyKey || prop.id || '',
-    ListingKey: prop.listing_key || prop.ListingKey || prop.id || '',
+    PropertyKey: prop.listing_key || prop.PropertyKey || prop.id || "",
+    ListingKey: prop.listing_key || prop.ListingKey || prop.id || "",
     list_price: prop.list_price,
     listing_key: prop.listing_key,
     ListPrice: listPrice,
-    City: prop.city || prop.City || '',
+    City: prop.city || prop.City || "",
     city: prop.city,
-    StateOrProvince: prop.state_or_province || prop.StateOrProvince || 'ON',
-    PropertySubType: prop.category_type || prop.property_sub_type || prop.PropertySubType || 'Exclusive',
+    StateOrProvince: prop.state_or_province || prop.StateOrProvince || "ON",
+    PropertySubType:
+      prop.category_type ||
+      prop.property_sub_type ||
+      prop.PropertySubType ||
+      "Exclusive",
     BedroomsTotal: prop.bedrooms_total || prop.BedroomsTotal || 0,
     bedrooms_total: prop.bedrooms_total,
-    BathroomsTotalInteger: prop.bathrooms_total_integer || prop.BathroomsTotalInteger || 0,
+    BathroomsTotalInteger:
+      prop.bathrooms_total_integer || prop.BathroomsTotalInteger || 0,
     bathrooms_total_integer: prop.bathrooms_total_integer,
-    StandardStatus: prop.standard_status || prop.StandardStatus || 'Active',
+    StandardStatus: prop.standard_status || prop.StandardStatus || "Active",
     standard_status: prop.standard_status,
-    ModificationTimestamp: prop.ModificationTimestamp || new Date().toISOString(),
+    ModificationTimestamp:
+      prop.ModificationTimestamp || new Date().toISOString(),
     unparsed_address: prop.unparsed_address,
     postal_code: prop.postal_code,
     latitude: prop.latitude,
@@ -347,61 +374,70 @@ function mapPropertyFromAPI(prop: any): Property {
     year_built: prop.year_built,
 
     // Fields for comparison component
-    address: prop.unparsed_address || builtAddress || prop.address || '',
-    location: prop.city || prop.City || '',
-    province: prop.state_or_province || prop.StateOrProvince || 'ON',
-    postalCode: prop.postal_code || prop.PostalCode || '',
-    cooling: prop.cooling || prop.Cooling || '',
-    basement: prop.basement || prop.Basement || '',
-    zoning: prop.zoning || prop.Zoning || '',
+    address: prop.unparsed_address || builtAddress || prop.address || "",
+    location: prop.city || prop.City || "",
+    province: prop.state_or_province || prop.StateOrProvince || "ON",
+    postalCode: prop.postal_code || prop.PostalCode || "",
+    cooling: prop.cooling || prop.Cooling || "",
+    basement: prop.basement || prop.Basement || "",
+    zoning: prop.zoning || prop.Zoning || "",
     parking_total: prop.parking_total || prop.ParkingTotal || 0,
-    parking_features: prop.parking_features || prop.ParkingFeatures || '',
+    parking_features: prop.parking_features || prop.ParkingFeatures || "",
     total_actual_rent: prop.total_actual_rent,
 
     // Legacy fields - FIXED: Handle arrays safely
-    Photos: mediaArray.map(m => ({ PhotoURL: m.media_url })),
+    Photos: mediaArray.map((m) => ({ PhotoURL: m.media_url })),
     Media: mediaArray,
     Rooms: roomsArray,
-    LivingArea: prop.building_area_total ? parseFloat(prop.building_area_total) : null,
+    LivingArea: prop.building_area_total
+      ? parseFloat(prop.building_area_total)
+      : null,
     YearBuilt: prop.year_built ? parseInt(prop.year_built) : null,
     PublicRemarks: prop.public_remarks,
     PostalCode: prop.postal_code,
     Latitude: prop.latitude,
     Longitude: prop.longitude,
     Description: prop.public_remarks,
-    PropertyType: prop.category_type || prop.property_sub_type || prop.PropertyType || 'Exclusive',
+    PropertyType:
+      prop.category_type ||
+      prop.property_sub_type ||
+      prop.PropertyType ||
+      "Exclusive",
 
     // Spread all other properties
-    ...prop
+    ...prop,
   };
 
-  console.log('Mapped property:', mappedProperty);
+  console.log("Mapped property:", mappedProperty);
   return mappedProperty;
 }
 
 // Property API functions
-export async function fetchProperties(filters?: PropertyFilterParams): Promise<Property[]> {
+export async function fetchProperties(
+  filters?: PropertyFilterParams,
+): Promise<Property[]> {
   try {
     const exclusiveFilters: ExclusivePropertyFilterParams = {};
 
     if (filters) {
       if (filters.province) {
         const provinceMapping: { [key: string]: string } = {
-          'Ontario': 'ON',
-          'Quebec': 'QC',
-          'British Columbia': 'BC',
-          'Alberta': 'AB',
-          'Manitoba': 'MB',
-          'Saskatchewan': 'SK',
-          'Nova Scotia': 'NS',
-          'New Brunswick': 'NB',
-          'Newfoundland and Labrador': 'NL',
-          'Prince Edward Island': 'PE',
-          'Northwest Territories': 'NT',
-          'Nunavut': 'NU',
-          'Yukon': 'YT'
+          Ontario: "ON",
+          Quebec: "QC",
+          "British Columbia": "BC",
+          Alberta: "AB",
+          Manitoba: "MB",
+          Saskatchewan: "SK",
+          "Nova Scotia": "NS",
+          "New Brunswick": "NB",
+          "Newfoundland and Labrador": "NL",
+          "Prince Edward Island": "PE",
+          "Northwest Territories": "NT",
+          Nunavut: "NU",
+          Yukon: "YT",
         };
-        exclusiveFilters.province = provinceMapping[filters.province] || filters.province;
+        exclusiveFilters.province =
+          provinceMapping[filters.province] || filters.province;
       }
 
       if (filters.city) exclusiveFilters.city = filters.city;
@@ -421,15 +457,19 @@ export async function fetchProperties(filters?: PropertyFilterParams): Promise<P
 
     const response = await fetchExclusiveProperties(exclusiveFilters);
 
-    return (response.results || []).map((prop: any) => mapPropertyFromAPI(prop));
+    return (response.results || []).map((prop: any) =>
+      mapPropertyFromAPI(prop),
+    );
   } catch (error) {
-    console.error('Error fetching properties:', error);
+    console.error("Error fetching properties:", error);
     return [];
   }
 }
 
 // Exclusive Properties API function
-export async function fetchExclusiveProperties(filters?: ExclusivePropertyFilterParams): Promise<{
+export async function fetchExclusiveProperties(
+  filters?: ExclusivePropertyFilterParams,
+): Promise<{
   results: any[];
   count: number;
   next: number | null;
@@ -442,16 +482,16 @@ export async function fetchExclusiveProperties(filters?: ExclusivePropertyFilter
     const limit = filters?.limit || 6;
     const offset = filters?.offset || 0;
 
-    queryParams.append('limit', limit.toString());
-    queryParams.append('offset', offset.toString());
+    queryParams.append("limit", limit.toString());
+    queryParams.append("offset", offset.toString());
 
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (key === 'limit' || key === 'offset') return;
+        if (key === "limit" || key === "offset") return;
 
-        if (value !== undefined && value !== null && value !== '') {
-          if (typeof value === 'boolean') {
-            queryParams.append(key, value ? 'true' : 'false');
+        if (value !== undefined && value !== null && value !== "") {
+          if (typeof value === "boolean") {
+            queryParams.append(key, value ? "true" : "false");
           } else {
             queryParams.append(key, value.toString());
           }
@@ -459,24 +499,26 @@ export async function fetchExclusiveProperties(filters?: ExclusivePropertyFilter
       });
     }
 
-    const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    console.log('Fetching exclusive properties from:', url);
+    const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
+    console.log("Fetching exclusive properties from:", url);
 
-    return await fetchAPI(url, { cache: 'no-store' });
+    return await fetchAPI(url, { cache: "no-store" });
   } catch (error) {
-    console.error('Error fetching exclusive properties:', error);
+    console.error("Error fetching exclusive properties:", error);
     return {
       results: [],
       count: 0,
       next: null,
       previous: null,
-      updated_to_exclusive: 0
+      updated_to_exclusive: 0,
     };
   }
 }
 
 // Lease Properties API function
-export async function fetchLeaseProperties(filters?: LeasePropertyFilterParams): Promise<{
+export async function fetchLeaseProperties(
+  filters?: LeasePropertyFilterParams,
+): Promise<{
   results: any[];
   count: number;
   next: number | null;
@@ -488,16 +530,16 @@ export async function fetchLeaseProperties(filters?: LeasePropertyFilterParams):
     const limit = filters?.limit || 6;
     const offset = filters?.offset || 0;
 
-    queryParams.append('limit', limit.toString());
-    queryParams.append('offset', offset.toString());
+    queryParams.append("limit", limit.toString());
+    queryParams.append("offset", offset.toString());
 
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (key === 'limit' || key === 'offset') return;
+        if (key === "limit" || key === "offset") return;
 
-        if (value !== undefined && value !== null && value !== '') {
-          if (typeof value === 'boolean') {
-            queryParams.append(key, value ? 'true' : 'false');
+        if (value !== undefined && value !== null && value !== "") {
+          if (typeof value === "boolean") {
+            queryParams.append(key, value ? "true" : "false");
           } else {
             queryParams.append(key, value.toString());
           }
@@ -505,16 +547,16 @@ export async function fetchLeaseProperties(filters?: LeasePropertyFilterParams):
       });
     }
 
-    const url = `${API_BASE_URL}/api/mls/properties/lease-properties/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const url = `${API_BASE_URL}/api/mls/properties/lease-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
 
-    return await fetchAPI(url, { cache: 'no-store' });
+    return await fetchAPI(url, { cache: "no-store" });
   } catch (error) {
-    console.error('Error fetching lease properties:', error);
+    console.error("Error fetching lease properties:", error);
     return {
       results: [],
       count: 0,
       next: null,
-      previous: null
+      previous: null,
     };
   }
 }
@@ -550,9 +592,11 @@ export async function fetchFilteredProperties(filters: Record<string, any>) {
 export async function fetchAllExclusiveProperties(): Promise<Property[]> {
   try {
     const response = await fetchExclusiveProperties({});
-    return (response.results || []).map((prop: any) => mapPropertyFromAPI(prop));
+    return (response.results || []).map((prop: any) =>
+      mapPropertyFromAPI(prop),
+    );
   } catch (error) {
-    console.error('Error fetching all exclusive properties:', error);
+    console.error("Error fetching all exclusive properties:", error);
     return [];
   }
 }
@@ -561,20 +605,27 @@ export async function fetchAllExclusiveProperties(): Promise<Property[]> {
 export async function fetchAllLeaseProperties(): Promise<Property[]> {
   try {
     const response = await fetchLeaseProperties({});
-    return (response.results || []).map((prop: any) => mapPropertyFromAPI(prop));
+    return (response.results || []).map((prop: any) =>
+      mapPropertyFromAPI(prop),
+    );
   } catch (error) {
-    console.error('Error fetching all lease properties:', error);
+    console.error("Error fetching all lease properties:", error);
     return [];
   }
 }
 
 // Fetch property by key
-export async function fetchPropertyByKey(propertyKey: string): Promise<Property | null> {
+export async function fetchPropertyByKey(
+  propertyKey: string,
+): Promise<Property | null> {
   try {
-    console.log('Fetching property by key:', propertyKey);
-    const data = await fetchAPI<any>(`${API_BASE_URL}/api/mls/properties/${propertyKey}/`, {
-      cache: 'no-store',
-    });
+    console.log("Fetching property by key:", propertyKey);
+    const data = await fetchAPI<any>(
+      `${API_BASE_URL}/api/mls/properties/${propertyKey}/`,
+      {
+        cache: "no-store",
+      },
+    );
 
     return {
       ...mapPropertyFromAPI(data),
@@ -582,14 +633,14 @@ export async function fetchPropertyByKey(propertyKey: string): Promise<Property 
       ListingKey: data.listing_key || propertyKey,
     };
   } catch (error) {
-    console.error('Error fetching property by key:', error);
+    console.error("Error fetching property by key:", error);
     return null;
   }
 }
 
 // Fetch Ontario properties
 export async function fetchOntarioProperties(): Promise<Property[]> {
-  return fetchProperties({ province: 'Ontario' });
+  return fetchProperties({ province: "Ontario" });
 }
 
 // Compare multiple properties API function - UPDATED
@@ -600,120 +651,130 @@ export async function fetchCompareProperties(propertyKeys: string[]): Promise<{
 }> {
   try {
     if (propertyKeys.length === 0) {
-      console.log('No property keys provided for comparison');
+      console.log("No property keys provided for comparison");
       return {
         results: [],
-        count: 0
+        count: 0,
       };
     }
 
-    console.log('Fetching compare for keys:', propertyKeys);
+    console.log("Fetching compare for keys:", propertyKeys);
 
     // Your specific endpoint format: /api/mls/properties/comapare/?listing_key=X&listing_key=Y
     const queryParams = new URLSearchParams();
 
     // Add each listing_key as a separate parameter
-    propertyKeys.forEach(key => {
+    propertyKeys.forEach((key) => {
       if (key && key.trim()) {
-        queryParams.append('listing_key', key.trim());
+        queryParams.append("listing_key", key.trim());
       }
     });
 
     const url = `${API_BASE_URL}/api/mls/properties/comapare/?${queryParams.toString()}`;
-    console.log('Compare URL:', url);
+    console.log("Compare URL:", url);
 
     const response = await fetch(url, {
-      cache: 'no-store',
+      cache: "no-store",
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      }
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
     });
 
-    console.log('Compare API Status:', response.status, response.statusText);
+    console.log("Compare API Status:", response.status, response.statusText);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Compare API error details:', {
+      console.error("Compare API error details:", {
         status: response.status,
         statusText: response.statusText,
-        error: errorText
+        error: errorText,
       });
 
       // Try alternative endpoint format as fallback
-      const altUrl = `${API_BASE_URL}/api/mls/properties/comapare/?ids=${propertyKeys.join(',')}`;
-      console.log('Trying alternative URL:', altUrl);
+      const altUrl = `${API_BASE_URL}/api/mls/properties/comapare/?ids=${propertyKeys.join(",")}`;
+      console.log("Trying alternative URL:", altUrl);
 
       const altResponse = await fetch(altUrl, {
-        cache: 'no-store',
+        cache: "no-store",
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        }
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
       });
 
       if (altResponse.ok) {
         const altData = await altResponse.json();
-        console.log('Alternative endpoint worked:', altData);
+        console.log("Alternative endpoint worked:", altData);
 
-        const results = (altData.results || altData.data || []).map((prop: any) => mapPropertyFromAPI(prop));
+        const results = (altData.results || altData.data || []).map(
+          (prop: any) => mapPropertyFromAPI(prop),
+        );
 
         return {
           results,
-          count: results.length
+          count: results.length,
         };
       }
 
-      throw new Error(`Compare API failed: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`);
+      throw new Error(
+        `Compare API failed: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`,
+      );
     }
 
     const responseData = await response.json();
-    console.log('Compare API Response Data:', responseData);
+    console.log("Compare API Response Data:", responseData);
 
     // Extract results from response
-    const resultsArray = responseData.results || responseData.data || responseData.properties || responseData || [];
-    console.log('Extracted results array:', resultsArray);
+    const resultsArray =
+      responseData.results ||
+      responseData.data ||
+      responseData.properties ||
+      responseData ||
+      [];
+    console.log("Extracted results array:", resultsArray);
 
     // Handle case where response might be an array directly
     let results: Property[];
     if (Array.isArray(resultsArray)) {
       results = resultsArray.map((prop: any) => mapPropertyFromAPI(prop));
-    } else if (resultsArray && typeof resultsArray === 'object') {
+    } else if (resultsArray && typeof resultsArray === "object") {
       // If it's a single object, wrap it in an array
       results = [mapPropertyFromAPI(resultsArray)];
     } else {
       results = [];
     }
 
-    console.log('Final mapped results:', results);
+    console.log("Final mapped results:", results);
 
     return {
       results,
-      count: results.length
+      count: results.length,
     };
-
   } catch (error) {
-    console.error('Error in fetchCompareProperties:', error);
+    console.error("Error in fetchCompareProperties:", error);
 
     // Ultimate fallback: fetch each property individually
     try {
-      console.log('Using ultimate fallback: fetching properties individually');
+      console.log("Using ultimate fallback: fetching properties individually");
       const properties = await Promise.all(
-        propertyKeys.map(key => fetchPropertyByKey(key))
+        propertyKeys.map((key) => fetchPropertyByKey(key)),
       );
 
-      const validProperties = properties.filter(p => p !== null) as Property[];
-      console.log('Fallback fetched properties:', validProperties.length);
+      const validProperties = properties.filter(
+        (p) => p !== null,
+      ) as Property[];
+      console.log("Fallback fetched properties:", validProperties.length);
 
       return {
         results: validProperties,
-        count: validProperties.length
+        count: validProperties.length,
       };
     } catch (fallbackError) {
-      console.error('Fallback also failed:', fallbackError);
+      console.error("Fallback also failed:", fallbackError);
       return {
         results: [],
-        count: 0
+        count: 0,
       };
     }
   }
@@ -742,7 +803,9 @@ export interface PreConnPropertyFilterParams {
   offset?: number;
 }
 
-export async function fetchPreConnProperties(filters?: PreConnPropertyFilterParams): Promise<{
+export async function fetchPreConnProperties(
+  filters?: PreConnPropertyFilterParams,
+): Promise<{
   results: any[];
   count: number;
   next: number | null;
@@ -754,16 +817,16 @@ export async function fetchPreConnProperties(filters?: PreConnPropertyFilterPara
     const limit = filters?.limit || 6;
     const offset = filters?.offset || 0;
 
-    queryParams.append('limit', limit.toString());
-    queryParams.append('offset', offset.toString());
+    queryParams.append("limit", limit.toString());
+    queryParams.append("offset", offset.toString());
 
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (key === 'limit' || key === 'offset') return;
+        if (key === "limit" || key === "offset") return;
 
-        if (value !== undefined && value !== null && value !== '') {
-          if (typeof value === 'boolean') {
-            queryParams.append(key, value ? 'true' : 'false');
+        if (value !== undefined && value !== null && value !== "") {
+          if (typeof value === "boolean") {
+            queryParams.append(key, value ? "true" : "false");
           } else {
             queryParams.append(key, value.toString());
           }
@@ -771,16 +834,16 @@ export async function fetchPreConnProperties(filters?: PreConnPropertyFilterPara
       });
     }
 
-    const url = `${API_BASE_URL}/api/mls/properties/pre-conn-properties/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const url = `${API_BASE_URL}/api/mls/properties/pre-conn-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
 
-    return await fetchAPI(url, { cache: 'no-store' });
+    return await fetchAPI(url, { cache: "no-store" });
   } catch (error) {
-    console.error('Error fetching pre-construction properties:', error);
+    console.error("Error fetching pre-construction properties:", error);
     return {
       results: [],
       count: 0,
       next: null,
-      previous: null
+      previous: null,
     };
   }
 }
@@ -788,9 +851,11 @@ export async function fetchPreConnProperties(filters?: PreConnPropertyFilterPara
 export async function fetchAllPreConnProperties(): Promise<Property[]> {
   try {
     const response = await fetchPreConnProperties({});
-    return (response.results || []).map((prop: any) => mapPropertyFromAPI(prop));
+    return (response.results || []).map((prop: any) =>
+      mapPropertyFromAPI(prop),
+    );
   } catch (error) {
-    console.error('Error fetching all pre-construction properties:', error);
+    console.error("Error fetching all pre-construction properties:", error);
     return [];
   }
 }
@@ -800,14 +865,14 @@ export async function testExclusiveEndpoint(): Promise<void> {
   try {
     const testUrl = `${API_BASE_URL}/api/mls/properties/exclusive-properties/`;
     const response = await fetch(testUrl);
-    console.log('Test response status:', response.status);
+    console.log("Test response status:", response.status);
 
     if (response.ok) {
       const data = await response.json();
-      console.log('Endpoint is working! Found', data.count || 0, 'properties');
+      console.log("Endpoint is working! Found", data.count || 0, "properties");
     }
   } catch (error) {
-    console.error('Error testing exclusive endpoint:', error);
+    console.error("Error testing exclusive endpoint:", error);
   }
 }
 
@@ -815,32 +880,43 @@ export async function testLeaseEndpoint(): Promise<void> {
   try {
     const testUrl = `${API_BASE_URL}/api/mls/properties/lease-properties/`;
     const response = await fetch(testUrl);
-    console.log('Lease test response status:', response.status);
+    console.log("Lease test response status:", response.status);
 
     if (response.ok) {
       const data = await response.json();
-      console.log('Lease endpoint is working! Found', data.count || 0, 'properties');
+      console.log(
+        "Lease endpoint is working! Found",
+        data.count || 0,
+        "properties",
+      );
     }
   } catch (error) {
-    console.error('Error testing lease endpoint:', error);
+    console.error("Error testing lease endpoint:", error);
   }
 }
 
-export async function testPriceRangeEndpoint(minPrice?: number, maxPrice?: number): Promise<void> {
+export async function testPriceRangeEndpoint(
+  minPrice?: number,
+  maxPrice?: number,
+): Promise<void> {
   try {
     const queryParams = new URLSearchParams();
-    if (minPrice) queryParams.append('price_min', minPrice.toString());
-    if (maxPrice) queryParams.append('price_max', maxPrice.toString());
+    if (minPrice) queryParams.append("price_min", minPrice.toString());
+    if (maxPrice) queryParams.append("price_max", maxPrice.toString());
 
-    const testUrl = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const testUrl = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
     const response = await fetch(testUrl);
 
     if (response.ok) {
       const data = await response.json();
-      console.log('Price range test: Found', data?.results?.length || 0, 'properties');
+      console.log(
+        "Price range test: Found",
+        data?.results?.length || 0,
+        "properties",
+      );
     }
   } catch (error) {
-    console.error('Error testing price range endpoint:', error);
+    console.error("Error testing price range endpoint:", error);
   }
 }
 
@@ -851,10 +927,14 @@ export async function testMLSFilterEndpoint(): Promise<void> {
 
     if (response.ok) {
       const data = await response.json();
-      console.log('MLS filter test: Found', data?.value?.length || 0, 'properties');
+      console.log(
+        "MLS filter test: Found",
+        data?.value?.length || 0,
+        "properties",
+      );
     }
   } catch (error) {
-    console.error('Error testing MLS filter endpoint:', error);
+    console.error("Error testing MLS filter endpoint:", error);
   }
 }
 
@@ -866,9 +946,9 @@ export async function uploadPreConnProperties(
     authToken?: string | null;
     additionalFormFields?: Record<string, string>;
     useGet?: boolean;
-  }
+  },
 ): Promise<any> {
-  const fieldName = options?.fieldName ?? 'file';
+  const fieldName = options?.fieldName ?? "file";
   const authToken = options?.authToken ?? null;
   const additionalFormFields = options?.additionalFormFields ?? {};
   const useGet = options?.useGet ?? true;
@@ -879,29 +959,31 @@ export async function uploadPreConnProperties(
     try {
       const text = await file.text();
       const encoded = encodeURIComponent(text);
-      const filenameParam = file.name ? `&filename=${encodeURIComponent(file.name)}` : '';
+      const filenameParam = file.name
+        ? `&filename=${encodeURIComponent(file.name)}`
+        : "";
       const extra = Object.entries(additionalFormFields)
         .map(([k, v]) => `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-        .join('');
+        .join("");
 
       const url = `${urlBase}?csv=${encoded}${filenameParam}${extra}`;
 
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       };
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
 
       const resp = await fetch(url, {
-        method: 'GET',
+        method: "GET",
         headers,
-        credentials: 'same-origin',
+        credentials: "same-origin",
       });
 
       const responseText = await resp.text();
       let data: any = responseText;
       try {
         data = JSON.parse(responseText);
-      } catch (e) { }
+      } catch (e) {}
 
       if (!resp.ok) {
         throw new Error(`GET upload failed: ${resp.status} ${resp.statusText}`);
@@ -909,90 +991,87 @@ export async function uploadPreConnProperties(
 
       return data;
     } catch (err) {
-      console.error('Error in uploadPreConnProperties (GET mode):', err);
+      console.error("Error in uploadPreConnProperties (GET mode):", err);
       throw err;
     }
   } else if (!useGet && file) {
     try {
       const form = new FormData();
       form.append(fieldName, file);
-      Object.entries(additionalFormFields).forEach(([k, v]) => form.append(k, v));
+      Object.entries(additionalFormFields).forEach(([k, v]) =>
+        form.append(k, v),
+      );
 
       const headers: Record<string, string> = {};
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
 
       const resp = await fetch(urlBase, {
-        method: 'POST',
+        method: "POST",
         headers,
         body: form,
-        credentials: 'same-origin',
+        credentials: "same-origin",
       });
 
       const responseText = await resp.text();
       let data: any = responseText;
       try {
         data = JSON.parse(responseText);
-      } catch (e) { }
+      } catch (e) {}
 
       if (!resp.ok) {
-        throw new Error(`POST upload failed: ${resp.status} ${resp.statusText}`);
+        throw new Error(
+          `POST upload failed: ${resp.status} ${resp.statusText}`,
+        );
       }
 
       return data;
     } catch (err) {
-      console.error('Error in uploadPreConnProperties (POST mode):', err);
+      console.error("Error in uploadPreConnProperties (POST mode):", err);
       throw err;
     }
   } else {
-    throw new Error('No file provided');
+    throw new Error("No file provided");
   }
 }
 
 // In lib/api/api.ts - Add this function
-export async function fetchNewlyListedProperties(filters?: PropertyFilterParams & { days_threshold?: number }): Promise<{
+export async function fetchNewlyListedProperties(
+  filters?: PropertyFilterParams & { days_threshold?: number },
+): Promise<{
   results: any[];
   count: number;
   next: number | null;
   previous: number | null;
 }> {
-  try {
-    const queryParams = new URLSearchParams();
+  const queryParams = new URLSearchParams();
 
-    const limit = filters?.limit || 6;
-    const offset = filters?.offset || 0;
+  const limit = filters?.limit || 6;
+  const offset = filters?.offset || 0;
 
-    queryParams.append('limit', limit.toString());
-    queryParams.append('offset', offset.toString());
+  queryParams.append("limit", limit.toString());
+  queryParams.append("offset", offset.toString());
 
-    // Add days threshold if provided
-    if (filters?.days_threshold) {
-      queryParams.append('days_threshold', filters.days_threshold.toString());
-    }
-
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (key === 'limit' || key === 'offset' || key === 'days_threshold') return;
-
-        if (value !== undefined && value !== null && value !== '') {
-          if (typeof value === 'boolean') {
-            queryParams.append(key, value ? 'true' : 'false');
-          } else {
-            queryParams.append(key, value.toString());
-          }
-        }
-      });
-    }
-
-    const url = `${API_BASE_URL}/api/mls/properties/newly-listed-properties/`;
-
-    return await fetchAPI(url, { cache: 'no-store' });
-  } catch (error) {
-    console.error('Error fetching newly listed properties:', error);
-    return {
-      results: [],
-      count: 0,
-      next: null,
-      previous: null
-    };
+  // Add days threshold if provided
+  if (filters?.days_threshold) {
+    queryParams.append("days_threshold", filters.days_threshold.toString());
   }
+
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (key === "limit" || key === "offset" || key === "days_threshold")
+        return;
+
+      if (value !== undefined && value !== null && value !== "") {
+        if (typeof value === "boolean") {
+          queryParams.append(key, value ? "true" : "false");
+        } else {
+          queryParams.append(key, value.toString());
+        }
+      }
+    });
+  }
+
+  const url = `${API_BASE_URL}/api/mls/properties/newly-listed-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
+
+  return await fetchAPI(url, { cache: "no-store" });
 }

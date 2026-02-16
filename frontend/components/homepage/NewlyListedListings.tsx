@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { Bed, Bath, Loader2, ChevronRight, Calendar } from "lucide-react";
 import { colors } from "@/config/design-system";
-import { Property } from "@/lib/api";
+import { fetchNewlyListedProperties, Property } from "@/lib/api";
 import { useState, useEffect } from "react";
 
 interface NewlyListedListingsProps {
@@ -25,42 +25,14 @@ export default function NewlyListedListings({
 
   // Fetch newly listed properties from the API
   useEffect(() => {
-    const fetchNewlyListedProperties = async () => {
+    const loadNewlyListedProperties = async () => {
       setIsLoading(true);
       try {
-        const url = `https://staging.vsell4u.ca/api/mls/properties/newly-listed-properties/`;
-        console.log("Fetching newly listed properties from:", url);
-
-        const response = await fetch(url, {
-          cache: "no-store",
-          headers: {
-            "Content-Type": "application/json",
-          },
+        const response = await fetchNewlyListedProperties({
+          limit: showLimit,
         });
 
-        console.log("Response status:", response.status);
-
-        if (!response.ok) {
-          throw new Error(`API Error: ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log("API response data:", result);
-
-        // Handle different response formats
-        let propertiesData: any[] = [];
-
-        if (result.results && Array.isArray(result.results)) {
-          propertiesData = result.results;
-        } else if (result.data && Array.isArray(result.data)) {
-          propertiesData = result.data;
-        } else if (Array.isArray(result)) {
-          propertiesData = result;
-        } else {
-          console.warn("Unexpected API response format:", result);
-        }
-
-        setProperties(propertiesData);
+        setProperties(response.results || []);
       } catch (error) {
         console.error("Error fetching newly listed properties:", error);
         setIsError(true);
@@ -69,8 +41,8 @@ export default function NewlyListedListings({
       }
     };
 
-    fetchNewlyListedProperties();
-  }, []); // Empty dependency array - fetches once on mount
+    loadNewlyListedProperties();
+  }, [showLimit]); // Refetch if showLimit changes
 
   // Gradually load cards with staggered animation
   useEffect(() => {
