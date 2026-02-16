@@ -1105,15 +1105,20 @@ export async function createProperty(data: FormData): Promise<any> {
     const response = await fetch(url, {
       method: "POST",
       body: data,
-      // Note: Do not set Content-Type header when sending FormData,
-      // the browser sets it automatically with the boundary
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(
-        `Failed to create property: ${response.status} ${errorText}`,
-      );
+      const status = response.status;
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch {
+        errorData = await response.text();
+      }
+      const error: any = new Error("Failed to create property");
+      error.status = status;
+      error.data = errorData;
+      throw error;
     }
 
     return await response.json();
