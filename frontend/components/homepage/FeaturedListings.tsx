@@ -26,11 +26,11 @@ export default function FeaturedListings({
   const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
 
   // Use TanStack Query for data fetching ONLY if propsProperties not provided
-  const { 
-    data: hookProperties = [], 
-    isLoading: hookIsLoading, 
+  const {
+    data: hookProperties = [],
+    isLoading: hookIsLoading,
     isError,
-    isFetching
+    isFetching,
   } = useProperties(filters, {
     // Show empty array immediately while loading
     placeholderData: [],
@@ -39,24 +39,31 @@ export default function FeaturedListings({
 
   // Use props if provided, otherwise use hook data
   const properties = propsProperties || hookProperties;
-  const isLoading = propsIsLoading !== undefined ? propsIsLoading : hookIsLoading;
-  const showLoadingSkeletons = isLoading || (propsProperties ? false : isFetching);
+  const isLoading =
+    propsIsLoading !== undefined ? propsIsLoading : hookIsLoading;
+  const showLoadingSkeletons =
+    isLoading || (propsProperties ? false : isFetching);
 
   // Gradually load cards with staggered animation
   useEffect(() => {
     if (!isLoading && properties.length > 0) {
       // Load cards gradually
       const timer = setTimeout(() => {
-        const propertyKeys = properties.slice(0, 6).map(property => getPropertyKey(property));
-        
+        const propertyKeys = properties
+          .slice(0, 6)
+          .map((property) => getPropertyKey(property));
+
         propertyKeys.forEach((propertyKey, index) => {
-          setTimeout(() => {
-            setLoadedCards(prev => {
-              const newSet = new Set(prev);
-              newSet.add(propertyKey);
-              return newSet;
-            });
-          }, 100 + (index * 100)); // Staggered delay
+          setTimeout(
+            () => {
+              setLoadedCards((prev) => {
+                const newSet = new Set(prev);
+                newSet.add(propertyKey);
+                return newSet;
+              });
+            },
+            100 + index * 100,
+          ); // Staggered delay
         });
       }, 100); // Small delay before starting
 
@@ -103,11 +110,7 @@ export default function FeaturedListings({
   };
 
   const getDisplayPropertyType = (property: any) => {
-    return (
-      property.category_type ||
-      property.PropertySubType ||
-      "Property"
-    );
+    return property.category_type || property.PropertySubType || "Property";
   };
 
   const getBedCount = (property: any) => {
@@ -116,18 +119,12 @@ export default function FeaturedListings({
 
   const getBathCount = (property: any) => {
     return (
-      property.bathrooms_total_integer ??
-      property.BathroomsTotalInteger ??
-      0
+      property.bathrooms_total_integer ?? property.BathroomsTotalInteger ?? 0
     );
   };
 
   const getStatus = (property: any) => {
-    return (
-      property.standard_status ||
-      property.StandardStatus ||
-      "For Sale"
-    );
+    return property.standard_status || property.StandardStatus || "For Sale";
   };
 
   const getThumbnail = (property: any): string | null => {
@@ -192,7 +189,7 @@ export default function FeaturedListings({
   };
 
   const handleImageLoad = (propertyKey: string) => {
-    setLoadedImages(prev => new Set(prev).add(propertyKey));
+    setLoadedImages((prev) => new Set(prev).add(propertyKey));
   };
 
   const isCardLoaded = (property: any) => {
@@ -204,12 +201,15 @@ export default function FeaturedListings({
   };
 
   return (
-    <div className="py-8">
+    <div className="py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold mb-2" style={{ color: colors.heading }}>
+            <h2
+              className="text-2xl font-bold mb-2"
+              style={{ color: colors.heading }}
+            >
               {searchQuery
                 ? `Properties in ${searchQuery}`
                 : "Featured Properties"}
@@ -240,7 +240,10 @@ export default function FeaturedListings({
         {/* Error State - Only show if using hook and there's an error */}
         {!propsProperties && isError && (
           <div className="text-center py-16">
-            <div className="text-xl font-semibold mb-2" style={{ color: colors.heading }}>
+            <div
+              className="text-xl font-semibold mb-2"
+              style={{ color: colors.heading }}
+            >
               Error loading properties
             </div>
             <p style={{ color: colors.body }}>
@@ -252,207 +255,235 @@ export default function FeaturedListings({
         {/* Grid - Always show cards immediately */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Show skeletons while loading or show actual properties */}
-          {showLoadingSkeletons ? (
-            // Loading Skeletons
-            [...Array(6)].map((_, index) => (
-              <div
-                key={`skeleton-${index}`}
-                className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse min-h-[380px]"
-              >
-                {/* Image skeleton */}
-                <div 
-                  className="h-56 w-full" 
-                  style={{ backgroundColor: colors.boarder }}
-                />
-                
-                {/* Content skeleton */}
-                <div className="p-5 space-y-3">
-                  <div className="h-5 w-3/4 rounded" style={{ backgroundColor: colors.boarder }} />
-                  <div className="h-7 w-1/2 rounded" style={{ backgroundColor: colors.boarder }} />
-                  <div className="flex gap-4 mt-4">
-                    <div className="h-4 w-16 rounded" style={{ backgroundColor: colors.boarder }} />
-                    <div className="h-4 w-16 rounded" style={{ backgroundColor: colors.boarder }} />
+          {showLoadingSkeletons
+            ? // Loading Skeletons
+              [...Array(6)].map((_, index) => (
+                <div
+                  key={`skeleton-${index}`}
+                  className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse min-h-[380px]"
+                >
+                  {/* Image skeleton */}
+                  <div
+                    className="h-56 w-full"
+                    style={{ backgroundColor: colors.boarder }}
+                  />
+
+                  {/* Content skeleton */}
+                  <div className="p-5 space-y-3">
+                    <div
+                      className="h-5 w-3/4 rounded"
+                      style={{ backgroundColor: colors.boarder }}
+                    />
+                    <div
+                      className="h-7 w-1/2 rounded"
+                      style={{ backgroundColor: colors.boarder }}
+                    />
+                    <div className="flex gap-4 mt-4">
+                      <div
+                        className="h-4 w-16 rounded"
+                        style={{ backgroundColor: colors.boarder }}
+                      />
+                      <div
+                        className="h-4 w-16 rounded"
+                        style={{ backgroundColor: colors.boarder }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-          ) : properties.length > 0 ? (
-            // Actual Property Cards
-            properties.slice(0, 6).map((property, index) => {
-              const propertyKey = getPropertyKey(property);
-              const displayPrice = getDisplayPrice(property);
-              const displayCity = getDisplayCity(property);
-              const displayPropertyType = getDisplayPropertyType(property);
-              const bedCount = getBedCount(property);
-              const bathCount = getBathCount(property);
-              const status = getStatus(property);
-              const thumbnail = getThumbnail(property);
-              const isClicked = clickedProperty === propertyKey;
-              const cardLoaded = isCardLoaded(property);
-              const imageLoaded = isImageLoaded(propertyKey);
+              ))
+            : properties.length > 0
+              ? // Actual Property Cards
+                properties.slice(0, 6).map((property, index) => {
+                  const propertyKey = getPropertyKey(property);
+                  const displayPrice = getDisplayPrice(property);
+                  const displayCity = getDisplayCity(property);
+                  const displayPropertyType = getDisplayPropertyType(property);
+                  const bedCount = getBedCount(property);
+                  const bathCount = getBathCount(property);
+                  const status = getStatus(property);
+                  const thumbnail = getThumbnail(property);
+                  const isClicked = clickedProperty === propertyKey;
+                  const cardLoaded = isCardLoaded(property);
+                  const imageLoaded = isImageLoaded(propertyKey);
 
-              return (
-                <div
-                  key={propertyKey}
-                  className={`bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all relative min-h-[380px] ${
-                    cardLoaded ? 'opacity-100' : 'opacity-70'
-                  }`}
-                  style={{
-                    animationDelay: `${index * 0.1}s`,
-                    animation: cardLoaded ? 'fadeInUp 0.3s ease-out forwards' : 'none'
-                  }}
-                >
-                  {/* Click Loading Overlay */}
-                  {isClicked && (
-                    <div className="absolute inset-0 bg-white/80 z-20 flex items-center justify-center">
-                      <div className="flex flex-col items-center">
-                        <Loader2 className="w-8 h-8 animate-spin" style={{ color: colors.primary }} />
-                        <span className="mt-2 text-sm" style={{ color: colors.body }}>
-                          Loading property...
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Card Container - Always visible */}
-                  <Link
-                    href={`/listing/${propertyKey}`}
-                    onClick={() => handlePropertyClick(propertyKey)}
-                    className={isClicked ? "pointer-events-none" : ""}
-                  >
-                    {/* Image Section */}
+                  return (
                     <div
-                      className="relative h-56 overflow-hidden"
-                      style={{ backgroundColor: colors.cardsBoarder }}
+                      key={propertyKey}
+                      className={`bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all relative min-h-[380px] ${
+                        cardLoaded ? "opacity-100" : "opacity-70"
+                      }`}
+                      style={{
+                        animationDelay: `${index * 0.1}s`,
+                        animation: cardLoaded
+                          ? "fadeInUp 0.3s ease-out forwards"
+                          : "none",
+                      }}
                     >
-                      {/* Image Loading State */}
-                      {thumbnail && !imageLoaded && (
-                        <div className="absolute inset-0 flex items-center justify-center z-10">
-                          <Loader2 className="w-6 h-6 animate-spin" style={{ color: colors.primary }} />
+                      {/* Click Loading Overlay */}
+                      {isClicked && (
+                        <div className="absolute inset-0 bg-white/80 z-20 flex items-center justify-center">
+                          <div className="flex flex-col items-center">
+                            <Loader2
+                              className="w-8 h-8 animate-spin"
+                              style={{ color: colors.primary }}
+                            />
+                            <span
+                              className="mt-2 text-sm"
+                              style={{ color: colors.body }}
+                            >
+                              Loading property...
+                            </span>
+                          </div>
                         </div>
                       )}
 
-                      {/* Blurred background placeholder */}
-                      {thumbnail && (
-                        <div 
-                          className="absolute inset-0 blur-sm opacity-30"
-                          style={{
-                            backgroundImage: `url(${thumbnail})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center'
-                          }}
-                        />
-                      )}
-
-                      {/* Actual Image - Fades in when loaded */}
-                      {thumbnail ? (
-                        <img
-                          src={thumbnail}
-                          alt={`Property in ${displayCity}`}
-                          className={`w-full h-full object-cover transition-opacity duration-700 ${
-                            imageLoaded ? 'opacity-100' : 'opacity-0'
-                          }`}
-                          loading="lazy"
-                          onLoad={() => handleImageLoad(propertyKey)}
-                          onError={() => handleImageLoad(propertyKey)}
-                        />
-                      ) : (
+                      {/* Card Container - Always visible */}
+                      <Link
+                        href={`/listing/${propertyKey}`}
+                        onClick={() => handlePropertyClick(propertyKey)}
+                        className={isClicked ? "pointer-events-none" : ""}
+                      >
+                        {/* Image Section */}
                         <div
-                          className={`w-full h-full flex flex-col items-center justify-center px-4 transition-opacity duration-500 ${
-                            cardLoaded ? 'opacity-100' : 'opacity-0'
-                          }`}
-                          style={{
-                            backgroundColor: colors.boarder,
-                            color: colors.body,
-                          }}
+                          className="relative h-56 overflow-hidden"
+                          style={{ backgroundColor: colors.cardsBoarder }}
                         >
-                          <div className="text-sm font-medium">No Image Available</div>
-                          <div className="text-xs mt-1">—</div>
+                          {/* Image Loading State */}
+                          {thumbnail && !imageLoaded && (
+                            <div className="absolute inset-0 flex items-center justify-center z-10">
+                              <Loader2
+                                className="w-6 h-6 animate-spin"
+                                style={{ color: colors.primary }}
+                              />
+                            </div>
+                          )}
+
+                          {/* Blurred background placeholder */}
+                          {thumbnail && (
+                            <div
+                              className="absolute inset-0 blur-sm opacity-30"
+                              style={{
+                                backgroundImage: `url(${thumbnail})`,
+                                backgroundSize: "cover",
+                                backgroundPosition: "center",
+                              }}
+                            />
+                          )}
+
+                          {/* Actual Image - Fades in when loaded */}
+                          {thumbnail ? (
+                            <img
+                              src={thumbnail}
+                              alt={`Property in ${displayCity}`}
+                              className={`w-full h-full object-cover transition-opacity duration-700 ${
+                                imageLoaded ? "opacity-100" : "opacity-0"
+                              }`}
+                              loading="lazy"
+                              onLoad={() => handleImageLoad(propertyKey)}
+                              onError={() => handleImageLoad(propertyKey)}
+                            />
+                          ) : (
+                            <div
+                              className={`w-full h-full flex flex-col items-center justify-center px-4 transition-opacity duration-500 ${
+                                cardLoaded ? "opacity-100" : "opacity-0"
+                              }`}
+                              style={{
+                                backgroundColor: colors.boarder,
+                                color: colors.body,
+                              }}
+                            >
+                              <div className="text-sm font-medium">
+                                No Image Available
+                              </div>
+                              <div className="text-xs mt-1">—</div>
+                            </div>
+                          )}
+
+                          {/* Status Badge - Shows with fade-in */}
+                          <div
+                            className={`absolute bottom-4 left-4 transition-opacity duration-500 ${
+                              cardLoaded ? "opacity-100" : "opacity-0"
+                            }`}
+                          >
+                            <span
+                              className="px-3 py-1 rounded-full text-sm font-medium"
+                              style={{
+                                backgroundColor:
+                                  status === "Active"
+                                    ? colors.primary
+                                    : status === "Pending"
+                                      ? "#facc15"
+                                      : "#6b7280",
+                                color: "#ffffff",
+                              }}
+                            >
+                              {status}
+                            </span>
+                          </div>
                         </div>
-                      )}
 
-                      {/* Status Badge - Shows with fade-in */}
-                      <div className={`absolute bottom-4 left-4 transition-opacity duration-500 ${
-                        cardLoaded ? 'opacity-100' : 'opacity-0'
-                      }`}>
-                        <span
-                          className="px-3 py-1 rounded-full text-sm font-medium"
-                          style={{
-                            backgroundColor:
-                              status === "Active"
-                                ? colors.primary
-                                : status === "Pending"
-                                ? "#facc15"
-                                : "#6b7280",
-                            color: "#ffffff",
-                          }}
-                        >
-                          {status}
-                        </span>
-                      </div>
-                    </div>
+                        {/* Content Section */}
+                        <div className="p-5">
+                          {/* Title */}
+                          <h3
+                            className={`font-semibold mb-2 truncate transition-opacity duration-500 ${
+                              cardLoaded ? "opacity-100" : "opacity-0"
+                            }`}
+                            style={{ color: colors.heading }}
+                          >
+                            {displayPropertyType} in {displayCity}
+                          </h3>
 
-                    {/* Content Section */}
-                    <div className="p-5">
-                      {/* Title */}
-                      <h3
-                        className={`font-semibold mb-2 truncate transition-opacity duration-500 ${
-                          cardLoaded ? 'opacity-100' : 'opacity-0'
-                        }`}
-                        style={{ color: colors.heading }}
-                      >
-                        {displayPropertyType} in {displayCity}
-                      </h3>
+                          {/* Price */}
+                          <p
+                            className={`text-2xl font-bold mb-4 transition-opacity duration-500 ${
+                              cardLoaded ? "opacity-100" : "opacity-0"
+                            }`}
+                            style={{ color: colors.primary }}
+                          >
+                            {formatPrice(displayPrice)}
+                          </p>
 
-                      {/* Price */}
-                      <p
-                        className={`text-xl font-bold mb-4 transition-opacity duration-500 ${
-                          cardLoaded ? 'opacity-100' : 'opacity-0'
-                        }`}
-                        style={{ color: colors.primary }}
-                      >
-                        {formatPrice(displayPrice)}
-                      </p>
+                          {/* Features */}
+                          <div
+                            className={`flex items-center gap-4 text-sm transition-opacity duration-500 ${
+                              cardLoaded ? "opacity-100" : "opacity-0"
+                            }`}
+                            style={{ color: colors.body }}
+                          >
+                            {bedCount > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Bed className="w-4 h-4" />
+                                <span>{bedCount} Beds</span>
+                              </div>
+                            )}
 
-                      {/* Features */}
-                      <div
-                        className={`flex items-center gap-4 text-sm transition-opacity duration-500 ${
-                          cardLoaded ? 'opacity-100' : 'opacity-0'
-                        }`}
-                        style={{ color: colors.body }}
-                      >
-                        {bedCount > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Bed className="w-4 h-4" />
-                            <span>{bedCount} Beds</span>
+                            {bathCount > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Bath className="w-4 h-4" />
+                                <span>{bathCount} Baths</span>
+                              </div>
+                            )}
                           </div>
-                        )}
-
-                        {bathCount > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Bath className="w-4 h-4" />
-                            <span>{bathCount} Baths</span>
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      </Link>
                     </div>
-                  </Link>
-                </div>
-              );
-            })
-          ) : (
-            // Empty State - Only show when not loading and no properties
-            !showLoadingSkeletons && (
-              <div className="col-span-3 text-center py-16">
-                <div className="text-xl font-semibold mb-2" style={{ color: colors.heading }}>
-                  No properties found
-                </div>
-                <p style={{ color: colors.body }}>
-                  Try searching for a different city or check your spelling.
-                </p>
-              </div>
-            )
-          )}
+                  );
+                })
+              : // Empty State - Only show when not loading and no properties
+                !showLoadingSkeletons && (
+                  <div className="col-span-3 text-center py-16">
+                    <div
+                      className="text-xl font-semibold mb-2"
+                      style={{ color: colors.heading }}
+                    >
+                      No properties found
+                    </div>
+                    <p style={{ color: colors.body }}>
+                      Try searching for a different city or check your spelling.
+                    </p>
+                  </div>
+                )}
         </div>
 
         {/* Mobile View All - Only show when we have properties */}
@@ -486,13 +517,14 @@ export default function FeaturedListings({
             transform: translateY(0);
           }
         }
-        
+
         .animate-pulse {
           animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
-        
+
         @keyframes pulse {
-          0%, 100% {
+          0%,
+          100% {
             opacity: 1;
           }
           50% {
