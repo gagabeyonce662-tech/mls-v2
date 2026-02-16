@@ -5,16 +5,16 @@ import BlogCard from "./blog/BlogCard";
 import AdCard from "./blog/AdCard";
 import FeaturedPost from "./blog/FeaturedPost";
 import Newsletter from "./blog/Newsletter";
-import { fetchBlogPosts } from "../../utils/api";
-import { BlogPost } from "../../types/blogPost";
+import { fetchVlogPosts } from "@/lib/api";
+import { BlogPost } from "@/types/blogPost";
 
 export default function BlogContent() {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
 
   useEffect(() => {
     const getBlogPosts = async () => {
-      const data = await fetchBlogPosts();
-      setBlogPosts(data);
+      const data = await fetchVlogPosts();
+      setBlogPosts(data as unknown as BlogPost[]);
     };
     getBlogPosts();
   }, []);
@@ -29,7 +29,9 @@ export default function BlogContent() {
           <div className="space-y-8">
             {featuredPost && <FeaturedPost post={featuredPost} />}
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Latest Articles</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                Latest Articles
+              </h2>
               <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                 {regularPosts.map((post) => (
                   <BlogCard key={post.id} post={post} />

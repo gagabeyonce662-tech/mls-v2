@@ -1,297 +1,71 @@
-// app/components/NewlyListedListings.tsx
+// components/homepage/NewlyListedListings.tsx
 "use client";
 
 import Link from "next/link";
-import { Bed, Bath, Loader2, ChevronRight, Calendar } from "lucide-react";
+import { ChevronRight, Calendar } from "lucide-react";
 import { colors } from "@/config/design-system";
-import { Property } from "@/lib/api";
+import { fetchNewlyListedProperties, type Property } from "@/lib/api";
 import { useState, useEffect } from "react";
+import PropertyCard from "@/components/PropertyCard";
 
 interface NewlyListedListingsProps {
   searchQuery?: string;
-  showLimit?: number; // How many properties to show
+  showLimit?: number;
 }
 
 export default function NewlyListedListings({
   searchQuery = "",
   showLimit = 6,
 }: NewlyListedListingsProps) {
-  const [clickedProperty, setClickedProperty] = useState<string | null>(null);
-  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
-  const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
 
-  // Fetch newly listed properties from the API
   useEffect(() => {
-    const fetchNewlyListedProperties = async () => {
+    const load = async () => {
       setIsLoading(true);
       try {
-        const url = `https://staging.vsell4u.ca/api/mls/properties/newly-listed-properties/`;
-        console.log('Fetching newly listed properties from:', url);
-        
-        const response = await fetch(url, { 
-          cache: 'no-store',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
-        
-        console.log('Response status:', response.status);
-        
-        if (!response.ok) {
-          throw new Error(`API Error: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        console.log('API response data:', result);
-        
-        // Handle different response formats
-        let propertiesData: any[] = [];
-        
-        if (result.results && Array.isArray(result.results)) {
-          propertiesData = result.results;
-        } else if (result.data && Array.isArray(result.data)) {
-          propertiesData = result.data;
-        } else if (Array.isArray(result)) {
-          propertiesData = result;
-        } else {
-          console.warn('Unexpected API response format:', result);
-        }
-        
-        setProperties(propertiesData);
+        const response = await fetchNewlyListedProperties({ limit: showLimit });
+        setProperties(response.results || []);
       } catch (error) {
-        console.error('Error fetching newly listed properties:', error);
+        console.error("Error fetching newly listed properties:", error);
         setIsError(true);
       } finally {
         setIsLoading(false);
       }
     };
-
-    fetchNewlyListedProperties();
-  }, []); // Empty dependency array - fetches once on mount
-
-  // Gradually load cards with staggered animation
-  useEffect(() => {
-    if (!isLoading && properties.length > 0) {
-      // Load cards gradually
-      const timer = setTimeout(() => {
-        const propertyKeys = properties.slice(0, showLimit).map(property => getPropertyKey(property));
-        
-        propertyKeys.forEach((propertyKey, index) => {
-          setTimeout(() => {
-            setLoadedCards(prev => {
-              const newSet = new Set(prev);
-              newSet.add(propertyKey);
-              return newSet;
-            });
-          }, 100 + (index * 100)); // Staggered delay
-        });
-      }, 100); // Small delay before starting
-
-      return () => clearTimeout(timer);
-    }
-  }, [properties, isLoading, showLimit]);
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
-
-  const getPropertyKey = (property: any) => {
-    return (
-      property.listing_key ||
-      property.PropertyKey ||
-      `property-${property.city || property.City || "unknown"}-${
-        property.ListPrice || property.list_price || "0"
-      }`
-    );
-  };
-
-  const getDisplayPrice = (property: any) => {
-    const possible =
-      property.list_price ??
-      property.ListPrice ??
-      property.ListPriceNumeric ??
-      0;
-
-    if (typeof possible === "string") {
-      const parsed = parseFloat(possible.replace(/[^0-9.-]+/g, ""));
-      return Number.isFinite(parsed) ? parsed : 0;
-    }
-    if (typeof possible === "number") return possible;
-    return 0;
-  };
-
-  const getDisplayCity = (property: any) => {
-    return property.city || property.City || "Unknown City";
-  };
-
-  const getDisplayPropertyType = (property: any) => {
-    return (
-      property.category_type ||
-      property.PropertySubType ||
-      "Property"
-    );
-  };
-
-  const getBedCount = (property: any) => {
-    return property.bedrooms_total ?? property.BedroomsTotal ?? 0;
-  };
-
-  const getBathCount = (property: any) => {
-    return (
-      property.bathrooms_total_integer ??
-      property.BathroomsTotalInteger ??
-      0
-    );
-  };
-
-  const getStatus = (property: any) => {
-    return (
-      property.standard_status ||
-      property.StandardStatus ||
-      "For Sale"
-    );
-  };
-
-  const getListingDate = (property: any) => {
-    // Try to get listing date from various field names
-    const possibleFields = [
-      property.listing_date,
-      property.ListingDate,
-      property.list_date,
-      property.ListDate,
-      property.ModificationTimestamp,
-      property.created_at,
-      property.CreatedAt,
-    ];
-    
-    for (const field of possibleFields) {
-      if (field) {
-        // Format the date nicely
-        const date = new Date(field);
-        if (!isNaN(date.getTime())) {
-          return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          });
-        }
-      }
-    }
-    
-    return "Recently listed";
-  };
-
-  const getThumbnail = (property: any): string | null => {
-    const candidateFields = [
-      property.photos,
-      property.Photos,
-      property.media,
-      property.Media,
-      property.images,
-      property.Images,
-    ];
-
-    for (const field of candidateFields) {
-      if (!field) continue;
-
-      if (Array.isArray(field) && field.length > 0) {
-        const first = field[0];
-        if (typeof first === "string" && first.trim() !== "") return first;
-        if (typeof first === "object" && first !== null) {
-          const keys = [
-            "url",
-            "media_url",
-            "MediaURL",
-            "MediaUrl",
-            "src",
-            "thumbnail",
-            "thumbnailUrl",
-            "ImageURL",
-            "imageUrl",
-          ];
-          for (const k of keys) {
-            if (first[k]) return first[k];
-          }
-        }
-      }
-
-      if (typeof field === "object" && !Array.isArray(field)) {
-        const keys = [
-          "url",
-          "media_url",
-          "MediaURL",
-          "MediaUrl",
-          "src",
-          "thumbnail",
-          "thumbnailUrl",
-          "ImageURL",
-          "imageUrl",
-        ];
-        for (const k of keys) {
-          if (field[k]) return field[k];
-        }
-      }
-
-      if (typeof field === "string" && field.trim() !== "") return field;
-    }
-
-    return null;
-  };
-
-  const handlePropertyClick = (propertyKey: string) => {
-    setClickedProperty(propertyKey);
-  };
-
-  const handleImageLoad = (propertyKey: string) => {
-    setLoadedImages(prev => new Set(prev).add(propertyKey));
-  };
-
-  const isCardLoaded = (property: any) => {
-    return loadedCards.has(getPropertyKey(property));
-  };
-
-  const isImageLoaded = (propertyKey: string) => {
-    return loadedImages.has(propertyKey);
-  };
-
-  // Show loading skeletons if data is still loading
-  const showLoadingSkeletons = isLoading;
+    load();
+  }, [showLimit]);
 
   return (
-    <div className="py-8">
+    <div className="py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-5 h-5" style={{ color: colors.primary }} />
-              <h2 className="text-2xl font-bold" style={{ color: colors.heading }}>
+              <h2
+                className="text-2xl font-bold"
+                style={{ color: colors.heading }}
+              >
                 {searchQuery || "Newly Listed Properties"}
               </h2>
             </div>
             <p style={{ color: colors.body }}>
-              {showLoadingSkeletons
+              {isLoading
                 ? "Finding new listings..."
                 : `${properties.length} new properties available`}
             </p>
           </div>
 
-          {!showLoadingSkeletons && properties.length > 0 && (
+          {!isLoading && properties.length > 0 && (
             <Link
               href="/new-listings"
-              className="inline-flex items-center justify-center h-10 px-4 rounded-lg text-sm font-medium shadow-lg transition-all hover:scale-105"
+              className="hidden sm:inline-flex items-center justify-center h-10 px-5 rounded-lg text-sm font-medium shadow-lg transition-all hover:scale-105"
               style={{
                 backgroundColor: colors.primary,
                 color: colors.cards,
-                border: `1px solid ${colors.primary}`,
               }}
             >
               View All New Listings
@@ -303,7 +77,10 @@ export default function NewlyListedListings({
         {/* Error State */}
         {isError && (
           <div className="text-center py-16">
-            <div className="text-xl font-semibold mb-2" style={{ color: colors.heading }}>
+            <div
+              className="text-xl font-semibold mb-2"
+              style={{ color: colors.heading }}
+            >
               Error loading newly listed properties
             </div>
             <p style={{ color: colors.body }}>
@@ -312,245 +89,88 @@ export default function NewlyListedListings({
           </div>
         )}
 
-        {/* Grid - Always show cards immediately */}
+        {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Show skeletons while loading or show actual properties */}
-          {showLoadingSkeletons ? (
-            // Loading Skeletons
-            [...Array(showLimit)].map((_, index) => (
-              <div
-                key={`skeleton-${index}`}
-                className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse min-h-[380px]"
-              >
-                {/* Image skeleton */}
-                <div 
-                  className="h-56 w-full" 
-                  style={{ backgroundColor: colors.boarder }}
-                />
-                
-                {/* Content skeleton */}
-                <div className="p-5 space-y-3">
-                  <div className="h-5 w-3/4 rounded" style={{ backgroundColor: colors.boarder }} />
-                  <div className="h-7 w-1/2 rounded" style={{ backgroundColor: colors.boarder }} />
-                  <div className="flex gap-4 mt-4">
-                    <div className="h-4 w-16 rounded" style={{ backgroundColor: colors.boarder }} />
-                    <div className="h-4 w-16 rounded" style={{ backgroundColor: colors.boarder }} />
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : properties.length > 0 ? (
-            // Actual Property Cards
-            properties.slice(0, showLimit).map((property, index) => {
-              const propertyKey = getPropertyKey(property);
-              const displayPrice = getDisplayPrice(property);
-              const displayCity = getDisplayCity(property);
-              const displayPropertyType = getDisplayPropertyType(property);
-              const bedCount = getBedCount(property);
-              const bathCount = getBathCount(property);
-              const status = getStatus(property);
-              const listingDate = getListingDate(property);
-              const thumbnail = getThumbnail(property);
-              const isClicked = clickedProperty === propertyKey;
-              const cardLoaded = isCardLoaded(property);
-              const imageLoaded = isImageLoaded(propertyKey);
-
-              return (
+          {isLoading
+            ? [...Array(showLimit)].map((_, i) => (
                 <div
-                  key={propertyKey}
-                  className={`bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all relative min-h-[380px] ${
-                    cardLoaded ? 'opacity-100' : 'opacity-70'
-                  }`}
-                  style={{
-                    animationDelay: `${index * 0.1}s`,
-                    animation: cardLoaded ? 'fadeInUp 0.3s ease-out forwards' : 'none'
-                  }}
+                  key={`skeleton-${i}`}
+                  className="rounded-2xl overflow-hidden animate-pulse"
+                  style={{ border: `1px solid ${colors.cardsBoarder}` }}
                 >
-                  {/* New Listing Badge */}
-                  <div className="absolute top-4 left-4 z-10">
-                    <span
-                      className="px-3 py-1 rounded-full text-sm font-medium"
-                      style={{
-                        backgroundColor: colors.primary,
-                        color: "#ffffff",
-                      }}
-                    >
-                      New Listing
-                    </span>
-                  </div>
-
-                  {/* Click Loading Overlay */}
-                  {isClicked && (
-                    <div className="absolute inset-0 bg-white/80 z-20 flex items-center justify-center">
-                      <div className="flex flex-col items-center">
-                        <Loader2 className="w-8 h-8 animate-spin" style={{ color: colors.primary }} />
-                        <span className="mt-2 text-sm" style={{ color: colors.body }}>
-                          Loading property...
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Card Container - Always visible */}
-                  <Link
-                    href={`/listing/${propertyKey}`}
-                    onClick={() => handlePropertyClick(propertyKey)}
-                    className={isClicked ? "pointer-events-none" : ""}
-                  >
-                    {/* Image Section */}
+                  <div
+                    className="h-56 w-full"
+                    style={{ backgroundColor: colors.boarder }}
+                  />
+                  <div className="p-4 space-y-3 bg-white">
                     <div
-                      className="relative h-56 overflow-hidden"
-                      style={{ backgroundColor: colors.cardsBoarder }}
-                    >
-                      {/* Image Loading State */}
-                      {thumbnail && !imageLoaded && (
-                        <div className="absolute inset-0 flex items-center justify-center z-10">
-                          <Loader2 className="w-6 h-6 animate-spin" style={{ color: colors.primary }} />
-                        </div>
-                      )}
-
-                      {/* Blurred background placeholder */}
-                      {thumbnail && (
-                        <div 
-                          className="absolute inset-0 blur-sm opacity-30"
-                          style={{
-                            backgroundImage: `url(${thumbnail})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center'
-                          }}
-                        />
-                      )}
-
-                      {/* Actual Image - Fades in when loaded */}
-                      {thumbnail ? (
-                        <img
-                          src={thumbnail}
-                          alt={`New property in ${displayCity}`}
-                          className={`w-full h-full object-cover transition-opacity duration-700 ${
-                            imageLoaded ? 'opacity-100' : 'opacity-0'
-                          }`}
-                          loading="lazy"
-                          onLoad={() => handleImageLoad(propertyKey)}
-                          onError={() => handleImageLoad(propertyKey)}
-                        />
-                      ) : (
-                        <div
-                          className={`w-full h-full flex flex-col items-center justify-center px-4 transition-opacity duration-500 ${
-                            cardLoaded ? 'opacity-100' : 'opacity-0'
-                          }`}
-                          style={{
-                            backgroundColor: colors.boarder,
-                            color: colors.body,
-                          }}
-                        >
-                          <div className="text-sm font-medium">No Image Available</div>
-                          <div className="text-xs mt-1">—</div>
-                        </div>
-                      )}
-
-                      {/* Status Badge - Shows with fade-in */}
-                      <div className={`absolute bottom-4 left-4 transition-opacity duration-500 ${
-                        cardLoaded ? 'opacity-100' : 'opacity-0'
-                      }`}>
-                        <span
-                          className="px-3 py-1 rounded-full text-sm font-medium"
-                          style={{
-                            backgroundColor:
-                              status === "Active"
-                                ? "#10b981"
-                                : status === "Pending"
-                                ? "#facc15"
-                                : "#6b7280",
-                            color: "#ffffff",
-                          }}
-                        >
-                          {status}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Content Section */}
-                    <div className="p-5">
-                      {/* Title and Date */}
-                      <div className="flex justify-between items-start mb-2">
-                        <h3
-                          className={`font-semibold truncate transition-opacity duration-500 ${
-                            cardLoaded ? 'opacity-100' : 'opacity-0'
-                          }`}
-                          style={{ color: colors.heading }}
-                        >
-                          {displayPropertyType} in {displayCity}
-                        </h3>
-                        <div className={`text-xs transition-opacity duration-500 flex items-center gap-1 ${
-                          cardLoaded ? 'opacity-100' : 'opacity-0'
-                        }`}
-                        style={{ color: colors.body }}>
-                          <Calendar className="w-3 h-3" />
-                          {listingDate}
-                        </div>
-                      </div>
-
-                      {/* Price */}
-                      <p
-                        className={`text-xl font-bold mb-2 transition-opacity duration-500 ${
-                          cardLoaded ? 'opacity-100' : 'opacity-0'
-                        }`}
-                        style={{ color: colors.primary }}
-                      >
-                        {formatPrice(displayPrice)}
-                      </p>
-
-                      {/* Features */}
+                      className="h-5 w-1/2 rounded"
+                      style={{ backgroundColor: colors.boarder }}
+                    />
+                    <div
+                      className="h-4 w-3/4 rounded"
+                      style={{ backgroundColor: colors.boarder }}
+                    />
+                    <div
+                      className="h-3 w-full rounded"
+                      style={{ backgroundColor: colors.boarder }}
+                    />
+                    <div
+                      className="border-t my-2"
+                      style={{ borderColor: colors.cardsBoarder }}
+                    />
+                    <div className="flex gap-4">
                       <div
-                        className={`flex items-center gap-4 text-sm transition-opacity duration-500 ${
-                          cardLoaded ? 'opacity-100' : 'opacity-0'
-                        }`}
-                        style={{ color: colors.body }}
-                      >
-                        {bedCount > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Bed className="w-4 h-4" />
-                            <span>{bedCount} Beds</span>
-                          </div>
-                        )}
-
-                        {bathCount > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Bath className="w-4 h-4" />
-                            <span>{bathCount} Baths</span>
-                          </div>
-                        )}
-                      </div>
+                        className="h-4 w-14 rounded"
+                        style={{ backgroundColor: colors.boarder }}
+                      />
+                      <div
+                        className="h-4 w-14 rounded"
+                        style={{ backgroundColor: colors.boarder }}
+                      />
                     </div>
-                  </Link>
+                  </div>
                 </div>
-              );
-            })
-          ) : (
-            // Empty State - Only show when not loading and no properties
-            !showLoadingSkeletons && (
-              <div className="col-span-3 text-center py-16">
-                <div className="text-xl font-semibold mb-2" style={{ color: colors.heading }}>
-                  No newly listed properties found
-                </div>
-                <p style={{ color: colors.body }}>
-                  Check back soon for new property listings.
-                </p>
-              </div>
-            )
-          )}
+              ))
+            : properties.length > 0
+              ? properties
+                  .slice(0, showLimit)
+                  .map((property, index) => (
+                    <PropertyCard
+                      key={
+                        property.listing_key ||
+                        property.PropertyKey ||
+                        `new-${index}`
+                      }
+                      property={property}
+                      variant="new"
+                      index={index}
+                    />
+                  ))
+              : !isLoading && (
+                  <div className="col-span-3 text-center py-16">
+                    <div
+                      className="text-xl font-semibold mb-2"
+                      style={{ color: colors.heading }}
+                    >
+                      No newly listed properties found
+                    </div>
+                    <p style={{ color: colors.body }}>
+                      Check back soon for new property listings.
+                    </p>
+                  </div>
+                )}
         </div>
 
-        {/* Mobile View All - Only show when we have properties */}
-        {!showLoadingSkeletons && properties.length > 0 && (
-          <div className="mt-8 text-center lg:hidden">
+        {/* Mobile View All */}
+        {!isLoading && properties.length > 0 && (
+          <div className="mt-8 text-center sm:hidden">
             <Link
               href="/new-listings"
-              className="inline-flex items-center justify-center h-10 px-4 rounded-lg text-sm font-medium shadow-lg transition-all"
+              className="inline-flex items-center justify-center h-10 px-5 rounded-lg text-sm font-medium shadow-lg transition-all"
               style={{
                 backgroundColor: colors.primary,
                 color: colors.cards,
-                border: `1px solid ${colors.primary}`,
               }}
             >
               View All New Listings
@@ -559,33 +179,6 @@ export default function NewlyListedListings({
           </div>
         )}
       </div>
-
-      {/* Add CSS animation */}
-      <style jsx global>{`
-        @keyframes fadeInUp {
-          from {
-            opacity: 0.7;
-            transform: translateY(5px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        .animate-pulse {
-          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        
-        @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
-        }
-      `}</style>
     </div>
   );
 }

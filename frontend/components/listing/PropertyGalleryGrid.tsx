@@ -3,18 +3,17 @@
 
 import React from "react";
 import FullGalleryModal from "./FullGalleryModal";
+import { motion } from "framer-motion";
 
 interface Props {
   images: string[];
-  // optional className to allow small tweaks from parent
   className?: string;
 }
 
-export default function PropertyGalleryGrid({ images = [], className = "" }: Props) {
-  // Prepare first 4 slots for the grid UI
-  const slots = new Array(4).fill(null as string | null);
-  for (let i = 0; i < Math.min(images.length, 4); i++) slots[i] = images[i];
-
+export default function PropertyGalleryGrid({
+  images = [],
+  className = "",
+}: Props) {
   const [modalOpen, setModalOpen] = React.useState(false);
   const [startIndex, setStartIndex] = React.useState(0);
 
@@ -23,171 +22,151 @@ export default function PropertyGalleryGrid({ images = [], className = "" }: Pro
     setModalOpen(true);
   };
 
+  if (images.length === 0) return null;
+
+  // Single image layout
+  if (images.length === 1) {
+    return (
+      <div
+        className={`w-full aspect-[21/9] rounded-xl overflow-hidden cursor-pointer group ${className}`}
+        onClick={() => openAt(0)}
+      >
+        <motion.img
+          whileHover={{ scale: 1.05 }}
+          transition={{ duration: 0.6 }}
+          src={images[0]}
+          alt="Property"
+          className="w-full h-full object-cover"
+        />
+        <FullGalleryModal
+          images={images}
+          startIndex={startIndex}
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+        />
+      </div>
+    );
+  }
+
+  // Two images layout
+  if (images.length === 2) {
+    return (
+      <div
+        className={`grid grid-cols-2 gap-4 w-full aspect-[21/9] rounded-xl overflow-hidden ${className}`}
+      >
+        {images.map((src, i) => (
+          <div
+            key={i}
+            className="relative overflow-hidden cursor-pointer group"
+            onClick={() => openAt(i)}
+          >
+            <motion.img
+              whileHover={{ scale: 1.05 }}
+              transition={{ duration: 0.6 }}
+              src={src}
+              alt={`Property ${i}`}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ))}
+        <FullGalleryModal
+          images={images}
+          startIndex={startIndex}
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+        />
+      </div>
+    );
+  }
+
+  // default grid for 3+ images
   return (
     <>
       <div
-        className={`w-full rounded-lg overflow-hidden ${className}`}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr",
-          gridTemplateRows: "1fr 1fr",
-          gap: 16,
-        }}
+        className={`w-full aspect-[21/9] grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-3 rounded-xl overflow-hidden ${className}`}
       >
-        {/* Left hero: occupies both rows */}
+        {/* Main image */}
         <div
           onClick={() => openAt(0)}
-          role="button"
-          className="relative rounded-lg overflow-hidden cursor-pointer"
-          style={{
-            gridColumn: "1 / 2",
-            gridRow: "1 / 3",
-            minHeight: 320,
-            display: "block",
-          }}
+          className="md:col-span-2 md:row-span-2 relative overflow-hidden cursor-pointer group"
         >
-          {slots[0] ? (
-            <img
-              src={slots[0]}
-              alt="Property main"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                display: "block",
-                aspectRatio: "16/9",
-              }}
-              draggable={false}
-            />
-          ) : (
-            <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500" style={{ minHeight: 320 }}>
-              No image
-            </div>
-          )}
-
-          <div className="absolute left-4 bottom-4 bg-white/90 px-3 py-1 rounded-full text-sm font-semibold shadow">
+          <motion.img
+            whileHover={{ scale: 1.05 }}
+            transition={{ duration: 0.6 }}
+            src={images[0]}
+            alt="Property hero"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
+          <div className="absolute left-4 bottom-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
             For Sale
           </div>
         </div>
 
-        {/* Right top: wide thumbnail */}
+        {/* Second image */}
         <div
           onClick={() => openAt(1)}
-          role="button"
-          className="relative rounded-lg overflow-hidden cursor-pointer"
-          style={{
-            gridColumn: "2 / 3",
-            gridRow: "1 / 2",
-            minHeight: 160,
-            display: "block",
-          }}
+          className="md:col-span-1 md:row-span-1 border-gray-400 relative overflow-hidden cursor-pointer group"
         >
-          {slots[1] ? (
-            <img
-              src={slots[1]}
-              alt="Thumb 1"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                display: "block",
-                aspectRatio: "4/3",
-              }}
-              draggable={false}
-            />
+          <motion.img
+            whileHover={{ scale: 1.05 }}
+            transition={{ duration: 0.6 }}
+            src={images[1]}
+            alt="Property thumb 1"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
+        </div>
+
+        {/* Third image */}
+        <div
+          onClick={() => openAt(2)}
+          className="md:col-span-1 md:row-span-1 relative overflow-hidden cursor-pointer group"
+        >
+          <motion.img
+            whileHover={{ scale: 1.05 }}
+            transition={{ duration: 0.6 }}
+            src={images[2]}
+            alt="Property thumb 2"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
+        </div>
+
+        {/* Fourth image / See more */}
+        <div
+          onClick={() => openAt(3)}
+          className="md:col-span-2 md:row-span-1 relative overflow-hidden cursor-pointer group"
+        >
+          {images[3] ? (
+            <>
+              <motion.img
+                whileHover={{ scale: 1.05 }}
+                transition={{ duration: 0.6 }}
+                src={images[3]}
+                alt="Property thumb 3"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex items-center justify-center">
+                <span className="text-white font-bold text-lg md:text-xl">
+                  +{images.length - 3} Photos
+                </span>
+              </div>
+            </>
           ) : (
-            <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500" style={{ minHeight: 160 }}>
+            <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400">
               Coming soon
             </div>
           )}
-
-          {slots[1] && (
-            <div className="absolute left-2 top-2 bg-black/50 text-white text-xs px-2 py-1 rounded">Virtual Tour</div>
-          )}
-        </div>
-
-        {/* Right bottom: two thumbnails side-by-side within the right column */}
-        <div
-          className="relative"
-          style={{
-            gridColumn: "2 / 3",
-            gridRow: "2 / 3",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 16,
-            alignItems: "stretch",
-          }}
-        >
-          {/* Bottom-left thumbnail */}
-          <div
-            onClick={() => openAt(2)}
-            role="button"
-            className="relative rounded-lg overflow-hidden cursor-pointer"
-            style={{ minHeight: 120, display: "block" }}
-          >
-            {slots[2] ? (
-              <img
-                src={slots[2]}
-                alt="Thumb 2"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  display: "block",
-                  aspectRatio: "4/3",
-                }}
-                draggable={false}
-              />
-            ) : (
-              <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500" style={{ minHeight: 120 }}>
-                Coming soon
-              </div>
-            )}
-          </div>
-
-          {/* Bottom-right thumbnail with "See all" badge */}
-          <div
-            onClick={() => openAt(3)}
-            role="button"
-            className="relative rounded-lg overflow-hidden cursor-pointer"
-            style={{ minHeight: 120, display: "block" }}
-          >
-            {slots[3] ? (
-              <img
-                src={slots[3]}
-                alt="Thumb 3"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  display: "block",
-                  aspectRatio: "4/3",
-                }}
-                draggable={false}
-              />
-            ) : (
-              <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-500" style={{ minHeight: 120 }}>
-                Coming soon
-              </div>
-            )}
-
-            <div className="absolute right-3 bottom-3">
-              <button
-                className="bg-teal-400 text-white text-xs px-3 py-1 rounded-full shadow focus:outline-none"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openAt(0);
-                }}
-              >
-                See all {Math.max(images.length, 0)} photos
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Modal */}
-      <FullGalleryModal images={images} startIndex={startIndex} open={modalOpen} onClose={() => setModalOpen(false)} />
+      <FullGalleryModal
+        images={images}
+        startIndex={startIndex}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+      />
     </>
   );
 }
