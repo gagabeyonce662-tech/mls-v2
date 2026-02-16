@@ -1094,3 +1094,80 @@ export async function fetchNewlyListedProperties(
 
   return await fetchAPI(url, { cache: "no-store" });
 }
+
+// -----------------------------------------------------------------------------
+// Admin CRUD Operations
+// -----------------------------------------------------------------------------
+
+export async function createProperty(data: FormData): Promise<any> {
+  const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/`;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      body: data,
+      // Note: Do not set Content-Type header when sending FormData,
+      // the browser sets it automatically with the boundary
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to create property: ${response.status} ${errorText}`,
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error creating property:", error);
+    throw error;
+  }
+}
+
+export async function updateProperty(
+  imgKey: string,
+  data: FormData,
+): Promise<any> {
+  // Note: The endpoint might differ based on backend implementation
+  // Assuming PUT /api/mls/properties/exclusive-properties/{imgKey}/
+  const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${imgKey}/`;
+  try {
+    const response = await fetch(url, {
+      method: "PUT", // or PATCH
+      body: data,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to update property: ${response.status} ${errorText}`,
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error updating property:", error);
+    throw error;
+  }
+}
+
+export async function deleteProperty(listingKey: string): Promise<boolean> {
+  const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${listingKey}/`;
+  try {
+    const response = await fetch(url, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(
+        `Failed to delete property: ${response.status} ${errorText}`,
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error deleting property:", error);
+    return false;
+  }
+}
