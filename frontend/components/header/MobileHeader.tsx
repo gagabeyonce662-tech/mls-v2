@@ -2,7 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, User, X, MapPin, ChevronDown, HomeIcon } from "lucide-react";
+import {
+  Menu,
+  User,
+  X,
+  MapPin,
+  ChevronDown,
+  HomeIcon,
+  LogOut,
+  LayoutDashboard,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -13,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { colors } from "@/config/design-system";
 import { useProvince } from "@/contexts/ProvinceContext";
+import { useUserAuth } from "@/contexts/UserAuthContext";
 
 interface MobileHeaderProps {
   navigation: { name: string; href: string }[];
@@ -26,6 +36,7 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
     getProvinceName,
     getAllProvinces,
   } = useProvince();
+  const { user, logout } = useUserAuth();
 
   return (
     <header className="lg:hidden absolute top-0 left-0 right-0 z-50 bg-white shadow-sm">
@@ -54,6 +65,21 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
                 <X className="w-5 h-5" style={{ color: colors.heading }} />
               </Button>
             </div>
+
+            {/* Profile Section if logged in */}
+            {user && (
+              <div className="mb-6 pb-6 border-b border-ds-card-border">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-ds-card rounded-full flex items-center justify-center border border-ds-card-border">
+                    <User className="h-6 w-6 text-ds-primary" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-ds-heading">{user.name}</div>
+                    <div className="text-xs text-ds-body">{user.email}</div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Province Selector for Mobile */}
             <div className="mb-6">
@@ -114,21 +140,60 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
                   {item.name}
                 </Link>
               ))}
+              {user && (
+                <Link
+                  href="/admin"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center space-x-2 text-lg font-medium transition-all"
+                  style={{ color: colors.body }}
+                >
+                  <LayoutDashboard className="w-5 h-5" />
+                  <span>Admin Panel</span>
+                </Link>
+              )}
             </nav>
 
             <div
               className="mt-8 border-t pt-4 space-y-3"
               style={{ borderColor: colors.boarder }}
             >
-              <Button className="w-full" variant="outline">
-                Login
-              </Button>
-              <Button
-                className="w-full font-semibold"
-                style={{ backgroundColor: colors.icon, color: colors.cards }}
-              >
-                Get Started
-              </Button>
+              {user ? (
+                <Button
+                  className="w-full text-red-600 border-red-100 hover:bg-red-50 hover:text-red-700"
+                  variant="outline"
+                  onClick={logout}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log Out
+                </Button>
+              ) : (
+                <>
+                  <Link
+                    href="/sign-in"
+                    onClick={() => setIsOpen(false)}
+                    className="block"
+                  >
+                    <Button className="w-full" variant="outline">
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link
+                    href="/sign-up"
+                    onClick={() => setIsOpen(false)}
+                    className="block"
+                  >
+                    <Button
+                      className="w-full font-semibold shadow-md active:scale-[0.98] transition-transform"
+                      style={{
+                        backgroundColor: colors.primary,
+                        color: colors.cards,
+                      }}
+                    >
+                      Join EstateforYou
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </SheetContent>
         </Sheet>

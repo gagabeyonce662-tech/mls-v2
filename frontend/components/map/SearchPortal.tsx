@@ -1,13 +1,9 @@
 // components/map/SearchPortal.tsx
 import React from "react";
 import ReactDOM from "react-dom";
-
-export type NominatimResult = {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-};
+import { NominatimResult } from "./types";
+import { MapPin } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ResultsPortalProps {
   anchorRect: DOMRect | null;
@@ -22,49 +18,48 @@ export const ResultsPortal: React.FC<ResultsPortalProps> = ({
 }) => {
   if (typeof window === "undefined" || !anchorRect) return null;
 
-  const style: React.CSSProperties = {
-    position: "absolute",
-    left: Math.max(8, anchorRect.left) + "px",
-    top: anchorRect.bottom + window.scrollY + 6 + "px",
-    width: Math.min(anchorRect.width, window.innerWidth - 16) + "px",
-    maxHeight: "320px",
-    overflow: "auto",
-    background: "white",
-    borderRadius: 8,
-    boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
-    zIndex: 999999,
-    border: "1px solid rgba(0,0,0,0.06)",
-  };
+  const top = anchorRect.bottom + window.scrollY + 8;
+  const left = Math.max(16, anchorRect.left);
+  const width = Math.min(anchorRect.width, window.innerWidth - 32);
 
   return ReactDOM.createPortal(
-    <div style={style} role="listbox">
-      {results.map((r) => (
-        <button
-          key={r.place_id}
-          onClick={() => onSelect(r)}
-          style={{
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            padding: "10px 12px",
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "#f3f4f6";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "transparent";
-          }}
-        >
-          <div style={{ fontSize: 14, color: "#111" }}>{r.display_name}</div>
-          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
-            {`${r.lat.slice(0, 9)}, ${r.lon.slice(0, 9)}`}
-          </div>
-        </button>
-      ))}
-    </div>,
-    document.body
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        className="fixed z-[999999] bg-white rounded-2xl shadow-2xl border border-ds-card-border overflow-hidden"
+        style={{
+          top: `${top}px`,
+          left: `${left}px`,
+          width: `${width}px`,
+          maxHeight: "400px",
+        }}
+        role="listbox"
+      >
+        <div className="overflow-y-auto no-scrollbar py-2">
+          {results.map((r) => (
+            <button
+              key={r.place_id}
+              onClick={() => onSelect(r)}
+              className="w-full px-4 py-3 flex items-start gap-3 hover:bg-ds-card transition-colors text-left"
+            >
+              <div className="mt-0.5 p-1.5 bg-gray-100 rounded-lg text-ds-primary">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-ds-heading line-clamp-1">
+                  {r.display_name.split(",")[0]}
+                </p>
+                <p className="text-xs text-ds-body line-clamp-1 opacity-70 mt-0.5 font-medium">
+                  {r.display_name.split(",").slice(1).join(",").trim()}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </motion.div>
+    </AnimatePresence>,
+    document.body,
   );
 };

@@ -2,16 +2,26 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { HomeIcon, MapPin, ChevronDown } from "lucide-react";
+import {
+  HomeIcon,
+  MapPin,
+  ChevronDown,
+  User,
+  LogOut,
+  LayoutDashboard,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { colors } from "@/config/design-system";
 import { useProvince } from "@/contexts/ProvinceContext";
+import { useUserAuth } from "@/contexts/UserAuthContext";
 
 interface DesktopHeaderProps {
   navigation: { name: string; href: string }[];
@@ -20,6 +30,7 @@ interface DesktopHeaderProps {
 export function DesktopHeader({ navigation }: DesktopHeaderProps) {
   const { selectedProvince, setSelectedProvince, getAllProvinces } =
     useProvince();
+  const { user, logout } = useUserAuth();
 
   return (
     <motion.header
@@ -98,8 +109,68 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
             ))}
           </nav>
 
-          {/* 📞 Login Button */}
-          <div className="flex items-center space-x-3"></div>
+          {/* 📞 Auth Buttons / User Menu */}
+          <div className="flex items-center space-x-3">
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="relative h-10 w-10 rounded-full bg-ds-card border border-ds-card-border"
+                  >
+                    <User className="h-5 w-5 text-ds-primary" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {user.name}
+                      </p>
+                      <p className="text-xs leading-none text-ds-body">
+                        {user.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <Link href="/admin">
+                    <DropdownMenuItem className="cursor-pointer">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      <span>Admin Dashboard</span>
+                    </DropdownMenuItem>
+                  </Link>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={logout}
+                    className="cursor-pointer text-red-600 focus:text-red-700 focus:bg-red-50"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Link href="/sign-in">
+                  <Button
+                    variant="ghost"
+                    className="text-sm font-semibold text-ds-heading hover:bg-ds-card"
+                  >
+                    Sign In
+                  </Button>
+                </Link>
+                <Link href="/sign-up">
+                  <Button className="text-sm font-semibold h-9 px-4">
+                    Join
+                  </Button>
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </motion.header>
