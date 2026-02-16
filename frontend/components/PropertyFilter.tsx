@@ -2,17 +2,15 @@
 
 import { useState, useCallback } from "react";
 import {
-  ChevronDown,
+  Sparkles,
   SlidersHorizontal,
+  RotateCcw,
   Home,
   DollarSign,
   BedDouble,
   Bath,
   Maximize2,
   LandPlot,
-  RotateCcw,
-  Sparkles,
-  Check,
 } from "lucide-react";
 import { colors } from "@/config/design-system";
 import {
@@ -28,176 +26,9 @@ interface PropertyFilterProps {
   onPropertiesUpdate?: (properties: any[], query: string) => void;
 }
 
-/* ================================================================== */
-/*  Collapsible Section                                               */
-/* ================================================================== */
-function FilterSection({
-  title,
-  icon: Icon,
-  children,
-  defaultOpen = false,
-  badge,
-}: {
-  title: string;
-  icon: React.ElementType;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-  badge?: string | number;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  return (
-    <div
-      className="rounded-xl overflow-hidden transition-all duration-300"
-      style={{
-        backgroundColor: colors.cards,
-        border: `1px solid ${colors.cardsBoarder}`,
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors duration-200 hover:bg-black/[0.02]"
-      >
-        <div className="flex items-center gap-2.5">
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: `${colors.primary}10` }}
-          >
-            <Icon className="w-3.5 h-3.5" style={{ color: colors.primary }} />
-          </div>
-          <span
-            className="text-[13px] font-semibold tracking-wide"
-            style={{ color: colors.heading }}
-          >
-            {title}
-          </span>
-          {badge !== undefined && (
-            <span
-              className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-              style={{
-                backgroundColor: colors.primary,
-                color: colors.cards,
-              }}
-            >
-              {badge}
-            </span>
-          )}
-        </div>
-        <ChevronDown
-          className="w-4 h-4 transition-transform duration-300"
-          style={{
-            color: colors.body,
-            transform: open ? "rotate(180deg)" : "rotate(0deg)",
-          }}
-        />
-      </button>
-
-      <div
-        className="transition-all duration-300 ease-in-out overflow-hidden"
-        style={{
-          maxHeight: open ? "600px" : "0px",
-          opacity: open ? 1 : 0,
-        }}
-      >
-        <div
-          className="px-4 pb-4 pt-1"
-          style={{ borderTop: `1px solid ${colors.cardsBoarder}` }}
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ================================================================== */
-/*  Pill Toggle Button                                                */
-/* ================================================================== */
-function PillButton({
-  selected,
-  onClick,
-  disabled,
-  children,
-  fullWidth = false,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-  fullWidth?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`
-        inline-flex items-center justify-center h-9 px-3.5 rounded-lg text-[13px] font-medium
-        transition-all duration-200 ease-out
-        disabled:opacity-40 disabled:cursor-not-allowed
-        ${fullWidth ? "w-full" : ""}
-        ${selected ? "shadow-md scale-[1.02]" : "hover:scale-[1.01] hover:shadow-sm"}
-      `}
-      style={{
-        backgroundColor: selected ? colors.primary : colors.cards,
-        color: selected ? "#ffffff" : colors.body,
-        border: `1.5px solid ${selected ? colors.primary : colors.cardsBoarder}`,
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-/* ================================================================== */
-/*  Styled Checkbox                                                   */
-/* ================================================================== */
-function StyledCheckbox({
-  checked,
-  onChange,
-  label,
-  disabled,
-}: {
-  checked: boolean;
-  onChange: () => void;
-  label: string;
-  disabled?: boolean;
-}) {
-  return (
-    <label
-      className={`
-        group flex items-center gap-3 py-2 px-3 rounded-lg cursor-pointer
-        transition-all duration-200
-        hover:bg-black/[0.02]
-        ${disabled ? "opacity-40 cursor-not-allowed" : ""}
-      `}
-      onClick={(e) => {
-        e.preventDefault();
-        if (!disabled) onChange();
-      }}
-    >
-      <div
-        className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all duration-200"
-        style={{
-          backgroundColor: checked ? colors.primary : "transparent",
-          border: `2px solid ${checked ? colors.primary : colors.cardsBoarder}`,
-          boxShadow: checked ? `0 2px 8px ${colors.primary}40` : "none",
-        }}
-      >
-        {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-      </div>
-      <span
-        className="text-[13px] transition-colors duration-200"
-        style={{
-          color: checked ? colors.heading : colors.body,
-          fontWeight: checked ? 600 : 400,
-        }}
-      >
-        {label}
-      </span>
-    </label>
-  );
-}
+import { FilterSection } from "@/components/ui/FilterSection";
+import { PillButton } from "@/components/ui/PillButton";
+import { StyledCheckbox } from "@/components/ui/StyledCheckbox";
 
 /* ================================================================== */
 /*  Text Input                                                        */
