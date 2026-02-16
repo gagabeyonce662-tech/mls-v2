@@ -18,7 +18,7 @@ export async function uploadPreConnProperties(
   const additionalFormFields = options?.additionalFormFields ?? {};
   const useGet = options?.useGet ?? true;
 
-  const urlBase = `${API_BASE_URL}/api/mls/properties/pre-conn-properties/`;
+  const urlBase = `${API_BASE_URL}/api/mls/properties/upload-pre-conn/`;
 
   if (useGet && file) {
     try {

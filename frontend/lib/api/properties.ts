@@ -6,6 +6,7 @@ import {
   ExclusivePropertyFilterParams,
   LeasePropertyFilterParams,
   PreConnPropertyFilterParams,
+  NearestSchoolsResponse,
 } from "./types";
 
 /**
@@ -578,4 +579,21 @@ export async function fetchNewlyListedProperties(
 
   const url = `${API_BASE_URL}/api/mls/properties/newly-listed-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
   return await fetchAPI(url, { cache: "no-store" });
+}
+
+/**
+ * Fetch nearest schools for a given location
+ */
+export async function fetchNearestSchools(
+  lat: number,
+  lon: number,
+  radius: number = 5000,
+): Promise<NearestSchoolsResponse | null> {
+  try {
+    const url = `${API_BASE_URL}/api/mls/nearest-school/?lat=${lat}&lon=${lon}&radius=${radius}`;
+    return await fetchAPI<NearestSchoolsResponse>(url, { cache: "no-store" });
+  } catch (error) {
+    console.error("Error fetching nearest schools:", error);
+    return null;
+  }
 }
