@@ -1,6 +1,6 @@
 // lib/api/types.ts
 
-// --- Sub-types for Property ---
+// --- Common Base Types ---
 
 export interface PropertyMedia {
   media_url: string;
@@ -17,99 +17,101 @@ export interface PropertyRoom {
   room_dimensions: string;
 }
 
+/**
+ * Main Property interface representing normalized MLS data.
+ * This is the primary type used throughout the frontend.
+ */
 export interface Property {
   // Core Identifiers
-  PropertyKey: string;
-  ListingKey: string;
   listing_key?: string;
+  listing_id?: string;
   listing_url?: string;
 
   // Financials
-  ListPrice: number;
-  list_price?: string;
-  OriginalListPrice?: number | null;
+  list_price?: number | string;
   total_actual_rent?: string;
+  lease_amount?: string;
+  lease_measure?: string;
 
   // Location Details
-  City: string;
-  city?: string;
-  StateOrProvince: string;
-  province?: string;
-  PostalCode?: string;
-  postal_code?: string;
   unparsed_address?: string;
   address?: string; // Normalized
+  city?: string;
+  city_region?: string;
+  province?: string;
+  state_or_province?: string;
+  postal_code?: string;
+  latitude?: string | number;
+  longitude?: string | number;
   location?: string; // Normalized
-  Latitude?: string;
-  Longitude?: string;
-  latitude?: string;
-  longitude?: string;
 
   // Physical Stats
-  PropertySubType: string;
-  PropertyType?: string;
+  property_sub_type?: string;
   category_type?: string;
-  BedroomsTotal: number;
-  bedrooms_total?: number;
-  BathroomsTotalInteger: number;
-  bathrooms_total_integer?: number;
-  building_area_total?: string | null;
-  LivingArea?: number | null;
-  YearBuilt?: number | null;
-  year_built?: string | null;
-  LotSizeArea?: number | null;
-  LotSizeDimensions?: string | null;
+  bedrooms_total?: number | string;
+  bathrooms_total_integer?: number | string;
+  building_area_total?: string | number | null;
+  year_built?: string | number | null;
+  lot_size_area?: number | null;
+  lot_size_dimensions?: string | null;
 
   // Status & Metadata
-  StandardStatus: string;
   standard_status?: string;
-  ModificationTimestamp: string;
   photos_count?: number;
-  DaysOnMarket?: number | null;
-  CumulativeDaysOnMarket?: number | null;
+  days_on_market?: number | null;
+  modification_timestamp?: string;
 
   // Features
-  Cooling?: string | null;
   cooling?: string;
-  Heating?: string | null;
+  heating?: string;
   basement?: string;
   zoning?: string;
-  Zoning?: string | null;
   parking_total?: number;
   parking_features?: string;
-  ConstructionMaterials?: string | null;
-  Architectural_Style?: string | null;
-  Utilities?: string | null;
-  WaterSource?: string | null;
-  Sewer?: string | null;
-  Foundation?: string | null;
-  Roof?: string | null;
-  InteriorFeatures?: string | null;
-  ExteriorFeatures?: string | null;
-  Appliances?: string | null;
+  construction_materials?: string;
+  architectural_style?: string;
+  utilities?: string;
+  water_source?: string;
+  sewer?: string;
+  foundation?: string;
+  roof?: string;
+  interior_features?: string;
+  exterior_features?: string;
+  appliances?: string;
 
   // Remarks
   public_remarks?: string;
-  PublicRemarks?: string;
-  PrivateRemarks?: string | null;
-  Description?: string;
-  DirectionsToProperty?: string | null;
-  Directions?: string | null;
+  private_remarks?: string | null;
+  directions?: string | null;
 
-  // Schools
-  School?: string | null;
-  ElementarySchool?: string | null;
-  MiddleSchool?: string | null;
-  HighSchool?: string | null;
-
-  // Media & Rooms (Normalized)
+  // Media & Rooms
   media?: PropertyMedia[];
   rooms?: PropertyRoom[];
-  Media?: PropertyMedia[]; // Legacy
-  Rooms?: PropertyRoom[]; // Legacy
-  Photos?: any[]; // Legacy
 
-  // Catch-all for API flexibility
+  // --- External Data Support ---
+  isFavorite?: boolean;
+
+  // --- Legacy & Raw Data Support ---
+  // These fields are often provided by the RETS/MLS source in PascalCase
+  PropertyKey?: string;
+  ListingKey?: string;
+  ListPrice?: number;
+  City?: string;
+  StateOrProvince?: string;
+  PostalCode?: string;
+  PropertySubType?: string;
+  StandardStatus?: string;
+  ModificationTimestamp?: string;
+  BedroomsTotal?: number;
+  BathroomsTotalInteger?: number;
+  YearBuilt?: number | null;
+  LivingArea?: number | null;
+  PublicRemarks?: string;
+  Photos?: any[]; // Legacy PhotoURL format
+  Media?: PropertyMedia[]; // Legacy Media format
+  Rooms?: PropertyRoom[]; // Legacy Rooms format
+
+  // Catch-all for API flexibility and raw spread data
   [key: string]: any;
 }
 
@@ -135,6 +137,7 @@ export interface BaseFilterParams {
   standard_status?: string;
   limit?: number;
   offset?: number;
+  search?: string;
 }
 
 export interface PropertyFilterParams extends BaseFilterParams {

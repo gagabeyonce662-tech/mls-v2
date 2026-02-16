@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { fetchFilteredProperties, mapPropertyFromAPI } from "@/lib/api";
-import { PropertyMarker, ApiProperty } from "@/components/map/types";
+import { PropertyMarker } from "@/components/map/types";
+import { Property } from "@/lib/api/types";
 
 export const useMapSearch = (API_BASE_URL: string) => {
   const [filters, setFilters] = useState<any>({
@@ -58,7 +59,7 @@ export const useMapSearch = (API_BASE_URL: string) => {
       const data = await fetchFilteredProperties(filters);
 
       const markers = (data.results ?? [])
-        .map((p: ApiProperty, idx: number) => {
+        .map((p: Property, idx: number) => {
           const lat = Number(p.latitude);
           const lng = Number(p.longitude);
           if (isNaN(lat) || isNaN(lng)) return null;

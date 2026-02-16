@@ -33,26 +33,26 @@ export default function PropertyCard({
         border: `1px solid ${colors.cardsBoarder}`,
       }}
     >
-      {/* Click overlay */}
-      {clicked && (
-        <div className="absolute inset-0 bg-white/80 z-30 flex items-center justify-center rounded-2xl">
-          <div className="flex flex-col items-center">
-            <Loader2
-              className="w-8 h-8 animate-spin"
-              style={{ color: colors.primary }}
-            />
-            <span className="mt-2 text-sm" style={{ color: colors.body }}>
-              Loading property…
-            </span>
-          </div>
-        </div>
-      )}
-
       <Link
         href={`/listing/${propertyKey}`}
         onClick={() => setClicked(true)}
-        className={clicked ? "pointer-events-none" : ""}
+        className="block h-full"
       >
+        {/* Click overlay */}
+        {clicked && (
+          <div className="absolute inset-0 bg-white/80 z-20 flex items-center justify-center rounded-2xl">
+            <div className="flex flex-col items-center">
+              <Loader2
+                className="w-8 h-8 animate-spin"
+                style={{ color: colors.primary }}
+              />
+              <span className="mt-2 text-sm" style={{ color: colors.body }}>
+                Loading property…
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* ── Image ── */}
         <PropertyCardImage property={property} variant={variant} />
 

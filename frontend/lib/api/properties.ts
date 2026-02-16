@@ -84,10 +84,27 @@ export function mapPropertyFromAPI(prop: any): Property {
   }
 
   const mappedProperty: Property = {
-    PropertyKey: prop.listing_key || prop.PropertyKey || prop.id || "",
-    ListingKey: prop.listing_key || prop.ListingKey || prop.id || "",
+    PropertyKey:
+      prop.listing_key ||
+      prop.listingKey ||
+      prop.ListingKey ||
+      prop.PropertyKey ||
+      prop.id ||
+      "",
+    ListingKey:
+      prop.listing_key ||
+      prop.listingKey ||
+      prop.ListingKey ||
+      prop.PropertyKey ||
+      prop.id ||
+      "",
     list_price: prop.list_price,
-    listing_key: prop.listing_key,
+    listing_key:
+      prop.listing_key ||
+      prop.listingKey ||
+      prop.ListingKey ||
+      prop.PropertyKey ||
+      prop.id,
     ListPrice: listPrice,
     City: prop.city || prop.City || "",
     city: prop.city,

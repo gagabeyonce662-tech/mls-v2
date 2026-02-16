@@ -4,6 +4,7 @@
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Props {
   images: string[];
@@ -12,7 +13,7 @@ interface Props {
   onClose: () => void;
   onIndexChange?: (index: number) => void;
   title?: string;
-  scheduleUrl?: string; // optional link for "Schedule Viewing" button
+  scheduleUrl?: string;
 }
 
 export default function FullGalleryModal({
@@ -30,12 +31,12 @@ export default function FullGalleryModal({
     if (open) setIndex(startIndex);
   }, [startIndex, open]);
 
-  // keyboard nav + close
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight") setIndex((i) => Math.min(i + 1, images.length - 1));
+      if (e.key === "ArrowRight")
+        setIndex((i) => Math.min(i + 1, images.length - 1));
       if (e.key === "ArrowLeft") setIndex((i) => Math.max(i - 1, 0));
     }
     window.addEventListener("keydown", onKey);
@@ -46,7 +47,6 @@ export default function FullGalleryModal({
     onIndexChange?.(index);
   }, [index, onIndexChange]);
 
-  // lock body scroll while open
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -58,32 +58,34 @@ export default function FullGalleryModal({
 
   if (!open) return null;
 
-  // portal target
   const target = typeof document !== "undefined" ? document.body : null;
   if (!target) return null;
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex items-stretch justify-center bg-black/90"
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[9999] flex items-stretch justify-center bg-black/95 backdrop-blur-md"
       role="dialog"
       aria-modal="true"
     >
-      {/* left spacer so content centers with thumbnail rail on right */}
-      <div className="hidden lg:block w-6" />
+      <div className="hidden lg:block w-12" />
 
-      {/* main container */}
-      <div className="relative flex-1 max-w-[1400px] mx-4 my-6 rounded-lg flex bg-black">
-        {/* Top bar (title + schedule button + close) */}
-        <div className="absolute top-4 left-6 right-6 z-30 flex items-center justify-between">
-          <div className="text-white text-sm font-medium">{title || ""}</div>
+      <div className="relative flex-1 max-w-[1400px] mx-4 my-6 rounded-2xl flex bg-black/40 overflow-hidden shadow-2xl border border-white/10">
+        {/* Top bar */}
+        <div className="absolute top-0 left-0 right-0 z-40 p-6 flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent">
+          <div className="text-white text-lg font-semibold tracking-tight">
+            {title || "Property Gallery"}
+          </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {scheduleUrl && (
               <a
                 href={scheduleUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="hidden md:inline-block bg-[#12b7b3] hover:bg-[#0fa8a4] text-white px-3 py-2 rounded-full text-sm font-medium shadow"
+                className="hidden md:inline-block bg-ds-primary hover:bg-ds-primary/90 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg transition-transform hover:scale-105 active:scale-95"
               >
                 Schedule Viewing
               </a>
@@ -91,90 +93,108 @@ export default function FullGalleryModal({
 
             <button
               onClick={onClose}
-              aria-label="Close gallery"
-              className="p-2 rounded-full bg-black/40 hover:bg-black/50 focus:outline-none"
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              aria-label="Close"
             >
-              <X className="w-5 h-5 text-white" />
+              <X className="w-6 h-6" />
             </button>
           </div>
         </div>
 
-        {/* Left / main image area */}
-        <div className="relative flex-1 flex items-center justify-center p-6">
-          {/* Prev arrow (always visible for large screens) */}
+        {/* Main image area */}
+        <div className="relative flex-1 flex items-center justify-center p-4 md:p-12">
+          {/* Navigation */}
           <button
             onClick={() => setIndex((i) => Math.max(i - 1, 0))}
-            aria-label="Previous"
-            className="absolute left-2 md:left-6 z-20 hidden md:flex items-center justify-center h-12 w-12 rounded-full bg-black/30 hover:bg-black/40 focus:outline-none"
+            className="absolute left-4 md:left-8 z-30 hidden md:flex items-center justify-center h-14 w-14 rounded-full bg-white/5 hover:bg-white/15 text-white transition-all backdrop-blur-md border border-white/10"
+            disabled={index === 0}
           >
-            <ChevronLeft className="w-6 h-6 text-white" />
+            <ChevronLeft
+              className={`w-8 h-8 ${index === 0 ? "opacity-20" : ""}`}
+            />
           </button>
 
-          {/* Image */}
-          <div className="max-h-[88vh] max-w-full flex items-center justify-center">
-            <img
-              src={images[index]}
-              alt={`Photo ${index + 1}`}
-              className="object-contain max-h-[88vh] max-w-full rounded"
-              draggable={false}
-            />
+          <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.img
+                key={index}
+                src={images[index]}
+                alt={`Photo ${index + 1}`}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.05 }}
+                transition={{ duration: 0.3 }}
+                className="max-h-full max-w-full object-contain drop-shadow-2xl rounded-lg"
+                draggable={false}
+              />
+            </AnimatePresence>
           </div>
 
-          {/* Next arrow */}
           <button
             onClick={() => setIndex((i) => Math.min(i + 1, images.length - 1))}
-            aria-label="Next"
-            className="absolute right-2 md:right-6 z-20 hidden md:flex items-center justify-center h-12 w-12 rounded-full bg-black/30 hover:bg-black/40 focus:outline-none"
+            className="absolute right-4 md:right-8 z-30 hidden md:flex items-center justify-center h-14 w-14 rounded-full bg-white/5 hover:bg-white/15 text-white transition-all backdrop-blur-md border border-white/10"
+            disabled={index === images.length - 1}
           >
-            <ChevronRight className="w-6 h-6 text-white" />
+            <ChevronRight
+              className={`w-8 h-8 ${index === images.length - 1 ? "opacity-20" : ""}`}
+            />
           </button>
 
-          {/* mobile prev/next bottom row (visible only on small screens) */}
-          <div className="absolute bottom-6 left-0 right-0 flex items-center justify-between md:hidden px-6 z-20">
+          {/* Mobile nav */}
+          <div className="absolute bottom-10 left-0 right-0 flex items-center justify-between md:hidden px-8 z-30">
             <button
               onClick={() => setIndex((i) => Math.max(i - 1, 0))}
-              className="bg-white/10 text-white px-3 py-2 rounded"
+              className="p-3 rounded-full bg-white/10 text-white"
             >
-              Prev
+              <ChevronLeft className="w-6 h-6" />
             </button>
-            <div className="text-white/90 text-sm">{index + 1} / {images.length}</div>
+            <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-white text-sm font-bold">
+              {index + 1} / {images.length}
+            </div>
             <button
-              onClick={() => setIndex((i) => Math.min(i + 1, images.length - 1))}
-              className="bg-white/10 text-white px-3 py-2 rounded"
+              onClick={() =>
+                setIndex((i) => Math.min(i + 1, images.length - 1))
+              }
+              className="p-3 rounded-full bg-white/10 text-white"
             >
-              Next
+              <ChevronRight className="w-6 h-6" />
             </button>
           </div>
         </div>
 
-        {/* Right thumbnail rail */}
-        <div className="w-36 bg-transparent border-l border-white/10 flex flex-col items-center py-6 overflow-y-auto">
-          <div className="flex flex-col gap-3 px-2 w-full">
+        {/* Thumbnail rail */}
+        <div className="w-40 bg-white/5 backdrop-blur-xl border-l border-white/10 flex flex-col py-8 overflow-y-auto scrollbar-hide">
+          <div className="flex flex-col gap-4 px-4 w-full">
             {images.map((src, i) => (
               <button
                 key={i}
                 onClick={() => setIndex(i)}
-                className={`w-full h-20 rounded-md overflow-hidden flex items-center justify-center focus:outline-none ${i === index ? "ring-2 ring-offset-0 ring-white" : ""}`}
-                aria-label={`Thumbnail ${i + 1}`}
-                style={{ background: "#0b0b0b" }}
+                className={`relative aspect-[4/3] rounded-xl overflow-hidden transition-all duration-300 ring-2 ring-offset-2 ring-offset-black ${
+                  i === index
+                    ? "ring-white opacity-100 scale-105"
+                    : "ring-transparent opacity-40 hover:opacity-100"
+                }`}
               >
-                <img src={src} alt={`Thumb ${i + 1}`} className="w-full h-full object-cover" draggable={false} />
+                <img
+                  src={src}
+                  alt="thumbnail"
+                  className="w-full h-full object-cover"
+                />
               </button>
             ))}
           </div>
         </div>
 
-        {/* bottom-center counter pill */}
-        <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center z-30 pointer-events-none">
-          <div className="pointer-events-auto bg-white px-3 py-1 rounded-full text-sm font-medium">
+        {/* Counter Pill */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 hidden md:block">
+          <div className="bg-white/90 backdrop-blur-md px-6 py-2 rounded-full text-black text-sm font-bold shadow-2xl">
             {index + 1} / {images.length}
           </div>
         </div>
       </div>
 
-      {/* right spacer */}
-      <div className="hidden lg:block w-6" />
-    </div>,
-    target
+      <div className="hidden lg:block w-12" />
+    </motion.div>,
+    target,
   );
 }

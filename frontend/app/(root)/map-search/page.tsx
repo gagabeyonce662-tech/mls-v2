@@ -21,7 +21,8 @@ import { getCustomIcon, getSelectedIcon } from "@/components/map/MapIcons";
 import { formatPrice } from "@/lib/helpers";
 
 // Types
-import { PropertyMarker, ApiProperty } from "@/components/map/types";
+import { PropertyMarker } from "@/components/map/types";
+import { Property } from "@/lib/api/types";
 
 // Dynamic leaflet imports
 const MapContainer = dynamic(
@@ -99,7 +100,7 @@ export default function MapOnlyPage() {
       const data = await fetchExclusivePropertiesForBBox(bbox);
       const results = data?.results ?? [];
       const markers: PropertyMarker[] = results
-        .map((p: ApiProperty, idx: number) => {
+        .map((p: Property, idx: number) => {
           const latRaw = p.latitude ?? p.Latitude ?? p.lat ?? p.coords?.lat;
           const lonRaw = p.longitude ?? p.Longitude ?? p.lon ?? p.coords?.lng;
           const lat = latRaw !== undefined ? Number(latRaw) : NaN;
