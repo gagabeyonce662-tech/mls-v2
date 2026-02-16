@@ -193,8 +193,10 @@ export const colorStyles = {
   boarder: "border-[#e5e5e5]",
   card: "bg-white",
   cardBorder: "border-[#e0e0e0]",
-  icon: "text-[#00d9d9]",
-  iconBg: "bg-[#00d9d9]",
+  icon: "text-[#0C1536]",
+  iconBg: "bg-[#0C1536]",
+  accent: "bg-[#2563EB] text-white",
+  accentText: "text-[#2563EB]",
   heading: "text-black",
   body: "text-[#4a5568]",
 } as const;
@@ -230,6 +232,59 @@ export const shadows = {
   "2xl": "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
 } as const;
 
+/**
+ * Property Card Design Tokens
+ * Single source of truth for all card-related styling decisions.
+ */
+export const propertyCard = {
+  /** Status badge background colours keyed by StandardStatus */
+  statusColors: {
+    Active: "#10b981", // Green
+    Pending: "#f59e0b", // Amber
+    Sold: "#ef4444", // Red
+    default: "#6b7280", // Gray
+  } as Record<string, string>,
+
+  /** Currency formatting */
+  currency: {
+    code: "CAD" as const,
+    locale: "en-CA" as const,
+  },
+
+  /** Fallback text when data is missing */
+  fallbackText: {
+    noPrice: "Price TBD",
+    noImage: "No Image Available",
+    noAddress: null as null, // hide row entirely
+  },
+
+  /** Card layout dimensions (Tailwind classes) */
+  layout: {
+    imageHeight: "h-56",
+    borderRadius: "rounded-2xl",
+    padding: "p-4",
+    gap: "gap-6", // grid gap
+    gridCols: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+  },
+
+  /** Animation timing */
+  animation: {
+    staggerDelayMs: 80, // delay between consecutive cards
+    durationMs: 400, // fadeInUp duration
+    hoverScale: "group-hover:scale-110", // image zoom on hover
+    hoverLift: "hover:-translate-y-1", // card lift on hover
+  },
+
+  /** Badge variants */
+  badges: {
+    newListing: {
+      label: "New Listing",
+      bgColor: colors.primary,
+      textColor: "#ffffff",
+    },
+  },
+} as const;
+
 // Export all design tokens
 export const designSystem = {
   colors,
@@ -239,6 +294,7 @@ export const designSystem = {
   spacing,
   borderRadius,
   shadows,
+  propertyCard,
 } as const;
 
 export default designSystem;

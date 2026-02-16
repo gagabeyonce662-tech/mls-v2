@@ -22,13 +22,13 @@ export default function LocationsSection() {
     },
     {
       id: 4,
-      name: "Houston",
+      name: "Mississauga",
       image:
         "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=600&q=80",
     },
     {
       id: 5,
-      name: "OakVille",
+      name: "Oakville",
       image:
         "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600&q=80",
     },

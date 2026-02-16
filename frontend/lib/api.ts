@@ -260,9 +260,28 @@ export async function fetchVlogPostBySlug(
   }
 }
 
+/**
+ * Search properties by query string (city, address, postal code, keywords).
+ * Uses the /filter/ endpoint with a `search` param.
+ */
+export async function searchProperties(
+  query: string,
+  extraFilters?: Record<string, any>,
+): Promise<Property[]> {
+  try {
+    const params: Record<string, any> = { search: query, ...extraFilters };
+    const data = await fetchFilteredProperties(params);
+    const results: any[] = data.results || data.value || [];
+    return results.map(mapPropertyFromAPI);
+  } catch (error) {
+    console.error("Error searching properties:", error);
+    return [];
+  }
+}
+
 // Helper function to map API response to Property interface
 // Helper function to map API response to Property interface - FIXED VERSION
-function mapPropertyFromAPI(prop: any): Property {
+export function mapPropertyFromAPI(prop: any): Property {
   console.log("Mapping property from API:", prop);
 
   // Build address from components

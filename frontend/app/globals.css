@@ -145,6 +145,22 @@ h6 {
   overflow: hidden;
 }
 
+/* Property card entrance animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.4s ease-out both;
+}
+
 @layer base {
   body {
     background-color: hsl(var(--background));
