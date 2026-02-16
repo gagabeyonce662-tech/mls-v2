@@ -31,11 +31,11 @@ A canonical listing of all existing shared components. **Check this before creat
 | `FeaturedCollections` | Category browsing cards |
 | `FeaturedListings` | Exclusive properties grid (uses `PropertyCard`) |
 | `NewlyListedListings` | Newly listed properties grid (uses `PropertyCard`) |
-| `RentalProperties` | Rental listings section |
-| `PreConstructionProperties` | Pre-construction listings section |
+| `RentalProperties` | Rental listings section (uses `PropertyCard`) |
+| `PreConstructionProperties` | Pre-construction listings section (uses `PropertyCard`) |
 | `SearchResults` | Search results display |
 | `LocationsSection` | Geographic browsing |
-| `LatestArticles` | Blog articles (hardcoded data) |
+| `LatestArticles` | Blog articles |
 | `MortgageSection` | Mortgage calculator CTA |
 | `ClientReviews` | Testimonials/reviews |
 | `KeywordSearch` | Keyword search input |
@@ -98,7 +98,7 @@ Includes: accordion, alert, avatar, badge, breadcrumb, button, calendar, card, c
 
 | File | Purpose |
 |------|---------|
-| `lib/api.ts` | API client — all fetch functions, `Property` interface |
+| `lib/api.ts` | API client — all fetch functions, `Property` interface, `searchProperties`, `mapPropertyFromAPI` |
 | `lib/propertyUtils.ts` | **Property field normalizer** (SSOT for field access) |
 | `lib/helpers.ts` | Generic helpers |
 | `lib/utils.ts` | Tailwind `cn()` merge utility |

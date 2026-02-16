@@ -12,6 +12,14 @@ description: Project conventions and coding guidelines for the MLS frontend
 - Use `colorStyles` for Tailwind className strings.
 - Currency is **CAD** (`en-CA` locale). Never use USD.
 
+## API & Data Fetching
+
+- **ALL fetch logic lives in `lib/api.ts`** — never write inline `fetch()` calls or `API_BASE_URL` in components.
+- Use `searchProperties(query)` for hero/search functionality.
+- Use `fetchExclusiveProperties`, `fetchLeaseProperties`, `fetchPreConnProperties` for section data.
+- Use `fetchPropertyByKey` for detail pages.
+- The `mapPropertyFromAPI` helper normalizes API responses to the `Property` interface — don't duplicate this mapping.
+
 ## Property Data
 
 - **ALWAYS** use the normalized helpers from `@/lib/propertyUtils.ts` to access `Property` fields.
@@ -29,7 +37,7 @@ description: Project conventions and coding guidelines for the MLS frontend
 
 ## File Organization
 
-```
+```text
 config/           → Design tokens, brand config
 lib/              → API client, utilities, property normalizer
 hooks/            → React Query hooks, custom hooks
