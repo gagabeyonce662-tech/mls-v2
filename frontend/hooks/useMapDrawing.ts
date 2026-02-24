@@ -1,6 +1,5 @@
 // hooks/useMapDrawing.ts
 import { useRef, useState } from "react";
-import L from "leaflet";
 import { colors } from "@/config/design-system";
 
 export const useMapDrawing = (
@@ -11,8 +10,15 @@ export const useMapDrawing = (
   const rectLayerRef = useRef<any | null>(null);
   const drawStartRef = useRef<{ lat: number; lng: number } | null>(null);
 
+  const getLeaflet = () => {
+    if (typeof window === "undefined") return null;
+    return (window as any).L;
+  };
+
   const onMapMouseMove = (e: any) => {
-    if (!drawStartRef.current) return;
+    const L = getLeaflet();
+    if (!drawStartRef.current || !mapRef.current || !L) return;
+
     const start = drawStartRef.current;
     const bounds = L.latLngBounds(
       [start.lat, start.lng],
@@ -70,7 +76,7 @@ export const useMapDrawing = (
     if (rectLayerRef.current) {
       try {
         rectLayerRef.current.remove();
-      } catch {}
+      } catch { }
       rectLayerRef.current = null;
     }
   };
@@ -82,7 +88,7 @@ export const useMapDrawing = (
     if (rectLayerRef.current) {
       try {
         rectLayerRef.current.remove();
-      } catch {}
+      } catch { }
       rectLayerRef.current = null;
     }
 
@@ -98,7 +104,7 @@ export const useMapDrawing = (
     if (rectLayerRef.current) {
       try {
         rectLayerRef.current.remove();
-      } catch {}
+      } catch { }
       rectLayerRef.current = null;
     }
     mapRef.current.off("mousedown", onMapMouseDown);
@@ -112,7 +118,7 @@ export const useMapDrawing = (
     if (rectLayerRef.current) {
       try {
         rectLayerRef.current.remove();
-      } catch {}
+      } catch { }
       rectLayerRef.current = null;
     }
     drawStartRef.current = null;

@@ -183,7 +183,7 @@ export async function searchProperties(
 ): Promise<Property[]> {
   try {
     const params: Record<string, any> = { search: query, ...extraFilters };
-    const data = await fetchFilteredProperties(params);
+    const data = (await fetchFilteredProperties(params)) as any;
     const results: any[] = data.results || data.value || [];
     return results.map(mapPropertyFromAPI);
   } catch (error) {
@@ -350,7 +350,7 @@ export async function fetchLeaseProperties(
 /**
  * Generic filtered properties fetcher
  */
-export async function fetchFilteredProperties(filters: Record<string, any>) {
+export async function fetchFilteredProperties(filters: Record<string, any>): Promise<any> {
   const params = new URLSearchParams();
 
   Object.entries(filters).forEach(([key, value]) => {
@@ -366,14 +366,12 @@ export async function fetchFilteredProperties(filters: Record<string, any>) {
   const url = `${API_BASE_URL}/api/mls/properties/filter/?${params.toString()}`;
   console.log("FILTER URL →", url);
 
-  const res = await fetch(url, { cache: "no-store" });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Filter API error: ${res.status} → ${text}`);
+  try {
+    return await fetchAPI(url, { cache: "no-store" });
+  } catch (error) {
+    console.error("Filter API error:", error);
+    return { results: [], count: 0 };
   }
-
-  return res.json();
 }
 
 /**
@@ -426,8 +424,19 @@ export async function fetchPropertyByKey(
       PropertyKey: data.listing_key || propertyKey,
       ListingKey: data.listing_key || propertyKey,
     };
-  } catch (error) {
-    console.error("Error fetching property by key:", error);
+  } catch (error: any) {
+    const errorMsg = error.message || "";
+    // Check if it's a "Not Found" error (either status 404 or OData 404 wrapped in 400)
+    if (
+      errorMsg.includes(":404:") ||
+      errorMsg.includes("not exist") ||
+      errorMsg.includes("does not exist")
+    ) {
+      console.warn(`Property with key ${propertyKey} not found or no longer available.`);
+      return null;
+    }
+
+    console.error(`Unexpected error fetching property ${propertyKey}:`, error);
     return null;
   }
 }
@@ -458,17 +467,30 @@ export async function fetchCompareProperties(propertyKeys: string[]): Promise<{
       }
     });
 
-    const url = `${API_BASE_URL}/api/mls/properties/comapare/?${queryParams.toString()}`;
+    const url = `${API_BASE_URL}/api/mls/properties/compare/?${queryParams.toString()}`;
 
-    const response = await fetch(url, {
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-    });
+    try {
+      const responseData = await fetchAPI<any>(url, { cache: "no-store" });
 
-    if (!response.ok) {
+      const resultsArray =
+        responseData.results ||
+        responseData.data ||
+        responseData.properties ||
+        responseData ||
+        [];
+
+      let results: Property[];
+      if (Array.isArray(resultsArray)) {
+        results = resultsArray.map((prop: any) => mapPropertyFromAPI(prop));
+      } else if (resultsArray && typeof resultsArray === "object") {
+        results = [mapPropertyFromAPI(resultsArray)];
+      } else {
+        results = [];
+      }
+
+      return { results, count: results.length };
+    } catch (error) {
+      console.warn("Comparison API failed, falling back to individual fetches:", error);
       // Fallback to fetch individually
       const properties = await Promise.all(
         propertyKeys.map((key) => fetchPropertyByKey(key)),
@@ -478,25 +500,6 @@ export async function fetchCompareProperties(propertyKeys: string[]): Promise<{
       ) as Property[];
       return { results: validProperties, count: validProperties.length };
     }
-
-    const responseData = await response.json();
-    const resultsArray =
-      responseData.results ||
-      responseData.data ||
-      responseData.properties ||
-      responseData ||
-      [];
-
-    let results: Property[];
-    if (Array.isArray(resultsArray)) {
-      results = resultsArray.map((prop: any) => mapPropertyFromAPI(prop));
-    } else if (resultsArray && typeof resultsArray === "object") {
-      results = [mapPropertyFromAPI(resultsArray)];
-    } else {
-      results = [];
-    }
-
-    return { results, count: results.length };
   } catch (error) {
     console.error("Error in fetchCompareProperties:", error);
     return { results: [], count: 0 };
