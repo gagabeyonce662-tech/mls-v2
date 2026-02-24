@@ -39,19 +39,18 @@ export default function PropertyCard({
   const raw = property.raw || {};
 
   const getPropertyPhoto = () => {
-    if (!raw.media) return null;
+    const media = raw.media;
+    if (!media) return null;
 
-    if (
-      raw.media &&
-      typeof raw.media === "object" &&
-      !Array.isArray(raw.media)
-    ) {
-      return raw.media.media_url || null;
+    if (Array.isArray(media)) {
+      if (media.length === 0) return null;
+      const preferred = media.find((m: any) => m.is_preferred);
+      return preferred ? preferred.media_url : media[0].media_url;
     }
 
-    if (Array.isArray(raw.media) && raw.media.length > 0) {
-      const preferred = raw.media.find((m: any) => m.is_preferred);
-      return preferred ? preferred.media_url : raw.media[0].media_url;
+    // Handle single object case (if API deviates from array type)
+    if (typeof media === "object") {
+      return (media as any).media_url || null;
     }
 
     return null;
@@ -67,7 +66,7 @@ export default function PropertyCard({
     cityRegion: raw.city_region || "N/A",
     bedrooms: raw.bedrooms_total || "0",
     bathrooms: raw.bathrooms_total_integer || "0",
-    squareFeet: raw.building_area_total,
+    squareFeet: raw.building_area_total ?? undefined,
     propertyType: raw.property_sub_type || "Unknown",
     yearBuilt: raw.year_built,
     status: raw.standard_status || "Active",

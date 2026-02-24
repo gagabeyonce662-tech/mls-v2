@@ -42,10 +42,13 @@ export default async function ListingPage({ params }: ListingPageProps) {
           : [];
 
   const getPrice = () => {
-    if (property.list_price)
-      return `$${parseFloat(property.list_price).toLocaleString()}`;
-    if (property.ListPrice) return `$${property.ListPrice.toLocaleString()}`;
-    return "Price on request";
+    const price = property.list_price ?? property.ListPrice;
+    if (!price && price !== 0) return "Price on request";
+
+    const numericPrice = typeof price === "string" ? parseFloat(price) : price;
+    return isNaN(numericPrice)
+      ? "Price on request"
+      : `$${numericPrice.toLocaleString()}`;
   };
 
   const getBedCount = () =>

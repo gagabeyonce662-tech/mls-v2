@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ListingMortgageCalculator } from "@/components/calculators/ListingMortgageCalculator";
 import { CashflowCalculator } from "@/components/calculators/CashflowCalculator";
-import type { ListingDetails } from "@/data/listingDetails";
+import type { ListingDetailsData as ListingDetails } from "@/data/listingDetails";
 
 interface ListingInsightsProps {
   propertyData?: ListingDetails;
