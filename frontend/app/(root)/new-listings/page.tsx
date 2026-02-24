@@ -193,8 +193,8 @@ export default function NewListingsPage() {
                   No New Listings Found
                 </h3>
                 <p className="text-ds-body leading-relaxed">
-                  We couldn't find any properties listed in the last few days.
-                  Try broadening your search or explore all our available
+                  We couldn&apos;t find any properties listed in the last few
+                  days. Try broadening your search or explore all our available
                   listings.
                 </p>
                 <div className="flex items-center justify-center gap-4 pt-4">
