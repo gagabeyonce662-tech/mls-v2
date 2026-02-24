@@ -38,8 +38,8 @@ export default function NotFound() {
             Lost in the Neighborhood?
           </h2>
           <p className="text-lg text-ds-body mb-10 max-w-md mx-auto leading-relaxed">
-            The listing or page you're searching for seems to have moved off the
-            market or never existed. Let's get you back on track.
+            The listing or page you&apos;re searching for seems to have moved
+            off the market or never existed. Let&apos;s get you back on track.
           </p>
 
           {/* Action Buttons */}
