@@ -22,18 +22,36 @@ export async function fetchAPI<T>(
     console.log(`API Request: ${url} - Status: ${response.status}`);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`API Error ${response.status}: ${errorText}`);
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch {
+        errorData = await response.text();
+      }
+
+      const errorMessage = typeof errorData === 'object'
+        ? JSON.stringify(errorData)
+        : errorData;
+
+      // Only log as error if it's not a common "not found" scenario which the caller might handle
+      if (response.status !== 404 && !errorMessage.includes("404") && !errorMessage.includes("not exist")) {
+        console.error(`API Error ${response.status}: ${errorMessage}`);
+      } else {
+        console.warn(`API Reference Error ${response.status}: Resource might not exist.`);
+      }
+
       throw new Error(
-        `API Error: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`,
+        `API_ERROR:${response.status}:${errorMessage}`
       );
     }
 
     const data = await response.json();
-    console.log(`API Response from ${url}:`, data);
     return data;
   } catch (error) {
-    console.error(`Error fetching ${url}:`, error);
+    // Avoid double logging if it's already logged above
+    if (error instanceof Error && !error.message.startsWith("API_ERROR:")) {
+      console.error(`Network error fetching ${url}:`, error);
+    }
     throw error;
   }
 }

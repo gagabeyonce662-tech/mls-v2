@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { fetchFilteredProperties, mapPropertyFromAPI } from "@/lib/api";
+import { fetchFilteredProperties, mapPropertyFromAPI, fetchAPI } from "@/lib/api";
 import { PropertyMarker } from "@/components/map/types";
 import { Property } from "@/lib/api/types";
 
@@ -40,12 +40,8 @@ export const useMapSearch = (API_BASE_URL: string) => {
     const params = new URLSearchParams();
     Object.entries(bbox).forEach(([k, v]) => params.append(k, String(v)));
     const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/?${params.toString()}`;
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(`Exclusive API error ${res.status}: ${txt}`);
-    }
-    return await res.json();
+
+    return await fetchAPI<any>(url, { cache: "no-store" });
   }
 
   const applyFilters = async (L: any, mapRef: React.MutableRefObject<any>) => {
@@ -83,7 +79,7 @@ export const useMapSearch = (API_BASE_URL: string) => {
             markers.map((m: any) => [m.lat, m.lng]),
           );
           mapRef.current.fitBounds(bounds.pad(0.2));
-        } catch {}
+        } catch { }
       }
     } catch (err: any) {
       console.error(err);

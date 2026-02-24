@@ -304,7 +304,7 @@ export default function AdminListingsPage() {
                           <DropdownMenuItem
                             className="cursor-pointer gap-2 text-red-600 focus:text-red-700 focus:bg-red-50"
                             onClick={() =>
-                              setPropertyToDelete(property.ListingKey)
+                              setPropertyToDelete(property.ListingKey ?? null)
                             }
                           >
                             <Trash2 className="w-4 h-4" /> Delete

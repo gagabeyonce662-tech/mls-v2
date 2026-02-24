@@ -97,11 +97,16 @@ export const getStatus = (property: Property): string =>
 
 /* ──────────────────────────── Features ──────────────────────────── */
 
-export const getBedrooms = (property: Property): number =>
-  property.bedrooms_total ?? property.BedroomsTotal ?? 0;
+export const getBedrooms = (property: Property): number => {
+  const val = property.bedrooms_total ?? property.BedroomsTotal ?? 0;
+  return typeof val === "string" ? parseFloat(val) || 0 : val;
+};
 
-export const getBathrooms = (property: Property): number =>
-  property.bathrooms_total_integer ?? property.BathroomsTotalInteger ?? 0;
+export const getBathrooms = (property: Property): number => {
+  const val =
+    property.bathrooms_total_integer ?? property.BathroomsTotalInteger ?? 0;
+  return typeof val === "string" ? parseFloat(val) || 0 : val;
+};
 
 export const getSqft = (property: Property): number | null => {
   const val =
