@@ -20,14 +20,15 @@ export async function generateStaticParams() {
 }
 
 interface BlogPostPageProps {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }
 
-export default async function BlogPostPage({ params }: BlogPostPageProps) {
+export default async function BlogPostPage(props: BlogPostPageProps) {
+  const params = await props.params;
   const post = await fetchVlogPostBySlug(params.slug);
-  
+
   if (!post) {
     notFound();
   }
@@ -39,7 +40,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     .slice(0, 3);
 
   const fallbackImage = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80";
-  
+
   const getImageUrl = (imageUrl: string | undefined) => {
     if (!imageUrl) return fallbackImage;
     if (imageUrl.startsWith('/')) {
@@ -50,10 +51,10 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
   };
 
@@ -115,9 +116,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                 <span>{formatDate(post.publish_date || post.created_at)}</span>
               </div>
               {post.status && (
-                <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                  post.status === 'published' ? 'bg-green-500 text-white' : 'bg-yellow-500 text-black'
-                }`}>
+                <span className={`px-2 py-1 rounded text-xs font-semibold ${post.status === 'published' ? 'bg-green-500 text-white' : 'bg-yellow-500 text-black'
+                  }`}>
                   {post.status.toUpperCase()}
                 </span>
               )}
@@ -151,16 +151,16 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </div>
 
             {/* Article Body */}
-            <div 
+            <div
               className="prose prose-lg max-w-none prose-headings:font-bold prose-headings:text-gray-900 prose-p:text-gray-700 prose-p:leading-relaxed prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-gray-900 prose-ul:text-gray-700 prose-li:text-gray-700"
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
-            
+
             {/* Video Section - Handle both embed_url and video_file */}
             {(post.embed_url || post.video_file) && (
               <div className="mt-8">
                 <h3 className="text-xl font-bold mb-4" style={{ color: colors.heading }}>Watch Video</h3>
-                
+
                 {/* Embedded Video (YouTube/Vimeo) */}
                 {post.embed_url && (
                   <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
@@ -174,21 +174,21 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                     />
                   </div>
                 )}
-                
+
                 {/* Uploaded Video File */}
                 {!post.embed_url && post.video_file && (
                   <div className="relative w-full">
-                    <video 
-                      controls 
+                    <video
+                      controls
                       className="w-full h-auto rounded-lg"
                       poster={getImageUrl(post.thumbnail)}
                     >
-                      <source 
-                        src={post.video_file.startsWith('/') 
-                          ? `${process.env.NEXT_PUBLIC_API_URL || 'https://staging.vsell4u.ca'}${post.video_file}` 
+                      <source
+                        src={post.video_file.startsWith('/')
+                          ? `${process.env.NEXT_PUBLIC_API_URL || 'https://staging.vsell4u.ca'}${post.video_file}`
                           : post.video_file
-                        } 
-                        type="video/mp4" 
+                        }
+                        type="video/mp4"
                       />
                       Your browser does not support the video tag.
                     </video>
@@ -269,8 +269,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               <div className="space-y-6">
                 {relatedPosts.length > 0 ? (
                   relatedPosts.map((relatedPost) => (
-                    <Link 
-                      key={relatedPost.id} 
+                    <Link
+                      key={relatedPost.id}
                       href={`/blog/${relatedPost.slug}`}
                       className="block group"
                     >
@@ -313,7 +313,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                   placeholder="Enter your email"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg mb-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
-                <button 
+                <button
                   className="w-full py-2.5 rounded-lg font-semibold transition-colors hover:opacity-90"
                   style={{ backgroundColor: colors.primary, color: colors.cards }}
                 >
