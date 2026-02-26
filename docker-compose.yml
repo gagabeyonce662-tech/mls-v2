@@ -21,7 +21,27 @@ services:
     #   timeout: 10s
     #   retries: 3
     #   start_period: 40s
+  redis:
+    image: redis:7-alpine
+    container_name: redis_server
+    ports:
+      - "6379:6379"
+    networks:
+      - app_network
+    restart: always
 
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    command: celery -A backend worker --loglevel=info
+    container_name: celery_worker
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - app_network
+    restart: always
   frontend:
     build:
       context: ./frontend

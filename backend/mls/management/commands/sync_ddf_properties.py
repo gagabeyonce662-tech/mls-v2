@@ -145,7 +145,7 @@ class Command(BaseCommand):
         urls = []
         url = base
         page_count = 0
-        max_pages = 25  # ←←← ONLY 5 PAGES FOR TESTING
+        max_pages = 50  # ←←← ONLY 5 PAGES FOR TESTING
 
         while url and page_count < max_pages:
             resp = requests.get(url, headers=headers, params=params if url == base else None, timeout=30)
