@@ -117,12 +117,13 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
+CELERY_BROKER_URL = "redis://redis:6379/0"
+CELERY_RESULT_BACKEND = "redis://redis:6379/0"
 
-
-CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Assuming Redis is running locally
+# CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Assuming Redis is running locally
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+# CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 
 
 LANGUAGE_CODE = 'en-us'
