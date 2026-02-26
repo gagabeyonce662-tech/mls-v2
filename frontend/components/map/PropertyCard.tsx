@@ -1,8 +1,17 @@
-// components/PropertyCard.tsx
+// components/map/PropertyCard.tsx
 import React from "react";
 import { PropertyMarker } from "./types";
 import { formatPrice } from "@/lib/helpers";
 import StreetViewButton from "./StreetViewButton";
+import {
+  Bed,
+  Bath,
+  Maximize,
+  Calendar,
+  MapPin,
+  ExternalLink,
+} from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function PropertyCard({
   property,
@@ -19,43 +28,52 @@ export default function PropertyCard({
     if (!sqft) return "N/A";
     const numSqft = typeof sqft === "string" ? parseFloat(sqft) : sqft;
     if (isNaN(numSqft)) return String(sqft);
-    return new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(numSqft) + " sqft";
+    return (
+      new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(numSqft) + " sqft"
+    );
   };
 
   const raw = property.raw || {};
-  
-  // FIXED: Handle both object and array formats for media
+
   const getPropertyPhoto = () => {
-    if (!raw.media) return null;
-    
-    // If media is an object (like in your API response: {"media_url": "...", "is_preferred": true})
-    if (raw.media && typeof raw.media === 'object' && !Array.isArray(raw.media)) {
-      return raw.media.media_url || null;
+    const media = raw.media;
+    if (!media) return null;
+
+    if (Array.isArray(media)) {
+      if (media.length === 0) return null;
+      const preferred = media.find((m: any) => m.is_preferred);
+      return preferred ? preferred.media_url : media[0].media_url;
     }
-    
-    // If media is an array (for backward compatibility)
-    if (Array.isArray(raw.media) && raw.media.length > 0) {
-      const preferred = raw.media.find((m: any) => m.is_preferred);
-      return preferred ? preferred.media_url : raw.media[0].media_url;
+
+    // Handle single object case (if API deviates from array type)
+    if (typeof media === "object") {
+      return (media as any).media_url || null;
     }
-    
+
     return null;
   };
 
   const details = {
-    address: raw.unparsed_address || raw.city || property.title || "Address not available",
+    address:
+      raw.unparsed_address ||
+      raw.city ||
+      property.title ||
+      "Address not available",
     city: raw.city || "N/A",
     cityRegion: raw.city_region || "N/A",
-    bedrooms: raw.bedrooms_total || "N/A",
-    bathrooms: raw.bathrooms_total_integer || "N/A",
-    squareFeet: raw.building_area_total,
+    bedrooms: raw.bedrooms_total || "0",
+    bathrooms: raw.bathrooms_total_integer || "0",
+    squareFeet: raw.building_area_total ?? undefined,
     propertyType: raw.property_sub_type || "Unknown",
     yearBuilt: raw.year_built,
-    status: raw.standard_status || "Unknown",
-    listingId: raw.listing_id || "N/A",
+    status: raw.standard_status || "Active",
+    listingId: raw.listing_key || raw.listing_id || "N/A",
     listingUrl: raw.listing_url,
     photosCount: raw.photos_count || 0,
-    category: raw.category_type || "N/A",
+    category: raw.category_type || "featured",
   };
 
   const photo = getPropertyPhoto();
@@ -65,136 +83,131 @@ export default function PropertyCard({
       : details.listingUrl;
 
   return (
-    <div
-      className={`bg-white rounded-lg shadow-sm border hover:shadow-md transition-all duration-200 cursor-pointer ${
-        isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
+    <motion.div
+      whileHover={{ y: -4 }}
+      className={`bg-white rounded-2xl overflow-hidden border transition-all duration-300 group ${
+        isSelected
+          ? "border-ds-primary shadow-xl ring-2 ring-ds-primary/10"
+          : "border-ds-card-border shadow-md hover:shadow-xl"
       }`}
       onClick={onViewOnMap}
     >
-      {photo ? (
-        <div className="relative h-48 w-full">
-          <img 
-            src={photo} 
-            alt={details.address} 
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 rounded-t-lg" 
-            onError={(e) => { 
-              console.error("Failed to load image:", photo);
-              (e.target as HTMLImageElement).src = "/placeholder-property.jpg"; // Fallback image
-            }} 
+      {/* Image Section */}
+      <div className="relative h-44 w-full overflow-hidden">
+        {photo ? (
+          <img
+            src={photo}
+            alt={details.address}
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=800";
+            }}
           />
-          <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-            {details.photosCount} photos
+        ) : (
+          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+            <MapPin className="w-10 h-10 text-gray-300" />
           </div>
-          <div className="absolute top-2 left-2">
-            <span className={`text-xs font-medium px-2 py-1 rounded ${
-              details.category === "exclusive" 
-                ? "bg-purple-100 text-purple-800" 
-                : details.category === "sold"
-                ? "bg-red-100 text-red-800"
-                : "bg-gray-100 text-gray-800"
-            }`}>
-              {details.category}
+        )}
+
+        <div className="absolute top-3 right-3 flex flex-col gap-2">
+          <div className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">
+            {details.photosCount} Photos
+          </div>
+          <div
+            className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg ${
+              details.status === "Active"
+                ? "bg-emerald-500 text-white"
+                : "bg-ds-primary text-white"
+            }`}
+          >
+            {details.status}
+          </div>
+        </div>
+
+        <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
+          <p className="text-white font-bold text-lg leading-tight truncate">
+            {formatPrice(property.price)}
+          </p>
+        </div>
+      </div>
+
+      {/* Content Section */}
+      <div className="p-4 space-y-3">
+        <h3 className="font-bold text-ds-heading text-sm line-clamp-1 group-hover:text-ds-primary transition-colors">
+          {details.address}
+        </h3>
+
+        <div className="flex items-center text-xs text-ds-body">
+          <MapPin className="w-3.5 h-3.5 mr-1 text-ds-primary" />
+          <span className="truncate">
+            {details.city}
+            {details.cityRegion !== "N/A" ? `, ${details.cityRegion}` : ""}
+          </span>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 gap-y-2 py-2 border-y border-ds-card-border">
+          <div className="flex items-center text-[11px] text-ds-body font-medium">
+            <Bed className="w-3.5 h-3.5 mr-1.5 text-ds-primary" />
+            <span>{details.bedrooms} Beds</span>
+          </div>
+          <div className="flex items-center text-[11px] text-ds-body font-medium">
+            <Bath className="w-3.5 h-3.5 mr-1.5 text-ds-primary" />
+            <span>{details.bathrooms} Baths</span>
+          </div>
+          <div className="flex items-center text-[11px] text-ds-body font-medium">
+            <Maximize className="w-3.5 h-3.5 mr-1.5 text-ds-primary" />
+            <span className="truncate">
+              {formatSquareFeet(details.squareFeet)}
             </span>
           </div>
-        </div>
-      ) : (
-        <div className="h-48 w-full bg-gray-100 flex items-center justify-center rounded-t-lg">
-          <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-          </svg>
-        </div>
-      )}
-
-      <div className="p-4">
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="font-semibold text-gray-800 line-clamp-2 text-sm">{details.address}</h3>
-          <span className="text-xs font-medium bg-green-100 text-green-800 px-2 py-1 rounded ml-2 whitespace-nowrap">
-            {details.status}
-          </span>
-        </div>
-
-        <div className="flex items-center text-sm text-gray-600 mb-2">
-          <svg className="w-4 h-4 mr-1 text-gray-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-          </svg>
-          <span className="truncate">{details.city}, {details.cityRegion}</span>
-        </div>
-
-        <div className="mb-3">
-          <div className="text-lg font-bold text-gray-900">{formatPrice(property.price)}</div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 mb-4 text-sm text-gray-600">
-          <div className="flex items-center">
-            <svg className="w-4 h-4 mr-1 text-gray-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M6 3a1 1 0 011-1h.01a1 1 0 010 2H7a1 1 0 01-1-1zm2 3a1 1 0 00-2 0v1a2 2 0 00-2 2v1a2 2 0 00-2 2v.683a3.7 3.7 0 011.055.485 1.704 1.704 0 001.89 0 3.704 3.704 0 014.11 0 1.704 1.704 0 001.89 0 3.704 3.704 0 014.11 0 1.704 1.704 0 001.89 0A3.7 3.7 0 0118 12.683V12a2 2 0 00-2-2V9a2 2 0 00-2-2V6a1 1 0 10-2 0v1h-1V6a1 1 0 10-2 0v1H8V6zm10 8.868a3.704 3.704 0 01-4.055-.036 1.704 1.704 0 00-1.89 0 3.704 3.704 0 01-4.11 0 1.704 1.704 0 00-1.89 0A3.704 3.704 0 012 14.868V17a1 1 0 001 1h14a1 1 0 001-1v-2.132zM9 3a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm3 0a1 1 0 011-1h.01a1 1 0 110 2H13a1 1 0 01-1-1z" clipRule="evenodd" />
-            </svg>
-            <span>{details.bedrooms} bed</span>
-          </div>
-          <div className="flex items-center">
-            <svg className="w-4 h-4 mr-1 text-gray-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-            </svg>
-            <span>{details.bathrooms} bath</span>
-          </div>
-          <div className="flex items-center">
-            <svg className="w-4 h-4 mr-1 text-gray-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
-            </svg>
-            <span>{formatSquareFeet(details.squareFeet)}</span>
-          </div>
-          <div className="flex items-center">
-            <svg className="w-4 h-4 mr-1 text-gray-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-            </svg>
-            <span>{details.yearBuilt || "N/A"}</span>
+          <div className="flex items-center text-[11px] text-ds-body font-medium">
+            <Calendar className="w-3.5 h-3.5 mr-1.5 text-ds-primary" />
+            <span>Built {details.yearBuilt || "N/A"}</span>
           </div>
         </div>
 
-        <div className="mb-3">
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            {details.propertyType}
-          </span>
-        </div>
-
-        <div className="flex gap-2">
-          <button 
-            onClick={(e) => { 
-              e.stopPropagation(); 
-              onViewOnMap(); 
-            }} 
-            className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors"
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewOnMap();
+            }}
+            className="flex-1 px-3 py-2 bg-ds-card text-ds-heading text-xs font-bold rounded-xl border border-ds-card-border hover:bg-white hover:border-ds-primary transition-all"
           >
-            View on Map
+            Locate
           </button>
-          <button 
-            onClick={(e) => { 
-              e.stopPropagation(); 
-              onViewStreetView(); 
-            }} 
-            className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewStreetView();
+            }}
+            className="flex-1 px-3 py-2 bg-ds-primary text-white text-xs font-bold rounded-xl shadow-lg shadow-ds-primary/20 hover:scale-[1.02] transition-all"
           >
             Street View
           </button>
         </div>
 
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <div className="flex justify-between items-center text-xs text-gray-500">
-            <span>Listing ID: {details.listingId}</span>
-            {listingUrl && (
-              <a
-                href={listingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-              >
-                View Details →
-              </a>
-            )}
-          </div>
+        {/* Footer Meta */}
+        <div className="flex justify-between items-center text-[10px] text-ds-body pt-1 font-medium">
+          <span className="opacity-60 uppercase tracking-tighter">
+            ID: {details.listingId}
+          </span>
+          {listingUrl && (
+            <a
+              href={listingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-ds-primary hover:underline flex items-center gap-1"
+            >
+              Details <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -1,0 +1,25 @@
+app/(root)/listing/rental/[id]/page.tsx(43,29): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+app/(root)/listing/rental/[id]/page.tsx(441,93): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+app/(root)/listing/rental/[id]/page.tsx(441,134): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+app/(root)/listing/rental/[id]/page.tsx(441,174): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+app/(root)/listing/rental/[id]/page.tsx(441,215): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+app/(root)/listing/rental/page.tsx(464,32): error TS2365: Operator '>' cannot be applied to types 'string | number' and 'number'.
+app/(root)/listing/rental/page.tsx(470,32): error TS2365: Operator '>' cannot be applied to types 'string | number' and 'number'.
+app/(root)/listing/rental/page.tsx(540,32): error TS2365: Operator '>' cannot be applied to types 'string | number' and 'number'.
+app/(root)/listing/rental/page.tsx(546,32): error TS2365: Operator '>' cannot be applied to types 'string | number' and 'number'.
+app/admin/listings/page.tsx(307,51): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'SetStateAction<string | null>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<string | null>'.
+components/listing-details/ListingInsights.tsx(6,15): error TS2724: '"@/data/listingDetails"' has no exported member named 'ListingDetails'. Did you mean 'LISTING_DETAILS'?
+components/listing-details/ListingTabs.tsx(10,15): error TS2724: '"@/data/listingDetails"' has no exported member named 'ListingDetails'. Did you mean 'LISTING_DETAILS'?
+components/map/PropertyCard.tsx(49,24): error TS2339: Property 'media_url' does not exist on type 'never'.
+components/map/PropertyCard.tsx(163,33): error TS2345: Argument of type 'string | number | null | undefined' is not assignable to parameter of type 'string | number | undefined'.
+  Type 'null' is not assignable to type 'string | number | undefined'.
+lib/propertyUtils.ts(101,3): error TS2322: Type 'string | number' is not assignable to type 'number'.
+  Type 'string' is not assignable to type 'number'.
+lib/propertyUtils.ts(104,3): error TS2322: Type 'string | number' is not assignable to type 'number'.
+  Type 'string' is not assignable to type 'number'.

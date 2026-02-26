@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Bed,
   Bath,
@@ -11,17 +11,17 @@ import {
   Search,
   X,
   Calendar,
-  DollarSign
-} from 'lucide-react';
-import Link from 'next/link';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import { colors } from '@/config/design-system';
+  DollarSign,
+} from "lucide-react";
+import Link from "next/link";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import { colors } from "@/config/design-system";
 import {
   useInfiniteLeaseProperties,
   useLeaseProperties,
-  type Property
-} from '@/hooks/react-query';
+  type Property,
+} from "@/hooks/react-query";
 
 // Helper function to fix media field in properties
 const fixPropertyMedia = (property: any): Property => {
@@ -37,15 +37,21 @@ const fixPropertyMedia = (property: any): Property => {
     if (Array.isArray(property.media)) {
       // Already an array
       mediaArray = property.media;
-    } else if (typeof property.media === 'object' && property.media !== null) {
+    } else if (typeof property.media === "object" && property.media !== null) {
       // Single media object
       if (property.media.media_url) {
-        mediaArray = [{
-          media_url: property.media.media_url,
-          media_category: property.media.media_category || 'Property Photo',
-          is_preferred: property.media.is_preferred !== undefined ? property.media.is_preferred : true,
-          order: property.media.order !== undefined ? property.media.order : 0
-        }];
+        mediaArray = [
+          {
+            media_url: property.media.media_url,
+            media_category: property.media.media_category || "Property Photo",
+            is_preferred:
+              property.media.is_preferred !== undefined
+                ? property.media.is_preferred
+                : true,
+            order:
+              property.media.order !== undefined ? property.media.order : 0,
+          },
+        ];
       }
     }
   }
@@ -55,11 +61,11 @@ const fixPropertyMedia = (property: any): Property => {
     ...property,
     media: mediaArray,
     // Ensure Photos array exists for legacy compatibility
-    Photos: mediaArray.map(m => ({
+    Photos: mediaArray.map((m) => ({
       PhotoURL: m.media_url,
       MediaCategory: m.media_category,
       IsPreferred: m.is_preferred,
-      Order: m.order
+      Order: m.order,
     })),
     // Ensure Media array exists for legacy compatibility
     Media: mediaArray,
@@ -67,8 +73,8 @@ const fixPropertyMedia = (property: any): Property => {
 };
 
 export default function RentalListingsPage() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentCity, setCurrentCity] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentCity, setCurrentCity] = useState("");
   const [searchQuery, setSearchQuery] = useState("All Rental Properties");
   const [isSearching, setIsSearching] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -86,19 +92,21 @@ export default function RentalListingsPage() {
     isFetchingNextPage,
     isLoading: isQueryLoading,
     error,
-    refetch
+    refetch,
   } = useInfiniteLeaseProperties(
-    currentCity ? { city: currentCity } : undefined
+    currentCity ? { city: currentCity } : undefined,
   );
 
   // Calculate all properties from infinite query pages with fixed media
   const properties = React.useMemo(() => {
     if (!infiniteData?.pages) return [];
 
-    const allProperties = infiniteData.pages.flatMap(page => page.results || []);
+    const allProperties = infiniteData.pages.flatMap(
+      (page) => page.results || [],
+    );
 
     // Fix the media field for each property
-    return allProperties.map(property => fixPropertyMedia(property));
+    return allProperties.map((property) => fixPropertyMedia(property));
   }, [infiniteData]);
 
   // Enhanced function to get property image URL
@@ -121,7 +129,11 @@ export default function RentalListingsPage() {
       }
 
       // Fallback to raw media object (in case fixPropertyMedia wasn't applied)
-      if (property.media && typeof property.media === 'object' && !Array.isArray(property.media)) {
+      if (
+        property.media &&
+        typeof property.media === "object" &&
+        !Array.isArray(property.media)
+      ) {
         if (property.media.media_url) {
           return property.media.media_url;
         }
@@ -139,7 +151,7 @@ export default function RentalListingsPage() {
 
       return null;
     } catch (e) {
-      console.error('Error getting property image:', e);
+      console.error("Error getting property image:", e);
       return null;
     }
   };
@@ -147,7 +159,7 @@ export default function RentalListingsPage() {
   // Handle search button click
   const handleSearch = () => {
     if (!searchTerm.trim()) {
-      setCurrentCity('');
+      setCurrentCity("");
       setSearchQuery("All Rental Properties");
     } else {
       setIsSearching(true);
@@ -163,7 +175,7 @@ export default function RentalListingsPage() {
 
   // Handle Enter key press
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       handleSearch();
     }
@@ -171,8 +183,8 @@ export default function RentalListingsPage() {
 
   // Clear search and show all rental properties
   const clearSearch = () => {
-    setSearchTerm('');
-    setCurrentCity('');
+    setSearchTerm("");
+    setCurrentCity("");
     setSearchQuery("All Rental Properties");
     // Trigger refetch without filter
     setTimeout(() => refetch(), 100);
@@ -193,11 +205,17 @@ export default function RentalListingsPage() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetching && !isFetchingNextPage && !isSearching) {
+        if (
+          entries[0].isIntersecting &&
+          hasNextPage &&
+          !isFetching &&
+          !isFetchingNextPage &&
+          !isSearching
+        ) {
           loadMoreProperties();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     if (lastPropertyRef.current) {
@@ -211,19 +229,29 @@ export default function RentalListingsPage() {
         observerRef.current.disconnect();
       }
     };
-  }, [hasNextPage, isFetching, isFetchingNextPage, isSearching, loadMoreProperties]);
+  }, [
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    isSearching,
+    loadMoreProperties,
+  ]);
 
   const getPropertyKey = (property: Property) => {
-    return property.listing_key || property.PropertyKey || `property-${property.city}-${property.ListPrice}`;
+    return (
+      property.listing_key ||
+      property.PropertyKey ||
+      `property-${property.city}-${property.ListPrice}`
+    );
   };
 
   // Format price as monthly rent
   const formatMonthlyPrice = (price: number) => {
-    if (!price || price === 0) return 'Price on request';
+    if (!price || price === 0) return "Price on request";
 
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(price);
@@ -235,7 +263,7 @@ export default function RentalListingsPage() {
       const amount = parseFloat(property.lease_amount);
       return `$${amount.toFixed(2)}/sq ft`;
     }
-    return 'Lease amount not specified';
+    return "Lease amount not specified";
   };
 
   // Get display price
@@ -244,7 +272,9 @@ export default function RentalListingsPage() {
     if (property.lease_amount) {
       return parseFloat(property.lease_amount);
     }
-    return property.list_price ? parseFloat(property.list_price) : property.ListPrice || 0;
+    return property.list_price
+      ? parseFloat(property.list_price)
+      : property.ListPrice || 0;
   };
 
   // Calculate loading states
@@ -273,8 +303,8 @@ export default function RentalListingsPage() {
             </h1>
             <p className="text-gray-600">
               {properties.length > 0
-                ? `Found ${properties.length} rental propert${properties.length === 1 ? 'y' : 'ies'}`
-                : 'Browse available rental properties across Canada'}
+                ? `Found ${properties.length} rental propert${properties.length === 1 ? "y" : "ies"}`
+                : "Browse available rental properties across Canada"}
             </p>
           </div>
 
@@ -321,19 +351,21 @@ export default function RentalListingsPage() {
 
             {/* Quick Search Examples */}
             <div className="mt-3 flex flex-wrap gap-2 justify-center">
-              {['Toronto', 'Vancouver', 'Ottawa', 'Montreal', 'Calgary'].map((city) => (
-                <button
-                  key={city}
-                  onClick={() => {
-                    setSearchTerm(city);
-                    setTimeout(() => handleSearch(), 100);
-                  }}
-                  disabled={isSearching}
-                  className="text-sm px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
-                >
-                  {city}
-                </button>
-              ))}
+              {["Toronto", "Vancouver", "Ottawa", "Montreal", "Calgary"].map(
+                (city) => (
+                  <button
+                    key={city}
+                    onClick={() => {
+                      setSearchTerm(city);
+                      setTimeout(() => handleSearch(), 100);
+                    }}
+                    disabled={isSearching}
+                    className="text-sm px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                  >
+                    {city}
+                  </button>
+                ),
+              )}
               <button
                 onClick={clearSearch}
                 disabled={isSearching}
@@ -351,7 +383,8 @@ export default function RentalListingsPage() {
                 Error loading rental properties
               </div>
               <p className="text-gray-600 mb-4">
-                Please try again later or contact support if the problem persists.
+                Please try again later or contact support if the problem
+                persists.
               </p>
               <button
                 onClick={() => refetch()}
@@ -365,9 +398,14 @@ export default function RentalListingsPage() {
           {/* Loading State */}
           {(isLoading || isSearching) && (
             <div className="flex items-center justify-center py-16">
-              <Loader2 className="w-8 h-8 animate-spin" style={{ color: colors.primary }} />
+              <Loader2
+                className="w-8 h-8 animate-spin"
+                style={{ color: colors.primary }}
+              />
               <span className="ml-3 text-gray-600">
-                {isSearching ? 'Searching rental properties...' : 'Loading rental properties...'}
+                {isSearching
+                  ? "Searching rental properties..."
+                  : "Loading rental properties..."}
               </span>
             </div>
           )}
@@ -379,12 +417,34 @@ export default function RentalListingsPage() {
                 {properties.map((property, index) => {
                   const propertyKey = getPropertyKey(property);
                   const displayPrice = getDisplayPrice(property);
-                  const displayCity = property.city || property.City || 'Unknown City';
-                  const displayPropertyType = property.category_type || property.PropertySubType || 'Retail Property';
-                  const bedCount = property.bedrooms_total || property.BedroomsTotal || 0;
-                  const bathCount = property.bathrooms_total_integer || property.BathroomsTotalInteger || 0;
-                  const status = property.standard_status || property.StandardStatus || 'Active';
-                  const leaseAmount = property.lease_amount ? parseFloat(property.lease_amount) : null;
+                  const displayCity =
+                    property.city || property.City || "Unknown City";
+                  const displayPropertyType =
+                    property.category_type ||
+                    property.PropertySubType ||
+                    "Retail Property";
+                  const rawBedCount =
+                    property.bedrooms_total || property.BedroomsTotal;
+                  const bedCount =
+                    typeof rawBedCount === "string"
+                      ? parseFloat(rawBedCount) || 0
+                      : rawBedCount || 0;
+
+                  const rawBathCount =
+                    property.bathrooms_total_integer ||
+                    property.BathroomsTotalInteger;
+                  const bathCount =
+                    typeof rawBathCount === "string"
+                      ? parseFloat(rawBathCount) || 0
+                      : rawBathCount || 0;
+
+                  const status =
+                    property.standard_status ||
+                    property.StandardStatus ||
+                    "Active";
+                  const leaseAmount = property.lease_amount
+                    ? parseFloat(String(property.lease_amount))
+                    : null;
 
                   const isLastProperty = index === properties.length - 1;
                   const imageUrl = getPropertyImageUrl(property);
@@ -410,27 +470,29 @@ export default function RentalListingsPage() {
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;
                                   target.onerror = null;
-                                  target.src = '';
-                                  target.style.display = 'none';
+                                  target.src = "";
+                                  target.style.display = "none";
                                 }}
                               />
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 filter blur-md">
-                                <div className="text-sm font-medium">No image found</div>
+                                <div className="text-sm font-medium">
+                                  No image found
+                                </div>
                               </div>
                             )}
 
                             {/* translucent overlay to dim the blurred image and hold CTA */}
                             <div className="absolute inset-0 bg-black/35 flex items-center justify-center p-4">
                               <div className="text-center space-y-3 pointer-events-none">
-
-
                                 {/* Buttons - allow pointer events only for buttons */}
                                 <div className="mt-2 flex gap-3 justify-center pointer-events-auto">
-                                  <Link href="/login" className="px-4 py-2 bg-white text-blue-700 rounded-lg font-medium hover:bg-gray-100">
+                                  <Link
+                                    href="/login"
+                                    className="px-4 py-2 bg-white text-blue-700 rounded-lg font-medium hover:bg-gray-100"
+                                  >
                                     Login
                                   </Link>
-
                                 </div>
                               </div>
                             </div>
@@ -438,10 +500,15 @@ export default function RentalListingsPage() {
                             {/* Favorite icon still visible but disabled */}
 
                             <div className="absolute bottom-4 left-4">
-                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${status === 'Active' ? 'bg-green-500 text-white' :
-                                  status === 'Pending' ? 'bg-yellow-500 text-white' :
-                                    'bg-gray-500 text-white'
-                                }`}>
+                              <span
+                                className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                  status === "Active"
+                                    ? "bg-green-500 text-white"
+                                    : status === "Pending"
+                                      ? "bg-yellow-500 text-white"
+                                      : "bg-gray-500 text-white"
+                                }`}
+                              >
                                 {status}
                               </span>
                             </div>
@@ -475,7 +542,9 @@ export default function RentalListingsPage() {
                               )}
                               <div className="flex items-center gap-1">
                                 <Maximize className="w-4 h-4" />
-                                <span className="text-xs">{property.StateOrProvince}</span>
+                                <span className="text-xs">
+                                  {property.StateOrProvince}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -495,26 +564,38 @@ export default function RentalListingsPage() {
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;
                                   target.onerror = null;
-                                  target.src = '';
-                                  target.style.display = 'none';
+                                  target.src = "";
+                                  target.style.display = "none";
                                   const parent = target.parentElement;
                                   if (parent) {
-                                    parent.querySelectorAll('.no-image-fallback').forEach(el => (el as HTMLElement).style.display = 'flex');
+                                    parent
+                                      .querySelectorAll(".no-image-fallback")
+                                      .forEach(
+                                        (el) =>
+                                          ((el as HTMLElement).style.display =
+                                            "flex"),
+                                      );
                                   }
                                 }}
                               />
                             ) : (
                               <div className="no-image-fallback w-full h-full flex flex-col items-center justify-center text-gray-500">
-                                <div className="text-sm font-medium">No image found</div>
+                                <div className="text-sm font-medium">
+                                  No image found
+                                </div>
                               </div>
                             )}
 
-
                             <div className="absolute bottom-4 left-4">
-                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${status === 'Active' ? 'bg-green-500 text-white' :
-                                  status === 'Pending' ? 'bg-yellow-500 text-white' :
-                                    'bg-gray-500 text-white'
-                                }`}>
+                              <span
+                                className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                  status === "Active"
+                                    ? "bg-green-500 text-white"
+                                    : status === "Pending"
+                                      ? "bg-yellow-500 text-white"
+                                      : "bg-gray-500 text-white"
+                                }`}
+                              >
                                 {status}
                               </span>
                             </div>
@@ -551,7 +632,9 @@ export default function RentalListingsPage() {
                               )}
                               <div className="flex items-center gap-1">
                                 <Maximize className="w-4 h-4" />
-                                <span className="text-xs">{property.StateOrProvince}</span>
+                                <span className="text-xs">
+                                  {property.StateOrProvince}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -565,8 +648,13 @@ export default function RentalListingsPage() {
               {/* Loading More Indicator */}
               {isLoadingMore && (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin mr-2" style={{ color: colors.primary }} />
-                  <span className="text-gray-600">Loading more rental properties...</span>
+                  <Loader2
+                    className="w-6 h-6 animate-spin mr-2"
+                    style={{ color: colors.primary }}
+                  />
+                  <span className="text-gray-600">
+                    Loading more rental properties...
+                  </span>
                 </div>
               )}
 
@@ -574,7 +662,11 @@ export default function RentalListingsPage() {
               {!hasNextPage && !isLoadingMore && properties.length > 0 && (
                 <div className="text-center py-8">
                   <p className="text-gray-500">
-                    {currentCity ? `Showing all rental properties in ${currentCity}` : (isLoggedIn ? 'You have reached the end of the results' : 'Login to see more rental listings')}
+                    {currentCity
+                      ? `Showing all rental properties in ${currentCity}`
+                      : isLoggedIn
+                        ? "You have reached the end of the results"
+                        : "Login to see more rental listings"}
                   </p>
                 </div>
               )}
@@ -585,10 +677,14 @@ export default function RentalListingsPage() {
           {!isLoading && !error && properties.length === 0 && (
             <div className="text-center py-16">
               <div className="text-xl font-semibold text-gray-900 mb-2">
-                {currentCity ? `No rental properties found in "${currentCity}"` : 'No rental properties available'}
+                {currentCity
+                  ? `No rental properties found in "${currentCity}"`
+                  : "No rental properties available"}
               </div>
               <p className="text-gray-600 mb-4">
-                {currentCity ? 'Try searching for a different city' : 'Check back later for new rental properties'}
+                {currentCity
+                  ? "Try searching for a different city"
+                  : "Check back later for new rental properties"}
               </p>
               {currentCity && (
                 <button

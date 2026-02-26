@@ -1,0 +1,66 @@
+
+> nextjs@0.1.0 build
+> next build
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'S:\mls\frontend\.next\cache\webpack\server-production\0.pack_' -> 'S:\mls\frontend\.next\cache\webpack\server-production\0.pack'
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ✓ Compiled successfully
+   Skipping linting
+   Checking validity of types ...
+   Collecting page data ...
+Error fetching http://localhost:8000/api/vlog/: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13392:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  [cause]: AggregateError [ECONNREFUSED]: 
+      at internalConnectMultiple (node:net:1121:18)
+      at afterConnectMultiple (node:net:1688:7)
+      at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+    code: 'ECONNREFUSED',
+    [errors]: [ [Error], [Error] ]
+  }
+}
+Error fetching vlog posts: TypeError: fetch failed
+    at node:internal/deps/undici/undici:13392:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  [cause]: AggregateError [ECONNREFUSED]: 
+      at internalConnectMultiple (node:net:1121:18)
+      at afterConnectMultiple (node:net:1688:7)
+      at TCPConnectWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+    code: 'ECONNREFUSED',
+    [errors]: [ [Error], [Error] ]
+  }
+}
+   Generating static pages (0/11) ...
+   Generating static pages (2/11) 
+   Generating static pages (5/11) 
+ ⚠ Entire page /compare deopted into client-side rendering. https://nextjs.org/docs/messages/deopted-into-client-rendering /compare
+   Generating static pages (8/11) 
+ ✓ Generating static pages (11/11) 
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ○ /                                    15.3 kB         200 kB
+├ ○ /_not-found                          875 B          81.5 kB
+├ ○ /blog                                4.15 kB         173 kB
+├ ● /blog/[slug]                         2.17 kB         168 kB
+├ ○ /compare                             6.75 kB         188 kB
+├ ○ /listing                             4.99 kB         190 kB
+├ λ /listing/[id]                        138 B           170 kB
+├ ○ /listing/rental                      4.33 kB         185 kB
+├ λ /listing/rental/[id]                 138 B           170 kB
+├ ○ /map-search                          55.8 kB         225 kB
+├ ○ /Precon                              3.04 kB        87.1 kB
+└ ○ /valuation                           3.5 kB          169 kB
++ First Load JS shared by all            80.6 kB
+  ├ chunks/472-783904117ad0bde3.js       27.5 kB
+  ├ chunks/fd9d1056-b95a937d6b948a6b.js  51.1 kB
+  ├ chunks/main-app-9ddc76d1c419ec16.js  230 B
+  └ chunks/webpack-5ff594c854e1d00e.js   1.8 kB
+
+
+λ  (Server)  server-side renders at runtime (uses getInitialProps or getServerSideProps)
+○  (Static)  automatically rendered as static HTML (uses no initial props)
+●  (SSG)     automatically generated as static HTML + JSON (uses getStaticProps)
+
