@@ -8,6 +8,7 @@ import type { Property } from "@/lib/api";
 import { getPropertyKey } from "@/lib/propertyUtils";
 import { PropertyCardImage } from "@/components/property-card/PropertyCardImage";
 import { PropertyCardContent } from "@/components/property-card/PropertyCardContent";
+import { usePrefetchProperty } from "@/hooks/react-query";
 
 /* ──────────────────────────── component ──────────────────────────── */
 
@@ -24,6 +25,7 @@ export default function PropertyCard({
 }: PropertyCardProps) {
   const [clicked, setClicked] = useState(false);
   const propertyKey = getPropertyKey(property);
+  const prefetch = usePrefetchProperty();
 
   return (
     <div
@@ -32,6 +34,7 @@ export default function PropertyCard({
         animationDelay: `${index * propertyCard.animation.staggerDelayMs}ms`,
         border: `1px solid ${colors.cardsBoarder}`,
       }}
+      onMouseEnter={() => propertyKey && prefetch(propertyKey)}
     >
       <Link
         href={`/listing/${propertyKey}`}

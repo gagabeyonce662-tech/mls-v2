@@ -183,7 +183,11 @@ export default function HomePage() {
 
             <FeaturedListings
               properties={properties}
-              searchQuery="Exclusive Properties"
+              searchQuery={
+                selectedProvince
+                  ? `Exclusive in ${getProvinceName(selectedProvince)}`
+                  : "Exclusive Properties"
+              }
             />
             <RentalProperties
               properties={rentalProperties}

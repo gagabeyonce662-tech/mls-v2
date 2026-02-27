@@ -415,7 +415,7 @@ export async function fetchPropertyByKey(
     const data = await fetchAPI<any>(
       `${API_BASE_URL}/api/mls/properties/${propertyKey}/`,
       {
-        cache: "no-store",
+        next: { revalidate: 300 }, // Cache for 5 minutes
       },
     );
 
