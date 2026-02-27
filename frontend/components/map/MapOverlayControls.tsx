@@ -34,8 +34,9 @@ export const MapOverlayControls = ({
   loading,
 }: MapOverlayControlsProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // Auto-open the tray after a brief delay so the user sees the slide-in animation
+  // Auto-open the desktop tray after a brief delay
   useEffect(() => {
     const timer = setTimeout(() => setIsOpen(true), 1000);
     return () => clearTimeout(timer);
@@ -43,7 +44,108 @@ export const MapOverlayControls = ({
 
   return (
     <>
-      {/* Collapsed tab button — visible only when panel is closed */}
+      {/* ══════════ MOBILE (below lg) ══════════ */}
+
+      {/* Mobile top bar: search + filter toggle */}
+      <div className="absolute top-3 left-3 right-3 z-[40] flex items-center gap-2 lg:hidden pointer-events-auto">
+        <div className="flex-1 shadow-md rounded-xl">
+          <SearchBox
+            inputRef={inputRef}
+            value={searchQuery}
+            onChange={onInputChange}
+            onKeyDown={onKeyDown}
+            onClear={clearSearch}
+          />
+        </div>
+        <button
+          onClick={() => setMobileFiltersOpen(true)}
+          className="flex-shrink-0 p-3.5 rounded-xl border bg-white text-ds-heading border-ds-card-border shadow-md active:scale-95 transition-transform"
+          title="Open Filters"
+        >
+          <SlidersHorizontal className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Mobile filter bottom sheet */}
+      <AnimatePresence>
+        {mobileFiltersOpen && (
+          <>
+            <motion.div
+              key="mobile-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileFiltersOpen(false)}
+              className="fixed inset-0 bg-black/40 z-[2000] lg:hidden"
+            />
+            <motion.div
+              key="mobile-sheet"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className="fixed top-0 right-0 bottom-0 w-[85vw] max-w-[360px] z-[2001] lg:hidden flex flex-col bg-white shadow-2xl"
+            >
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-ds-card-border">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4 text-ds-primary" />
+                  <span className="text-sm font-bold text-ds-heading">Filters</span>
+                </div>
+                <button
+                  onClick={() => setMobileFiltersOpen(false)}
+                  className="p-2 rounded-lg hover:bg-ds-card transition-colors"
+                >
+                  <X className="w-5 h-5 text-ds-body" />
+                </button>
+              </div>
+
+              {/* Filter content */}
+              <div className="flex-1 overflow-y-auto no-scrollbar">
+                <FilterBar
+                  filters={filters}
+                  setFilters={setFilters}
+                  onApply={() => {
+                    applyFilters();
+                    setMobileFiltersOpen(false);
+                  }}
+                  className="border-0 shadow-none rounded-none"
+                />
+              </div>
+
+              {/* Mobile action buttons */}
+              <div className="p-4 border-t border-ds-card-border flex gap-2 bg-white safe-bottom">
+                <button
+                  onClick={() => {
+                    onToggleDrawing();
+                    setMobileFiltersOpen(false);
+                  }}
+                  className={`flex-1 p-3 rounded-xl border flex items-center justify-center gap-2 text-sm font-semibold transition-all ${drawing
+                    ? "bg-red-500 text-white border-red-600"
+                    : "bg-ds-card text-ds-heading border-ds-card-border"
+                    }`}
+                >
+                  {drawing ? <><X className="w-4 h-4" /><span>Cancel</span></> : <><Pencil className="w-4 h-4" /><span>Draw</span></>}
+                </button>
+                <button
+                  onClick={() => {
+                    onClearAll();
+                    setMobileFiltersOpen(false);
+                  }}
+                  className="flex-1 p-3 bg-ds-card text-ds-heading border border-ds-card-border rounded-xl flex items-center justify-center gap-2 text-sm font-semibold"
+                >
+                  <Trash2 className="w-4 h-4" /><span>Clear</span>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ══════════ DESKTOP (lg and above) ══════════ */}
+
+      {/* Collapsed tab */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div
@@ -71,7 +173,7 @@ export const MapOverlayControls = ({
         )}
       </AnimatePresence>
 
-      {/* Full panel — slides in from the right */}
+      {/* Full panel */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -84,7 +186,6 @@ export const MapOverlayControls = ({
           >
             <div className="flex flex-col h-full rounded-2xl border border-ds-card-border bg-white/95 backdrop-blur-sm shadow-md overflow-hidden">
 
-              {/* Header with minimize button */}
               <div className="flex items-center justify-between px-4 py-2 border-b border-ds-card-border bg-ds-card/60">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="w-4 h-4 text-ds-primary" />
@@ -99,7 +200,6 @@ export const MapOverlayControls = ({
                 </button>
               </div>
 
-              {/* Search Box */}
               <div className="p-3 border-b border-ds-card-border h-[96px] bg-[#f5f5f5]">
                 <SearchBox
                   inputRef={inputRef}
@@ -110,19 +210,15 @@ export const MapOverlayControls = ({
                 />
               </div>
 
-              {/* Vertical Filter Panel */}
               <div className="flex-1 overflow-y-auto no-scrollbar">
                 <FilterBar
                   filters={filters}
                   setFilters={setFilters}
                   onApply={applyFilters}
-                  transparent={false}
-                  vertical={true}
                   className="border-0 shadow-none rounded-none"
                 />
               </div>
 
-              {/* Action Tools */}
               <div className="p-3 border-t border-ds-card-border flex flex-col gap-2">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
