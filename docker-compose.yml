@@ -48,7 +48,6 @@ services:
       dockerfile: Dockerfile.dev
       args:
         MODE: "production"
-    command: npm start
     container_name: frontend
     environment:
       - NODE_ENV=production
