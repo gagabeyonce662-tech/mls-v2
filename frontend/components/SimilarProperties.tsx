@@ -77,17 +77,17 @@ export default function SimilarProperties({
         }
 
         const apiUrl = `http://https://staging.vsell4u.ca/api/mls/properties/exclusive-properties/?${params}`;
-        
+
         console.log('Fetching similar properties from:', apiUrl);
 
         const response = await fetch(apiUrl);
-        
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
+
         // Filter out the current property and map to similar properties format
         const properties = (data.results || [])
           .filter((prop: any) => prop.listing_key !== currentPropertyId)
@@ -109,7 +109,7 @@ export default function SimilarProperties({
             year_built: prop.year_built,
             listing_url: prop.listing_url,
           }));
-        
+
         console.log('Found similar properties:', properties.length);
         setSimilarProperties(properties);
       } catch (error) {
@@ -156,7 +156,7 @@ export default function SimilarProperties({
   return (
     <div className="mt-16">
       <h2 className={`${ds.h2} mb-8`}>Similar Properties</h2>
-      
+
       {isLoading ? (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -190,11 +190,10 @@ export default function SimilarProperties({
                   {similarProperty.property_type || 'Property'}
                 </div>
                 {similarProperty.status && (
-                  <div className={`absolute top-3 right-3 px-2 py-1 rounded text-xs font-semibold ${
-                    similarProperty.status === 'Active' ? 'bg-green-500 text-white' :
-                    similarProperty.status === 'Pending' ? 'bg-yellow-500 text-white' :
-                    'bg-gray-500 text-white'
-                  }`}>
+                  <div className={`absolute top-3 right-3 px-2 py-1 rounded text-xs font-semibold ${similarProperty.status === 'Active' ? 'bg-green-500 text-white' :
+                      similarProperty.status === 'Pending' ? 'bg-yellow-500 text-white' :
+                        'bg-gray-500 text-white'
+                    }`}>
                     {similarProperty.status}
                   </div>
                 )}

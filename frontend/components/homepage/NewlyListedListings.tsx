@@ -25,7 +25,13 @@ export default function NewlyListedListings({
     const load = async () => {
       setIsLoading(true);
       try {
-        const response = await fetchNewlyListedProperties({ limit: showLimit });
+        const response = await fetchNewlyListedProperties({
+          limit: showLimit,
+          search:
+            searchQuery && searchQuery !== "Latest Properties"
+              ? searchQuery
+              : undefined,
+        });
         setProperties(response.results || []);
       } catch (error) {
         console.error("Error fetching newly listed properties:", error);
@@ -35,7 +41,7 @@ export default function NewlyListedListings({
       }
     };
     load();
-  }, [showLimit]);
+  }, [showLimit, searchQuery]);
 
   return (
     <div className="py-12">
@@ -93,73 +99,73 @@ export default function NewlyListedListings({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {isLoading
             ? [...Array(showLimit)].map((_, i) => (
+              <div
+                key={`skeleton-${i}`}
+                className="rounded-2xl overflow-hidden animate-pulse"
+                style={{ border: `1px solid ${colors.cardsBoarder}` }}
+              >
                 <div
-                  key={`skeleton-${i}`}
-                  className="rounded-2xl overflow-hidden animate-pulse"
-                  style={{ border: `1px solid ${colors.cardsBoarder}` }}
-                >
+                  className="h-56 w-full"
+                  style={{ backgroundColor: colors.boarder }}
+                />
+                <div className="p-4 space-y-3 bg-white">
                   <div
-                    className="h-56 w-full"
+                    className="h-5 w-1/2 rounded"
                     style={{ backgroundColor: colors.boarder }}
                   />
-                  <div className="p-4 space-y-3 bg-white">
+                  <div
+                    className="h-4 w-3/4 rounded"
+                    style={{ backgroundColor: colors.boarder }}
+                  />
+                  <div
+                    className="h-3 w-full rounded"
+                    style={{ backgroundColor: colors.boarder }}
+                  />
+                  <div
+                    className="border-t my-2"
+                    style={{ borderColor: colors.cardsBoarder }}
+                  />
+                  <div className="flex gap-4">
                     <div
-                      className="h-5 w-1/2 rounded"
+                      className="h-4 w-14 rounded"
                       style={{ backgroundColor: colors.boarder }}
                     />
                     <div
-                      className="h-4 w-3/4 rounded"
+                      className="h-4 w-14 rounded"
                       style={{ backgroundColor: colors.boarder }}
                     />
-                    <div
-                      className="h-3 w-full rounded"
-                      style={{ backgroundColor: colors.boarder }}
-                    />
-                    <div
-                      className="border-t my-2"
-                      style={{ borderColor: colors.cardsBoarder }}
-                    />
-                    <div className="flex gap-4">
-                      <div
-                        className="h-4 w-14 rounded"
-                        style={{ backgroundColor: colors.boarder }}
-                      />
-                      <div
-                        className="h-4 w-14 rounded"
-                        style={{ backgroundColor: colors.boarder }}
-                      />
-                    </div>
                   </div>
                 </div>
-              ))
+              </div>
+            ))
             : properties.length > 0
               ? properties
-                  .slice(0, showLimit)
-                  .map((property, index) => (
-                    <PropertyCard
-                      key={
-                        property.listing_key ||
-                        property.PropertyKey ||
-                        `new-${index}`
-                      }
-                      property={property}
-                      variant="new"
-                      index={index}
-                    />
-                  ))
+                .slice(0, showLimit)
+                .map((property, index) => (
+                  <PropertyCard
+                    key={
+                      property.listing_key ||
+                      property.PropertyKey ||
+                      `new-${index}`
+                    }
+                    property={property}
+                    variant="new"
+                    index={index}
+                  />
+                ))
               : !isLoading && (
-                  <div className="col-span-3 text-center py-16">
-                    <div
-                      className="text-xl font-semibold mb-2"
-                      style={{ color: colors.heading }}
-                    >
-                      No newly listed properties found
-                    </div>
-                    <p style={{ color: colors.body }}>
-                      Check back soon for new property listings.
-                    </p>
+                <div className="col-span-3 text-center py-16">
+                  <div
+                    className="text-xl font-semibold mb-2"
+                    style={{ color: colors.heading }}
+                  >
+                    No newly listed properties found
                   </div>
-                )}
+                  <p style={{ color: colors.body }}>
+                    Check back soon for new property listings.
+                  </p>
+                </div>
+              )}
         </div>
 
         {/* Mobile View All */}
