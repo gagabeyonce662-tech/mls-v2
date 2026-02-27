@@ -20,7 +20,7 @@ export const SearchThisAreaButton = ({
           initial={{ opacity: 0, y: -20, x: "-50%" }}
           animate={{ opacity: 1, y: 0, x: "-50%" }}
           exit={{ opacity: 0, y: -20, x: "-50%" }}
-          className="absolute top-24 left-1/2 z-[1000]"
+          className="fixed justify-center top-24 left-1/2 z-[1000]"
         >
           <Button
             onClick={onClick}

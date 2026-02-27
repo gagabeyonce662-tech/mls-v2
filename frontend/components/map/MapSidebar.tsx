@@ -19,9 +19,9 @@ export const MapSidebar = ({
 
   return (
     <motion.aside
-      initial={{ x: 400 }}
+      initial={{ x: -420 }}
       animate={{ x: 0 }}
-      className="hidden xl:flex w-[400px] bg-white border-l border-ds-card-border flex-col shadow-2xl z-10"
+      className="absolute top-4 left-4 bottom-4 hidden xl:flex w-[360px] flex-col rounded-2xl overflow-hidden shadow-2xl border border-ds-card-border bg-white/95 backdrop-blur-md z-[500]"
     >
       <div className="p-6 border-b border-ds-card-border bg-ds-card">
         <h2 className="text-xl font-bold text-ds-heading">

@@ -17,7 +17,7 @@ export default function SearchBox({
 }) {
   return (
     <div className="relative w-full">
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-ds-primary z-10 pointer-events-none">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-ds-primary z-10 pointer-events-none ">
         <MapPin className="w-5 h-5" />
       </div>
       <input
@@ -26,7 +26,7 @@ export default function SearchBox({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder="Enter neighborhood or city..."
-        className="w-full pl-12 pr-12 py-4 rounded-xl border border-ds-card-border focus:ring-2 focus:ring-ds-primary focus:border-transparent outline-none bg-white shadow-lg text-ds-heading font-medium placeholder:text-ds-body/40 transition-all"
+        className="w-full pl-12 pr-12 py-4 rounded-xl border border-ds-card-border focus:ring-2 focus:ring-ds-primary focus:border-transparent outline-none bg-white shadow-sm text-ds-heading font-medium placeholder:text-ds-body/40 transition-all"
         autoComplete="off"
       />
       {value ? (

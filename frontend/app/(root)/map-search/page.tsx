@@ -128,7 +128,7 @@ export default function MapOnlyPage() {
           const group = markers.map((m) => [m.lat, m.lng]);
           const bounds = L.latLngBounds(group as any);
           mapRef.current.fitBounds(bounds.pad(0.2));
-        } catch {}
+        } catch { }
       }
       setLoadingApi(false);
     } catch (err: any) {
@@ -213,7 +213,7 @@ export default function MapOnlyPage() {
       map.on("moveend", () => {
         if (!loadingApi && !drawing) setShowSearchThisArea(true);
       });
-    } catch {}
+    } catch { }
   };
 
   const clearAll = () => {
@@ -264,40 +264,39 @@ export default function MapOnlyPage() {
 
   const markerToShow = searchResult
     ? {
-        lat: searchResult.lat,
-        lng: searchResult.lng,
-        title: searchResult.display_name || "Search result",
-      }
+      lat: searchResult.lat,
+      lng: searchResult.lng,
+      title: searchResult.display_name || "Search result",
+    }
     : null;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-white">
       <Header />
 
-      <main className="flex-1 relative flex flex-col pt-16">
-        <MapOverlayControls
-          searchQuery={searchQuery}
-          onInputChange={onInputChange}
-          onKeyDown={onSearchKeyDown}
-          clearSearch={clearSearch}
-          inputRef={inputRef}
-          filters={filters}
-          setFilters={setFilters}
-          applyFilters={() => applyFilters(L, mapRef)}
-          drawing={drawing}
-          onToggleDrawing={drawing ? disableDrawing : enableDrawing}
-          onClearAll={clearAll}
-          loading={loadingApi}
-        />
+      <main className="flex-1 relative flex flex-col" style={{ paddingTop: "var(--navbar-height, 64px)" }}>
+        <div className="flex-1 relative overflow-hidden">
+          <div className="w-full h-full relative bg-ds-card">
+            <MapOverlayControls
+              searchQuery={searchQuery}
+              onInputChange={onInputChange}
+              onKeyDown={onSearchKeyDown}
+              clearSearch={clearSearch}
+              inputRef={inputRef}
+              filters={filters}
+              setFilters={setFilters}
+              applyFilters={() => applyFilters(L, mapRef)}
+              drawing={drawing}
+              onToggleDrawing={drawing ? disableDrawing : enableDrawing}
+              onClearAll={clearAll}
+              loading={loadingApi}
+            />
 
-        <SearchThisAreaButton
-          show={showSearchThisArea}
-          loading={loadingApi}
-          onClick={() => handleSearchThisArea(mapRef)}
-        />
-
-        <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 relative bg-ds-card">
+            <SearchThisAreaButton
+              show={showSearchThisArea}
+              loading={loadingApi}
+              onClick={() => handleSearchThisArea(mapRef)}
+            />
             <MapContainer
               center={[43.65, -79.385]}
               zoom={13}
@@ -377,14 +376,14 @@ export default function MapOnlyPage() {
                 </Marker>
               )}
             </MapContainer>
-          </div>
 
-          <MapSidebar
-            apiMarkers={apiMarkers}
-            selectedPropertyId={selectedPropertyId}
-            onViewOnMap={handleViewOnMap}
-            onViewStreetView={handleViewStreetView}
-          />
+            <MapSidebar
+              apiMarkers={apiMarkers}
+              selectedPropertyId={selectedPropertyId}
+              onViewOnMap={handleViewOnMap}
+              onViewStreetView={handleViewStreetView}
+            />
+          </div>
         </div>
 
         {resultsOpen && searchResults.length > 0 && (

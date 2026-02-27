@@ -36,7 +36,7 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
     <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="hidden lg:block absolute top-0 left-0 right-0 z-50 bg-white shadow-sm transition-all duration-500"
+      className="hidden lg:block fixed top-0 left-0 right-0 z-50 bg-white shadow-sm transition-all duration-500"
     >
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between h-16">
