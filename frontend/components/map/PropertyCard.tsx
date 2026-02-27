@@ -39,16 +39,16 @@ export default function PropertyCard({
   const raw = property.raw || {};
 
   const getPropertyPhoto = () => {
-    const media = raw.media;
-    if (!media) return null;
+    const raw = property.raw;
+    if (!raw || !raw.media) return null;
 
+    const media = raw.media;
     if (Array.isArray(media)) {
       if (media.length === 0) return null;
       const preferred = media.find((m: any) => m.is_preferred);
       return preferred ? preferred.media_url : media[0].media_url;
     }
 
-    // Handle single object case (if API deviates from array type)
     if (typeof media === "object") {
       return (media as any).media_url || null;
     }
@@ -85,11 +85,10 @@ export default function PropertyCard({
   return (
     <motion.div
       whileHover={{ y: -4 }}
-      className={`bg-white rounded-2xl overflow-hidden border transition-all duration-300 group ${
-        isSelected
+      className={`bg-white rounded-2xl overflow-hidden border transition-all duration-300 group ${isSelected
           ? "border-ds-primary shadow-xl ring-2 ring-ds-primary/10"
           : "border-ds-card-border shadow-md hover:shadow-xl"
-      }`}
+        }`}
       onClick={onViewOnMap}
     >
       {/* Image Section */}
@@ -115,11 +114,10 @@ export default function PropertyCard({
             {details.photosCount} Photos
           </div>
           <div
-            className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg ${
-              details.status === "Active"
+            className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg ${details.status === "Active"
                 ? "bg-emerald-500 text-white"
                 : "bg-ds-primary text-white"
-            }`}
+              }`}
           >
             {details.status}
           </div>

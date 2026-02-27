@@ -425,18 +425,12 @@ export default function RentalListingsPage() {
                     "Retail Property";
                   const rawBedCount =
                     property.bedrooms_total || property.BedroomsTotal;
-                  const bedCount =
-                    typeof rawBedCount === "string"
-                      ? parseFloat(rawBedCount) || 0
-                      : rawBedCount || 0;
+                  const bedCount = Number(rawBedCount) || 0;
 
                   const rawBathCount =
                     property.bathrooms_total_integer ||
                     property.BathroomsTotalInteger;
-                  const bathCount =
-                    typeof rawBathCount === "string"
-                      ? parseFloat(rawBathCount) || 0
-                      : rawBathCount || 0;
+                  const bathCount = Number(rawBathCount) || 0;
 
                   const status =
                     property.standard_status ||
@@ -501,13 +495,12 @@ export default function RentalListingsPage() {
 
                             <div className="absolute bottom-4 left-4">
                               <span
-                                className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                  status === "Active"
+                                className={`px-3 py-1 rounded-full text-sm font-medium ${status === "Active"
                                     ? "bg-green-500 text-white"
                                     : status === "Pending"
                                       ? "bg-yellow-500 text-white"
                                       : "bg-gray-500 text-white"
-                                }`}
+                                  }`}
                               >
                                 {status}
                               </span>
@@ -572,8 +565,8 @@ export default function RentalListingsPage() {
                                       .querySelectorAll(".no-image-fallback")
                                       .forEach(
                                         (el) =>
-                                          ((el as HTMLElement).style.display =
-                                            "flex"),
+                                        ((el as HTMLElement).style.display =
+                                          "flex"),
                                       );
                                   }
                                 }}
@@ -588,13 +581,12 @@ export default function RentalListingsPage() {
 
                             <div className="absolute bottom-4 left-4">
                               <span
-                                className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                  status === "Active"
+                                className={`px-3 py-1 rounded-full text-sm font-medium ${status === "Active"
                                     ? "bg-green-500 text-white"
                                     : status === "Pending"
                                       ? "bg-yellow-500 text-white"
                                       : "bg-gray-500 text-white"
-                                }`}
+                                  }`}
                               >
                                 {status}
                               </span>

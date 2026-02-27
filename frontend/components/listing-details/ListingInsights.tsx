@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { ListingMortgageCalculator } from "@/components/calculators/ListingMortgageCalculator";
 import { CashflowCalculator } from "@/components/calculators/CashflowCalculator";
-import type { ListingDetailsData as ListingDetails } from "@/data/listingDetails";
+import type { ListingDetailsData } from "@/data/listingDetails";
 
 interface ListingInsightsProps {
-  propertyData?: ListingDetails;
+  propertyData?: ListingDetailsData;
 }
 
 export function ListingInsights({ propertyData }: ListingInsightsProps) {
@@ -26,17 +26,15 @@ export function ListingInsights({ propertyData }: ListingInsightsProps) {
           {/* High-contrast Toggle Switch */}
           <button
             onClick={() => setShowNote(!showNote)}
-            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 border ${
-              showNote
+            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 border ${showNote
                 ? "bg-teal-500 border-teal-600 shadow-[0_0_6px_rgba(13,148,136,0.6)]"
                 : "bg-gray-600 border-gray-800 shadow-[0_0_4px_rgba(0,0,0,0.5)]"
-            }`}
+              }`}
             aria-label="Toggle note section"
           >
             <span
-              className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
-                showNote ? "translate-x-5" : "translate-x-0"
-              }`}
+              className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow-md transform transition-transform duration-300 ${showNote ? "translate-x-5" : "translate-x-0"
+                }`}
             />
           </button>
         </div>

@@ -2,12 +2,12 @@
 const nextConfig = {
   output: "standalone",
   eslint: {
-    ignoreDuringBuilds: true, // Ignores ESLint errors during builds
+    ignoreDuringBuilds: true,
   },
   images: {
-    domains: ["images.unsplash.com", "i.pravatar.cc"], // Add domains for external images
+    domains: ['images.unsplash.com', 'i.pravatar.cc', 'estate-4u.com'], // Add domains for external images
   },
-  reactStrictMode: true, // Optional: Enable React Strict Mode for development
+  reactStrictMode: true,
 };
 
 module.exports = nextConfig;

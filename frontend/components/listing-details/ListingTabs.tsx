@@ -7,10 +7,10 @@ import { DemographicsSection } from "@/components/ui/DemographicsSection";
 import { MortgageCalculator } from "@/components/ui/MortgageCalculator";
 import { OwnershipCostAnalysis } from "@/components/ui/OwnershipCostAnalysis";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { ListingDetailsData as ListingDetails } from "@/data/listingDetails";
+import type { ListingDetailsData } from "@/data/listingDetails";
 
 interface ListingTabsProps {
-  propertyData: ListingDetails;
+  propertyData: ListingDetailsData;
 }
 
 export function ListingTabs({ propertyData }: ListingTabsProps) {
