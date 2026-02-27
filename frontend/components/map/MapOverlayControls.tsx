@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Pencil, X, Trash2, Loader2, SlidersHorizontal, ChevronRight } from "lucide-react";
 import SearchBox from "./SearchBox";
@@ -33,31 +33,41 @@ export const MapOverlayControls = ({
   onClearAll,
   loading,
 }: MapOverlayControlsProps) => {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Auto-open the tray after a brief delay so the user sees the slide-in animation
+  useEffect(() => {
+    const timer = setTimeout(() => setIsOpen(true), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <>
       {/* Collapsed tab button — visible only when panel is closed */}
       <AnimatePresence>
         {!isOpen && (
-          <motion.button
+          <motion.div
             key="tab"
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 40 }}
-            onClick={() => setIsOpen(true)}
-            className="absolute top-1/2 -translate-y-1/2 right-0 z-[1000] flex flex-col items-center gap-2 bg-white border border-ds-card-border border-r-0 rounded-l-2xl shadow-lg px-2 py-4 pointer-events-auto hover:bg-ds-card transition-colors group"
-            title="Open Filters"
+            className="absolute top-0 bottom-0 right-0 z-[1000] hidden lg:flex items-center pointer-events-none"
           >
-            <SlidersHorizontal className="w-5 h-5 text-ds-primary" />
-            <span
-              className="text-[10px] font-bold text-ds-body uppercase tracking-widest group-hover:text-ds-primary transition-colors"
-              style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+            <button
+              onClick={() => setIsOpen(true)}
+              className="flex flex-col items-center gap-2 bg-white border border-ds-card-border border-r-0 rounded-l-2xl shadow-lg px-2 py-4 pointer-events-auto hover:bg-ds-card transition-colors group"
+              title="Open Filters"
             >
-              Filters
-            </span>
-            <ChevronRight className="w-4 h-4 text-ds-body group-hover:text-ds-primary transition-colors" />
-          </motion.button>
+              <SlidersHorizontal className="w-5 h-5 text-ds-primary" />
+              <span
+                className="text-[10px] font-bold text-ds-body uppercase tracking-widest group-hover:text-ds-primary transition-colors"
+                style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+              >
+                Filters
+              </span>
+              <ChevronRight className="w-4 h-4 text-ds-body group-hover:text-ds-primary transition-colors" />
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -66,11 +76,11 @@ export const MapOverlayControls = ({
         {isOpen && (
           <motion.div
             key="panel"
-            initial={{ x: "100%", opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: "100%", opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="absolute top-4 right-4 bottom-4 z-[1000] w-[360px] flex flex-col pointer-events-auto"
+            initial={{ x: 60, opacity: 0, scale: 0.95 }}
+            animate={{ x: 0, opacity: 1, scale: 1 }}
+            exit={{ x: 60, opacity: 0, scale: 0.95 }}
+            transition={{ type: "tween", ease: "easeOut", duration: 0.35 }}
+            className="absolute top-4 right-4 bottom-4 z-[1000] w-[360px] hidden lg:flex flex-col pointer-events-auto"
           >
             <div className="flex flex-col h-full rounded-2xl border border-ds-card-border bg-white/95 backdrop-blur-sm shadow-md overflow-hidden">
 
@@ -82,10 +92,10 @@ export const MapOverlayControls = ({
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-ds-card-border transition-colors text-ds-body hover:text-ds-primary"
+                  className="p-2.5 rounded-xl hover:bg-ds-card-border transition-colors text-ds-body hover:text-ds-primary"
                   title="Minimize panel"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-5 h-5" />
                 </button>
               </div>
 
@@ -142,7 +152,6 @@ export const MapOverlayControls = ({
                   <span>Clear All</span>
                 </motion.button>
 
-            {/* Loading indicator */}
                 {loading && (
                   <div className="bg-ds-card px-4 py-2 rounded-lg border border-ds-card-border flex items-center gap-3">
                     <Loader2 className="w-4 h-4 animate-spin text-ds-primary" />

@@ -1,36 +1,31 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SearchThisAreaButtonProps {
-  show: boolean;
   loading: boolean;
   onClick: () => void;
 }
 
 export const SearchThisAreaButton = ({
-  show,
   loading,
   onClick,
 }: SearchThisAreaButtonProps) => {
   return (
-    <AnimatePresence>
-      {show && !loading && (
-        <motion.div
-          initial={{ opacity: 0, y: -20, x: "-50%" }}
-          animate={{ opacity: 1, y: 0, x: "-50%" }}
-          exit={{ opacity: 0, y: -20, x: "-50%" }}
-          className="fixed justify-center top-24 left-1/2 z-[1000]"
-        >
-          <Button
-            onClick={onClick}
-            className="bg-white text-ds-primary shadow-2xl border border-ds-card-border hover:bg-gray-50 rounded-full px-6 py-2 flex items-center gap-2 h-auto"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            <span className="font-bold text-sm">Search this area</span>
-          </Button>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div
+      className="absolute top-8 left-0 right-0 lg:right-[380px] xl:left-[380px] z-[1000] flex justify-center pointer-events-none"
+    >
+      <Button
+        onClick={onClick}
+        disabled={loading}
+        className="pointer-events-auto bg-white text-ds-primary shadow-2xl border border-ds-card-border hover:bg-gray-50 rounded-full px-6 py-2 flex items-center gap-2 h-auto disabled:opacity-70"
+      >
+        <span className="font-bold text-sm">Properties in this area</span>
+        {loading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Search className="w-4 h-4" />
+        )}
+      </Button>
+    </div>
   );
 };

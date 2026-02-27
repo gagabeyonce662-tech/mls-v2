@@ -293,7 +293,6 @@ export default function MapOnlyPage() {
             />
 
             <SearchThisAreaButton
-              show={showSearchThisArea}
               loading={loadingApi}
               onClick={() => handleSearchThisArea(mapRef)}
             />
