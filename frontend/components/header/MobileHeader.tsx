@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   Menu,
   User,
-  X,
   MapPin,
   ChevronDown,
   HomeIcon,
@@ -57,13 +56,6 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
               >
                 Menu
               </h2>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsOpen(false)}
-              >
-                <X className="w-5 h-5" style={{ color: colors.heading }} />
-              </Button>
             </div>
 
             {/* Profile Section if logged in */}
@@ -107,11 +99,10 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
                     <DropdownMenuItem
                       key={province.code}
                       onClick={() => setSelectedProvince(province.code)}
-                      className={`cursor-pointer ${
-                        selectedProvince === province.code
-                          ? "bg-ds-card text-ds-primary font-semibold"
-                          : ""
-                      }`}
+                      className={`cursor-pointer ${selectedProvince === province.code
+                        ? "bg-ds-card text-ds-primary font-semibold"
+                        : ""
+                        }`}
                     >
                       <div className="flex items-center space-x-3">
                         <MapPin className="w-4 h-4" />
