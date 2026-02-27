@@ -35,16 +35,15 @@ export default async function RentalPropertyPage(props: RentalPropertyPageProps)
   }
 
   // Extract property images from several possible shapes
-  const propertyImages =
+  const propertyImages: string[] = (
     property.media && property.media.length > 0
-      ? property.media.map((m: any) => m.media_url).filter(Boolean)
+      ? property.media.map((m: any) => String(m.media_url))
       : property.Media && property.Media.length > 0
-        ? property.Media.map((m: any) => m.MediaURL || m.media_url).filter(
-          Boolean,
-        )
+        ? property.Media.map((m: any) => String(m.MediaURL || m.media_url))
         : property.Photos && property.Photos.length > 0
-          ? property.Photos.map((p: any) => p.PhotoURL || p).filter(Boolean)
-          : [];
+          ? property.Photos.map((p: any) => String(p.PhotoURL || p))
+          : []
+  ).filter(Boolean);
 
   const hasImages = propertyImages.length > 0;
 
