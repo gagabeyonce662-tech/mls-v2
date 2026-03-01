@@ -382,60 +382,60 @@ function ComparePageContent() {
         price: formatPrice(),
         address: getStringValue(
           property.unparsed_address ||
-          property.address ||
-          property.FullAddress ||
-          property.StreetAddress ||
-          property.Address ||
-          property.street_address,
+            property.address ||
+            property.FullAddress ||
+            property.StreetAddress ||
+            property.Address ||
+            property.street_address,
           "Address not available",
         ),
         municipality: getStringValue(
           property.city ||
-          property.City ||
-          property.Municipality ||
-          property.town,
+            property.City ||
+            property.Municipality ||
+            property.town,
           "N/A",
         ),
         province: getStringValue(
           property.state_or_province ||
-          property.StateOrProvince ||
-          property.State ||
-          property.Province ||
-          "ON",
+            property.StateOrProvince ||
+            property.State ||
+            property.Province ||
+            "ON",
         ),
         postalCode: getStringValue(
           property.postal_code ||
-          property.postalCode ||
-          property.PostalCode ||
-          property.zip_code,
+            property.postalCode ||
+            property.PostalCode ||
+            property.zip_code,
           "N/A",
         ),
         propertyType: getStringValue(
           property.property_sub_type ||
-          property.PropertySubType ||
-          property.PropertyType ||
-          property.property_type ||
-          property.category_type ||
-          property.type ||
-          "Property",
+            property.PropertySubType ||
+            property.PropertyType ||
+            property.property_type ||
+            property.category_type ||
+            property.type ||
+            "Property",
         ),
         bedrooms: getNumberValue(
           property.bedrooms_total ||
-          property.BedroomsTotal ||
-          property.bedrooms,
+            property.BedroomsTotal ||
+            property.bedrooms,
         ),
         bathrooms: getNumberValue(
           property.bathrooms_total_integer ||
-          property.BathroomsTotalInteger ||
-          property.bathrooms,
+            property.BathroomsTotalInteger ||
+            property.bathrooms,
         ),
         totalRooms: getNumberValue(
           property.total_rooms ||
-          (Array.isArray(property.rooms)
-            ? property.rooms.length
-            : Array.isArray(property.Rooms)
-              ? property.Rooms.length
-              : 0),
+            (Array.isArray(property.rooms)
+              ? property.rooms.length
+              : Array.isArray(property.Rooms)
+                ? property.Rooms.length
+                : 0),
         ),
         yearBuilt: (() => {
           const yearFields = [
@@ -1001,12 +1001,13 @@ function ComparePageContent() {
                         return (
                           <div
                             key={propertyId}
-                            className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${isSelected
+                            className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${
+                              isSelected
                                 ? "border-blue-500 bg-blue-50"
                                 : isMaxReached && !isSelected
                                   ? "opacity-50 cursor-not-allowed"
                                   : "border-gray-200 hover:border-blue-300"
-                              }`}
+                            }`}
                             onClick={() => {
                               if (isMaxReached && !isSelected) return;
                               if (isSelected) {
@@ -1057,12 +1058,13 @@ function ComparePageContent() {
                                     {bedrooms} bed • {bathrooms} bath
                                   </div>
                                   <span
-                                    className={`px-3 py-1 rounded text-xs font-medium whitespace-nowrap ${isSelected
+                                    className={`px-3 py-1 rounded text-xs font-medium whitespace-nowrap ${
+                                      isSelected
                                         ? "bg-red-100 text-red-700"
                                         : isMaxReached && !isSelected
                                           ? "bg-gray-100 text-gray-500"
                                           : "bg-blue-100 text-blue-700"
-                                      }`}
+                                    }`}
                                   >
                                     {isSelected
                                       ? "Selected"
@@ -1129,16 +1131,17 @@ function ComparePageContent() {
 
 export default function ComparePage() {
   return (
-    <React.Suspense fallback={
-      <div className="min-h-screen bg-[#0b1220] flex items-center justify-center text-white">
-        <div className="flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-xl font-semibold">Loading Comparison...</p>
+    <React.Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0b1220] flex items-center justify-center text-white">
+          <div className="flex flex-col items-center">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-xl font-semibold">Loading Comparison...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <ComparePageContent />
     </React.Suspense>
   );
 }
-

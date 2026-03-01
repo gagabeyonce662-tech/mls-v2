@@ -19,7 +19,7 @@ interface BlogCardProps {
 }
 
 const getCategoryVariant = (
-  category: string
+  category: string,
 ): "default" | "secondary" | "outline" => {
   const variants: Record<string, "default" | "secondary" | "outline"> = {
     "Market Analysis": "default",
@@ -40,7 +40,7 @@ export default function BlogCard({ post }: BlogCardProps) {
         "group relative overflow-hidden border border-border/50",
         "rounded-2xl bg-gradient-to-b from-background/60 to-background/40",
         "backdrop-blur-xl shadow-md hover:shadow-xl transition-all duration-300",
-        "hover:border-primary/50 hover:scale-[1.02] cursor-pointer flex flex-col h-full"
+        "hover:border-primary/50 hover:scale-[1.02] cursor-pointer flex flex-col h-full",
       )}
     >
       {/* Image Section */}

@@ -1,4 +1,12 @@
-import { Calendar, User, ArrowLeft, Share2, Facebook, Twitter, Linkedin } from "lucide-react";
+import {
+  Calendar,
+  User,
+  ArrowLeft,
+  Share2,
+  Facebook,
+  Twitter,
+  Linkedin,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
@@ -14,7 +22,7 @@ export async function generateStaticParams() {
       slug: post.slug,
     }));
   } catch (error) {
-    console.error('Error generating static params:', error);
+    console.error("Error generating static params:", error);
     return [];
   }
 }
@@ -36,48 +44,47 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
   // Fetch related posts for sidebar
   const allPosts = await fetchVlogPosts();
   const relatedPosts = allPosts
-    .filter(p => p.id !== post.id && p.category?.name === post.category?.name)
+    .filter((p) => p.id !== post.id && p.category?.name === post.category?.name)
     .slice(0, 3);
 
-  const fallbackImage = "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80";
+  const fallbackImage =
+    "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80";
 
   const getImageUrl = (imageUrl: string | undefined) => {
     if (!imageUrl) return fallbackImage;
-    if (imageUrl.startsWith('/')) {
-      return `${process.env.NEXT_PUBLIC_API_URL || 'https://staging.vsell4u.ca'}${imageUrl}`;
+    if (imageUrl.startsWith("/")) {
+      return `${process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca"}${imageUrl}`;
     }
     return imageUrl;
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   const getEmbedUrl = (url: string) => {
     // Convert YouTube URLs to embed format
-    if (url.includes('youtube.com/watch')) {
-      const videoId = new URL(url).searchParams.get('v');
+    if (url.includes("youtube.com/watch")) {
+      const videoId = new URL(url).searchParams.get("v");
       return `https://www.youtube.com/embed/${videoId}`;
     }
-    if (url.includes('youtu.be/')) {
-      const videoId = url.split('youtu.be/')[1].split('?')[0];
+    if (url.includes("youtu.be/")) {
+      const videoId = url.split("youtu.be/")[1].split("?")[0];
       return `https://www.youtube.com/embed/${videoId}`;
     }
     // Convert Vimeo URLs to embed format
-    if (url.includes('vimeo.com/')) {
-      const videoId = url.split('vimeo.com/')[1].split('?')[0];
+    if (url.includes("vimeo.com/")) {
+      const videoId = url.split("vimeo.com/")[1].split("?")[0];
       return `https://player.vimeo.com/video/${videoId}`;
     }
     // Return as-is if already an embed URL or other format
     return url;
   };
-
-
 
   return (
     <div className="min-h-screen bg-white">
@@ -86,7 +93,10 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
       {/* Breadcrumb */}
       <div className="bg-gray-50 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Link href="/blog" className="inline-flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors">
+          <Link
+            href="/blog"
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
+          >
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm">Back to Blogs</span>
           </Link>
@@ -94,12 +104,18 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
       </div>
 
       {/* Hero Image */}
-      <div className="relative h-[400px] bg-cover bg-center" style={{ backgroundImage: `url('${getImageUrl(post.thumbnail)}')` }}>
+      <div
+        className="relative h-[400px] bg-cover bg-center"
+        style={{ backgroundImage: `url('${getImageUrl(post.thumbnail)}')` }}
+      >
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/30" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-end pb-12">
           <div className="max-w-4xl">
             {post.category && (
-              <span className="inline-block px-3 py-1.5 rounded-md text-sm font-semibold mb-4" style={{ backgroundColor: colors.icon, color: colors.cards }}>
+              <span
+                className="inline-block px-3 py-1.5 rounded-md text-sm font-semibold mb-4"
+                style={{ backgroundColor: colors.icon, color: colors.cards }}
+              >
                 {post.category.name}
               </span>
             )}
@@ -109,15 +125,20 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
             <div className="flex items-center gap-6 text-white/90 text-sm">
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4" />
-                <span>{post.author || 'Editorial Team'}</span>
+                <span>{post.author || "Editorial Team"}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
                 <span>{formatDate(post.publish_date || post.created_at)}</span>
               </div>
               {post.status && (
-                <span className={`px-2 py-1 rounded text-xs font-semibold ${post.status === 'published' ? 'bg-green-500 text-white' : 'bg-yellow-500 text-black'
-                  }`}>
+                <span
+                  className={`px-2 py-1 rounded text-xs font-semibold ${
+                    post.status === "published"
+                      ? "bg-green-500 text-white"
+                      : "bg-yellow-500 text-black"
+                  }`}
+                >
                   {post.status.toUpperCase()}
                 </span>
               )}
@@ -134,7 +155,9 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
             {/* Share Buttons */}
             <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-200">
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-gray-700">Share:</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Share:
+                </span>
                 <button className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-700 transition-colors">
                   <Facebook className="w-4 h-4 text-white" />
                 </button>
@@ -159,11 +182,19 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
             {/* Video Section - Handle both embed_url and video_file */}
             {(post.embed_url || post.video_file) && (
               <div className="mt-8">
-                <h3 className="text-xl font-bold mb-4" style={{ color: colors.heading }}>Watch Video</h3>
+                <h3
+                  className="text-xl font-bold mb-4"
+                  style={{ color: colors.heading }}
+                >
+                  Watch Video
+                </h3>
 
                 {/* Embedded Video (YouTube/Vimeo) */}
                 {post.embed_url && (
-                  <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                  <div
+                    className="relative w-full"
+                    style={{ paddingBottom: "56.25%" }}
+                  >
                     <iframe
                       src={getEmbedUrl(post.embed_url)}
                       title={post.title}
@@ -184,9 +215,10 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
                       poster={getImageUrl(post.thumbnail)}
                     >
                       <source
-                        src={post.video_file.startsWith('/')
-                          ? `${process.env.NEXT_PUBLIC_API_URL || 'https://staging.vsell4u.ca'}${post.video_file}`
-                          : post.video_file
+                        src={
+                          post.video_file.startsWith("/")
+                            ? `${process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca"}${post.video_file}`
+                            : post.video_file
                         }
                         type="video/mp4"
                       />
@@ -200,7 +232,9 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
             {/* Tags Section */}
             {post.tags && post.tags.length > 0 && (
               <div className="mt-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Tags</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Tags
+                </h3>
                 <div className="flex flex-wrap gap-2">
                   {post.tags.map((tag, index) => (
                     <span
@@ -216,12 +250,16 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
 
             {/* Article Metadata */}
             <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">Article Information</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                Article Information
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-600">Published:</span>
                   <span className="ml-2 font-medium text-gray-900">
-                    {post.publish_date ? formatDate(post.publish_date) : 'Not published'}
+                    {post.publish_date
+                      ? formatDate(post.publish_date)
+                      : "Not published"}
                   </span>
                 </div>
                 <div>
@@ -239,7 +277,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
                 <div>
                   <span className="text-gray-600">Comments:</span>
                   <span className="ml-2 font-medium text-gray-900">
-                    {post.allow_comments ? 'Enabled' : 'Disabled'}
+                    {post.allow_comments ? "Enabled" : "Disabled"}
                   </span>
                 </div>
               </div>
@@ -248,13 +286,18 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
             {/* Author Box */}
             <div className="mt-12 p-6 bg-gray-50 rounded-xl border border-gray-200">
               <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl" style={{ backgroundColor: colors.primary }}>
+                <div
+                  className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl"
+                  style={{ backgroundColor: colors.primary }}
+                >
                   A
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">About the Author</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">
+                    About the Author
+                  </h3>
                   <p className="text-gray-600 text-sm leading-relaxed">
-                    {post.author || 'Not Mentioned'}
+                    {post.author || "Not Mentioned"}
                   </p>
                 </div>
               </div>
@@ -265,7 +308,9 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
           <div className="lg:col-span-1">
             {/* Related Posts */}
             <div className="bg-white border border-gray-200 rounded-xl p-6 sticky top-24">
-              <h3 className="text-xl font-bold text-gray-900 mb-6">Related Articles</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-6">
+                Related Articles
+              </h3>
               <div className="space-y-6">
                 {relatedPosts.length > 0 ? (
                   relatedPosts.map((relatedPost) => (
@@ -284,11 +329,17 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
                         </div>
                         <div className="flex-1">
                           {relatedPost.category && (
-                            <span className="inline-block text-xs font-semibold mb-1" style={{ color: colors.icon }}>
+                            <span
+                              className="inline-block text-xs font-semibold mb-1"
+                              style={{ color: colors.icon }}
+                            >
                               {relatedPost.category.name}
                             </span>
                           )}
-                          <h4 className="text-sm font-semibold line-clamp-2 group-hover:opacity-80 transition-colors" style={{ color: colors.heading }}>
+                          <h4
+                            className="text-sm font-semibold line-clamp-2 group-hover:opacity-80 transition-colors"
+                            style={{ color: colors.heading }}
+                          >
                             {relatedPost.title}
                           </h4>
                         </div>
@@ -304,7 +355,9 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
 
               {/* Newsletter */}
               <div className="mt-8 pt-8 border-t border-gray-200">
-                <h3 className="text-lg font-bold text-gray-900 mb-3">Subscribe to Newsletter</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-3">
+                  Subscribe to Newsletter
+                </h3>
                 <p className="text-sm text-gray-600 mb-4">
                   Get the latest real estate insights delivered to your inbox.
                 </p>
@@ -315,7 +368,10 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
                 />
                 <button
                   className="w-full py-2.5 rounded-lg font-semibold transition-colors hover:opacity-90"
-                  style={{ backgroundColor: colors.primary, color: colors.cards }}
+                  style={{
+                    backgroundColor: colors.primary,
+                    color: colors.cards,
+                  }}
                 >
                   Subscribe
                 </button>

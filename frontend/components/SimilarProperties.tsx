@@ -37,10 +37,12 @@ export default function SimilarProperties({
   city,
   propertyType,
   listPrice,
-  bedrooms
+  bedrooms,
 }: SimilarPropertiesProps) {
   const router = useRouter();
-  const [similarProperties, setSimilarProperties] = useState<SimilarProperty[]>([]);
+  const [similarProperties, setSimilarProperties] = useState<SimilarProperty[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,33 +54,33 @@ export default function SimilarProperties({
 
         // Build query parameters
         const params = new URLSearchParams({
-          limit: '3',
-          offset: '0',
+          limit: "3",
+          offset: "0",
         });
 
         // Filter by city for similarity
-        if (city && city !== 'N/A') {
-          params.set('city', city);
+        if (city && city !== "N/A") {
+          params.set("city", city);
         }
 
         // Add price range filter if available
         if (listPrice) {
           const price = parseFloat(listPrice);
           if (!isNaN(price)) {
-            params.set('price_min', Math.floor(price * 0.8).toString());
-            params.set('price_max', Math.ceil(price * 1.2).toString());
+            params.set("price_min", Math.floor(price * 0.8).toString());
+            params.set("price_max", Math.ceil(price * 1.2).toString());
           }
         }
 
         // Add bedrooms filter if available
         if (bedrooms) {
-          params.set('bedrooms_min', Math.max(1, bedrooms - 1).toString());
-          params.set('bedrooms_max', (bedrooms + 1).toString());
+          params.set("bedrooms_min", Math.max(1, bedrooms - 1).toString());
+          params.set("bedrooms_max", (bedrooms + 1).toString());
         }
 
         const apiUrl = `http://https://staging.vsell4u.ca/api/mls/properties/exclusive-properties/?${params}`;
 
-        console.log('Fetching similar properties from:', apiUrl);
+        console.log("Fetching similar properties from:", apiUrl);
 
         const response = await fetch(apiUrl);
 
@@ -96,25 +98,25 @@ export default function SimilarProperties({
             id: prop.listing_key || prop.PropertyKey,
             listing_key: prop.listing_key,
             list_price: prop.list_price,
-            city: prop.city || '',
-            address: prop.unparsed_address || '',
-            province: prop.StateOrProvince || '',
+            city: prop.city || "",
+            address: prop.unparsed_address || "",
+            province: prop.StateOrProvince || "",
             bedrooms: prop.bedrooms_total || 0,
             bathrooms: prop.bathrooms_total_integer || 0,
             building_area: prop.building_area_total,
             property_type: prop.category_type || prop.PropertyType,
-            status: prop.standard_status || 'Active',
+            status: prop.standard_status || "Active",
             photos_count: prop.photos_count,
             media: prop.media || [],
             year_built: prop.year_built,
             listing_url: prop.listing_url,
           }));
 
-        console.log('Found similar properties:', properties.length);
+        console.log("Found similar properties:", properties.length);
         setSimilarProperties(properties);
       } catch (error) {
-        console.error('Error fetching similar properties:', error);
-        setError('Failed to load similar properties');
+        console.error("Error fetching similar properties:", error);
+        setError("Failed to load similar properties");
       } finally {
         setIsLoading(false);
       }
@@ -125,10 +127,10 @@ export default function SimilarProperties({
 
   // Helper function to format similar property price
   const formatSimilarPropertyPrice = (price: string | number) => {
-    if (!price) return 'Price on request';
-    if (typeof price === 'string') {
+    if (!price) return "Price on request";
+    if (typeof price === "string") {
       const numPrice = parseFloat(price);
-      if (isNaN(numPrice)) return 'Price on request';
+      if (isNaN(numPrice)) return "Price on request";
       return `$${numPrice.toLocaleString()}`;
     }
     return `$${price.toLocaleString()}`;
@@ -160,7 +162,9 @@ export default function SimilarProperties({
       {isLoading ? (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className={`${ds.bodyRegular} text-gray-600 mt-4`}>Loading similar properties...</p>
+          <p className={`${ds.bodyRegular} text-gray-600 mt-4`}>
+            Loading similar properties...
+          </p>
         </div>
       ) : error ? (
         <div className="text-center py-12 bg-red-50 rounded-lg">
@@ -187,13 +191,18 @@ export default function SimilarProperties({
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute top-3 left-3 bg-ds-primary text-white px-2 py-1 rounded text-sm font-semibold">
-                  {similarProperty.property_type || 'Property'}
+                  {similarProperty.property_type || "Property"}
                 </div>
                 {similarProperty.status && (
-                  <div className={`absolute top-3 right-3 px-2 py-1 rounded text-xs font-semibold ${similarProperty.status === 'Active' ? 'bg-green-500 text-white' :
-                      similarProperty.status === 'Pending' ? 'bg-yellow-500 text-white' :
-                        'bg-gray-500 text-white'
-                    }`}>
+                  <div
+                    className={`absolute top-3 right-3 px-2 py-1 rounded text-xs font-semibold ${
+                      similarProperty.status === "Active"
+                        ? "bg-green-500 text-white"
+                        : similarProperty.status === "Pending"
+                          ? "bg-yellow-500 text-white"
+                          : "bg-gray-500 text-white"
+                    }`}
+                  >
                     {similarProperty.status}
                   </div>
                 )}
@@ -202,11 +211,14 @@ export default function SimilarProperties({
                 <h3 className={`${ds.h4} text-ds-primary mb-2`}>
                   {formatSimilarPropertyPrice(similarProperty.list_price)}
                 </h3>
-                <p className={`${ds.bodyRegular} text-ds-heading mb-1 truncate`}>
-                  {similarProperty.address || 'Address not available'}
+                <p
+                  className={`${ds.bodyRegular} text-ds-heading mb-1 truncate`}
+                >
+                  {similarProperty.address || "Address not available"}
                 </p>
                 <p className={`${ds.small} text-ds-body mb-3`}>
-                  {similarProperty.city || city}, {similarProperty.province || 'Ontario'}
+                  {similarProperty.city || city},{" "}
+                  {similarProperty.province || "Ontario"}
                 </p>
                 <div className="flex items-center gap-4 text-ds-body text-sm">
                   {similarProperty.bedrooms > 0 && (

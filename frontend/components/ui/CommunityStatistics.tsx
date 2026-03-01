@@ -1,11 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "./card";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "./chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "./chart";
 import {
   ComposedChart,
   Line,
@@ -133,4 +129,3 @@ export function CommunityStatistics({
     </div>
   );
 }
-

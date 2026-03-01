@@ -36,8 +36,8 @@ export default async function ListingPage(props: ListingPageProps) {
       ? property.media.map((m: any) => m.media_url).filter(Boolean)
       : property.Media && property.Media.length > 0
         ? property.Media.map((m: any) => m.MediaURL || m.media_url).filter(
-          Boolean,
-        )
+            Boolean,
+          )
         : property.Photos && property.Photos.length > 0
           ? property.Photos.map((p: any) => p.PhotoURL || p).filter(Boolean)
           : [];
@@ -79,10 +79,10 @@ export default async function ListingPage(props: ListingPageProps) {
     {
       date: property.ModificationTimestamp
         ? new Date(property.ModificationTimestamp).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })
         : "Recent",
       event: property.StandardStatus || property.standard_status || "Listed",
       price: getPrice(),

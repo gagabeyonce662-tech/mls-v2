@@ -1,11 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "./card";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "./chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "./chart";
 import { Pie, PieChart, Cell, ResponsiveContainer, Legend } from "recharts";
 
 interface CostData {
@@ -98,7 +94,9 @@ export function OwnershipCostAnalysis({
             <div className="text-3xl font-bold text-teal-600 mb-4">
               ${totalCost.toLocaleString()}
             </div>
-            <div className="text-sm text-gray-600 mb-4">Total Cost per Month</div>
+            <div className="text-sm text-gray-600 mb-4">
+              Total Cost per Month
+            </div>
             <div className="space-y-3">
               {costs.map((cost, index) => (
                 <div key={index} className="flex items-center justify-between">
@@ -121,4 +119,3 @@ export function OwnershipCostAnalysis({
     </Card>
   );
 }
-

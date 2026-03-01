@@ -25,7 +25,9 @@ interface RentalPropertyPageProps {
   }>;
 }
 
-export default async function RentalPropertyPage(props: RentalPropertyPageProps) {
+export default async function RentalPropertyPage(
+  props: RentalPropertyPageProps,
+) {
   const params = await props.params;
   // Fetch rental property data using the PropertyKey from URL
   const property = await fetchPropertyByKey(params.id);
@@ -111,10 +113,10 @@ export default async function RentalPropertyPage(props: RentalPropertyPageProps)
     {
       date: property.ModificationTimestamp
         ? new Date(property.ModificationTimestamp).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })
         : "Recent",
       event: property.StandardStatus || property.standard_status || "Available",
       price: getPrice(),
@@ -277,12 +279,14 @@ export default async function RentalPropertyPage(props: RentalPropertyPageProps)
                   property.PublicRemarks ||
                   property.PrivateRemarks ||
                   property.Description ||
-                  `This ${getPropertyType()} is available for rent in ${getCity()}, ${property.StateOrProvince || "Ontario"}. ${property.year_built || property.YearBuilt
-                    ? `Built in ${property.year_built || property.YearBuilt}, `
-                    : ""
-                  }this rental property features ${getBedCount()} bedrooms and ${getBathCount()} bathrooms${getLivingArea() !== "N/A"
-                    ? ` with ${getLivingArea()} of living space`
-                    : ""
+                  `This ${getPropertyType()} is available for rent in ${getCity()}, ${property.StateOrProvince || "Ontario"}. ${
+                    property.year_built || property.YearBuilt
+                      ? `Built in ${property.year_built || property.YearBuilt}, `
+                      : ""
+                  }this rental property features ${getBedCount()} bedrooms and ${getBathCount()} bathrooms${
+                    getLivingArea() !== "N/A"
+                      ? ` with ${getLivingArea()} of living space`
+                      : ""
                   }. Available ${getAvailabilityDate().toLowerCase()}.`
                 }
                 maxChars={400}

@@ -128,7 +128,7 @@ export default function MapOnlyPage() {
           const group = markers.map((m) => [m.lat, m.lng]);
           const bounds = L.latLngBounds(group as any);
           mapRef.current.fitBounds(bounds.pad(0.2));
-        } catch { }
+        } catch {}
       }
       setLoadingApi(false);
     } catch (err: any) {
@@ -213,7 +213,7 @@ export default function MapOnlyPage() {
       map.on("moveend", () => {
         if (!loadingApi && !drawing) setShowSearchThisArea(true);
       });
-    } catch { }
+    } catch {}
   };
 
   const clearAll = () => {
@@ -264,17 +264,20 @@ export default function MapOnlyPage() {
 
   const markerToShow = searchResult
     ? {
-      lat: searchResult.lat,
-      lng: searchResult.lng,
-      title: searchResult.display_name || "Search result",
-    }
+        lat: searchResult.lat,
+        lng: searchResult.lng,
+        title: searchResult.display_name || "Search result",
+      }
     : null;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-white">
       <Header />
 
-      <main className="flex-1 relative flex flex-col" style={{ paddingTop: "var(--navbar-height, 64px)" }}>
+      <main
+        className="flex-1 relative flex flex-col"
+        style={{ paddingTop: "var(--navbar-height, 64px)" }}
+      >
         <div className="flex-1 relative overflow-hidden">
           <div className="w-full h-full relative bg-ds-card">
             <MapOverlayControls

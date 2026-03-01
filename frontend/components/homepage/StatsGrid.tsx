@@ -4,10 +4,38 @@ import { colors } from "@/config/design-system";
 
 export default function StatsGrid() {
   const stats = [
-    { label: "Active Listings", value: "12,456", change: "+12%", icon: Home, color: colors.primary, bgColor: colors.cards },
-    { label: "Avg. Price", value: "$1.2M", change: "+5.3%", icon: DollarSign, color: colors.icon, bgColor: colors.cards },
-    { label: "Sales This Month", value: "3,842", change: "+8.1%", icon: TrendingUp, color: colors.primary, bgColor: colors.cards },
-    { label: "Active Users", value: "45K+", change: "+15%", icon: Users, color: colors.heading, bgColor: colors.cards },
+    {
+      label: "Active Listings",
+      value: "12,456",
+      change: "+12%",
+      icon: Home,
+      color: colors.primary,
+      bgColor: colors.cards,
+    },
+    {
+      label: "Avg. Price",
+      value: "$1.2M",
+      change: "+5.3%",
+      icon: DollarSign,
+      color: colors.icon,
+      bgColor: colors.cards,
+    },
+    {
+      label: "Sales This Month",
+      value: "3,842",
+      change: "+8.1%",
+      icon: TrendingUp,
+      color: colors.primary,
+      bgColor: colors.cards,
+    },
+    {
+      label: "Active Users",
+      value: "45K+",
+      change: "+15%",
+      icon: Users,
+      color: colors.heading,
+      bgColor: colors.cards,
+    },
   ];
 
   return (

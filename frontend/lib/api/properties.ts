@@ -350,7 +350,9 @@ export async function fetchLeaseProperties(
 /**
  * Generic filtered properties fetcher
  */
-export async function fetchFilteredProperties(filters: Record<string, any>): Promise<any> {
+export async function fetchFilteredProperties(
+  filters: Record<string, any>,
+): Promise<any> {
   const params = new URLSearchParams();
 
   Object.entries(filters).forEach(([key, value]) => {
@@ -432,7 +434,9 @@ export async function fetchPropertyByKey(
       errorMsg.includes("not exist") ||
       errorMsg.includes("does not exist")
     ) {
-      console.warn(`Property with key ${propertyKey} not found or no longer available.`);
+      console.warn(
+        `Property with key ${propertyKey} not found or no longer available.`,
+      );
       return null;
     }
 
@@ -490,7 +494,10 @@ export async function fetchCompareProperties(propertyKeys: string[]): Promise<{
 
       return { results, count: results.length };
     } catch (error) {
-      console.warn("Comparison API failed, falling back to individual fetches:", error);
+      console.warn(
+        "Comparison API failed, falling back to individual fetches:",
+        error,
+      );
       // Fallback to fetch individually
       const properties = await Promise.all(
         propertyKeys.map((key) => fetchPropertyByKey(key)),

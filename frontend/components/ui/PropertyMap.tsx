@@ -10,13 +10,19 @@ interface PropertyMapProps {
   address: string;
 }
 
-export function PropertyMap({ latitude, longitude, address }: PropertyMapProps) {
+export function PropertyMap({
+  latitude,
+  longitude,
+  address,
+}: PropertyMapProps) {
   // Note: Replace YOUR_GOOGLE_MAPS_API_KEY with your actual API key in production
   // For now, using a placeholder that will show a map with the address
-  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_GOOGLE_MAPS_API_KEY";
-  const mapUrl = googleMapsApiKey !== "YOUR_GOOGLE_MAPS_API_KEY"
-    ? `https://www.google.com/maps/embed/v1/place?key=${googleMapsApiKey}&q=${encodeURIComponent(address)}`
-    : `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
+  const googleMapsApiKey =
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_GOOGLE_MAPS_API_KEY";
+  const mapUrl =
+    googleMapsApiKey !== "YOUR_GOOGLE_MAPS_API_KEY"
+      ? `https://www.google.com/maps/embed/v1/place?key=${googleMapsApiKey}&q=${encodeURIComponent(address)}`
+      : `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
 
   return (
     <div className="w-full">
@@ -54,7 +60,9 @@ export function PropertyMap({ latitude, longitude, address }: PropertyMapProps) 
         {/* Nearby Listings Search */}
         <div className="lg:col-span-1">
           <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 mb-4">Search nearby listings</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">
+              Search nearby listings
+            </h3>
             <Input
               type="text"
               placeholder="Search nearby listings..."
@@ -69,4 +77,3 @@ export function PropertyMap({ latitude, longitude, address }: PropertyMapProps) 
     </div>
   );
 }
-

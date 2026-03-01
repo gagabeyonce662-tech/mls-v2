@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Mail, Check } from 'lucide-react';
+import React, { useState } from "react";
+import { Mail, Check } from "lucide-react";
 
 const Newsletter: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -13,7 +13,7 @@ const Newsletter: React.FC = () => {
       setSubscribed(true);
       setTimeout(() => {
         setSubscribed(false);
-        setEmail('');
+        setEmail("");
       }, 3000);
     }
   };
@@ -24,11 +24,11 @@ const Newsletter: React.FC = () => {
         <Mail className="h-5 w-5 text-blue-400" />
         <h3 className="text-lg font-semibold">Stay Updated</h3>
       </div>
-      
+
       <p className="text-gray-300 mb-4 text-sm leading-relaxed">
         Get the latest articles and insights delivered to your inbox weekly.
       </p>
-      
+
       {!subscribed ? (
         <form onSubmit={handleSubmit} className="space-y-3">
           <input

@@ -4,11 +4,11 @@ import { colors } from "@/config/design-system";
 
 export default function MortgageCalculatorSection() {
   return (
-    <div 
+    <div
       className="py-16 relative overflow-hidden"
-      style={{ 
+      style={{
         background: `linear-gradient(to bottom right, ${colors.primary}, #0f1f3d)`,
-        color: colors.cards
+        color: colors.cards,
       }}
     >
       <div className="absolute inset-0 opacity-10">
@@ -26,11 +26,14 @@ export default function MortgageCalculatorSection() {
               <br />
               Payments Easily
             </h2>
-            <p className="text-ds-text-regular font-inter" style={{ color: colors.cards, opacity: 0.9 }}>
-              Use our mortgage calculator to estimate your monthly payments and find the perfect
-              home within your budget.
+            <p
+              className="text-ds-text-regular font-inter"
+              style={{ color: colors.cards, opacity: 0.9 }}
+            >
+              Use our mortgage calculator to estimate your monthly payments and
+              find the perfect home within your budget.
             </p>
-            <button 
+            <button
               className="px-8 py-3 rounded-md font-semibold transition-opacity hover:opacity-90 font-inter"
               style={{ backgroundColor: colors.cards, color: colors.primary }}
             >

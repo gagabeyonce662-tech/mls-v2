@@ -14,4 +14,3 @@ export function PropertyDescription({ description }: PropertyDescriptionProps) {
     </div>
   );
 }
-

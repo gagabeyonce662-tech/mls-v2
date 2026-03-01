@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import CSVUploadPreConn from '@/components/PreCon';
+import CSVUploadPreConn from "@/components/PreCon";
 
 export default function Page() {
   return (
@@ -8,11 +8,11 @@ export default function Page() {
       authToken={process.env.NEXT_PUBLIC_API_TOKEN ?? null}
       fieldName="file" // change if backend expects a different field
       onSuccess={(resp) => {
-        alert('Upload finished');
-        console.log('server response', resp);
+        alert("Upload finished");
+        console.log("server response", resp);
       }}
       onError={(err) => {
-        alert('Upload failed — check console');
+        alert("Upload failed — check console");
         console.error(err);
       }}
     />

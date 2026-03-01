@@ -29,20 +29,23 @@ export async function fetchAPI<T>(
         errorData = await response.text();
       }
 
-      const errorMessage = typeof errorData === 'object'
-        ? JSON.stringify(errorData)
-        : errorData;
+      const errorMessage =
+        typeof errorData === "object" ? JSON.stringify(errorData) : errorData;
 
       // Only log as error if it's not a common "not found" scenario which the caller might handle
-      if (response.status !== 404 && !errorMessage.includes("404") && !errorMessage.includes("not exist")) {
+      if (
+        response.status !== 404 &&
+        !errorMessage.includes("404") &&
+        !errorMessage.includes("not exist")
+      ) {
         console.error(`API Error ${response.status}: ${errorMessage}`);
       } else {
-        console.warn(`API Reference Error ${response.status}: Resource might not exist.`);
+        console.warn(
+          `API Reference Error ${response.status}: Resource might not exist.`,
+        );
       }
 
-      throw new Error(
-        `API_ERROR:${response.status}:${errorMessage}`
-      );
+      throw new Error(`API_ERROR:${response.status}:${errorMessage}`);
     }
 
     const data = await response.json();

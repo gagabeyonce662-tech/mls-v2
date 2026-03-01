@@ -1,7 +1,11 @@
 // lib/helpers.ts
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca";
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca";
 
-export function debounce<T extends (...args: any[]) => void>(fn: T, delay = 300) {
+export function debounce<T extends (...args: any[]) => void>(
+  fn: T,
+  delay = 300,
+) {
   let timer: any;
   return (...args: Parameters<T>) => {
     clearTimeout(timer);
@@ -10,7 +14,8 @@ export function debounce<T extends (...args: any[]) => void>(fn: T, delay = 300)
 }
 
 export const formatPrice = (price: string | number | undefined) => {
-  if (price === undefined || price === null || price === "") return "Price not available";
+  if (price === undefined || price === null || price === "")
+    return "Price not available";
   const numPrice = typeof price === "string" ? parseFloat(price) : price;
   if (Number.isNaN(numPrice)) return String(price);
   return new Intl.NumberFormat("en-US", {

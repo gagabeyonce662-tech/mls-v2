@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Pencil, X, Trash2, Loader2, SlidersHorizontal, ChevronRight } from "lucide-react";
+import {
+  Pencil,
+  X,
+  Trash2,
+  Loader2,
+  SlidersHorizontal,
+  ChevronRight,
+} from "lucide-react";
 import SearchBox from "./SearchBox";
 import FilterBar from "./FilterBar";
 
@@ -86,12 +93,13 @@ export const MapOverlayControls = ({
               transition={{ type: "spring", damping: 28, stiffness: 300 }}
               className="fixed top-0 right-0 bottom-0 w-[85vw] max-w-[360px] z-[2001] lg:hidden flex flex-col bg-white shadow-2xl"
             >
-
               {/* Header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-ds-card-border">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="w-4 h-4 text-ds-primary" />
-                  <span className="text-sm font-bold text-ds-heading">Filters</span>
+                  <span className="text-sm font-bold text-ds-heading">
+                    Filters
+                  </span>
                 </div>
                 <button
                   onClick={() => setMobileFiltersOpen(false)}
@@ -121,12 +129,23 @@ export const MapOverlayControls = ({
                     onToggleDrawing();
                     setMobileFiltersOpen(false);
                   }}
-                  className={`flex-1 p-3 rounded-xl border flex items-center justify-center gap-2 text-sm font-semibold transition-all ${drawing
-                    ? "bg-red-500 text-white border-red-600"
-                    : "bg-ds-card text-ds-heading border-ds-card-border"
-                    }`}
+                  className={`flex-1 p-3 rounded-xl border flex items-center justify-center gap-2 text-sm font-semibold transition-all ${
+                    drawing
+                      ? "bg-red-500 text-white border-red-600"
+                      : "bg-ds-card text-ds-heading border-ds-card-border"
+                  }`}
                 >
-                  {drawing ? <><X className="w-4 h-4" /><span>Cancel</span></> : <><Pencil className="w-4 h-4" /><span>Draw</span></>}
+                  {drawing ? (
+                    <>
+                      <X className="w-4 h-4" />
+                      <span>Cancel</span>
+                    </>
+                  ) : (
+                    <>
+                      <Pencil className="w-4 h-4" />
+                      <span>Draw</span>
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => {
@@ -135,7 +154,8 @@ export const MapOverlayControls = ({
                   }}
                   className="flex-1 p-3 bg-ds-card text-ds-heading border border-ds-card-border rounded-xl flex items-center justify-center gap-2 text-sm font-semibold"
                 >
-                  <Trash2 className="w-4 h-4" /><span>Clear</span>
+                  <Trash2 className="w-4 h-4" />
+                  <span>Clear</span>
                 </button>
               </div>
             </motion.div>
@@ -185,11 +205,12 @@ export const MapOverlayControls = ({
             className="absolute top-4 right-4 bottom-4 z-[1000] w-[360px] hidden lg:flex flex-col pointer-events-auto"
           >
             <div className="flex flex-col h-full rounded-2xl border border-ds-card-border bg-white/95 backdrop-blur-sm shadow-md overflow-hidden">
-
               <div className="flex items-center justify-between px-4 py-2 border-b border-ds-card-border bg-ds-card/60">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="w-4 h-4 text-ds-primary" />
-                  <span className="text-xs font-bold text-ds-heading uppercase tracking-widest">Filters</span>
+                  <span className="text-xs font-bold text-ds-heading uppercase tracking-widest">
+                    Filters
+                  </span>
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
@@ -224,16 +245,23 @@ export const MapOverlayControls = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={onToggleDrawing}
-                  className={`w-full p-3 rounded-xl border flex items-center justify-center gap-2 transition-all text-sm font-semibold ${drawing
-                    ? "bg-red-500 text-white border-red-600"
-                    : "bg-ds-card text-ds-heading border-ds-card-border hover:bg-white hover:border-ds-primary hover:text-ds-primary"
-                    }`}
+                  className={`w-full p-3 rounded-xl border flex items-center justify-center gap-2 transition-all text-sm font-semibold ${
+                    drawing
+                      ? "bg-red-500 text-white border-red-600"
+                      : "bg-ds-card text-ds-heading border-ds-card-border hover:bg-white hover:border-ds-primary hover:text-ds-primary"
+                  }`}
                   title={drawing ? "Cancel Drawing" : "Draw Area on Map"}
                 >
                   {drawing ? (
-                    <><X className="w-4 h-4" /><span>Cancel Drawing</span></>
+                    <>
+                      <X className="w-4 h-4" />
+                      <span>Cancel Drawing</span>
+                    </>
                   ) : (
-                    <><Pencil className="w-4 h-4" /><span>Draw Area</span></>
+                    <>
+                      <Pencil className="w-4 h-4" />
+                      <span>Draw Area</span>
+                    </>
                   )}
                 </motion.button>
 
@@ -251,11 +279,12 @@ export const MapOverlayControls = ({
                 {loading && (
                   <div className="bg-ds-card px-4 py-2 rounded-lg border border-ds-card-border flex items-center gap-3">
                     <Loader2 className="w-4 h-4 animate-spin text-ds-primary" />
-                    <span className="text-xs font-bold text-ds-heading">Updating Results...</span>
+                    <span className="text-xs font-bold text-ds-heading">
+                      Updating Results...
+                    </span>
                   </div>
                 )}
               </div>
-
             </div>
           </motion.div>
         )}

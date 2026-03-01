@@ -16,8 +16,10 @@ export default function NewsletterSection() {
   };
 
   return (
-   <section className="py-16 text-center" style={{ backgroundColor: "#f7f7f7" }}>
-
+    <section
+      className="py-16 text-center"
+      style={{ backgroundColor: "#f7f7f7" }}
+    >
       <div className="max-w-xl mx-auto px-6">
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
@@ -27,7 +29,8 @@ export default function NewsletterSection() {
           Stay Updated with {config.name}
         </motion.h2>
         <p className="mb-6 text-gray-100">
-          Get the latest listings, insights, and market trends delivered to your inbox.
+          Get the latest listings, insights, and market trends delivered to your
+          inbox.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Input

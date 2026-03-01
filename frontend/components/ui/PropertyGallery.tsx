@@ -10,7 +10,10 @@ interface PropertyGalleryProps {
   thumbnails: (string | null)[];
 }
 
-export function PropertyGallery({ mainImage, thumbnails }: PropertyGalleryProps) {
+export function PropertyGallery({
+  mainImage,
+  thumbnails,
+}: PropertyGalleryProps) {
   const [selectedImage, setSelectedImage] = useState(mainImage);
 
   return (
@@ -34,8 +37,9 @@ export function PropertyGallery({ mainImage, thumbnails }: PropertyGalleryProps)
         {thumbnails.map((thumb, index) => (
           <div
             key={index}
-            className={`relative cursor-pointer rounded-lg overflow-hidden bg-gray-200 ${selectedImage === thumb ? "ring-2 ring-teal-600" : ""
-              }`}
+            className={`relative cursor-pointer rounded-lg overflow-hidden bg-gray-200 ${
+              selectedImage === thumb ? "ring-2 ring-teal-600" : ""
+            }`}
             onClick={() => thumb && setSelectedImage(thumb)}
           >
             {thumb ? (
@@ -61,4 +65,3 @@ export function PropertyGallery({ mainImage, thumbnails }: PropertyGalleryProps)
     </div>
   );
 }
-

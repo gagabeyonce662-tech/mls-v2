@@ -85,10 +85,11 @@ export default function PropertyCard({
   return (
     <motion.div
       whileHover={{ y: -4 }}
-      className={`bg-white rounded-2xl overflow-hidden border transition-all duration-300 group ${isSelected
+      className={`bg-white rounded-2xl overflow-hidden border transition-all duration-300 group ${
+        isSelected
           ? "border-ds-primary shadow-xl ring-2 ring-ds-primary/10"
           : "border-ds-card-border shadow-md hover:shadow-xl"
-        }`}
+      }`}
       onClick={onViewOnMap}
     >
       {/* Image Section */}
@@ -114,10 +115,11 @@ export default function PropertyCard({
             {details.photosCount} Photos
           </div>
           <div
-            className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg ${details.status === "Active"
+            className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg ${
+              details.status === "Active"
                 ? "bg-emerald-500 text-white"
                 : "bg-ds-primary text-white"
-              }`}
+            }`}
           >
             {details.status}
           </div>
