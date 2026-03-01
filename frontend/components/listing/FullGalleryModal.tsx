@@ -26,10 +26,12 @@ export default function FullGalleryModal({
   scheduleUrl,
 }: Props) {
   const [index, setIndex] = React.useState<number>(startIndex);
+  const [prevOpen, setPrevOpen] = React.useState(open);
 
-  useEffect(() => {
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) setIndex(startIndex);
-  }, [startIndex, open]);
+  }
 
   useEffect(() => {
     if (!open) return;

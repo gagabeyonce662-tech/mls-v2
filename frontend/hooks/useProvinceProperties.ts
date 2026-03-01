@@ -34,8 +34,8 @@ export function useProvinceProperties() {
       console.log("Fetching properties with province filter:", filters);
       return fetchProperties(filters);
     },
-    [selectedProvince],
-  ); // Remove getProvinceName dependency
+    [selectedProvince, getProvinceName],
+  );
 
   /**
    * Get the current province information
@@ -45,7 +45,7 @@ export function useProvinceProperties() {
       code: selectedProvince,
       name: getProvinceName(selectedProvince),
     };
-  }, [selectedProvince]); // Remove getProvinceName dependency
+  }, [selectedProvince, getProvinceName]);
 
   return {
     fetchProvinceProperties,

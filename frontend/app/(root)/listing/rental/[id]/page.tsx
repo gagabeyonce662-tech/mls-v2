@@ -18,6 +18,7 @@ import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
 import { ds } from "@/lib/design-system-utils";
 import { fetchPropertyByKey } from "@/lib/api";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 interface RentalPropertyPageProps {
   params: Promise<{
@@ -158,12 +159,12 @@ export default async function RentalPropertyPage(
           <nav className="flex" aria-label="Breadcrumb">
             <ol className="inline-flex items-center space-x-1 md:space-x-3">
               <li className="inline-flex items-center">
-                <a
+                <Link
                   href="/"
                   className="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600"
                 >
                   Home
-                </a>
+                </Link>
               </li>
               <li>
                 <div className="flex items-center">
@@ -182,12 +183,12 @@ export default async function RentalPropertyPage(
                       d="m1 9 4-4-4-4"
                     />
                   </svg>
-                  <a
+                  <Link
                     href="/listing/rental"
                     className="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2"
                   >
                     Rental Properties
-                  </a>
+                  </Link>
                 </div>
               </li>
               <li aria-current="page">

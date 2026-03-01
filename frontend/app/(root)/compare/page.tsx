@@ -44,7 +44,44 @@ function ComparePageContent() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Initialize selected IDs from URL - using a lazy initializer for state
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const idsParam = searchParams.get("ids");
+      if (idsParam) {
+        return decodeURIComponent(idsParam)
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean);
+      }
+      const allIds = searchParams.getAll("ids");
+      if (allIds.length > 0) {
+        return allIds
+          .map((id) => decodeURIComponent(id).trim())
+          .filter(Boolean);
+      }
+    } catch (e) {
+      console.error("Error parsing initial IDs", e);
+    }
+    return [];
+  });
+
+  // Sync state with params when they change externally (e.g. browser back button)
+  useEffect(() => {
+    if (!params) return;
+    const idsParam = params.get("ids") || params.getAll("ids").join(",");
+    const currentIIdString = selectedIds.join(",");
+    if (idsParam && idsParam !== currentIIdString) {
+      const ids = idsParam
+        .split(",")
+        .map((id) => decodeURIComponent(id).trim())
+        .filter(Boolean);
+      setSelectedIds(ids);
+    }
+  }, [params, selectedIds]);
+
   const [showAddPropertiesModal, setShowAddPropertiesModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [debugMode, setDebugMode] = useState(
@@ -58,38 +95,6 @@ function ComparePageContent() {
       console.log("DEBUG MODAL - Modal opened");
     }
   }, [showAddPropertiesModal]);
-
-  // Initialize selected IDs from URL
-  useEffect(() => {
-    if (!params) return;
-
-    try {
-      const idsParam = params.get("ids");
-      console.log("Compare Page - URL IDs param:", idsParam);
-
-      if (!idsParam) {
-        const allIds = params.getAll("ids");
-        if (allIds.length > 0) {
-          console.log("Compare Page - Multiple ID params found:", allIds);
-          setSelectedIds(
-            allIds.map((id) => decodeURIComponent(id).trim()).filter(Boolean),
-          );
-        }
-        return;
-      }
-
-      const decodedIds = decodeURIComponent(idsParam);
-      const ids = decodedIds
-        .split(",")
-        .map((id) => id.trim())
-        .filter(Boolean);
-
-      console.log("Compare Page - Parsed IDs:", ids);
-      setSelectedIds(ids);
-    } catch (error) {
-      console.error("Compare Page - Error parsing property IDs:", error);
-    }
-  }, [params, forceRefresh]);
 
   // Update URL when selectedIds change
   useEffect(() => {

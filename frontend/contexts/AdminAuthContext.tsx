@@ -15,8 +15,13 @@ const AdminAuthContext = createContext<AdminAuthContextType | undefined>(
 );
 
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("admin_session") === "true";
+    }
+    return false;
+  });
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -25,12 +30,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const ADMIN_PASSPHRASE = process.env.NEXT_PUBLIC_ADMIN_PASSPHRASE;
 
   useEffect(() => {
-    // Check for existing session
-    const session = localStorage.getItem("admin_session");
-    if (session === "true") {
-      setIsAuthenticated(true);
-    }
-    setIsLoading(false);
+    // Session is now initialized in useState
   }, []);
 
   const login = (password: string) => {

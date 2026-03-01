@@ -40,6 +40,31 @@ export default function ListingsPage() {
   // Get the prefetch function
   const prefetchProperty = usePrefetchProperty();
 
+  const getPropertyKey = useCallback((property: any) => {
+    return (
+      property?.listing_key ||
+      property?.PropertyKey ||
+      property?.id ||
+      `property-${property?.city || "unknown"}-${property?.ListPrice || "0"}`
+    );
+  }, []);
+
+  const handleImageLoad = useCallback((propertyKey: string) => {
+    setLoadedImages((prev) => {
+      const newSet = new Set(prev);
+      newSet.add(propertyKey);
+      return newSet;
+    });
+  }, []);
+
+  const handleImageError = useCallback(
+    (propertyKey: string, e: React.SyntheticEvent<HTMLImageElement>) => {
+      handleImageLoad(propertyKey);
+      e.currentTarget.style.display = "none";
+    },
+    [handleImageLoad],
+  );
+
   // Use TanStack Query for infinite scroll
   const {
     data,
@@ -97,21 +122,6 @@ export default function ListingsPage() {
     setCurrentCity(searchTerm.trim());
     refetch();
   }, [searchTerm, refetch]);
-
-  const clearSearch = useCallback(() => {
-    setSearchTerm("");
-    setCurrentCity("");
-    refetch();
-  }, [refetch]);
-
-  const getPropertyKey = (property: any) => {
-    return (
-      property.listing_key ||
-      property.PropertyKey ||
-      property.id ||
-      `property-${property.city || "unknown"}-${property.ListPrice || "0"}`
-    );
-  };
 
   const getPropertyImageUrl = (property: any) => {
     try {
@@ -191,21 +201,11 @@ export default function ListingsPage() {
     setSelectedProperty(null);
   };
 
-  const handleImageLoad = (propertyKey: string) => {
-    setLoadedImages((prev) => {
-      const newSet = new Set(prev);
-      newSet.add(propertyKey);
-      return newSet;
-    });
-  };
-
-  const handleImageError = (
-    propertyKey: string,
-    e: React.SyntheticEvent<HTMLImageElement>,
-  ) => {
-    handleImageLoad(propertyKey);
-    e.currentTarget.style.display = "none";
-  };
+  const clearSearch = useCallback(() => {
+    setSearchTerm("");
+    setCurrentCity("");
+    refetch();
+  }, [refetch]);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const lastPropertyRef = useCallback(
