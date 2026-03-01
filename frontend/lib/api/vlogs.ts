@@ -8,7 +8,7 @@ import { VlogPost } from "./types";
 export async function fetchVlogPosts(): Promise<VlogPost[]> {
   try {
     const data = await fetchAPI<any[]>(`${API_BASE_URL}/api/vlog/`, {
-      cache: "no-store",
+      next: { revalidate: 3600 },
     });
 
     return data.map((post) => ({
@@ -34,7 +34,7 @@ export async function fetchVlogPostBySlug(
 ): Promise<VlogPost | null> {
   try {
     const data = await fetchAPI<any>(`${API_BASE_URL}/api/vlog/${slug}/`, {
-      cache: "no-store",
+      next: { revalidate: 3600 },
     });
 
     return {
