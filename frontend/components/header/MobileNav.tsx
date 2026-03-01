@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
+
 import { Menu, X, HomeIcon, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -52,10 +54,13 @@ export default function MobileNav({ isScrolled }: MobileNavProps) {
                 <div className="flex items-center justify-between p-6 border-b border-white/5">
                   <div className="flex items-center">
                     <div className="relative h-8 w-32">
-                      <img
+                      <Image
                         src="https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
                         alt="EstateforYou"
+                        width={128}
+                        height={32}
                         className="h-full w-full object-contain filter brightness-0 invert"
+                        priority
                       />
                     </div>
                   </div>
@@ -131,10 +136,13 @@ export default function MobileNav({ isScrolled }: MobileNavProps) {
 
           <Link href="/" className="flex items-center">
             <div className="relative h-10 w-40">
-              <img
+              <Image
                 src="https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
                 alt="EstateforYou"
+                width={160}
+                height={40}
                 className="h-full w-full object-contain filter brightness-0 invert"
+                priority
               />
             </div>
           </Link>

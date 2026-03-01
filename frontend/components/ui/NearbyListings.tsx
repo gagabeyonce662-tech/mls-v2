@@ -2,6 +2,7 @@
 
 import { Button } from "./button";
 import { Card, CardContent } from "./card";
+import Image from "next/image";
 
 interface NearbyListing {
   id: string;
@@ -31,9 +32,11 @@ export function NearbyListings({ listings }: NearbyListingsProps) {
             className="overflow-hidden hover:shadow-lg transition-shadow"
           >
             <div className="relative h-48 bg-gray-200">
-              <img
+              <Image
                 src={listing.image}
                 alt={listing.address}
+                width={400}
+                height={300}
                 className="w-full h-full object-cover"
               />
             </div>

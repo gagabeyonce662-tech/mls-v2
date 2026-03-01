@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+
 import { ImageIcon } from "lucide-react";
 import { Button } from "./button";
 import { Badge } from "./badge";
@@ -21,10 +23,13 @@ export function PropertyGallery({
       {/* Main Image */}
       <div className="lg:col-span-2 relative group">
         <div className="relative w-full h-[500px] rounded-lg overflow-hidden bg-gray-200">
-          <img
+          <Image
             src={selectedImage}
             alt="Property main view"
+            fill
             className="w-full h-full object-cover"
+            priority
+            unoptimized
           />
           <div className="absolute top-4 left-4">
             <Badge className="bg-gray-900 text-white">New Listing</Badge>
@@ -43,10 +48,13 @@ export function PropertyGallery({
             onClick={() => thumb && setSelectedImage(thumb)}
           >
             {thumb ? (
-              <img
+              <Image
                 src={thumb}
                 alt={`Property view ${index + 1}`}
+                width={200}
+                height={200}
                 className="w-full h-full object-cover aspect-square"
+                unoptimized
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">

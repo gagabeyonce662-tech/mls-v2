@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Bed, Bath, Loader2, ChevronRight, X } from "lucide-react";
+
 import { colors } from "@/config/design-system";
 import { type Property } from "@/lib/api";
 
@@ -252,10 +254,13 @@ export default function SearchResults({
                       style={{ backgroundColor: colors.cardsBoarder }}
                     >
                       {thumbnail ? (
-                        <img
+                        <Image
                           src={thumbnail}
                           alt={`Property in ${displayCity}`}
+                          width={400}
+                          height={224}
                           className="w-full h-full object-cover"
+                          unoptimized
                         />
                       ) : (
                         <div

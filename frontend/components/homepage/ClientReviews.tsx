@@ -1,6 +1,7 @@
 "use client";
 
 import { Star } from "lucide-react";
+import Image from "next/image";
 
 export default function ClientReviews() {
   const reviews = [
@@ -46,9 +47,11 @@ export default function ClientReviews() {
               className="bg-white rounded-xl shadow-md p-6 space-y-4"
             >
               <div className="flex items-center gap-4">
-                <img
+                <Image
                   src={review.avatar}
                   alt={review.name}
+                  width={56}
+                  height={56}
                   className="w-14 h-14 rounded-full object-cover"
                 />
                 <div>

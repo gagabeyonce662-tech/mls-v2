@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { HomeIcon, User } from "lucide-react";
@@ -36,10 +38,13 @@ export default function DesktopNav({ isScrolled }: DesktopNavProps) {
           {/* Logo Group */}
           <Link href="/" className="flex items-center group">
             <div className="relative h-12 w-48 transition-transform duration-300 group-hover:scale-105">
-              <img
+              <Image
                 src="https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
                 alt="EstateforYou"
+                width={192}
+                height={48}
                 className="h-full w-full object-contain filter brightness-0 invert"
+                priority
               />
             </div>
           </Link>

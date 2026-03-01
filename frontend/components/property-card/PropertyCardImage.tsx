@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+
 import { Loader2, Calendar } from "lucide-react";
 import { colors, propertyCard } from "@/config/design-system";
 import {
@@ -49,15 +51,17 @@ export function PropertyCardImage({
       )}
 
       {thumbnail ? (
-        <img
+        <Image
           src={thumbnail}
           alt={`${type} in ${city}`}
+          width={400}
+          height={300}
           className={`w-full h-full object-cover transition-all duration-500 ${
             propertyCard.animation.hoverScale
           } ${imageLoaded ? "opacity-100" : "opacity-0"}`}
           loading="lazy"
           onLoad={() => setImageLoaded(true)}
-          onError={() => setImageLoaded(true)}
+          unoptimized
         />
       ) : (
         <div

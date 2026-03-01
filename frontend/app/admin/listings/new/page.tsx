@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { createProperty } from "@/lib/api";
@@ -408,10 +410,13 @@ export default function NewListingPage() {
                     exit={{ opacity: 0, scale: 0.8 }}
                     className="relative aspect-square rounded-[1.5rem] overflow-hidden border-2 border-ds-card-border shadow-xl group"
                   >
-                    <img
+                    <Image
                       src={URL.createObjectURL(file)}
                       alt="Preview"
+                      width={200}
+                      height={200}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      unoptimized
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <button

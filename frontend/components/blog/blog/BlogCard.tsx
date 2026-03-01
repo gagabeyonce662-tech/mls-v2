@@ -1,6 +1,8 @@
 "use client";
 
 import { Star, ArrowUpRight } from "lucide-react";
+import Image from "next/image";
+
 import {
   Card,
   CardContent,
@@ -45,13 +47,16 @@ export default function BlogCard({ post }: BlogCardProps) {
     >
       {/* Image Section */}
       <div className="relative h-48 overflow-hidden">
-        <img
+        <Image
           src={
             post.thumbnail ||
             "https://plus.unsplash.com/premium_photo-1664476845274-27c2dabdd7f0?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&fm=jpg&q=60&w=3000"
           }
           alt={post.title}
+          width={320}
+          height={192}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          unoptimized
         />
 
         {/* Overlay gradient */}

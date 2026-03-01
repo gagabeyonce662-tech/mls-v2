@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 
 export default function LatestArticles() {
   const articles = [
@@ -47,9 +48,11 @@ export default function LatestArticles() {
           {articles.map((article) => (
             <div key={article.id} className="group cursor-pointer">
               <div className="relative h-56 rounded-xl overflow-hidden mb-4">
-                <img
+                <Image
                   src={article.image}
                   alt={article.title}
+                  width={400}
+                  height={224}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                 />
                 <div className="absolute top-4 left-4">

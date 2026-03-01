@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
+
 import { useRouter } from "next/navigation";
 import { Bed, Bath, Maximize } from "lucide-react";
 import { ds } from "@/lib/design-system-utils";
@@ -185,10 +187,13 @@ export default function SimilarProperties({
               className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
             >
               <div className="relative h-48">
-                <img
+                <Image
                   src={getSimilarPropertyImage(similarProperty, index)}
                   alt={similarProperty.address}
+                  width={400}
+                  height={300}
                   className="w-full h-full object-cover"
+                  unoptimized
                 />
                 <div className="absolute top-3 left-3 bg-ds-primary text-white px-2 py-1 rounded text-sm font-semibold">
                   {similarProperty.property_type || "Property"}

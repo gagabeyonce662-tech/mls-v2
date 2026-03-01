@@ -11,6 +11,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Image from "next/image";
+
 import { colors } from "@/config/design-system";
 import { fetchVlogPostBySlug, fetchVlogPosts } from "@/lib/api";
 
@@ -321,10 +323,13 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
                     >
                       <div className="flex gap-4">
                         <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden">
-                          <img
+                          <Image
                             src={getImageUrl(relatedPost.thumbnail)}
                             alt={relatedPost.title}
+                            width={96}
+                            height={96}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            unoptimized
                           />
                         </div>
                         <div className="flex-1">

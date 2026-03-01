@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
+
 import { fetchAllExclusiveProperties, type Property } from "@/lib/api";
 import {
   BarChart3,
@@ -154,10 +156,13 @@ export default function AdminDashboardPage() {
             >
               <div className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden">
                 {listing.media?.[0]?.media_url ? (
-                  <img
+                  <Image
                     src={listing.media[0].media_url}
                     alt=""
+                    width={48}
+                    height={48}
                     className="w-full h-full object-cover"
+                    unoptimized
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-400">

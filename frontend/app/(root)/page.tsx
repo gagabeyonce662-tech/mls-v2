@@ -58,7 +58,7 @@ export default function HomePage() {
       setIsLoading(false);
     };
     load();
-  }, []);
+  }, [selectedProvince]);
 
   useEffect(() => {
     if (hasRentalInitialLoadCompleted.current) return;
@@ -118,7 +118,7 @@ export default function HomePage() {
       setIsLoading(false);
     };
     load();
-  }, [selectedProvince]);
+  }, [selectedProvince, getProvinceName]);
 
   const handlePropertiesUpdate = (newProperties: Property[]) =>
     setProperties(newProperties);

@@ -11,7 +11,9 @@ import {
   Building,
   Users,
 } from "lucide-react";
+import Image from "next/image";
 import Header from "@/components/Header";
+
 import Footer from "@/components/Footer";
 import PropertyGalleryGrid from "@/components/listing/PropertyGalleryGrid";
 import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
@@ -677,9 +679,11 @@ export default async function RentalPropertyPage(
                 className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
               >
                 <div className="relative h-48">
-                  <img
+                  <Image
                     src={`https://images.unsplash.com/photo-1600577916048-804c9191e36c?w=400&h=300&fit=crop&auto=format&q=80`}
                     alt={`Similar Rental ${i}`}
+                    width={400}
+                    height={300}
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute top-3 left-3">

@@ -5,6 +5,7 @@ import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 
 interface Props {
   images: string[];
@@ -177,10 +178,13 @@ export default function FullGalleryModal({
                     : "ring-transparent opacity-40 hover:opacity-100"
                 }`}
               >
-                <img
+                <Image
                   src={src}
                   alt="thumbnail"
+                  width={200}
+                  height={150}
                   className="w-full h-full object-cover"
+                  unoptimized
                 />
               </button>
             ))}

@@ -164,7 +164,7 @@ export default function MapOnlyPage() {
     }
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
-  }, []);
+  }, [setResultsOpen]);
 
   useEffect(() => {
     function updateRect() {
@@ -178,7 +178,7 @@ export default function MapOnlyPage() {
       window.removeEventListener("resize", updateRect);
       window.removeEventListener("scroll", updateRect, true);
     };
-  }, [resultsOpen, searchQuery]);
+  }, [resultsOpen, searchQuery, setAnchorRect]);
 
   useEffect(() => {
     return () => {

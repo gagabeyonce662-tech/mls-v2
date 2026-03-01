@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
+
 import { ChevronLeft, ChevronRight, Expand, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ds } from "@/lib/design-system-utils";
@@ -57,7 +59,7 @@ export default function PropertyGallery({ images }: PropertyGalleryProps) {
     return () => {
       window.removeEventListener("keydown", handleKeyPress);
     };
-  }, [isFullscreen]);
+  }, [isFullscreen, nextImage, prevImage]);
 
   if (images.length === 0) return null;
 
@@ -135,10 +137,13 @@ export default function PropertyGallery({ images }: PropertyGalleryProps) {
                       : "border-transparent opacity-70 hover:opacity-100"
                   }`}
                 >
-                  <img
+                  <Image
                     src={image}
                     alt={`Thumbnail ${index + 1}`}
+                    width={96}
+                    height={64}
                     className="w-full h-full object-cover"
+                    unoptimized
                   />
                 </button>
               ))}

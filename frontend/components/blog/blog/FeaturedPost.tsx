@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { Clock, User } from "lucide-react";
 
 const FeaturedPost = ({ post }: any) => {
@@ -18,10 +19,13 @@ const FeaturedPost = ({ post }: any) => {
             {posts.title}
           </p>
           <p className="text-gray-600 mb-4">{posts.excerpt}</p>
-          <img
+          <Image
             src={posts.image}
             alt={posts.title}
+            width={600}
+            height={400}
             className="w-full h-64 lg:h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            unoptimized
           />
           <div className="absolute top-6 left-6 z-10">
             <span className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-md">

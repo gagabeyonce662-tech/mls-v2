@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import { ExternalLink } from "lucide-react";
 
 interface AdCardProps {
@@ -22,7 +23,13 @@ const AdCard: React.FC<AdCardProps> = ({
     >
       {image && (
         <div className="mb-4 rounded-lg overflow-hidden">
-          <img src={image} alt={title} className="w-full h-32 object-cover" />
+          <Image
+            src={image}
+            alt={title}
+            width={300}
+            height={128}
+            className="w-full h-32 object-cover"
+          />
         </div>
       )}
 

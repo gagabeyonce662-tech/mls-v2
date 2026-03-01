@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+
 import { colors } from "@/config/design-system";
 
 export default function FeaturedCollections() {
@@ -45,9 +47,11 @@ export default function FeaturedCollections() {
               href={collection.href}
               className="group relative h-80 rounded-xl overflow-hidden shadow-lg cursor-pointer transform transition-transform hover:scale-105"
             >
-              <img
+              <Image
                 src={collection.image}
                 alt={collection.title}
+                width={400}
+                height={320}
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />

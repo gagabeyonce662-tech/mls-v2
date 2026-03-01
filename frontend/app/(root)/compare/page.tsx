@@ -3,7 +3,9 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Image from "next/image";
 import React, { useState, useEffect, useMemo } from "react";
+
 import {
   useCompareProperties,
   useAllExclusiveProperties,
@@ -68,19 +70,22 @@ function ComparePageContent() {
     return [];
   });
 
-  // Sync state with params when they change externally (e.g. browser back button)
-  useEffect(() => {
-    if (!params) return;
-    const idsParam = params.get("ids") || params.getAll("ids").join(",");
-    const currentIIdString = selectedIds.join(",");
-    if (idsParam && idsParam !== currentIIdString) {
+  const [prevParams, setPrevParams] = useState<string | null>(
+    params?.get("ids") || params?.getAll("ids").join(",") || null,
+  );
+
+  const idsParam =
+    params?.get("ids") || params?.getAll("ids").join(",") || null;
+  if (idsParam !== prevParams) {
+    setPrevParams(idsParam);
+    if (idsParam) {
       const ids = idsParam
         .split(",")
         .map((id) => decodeURIComponent(id).trim())
         .filter(Boolean);
       setSelectedIds(ids);
     }
-  }, [params, selectedIds]);
+  }
 
   const [showAddPropertiesModal, setShowAddPropertiesModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -704,15 +709,13 @@ function ComparePageContent() {
 
                   {property.image ? (
                     <div className="h-48 bg-gray-100">
-                      <img
+                      <Image
                         src={property.image}
                         alt={property.address}
+                        width={320}
+                        height={192}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src =
-                            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjI0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
-                        }}
+                        unoptimized
                       />
                     </div>
                   ) : (
@@ -1025,16 +1028,13 @@ function ComparePageContent() {
                             <div className="flex gap-4">
                               {getImageUrl() ? (
                                 <div className="w-24 h-24 flex-shrink-0">
-                                  <img
-                                    src={getImageUrl()}
-                                    alt={getAddress()}
+                                  <Image
+                                    src={getImageUrl() || ""}
+                                    alt={getAddress() || ""}
+                                    width={96}
+                                    height={96}
                                     className="w-full h-full object-cover rounded"
-                                    onError={(e) => {
-                                      const target =
-                                        e.target as HTMLImageElement;
-                                      target.src =
-                                        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM2NjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=";
-                                    }}
+                                    unoptimized
                                   />
                                 </div>
                               ) : (

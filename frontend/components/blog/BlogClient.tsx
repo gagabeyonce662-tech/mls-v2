@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Image from "next/image";
 import Link from "next/link";
+
 import { colors } from "@/config/design-system";
 import { VlogPost } from "@/lib/api";
 
@@ -186,13 +188,13 @@ export default function BlogClient({
                 >
                   {/* Image */}
                   <div className="relative h-56">
-                    <img
+                    <Image
                       src={getImageUrl(post)}
                       alt={post.title}
+                      width={600}
+                      height={400}
                       className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = fallbackImage;
-                      }}
+                      unoptimized
                     />
                     {post.category && (
                       <div className="absolute top-4 left-4">

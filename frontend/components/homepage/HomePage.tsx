@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import Image from "next/image";
+
 import {
   Search,
   TrendingUp,
@@ -188,10 +190,12 @@ export default function HomePage() {
     <div className="min-h-screen bg-background w-full overflow-x-hidden">
       <div className="relative bg-background">
         <div className="relative h-[600px] w-full overflow-hidden">
-          <img
+          <Image
             src="https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=1600"
             alt="Luxury Real Estate"
+            fill
             className="w-full h-full object-cover"
+            priority
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/70" />
 
@@ -332,9 +336,11 @@ export default function HomePage() {
               className="group hover:shadow-xl transition-all border overflow-hidden cursor-pointer"
             >
               <div className="relative h-56 overflow-hidden">
-                <img
+                <Image
                   src={listing.image}
                   alt={listing.title}
+                  width={600}
+                  height={400}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 <Badge className="absolute top-3 left-3 bg-primary">
@@ -407,9 +413,11 @@ export default function HomePage() {
                 className="group hover:shadow-lg transition-all cursor-pointer overflow-hidden"
               >
                 <div className="relative h-40 overflow-hidden">
-                  <img
+                  <Image
                     src={neighborhood.image}
                     alt={neighborhood.name}
+                    width={400}
+                    height={300}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
@@ -456,9 +464,11 @@ export default function HomePage() {
               className="group hover:shadow-lg transition-all border overflow-hidden cursor-pointer"
             >
               <div className="relative h-48 overflow-hidden">
-                <img
+                <Image
                   src={listing.image}
                   alt={listing.title}
+                  width={400}
+                  height={300}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 <Badge

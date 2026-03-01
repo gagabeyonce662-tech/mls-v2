@@ -9,6 +9,7 @@ import {
   Twitter,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { colors } from "@/config/design-system";
 
 const Footer = () => {
@@ -181,17 +182,23 @@ const Footer = () => {
             </h3>
             <div className="space-y-3">
               <a href="#" className="block">
-                <img
+                <Image
                   src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
                   alt="Get it on Google Play"
-                  className="h-10"
+                  width={135}
+                  height={40}
+                  className="h-10 w-auto"
+                  unoptimized
                 />
               </a>
               <a href="#" className="block">
-                <img
+                <Image
                   src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg"
                   alt="Download on the App Store"
-                  className="h-10"
+                  width={120}
+                  height={40}
+                  className="h-10 w-auto"
+                  unoptimized
                 />
               </a>
             </div>

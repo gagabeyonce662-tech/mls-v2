@@ -2,6 +2,8 @@
 import React from "react";
 import { Home as HomeIcon } from "lucide-react";
 import Header from "@/components/Header";
+import Image from "next/image";
+
 import Footer from "@/components/Footer";
 import PropertyGalleryGrid from "@/components/listing/PropertyGalleryGrid";
 import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
@@ -167,9 +169,11 @@ export default async function ListingPage(props: ListingPageProps) {
                 className="group bg-white rounded-2xl shadow-sm border border-ds-card-border overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1"
               >
                 <div className="h-56 bg-ds-card relative overflow-hidden">
-                  <img
+                  <Image
                     src={`https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800&auto=format&fit=crop`}
                     alt="Similar home"
+                    width={800}
+                    height={600}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                 </div>

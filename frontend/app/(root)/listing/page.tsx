@@ -109,14 +109,17 @@ export default function ListingsPage() {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [allProperties, isLoading]);
+  }, [allProperties, isLoading, getPropertyKey]);
 
-  useEffect(() => {
-    if (currentCity || searchTerm) {
-      setLoadedCards(new Set());
-      setLoadedImages(new Set());
-    }
-  }, [currentCity, searchTerm]);
+  const [prevSearch, setPrevSearch] = useState({
+    city: currentCity,
+    term: searchTerm,
+  });
+  if (currentCity !== prevSearch.city || searchTerm !== prevSearch.term) {
+    setPrevSearch({ city: currentCity, term: searchTerm });
+    setLoadedCards(new Set());
+    setLoadedImages(new Set());
+  }
 
   const handleSearch = useCallback(() => {
     setCurrentCity(searchTerm.trim());

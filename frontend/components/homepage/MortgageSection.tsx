@@ -1,6 +1,7 @@
 "use client";
 
 import { colors } from "@/config/design-system";
+import Image from "next/image";
 
 export default function MortgageCalculatorSection() {
   return (
@@ -12,9 +13,10 @@ export default function MortgageCalculatorSection() {
       }}
     >
       <div className="absolute inset-0 opacity-10">
-        <img
+        <Image
           src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80"
           alt="Background"
+          fill
           className="w-full h-full object-cover"
         />
       </div>
@@ -41,9 +43,11 @@ export default function MortgageCalculatorSection() {
             </button>
           </div>
           <div className="relative">
-            <img
+            <Image
               src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=600&q=80"
               alt="Modern House"
+              width={600}
+              height={400}
               className="rounded-xl shadow-2xl"
             />
           </div>

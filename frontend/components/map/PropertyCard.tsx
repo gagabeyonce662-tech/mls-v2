@@ -1,5 +1,6 @@
-// components/map/PropertyCard.tsx
 import React from "react";
+import Image from "next/image";
+
 import { PropertyMarker } from "./types";
 import { formatPrice } from "@/lib/helpers";
 import StreetViewButton from "./StreetViewButton";
@@ -95,14 +96,13 @@ export default function PropertyCard({
       {/* Image Section */}
       <div className="relative h-44 w-full overflow-hidden">
         {photo ? (
-          <img
+          <Image
             src={photo}
             alt={details.address}
+            width={400}
+            height={300}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src =
-                "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=800";
-            }}
+            unoptimized
           />
         ) : (
           <div className="w-full h-full bg-gray-100 flex items-center justify-center">
