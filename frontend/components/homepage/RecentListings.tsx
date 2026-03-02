@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { config } from "@/config";
 
-const listings = config.recentListings
+const listings = config.recentListings;
 
 export default function RecentListings() {
   return (

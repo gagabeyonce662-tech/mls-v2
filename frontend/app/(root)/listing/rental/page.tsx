@@ -14,7 +14,9 @@ import {
   DollarSign,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import Header from "@/components/Header";
+
 import Footer from "@/components/Footer";
 import { colors } from "@/config/design-system";
 import {
@@ -457,16 +459,12 @@ export default function RentalListingsPage() {
                           {/* Image container */}
                           <div className="relative h-48 bg-gray-50 flex items-center justify-center overflow-hidden">
                             {imageUrl ? (
-                              <img
+                              <Image
                                 src={imageUrl}
                                 alt={`Rental property in ${displayCity}`}
+                                width={320}
+                                height={192}
                                 className="w-full h-full object-cover filter blur-md scale-105"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.onerror = null;
-                                  target.src = "";
-                                  target.style.display = "none";
-                                }}
                               />
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 filter blur-md">
@@ -495,12 +493,13 @@ export default function RentalListingsPage() {
 
                             <div className="absolute bottom-4 left-4">
                               <span
-                                className={`px-3 py-1 rounded-full text-sm font-medium ${status === "Active"
+                                className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                  status === "Active"
                                     ? "bg-green-500 text-white"
                                     : status === "Pending"
                                       ? "bg-yellow-500 text-white"
                                       : "bg-gray-500 text-white"
-                                  }`}
+                                }`}
                               >
                                 {status}
                               </span>
@@ -550,26 +549,12 @@ export default function RentalListingsPage() {
                         >
                           <div className="relative h-48 bg-gray-50 flex items-center justify-center">
                             {imageUrl ? (
-                              <img
+                              <Image
                                 src={imageUrl}
                                 alt={`Rental property in ${displayCity}`}
+                                width={320}
+                                height={192}
                                 className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.onerror = null;
-                                  target.src = "";
-                                  target.style.display = "none";
-                                  const parent = target.parentElement;
-                                  if (parent) {
-                                    parent
-                                      .querySelectorAll(".no-image-fallback")
-                                      .forEach(
-                                        (el) =>
-                                        ((el as HTMLElement).style.display =
-                                          "flex"),
-                                      );
-                                  }
-                                }}
                               />
                             ) : (
                               <div className="no-image-fallback w-full h-full flex flex-col items-center justify-center text-gray-500">
@@ -581,12 +566,13 @@ export default function RentalListingsPage() {
 
                             <div className="absolute bottom-4 left-4">
                               <span
-                                className={`px-3 py-1 rounded-full text-sm font-medium ${status === "Active"
+                                className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                  status === "Active"
                                     ? "bg-green-500 text-white"
                                     : status === "Pending"
                                       ? "bg-yellow-500 text-white"
                                       : "bg-gray-500 text-white"
-                                  }`}
+                                }`}
                               >
                                 {status}
                               </span>

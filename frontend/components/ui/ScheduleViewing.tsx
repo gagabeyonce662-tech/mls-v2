@@ -56,7 +56,10 @@ export function ScheduleViewing({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Agent Name */}
           <div className="space-y-2">
-            <Label htmlFor="agent-name" className="text-sm font-medium text-gray-700">
+            <Label
+              htmlFor="agent-name"
+              className="text-sm font-medium text-gray-700"
+            >
               Agent Name
             </Label>
             <div className="relative">
@@ -82,7 +85,10 @@ export function ScheduleViewing({
           {/* Contact Number & Email */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="contact-number" className="text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="contact-number"
+                className="text-sm font-medium text-gray-700"
+              >
                 Your Contact Number
               </Label>
               <div className="relative">
@@ -90,7 +96,9 @@ export function ScheduleViewing({
                   id="contact-number"
                   type="tel"
                   value={formData.contactNumber}
-                  onChange={(e) => handleChange("contactNumber", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("contactNumber", e.target.value)
+                  }
                   className="pr-8 bg-white"
                   placeholder=""
                 />
@@ -106,7 +114,10 @@ export function ScheduleViewing({
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+              <Label
+                htmlFor="email"
+                className="text-sm font-medium text-gray-700"
+              >
                 Email
               </Label>
               <div className="relative">
@@ -132,7 +143,10 @@ export function ScheduleViewing({
 
           {/* Appointment Message */}
           <div className="space-y-2">
-            <Label htmlFor="message" className="text-sm font-medium text-gray-700">
+            <Label
+              htmlFor="message"
+              className="text-sm font-medium text-gray-700"
+            >
               Appointment Message
             </Label>
             <div className="relative">
@@ -168,4 +182,3 @@ export function ScheduleViewing({
     </Card>
   );
 }
-

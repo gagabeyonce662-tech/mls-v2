@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "./table";
+import { Table, TableBody, TableCell, TableRow } from "./table";
 
 interface PropertyDetail {
   label: string;
@@ -34,4 +29,3 @@ export function PropertyDetailsTable({ details }: PropertyDetailsTableProps) {
     </div>
   );
 }
-

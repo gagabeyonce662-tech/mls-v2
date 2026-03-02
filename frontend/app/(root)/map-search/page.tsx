@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
+import { env } from "@/lib/env";
 
 // Layout components
 import Header from "@/components/Header";
@@ -41,8 +42,7 @@ const Popup = dynamic(() => import("react-leaflet").then((m) => m.Popup), {
 });
 
 export default function MapOnlyPage() {
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca";
+  const API_BASE_URL = env.NEXT_PUBLIC_API_URL;
   const [mounted, setMounted] = useState(false);
   const [L, setL] = useState<any>(null);
   const mapRef = useRef<any | null>(null);
@@ -128,7 +128,7 @@ export default function MapOnlyPage() {
           const group = markers.map((m) => [m.lat, m.lng]);
           const bounds = L.latLngBounds(group as any);
           mapRef.current.fitBounds(bounds.pad(0.2));
-        } catch { }
+        } catch {}
       }
       setLoadingApi(false);
     } catch (err: any) {
@@ -164,7 +164,7 @@ export default function MapOnlyPage() {
     }
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
-  }, []);
+  }, [setResultsOpen]);
 
   useEffect(() => {
     function updateRect() {
@@ -178,20 +178,7 @@ export default function MapOnlyPage() {
       window.removeEventListener("resize", updateRect);
       window.removeEventListener("scroll", updateRect, true);
     };
-  }, [resultsOpen, searchQuery]);
-
-  useEffect(() => {
-    return () => {
-      try {
-        if (mapRef.current && typeof mapRef.current.remove === "function") {
-          mapRef.current.remove();
-          mapRef.current = null;
-        }
-      } catch (err) {
-        console.warn("Error while removing leaflet map on unmount:", err);
-      }
-    };
-  }, []);
+  }, [resultsOpen, searchQuery, setAnchorRect]);
 
   if (!mounted || !L) {
     return (
@@ -213,7 +200,7 @@ export default function MapOnlyPage() {
       map.on("moveend", () => {
         if (!loadingApi && !drawing) setShowSearchThisArea(true);
       });
-    } catch { }
+    } catch {}
   };
 
   const clearAll = () => {
@@ -264,17 +251,20 @@ export default function MapOnlyPage() {
 
   const markerToShow = searchResult
     ? {
-      lat: searchResult.lat,
-      lng: searchResult.lng,
-      title: searchResult.display_name || "Search result",
-    }
+        lat: searchResult.lat,
+        lng: searchResult.lng,
+        title: searchResult.display_name || "Search result",
+      }
     : null;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-white">
       <Header />
 
-      <main className="flex-1 relative flex flex-col" style={{ paddingTop: "var(--navbar-height, 64px)" }}>
+      <main
+        className="flex-1 relative flex flex-col"
+        style={{ paddingTop: "var(--navbar-height, 64px)" }}
+      >
         <div className="flex-1 relative overflow-hidden">
           <div className="w-full h-full relative bg-ds-card">
             <MapOverlayControls

@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 
 export default function LocationsSection() {
   const locations = [
@@ -59,9 +60,11 @@ export default function LocationsSection() {
               className="relative h-72 w-64 rounded-xl overflow-hidden shadow-lg cursor-pointer group flex-shrink-0"
               /* was h-80 w-72 + very large card */
             >
-              <img
+              <Image
                 src={location.image}
                 alt={location.name}
+                width={256}
+                height={288}
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />

@@ -20,7 +20,8 @@ import { propertyCard } from "@/config/design-system";
 export const getPropertyKey = (property: Property): string =>
   property.listing_key ||
   property.PropertyKey ||
-  `property-${property.city || property.City || "unknown"}-${property.ListPrice || property.list_price || "0"
+  `property-${property.city || property.City || "unknown"}-${
+    property.ListPrice || property.list_price || "0"
   }`;
 
 /* ──────────────────────────── Location ──────────────────────────── */
@@ -79,11 +80,11 @@ export const getPrice = (property: Property): number => {
 export const formatPrice = (price: number): string =>
   price > 0
     ? new Intl.NumberFormat(propertyCard.currency.locale, {
-      style: "currency",
-      currency: propertyCard.currency.code,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(price)
+        style: "currency",
+        currency: propertyCard.currency.code,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(price)
     : propertyCard.fallbackText.noPrice;
 
 /* ──────────────────────────── Classification ──────────────────────────── */

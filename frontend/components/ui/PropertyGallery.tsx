@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+
 import { ImageIcon } from "lucide-react";
 import { Button } from "./button";
 import { Badge } from "./badge";
@@ -10,7 +12,10 @@ interface PropertyGalleryProps {
   thumbnails: (string | null)[];
 }
 
-export function PropertyGallery({ mainImage, thumbnails }: PropertyGalleryProps) {
+export function PropertyGallery({
+  mainImage,
+  thumbnails,
+}: PropertyGalleryProps) {
   const [selectedImage, setSelectedImage] = useState(mainImage);
 
   return (
@@ -18,10 +23,12 @@ export function PropertyGallery({ mainImage, thumbnails }: PropertyGalleryProps)
       {/* Main Image */}
       <div className="lg:col-span-2 relative group">
         <div className="relative w-full h-[500px] rounded-lg overflow-hidden bg-gray-200">
-          <img
+          <Image
             src={selectedImage}
             alt="Property main view"
+            fill
             className="w-full h-full object-cover"
+            priority
           />
           <div className="absolute top-4 left-4">
             <Badge className="bg-gray-900 text-white">New Listing</Badge>
@@ -34,14 +41,17 @@ export function PropertyGallery({ mainImage, thumbnails }: PropertyGalleryProps)
         {thumbnails.map((thumb, index) => (
           <div
             key={index}
-            className={`relative cursor-pointer rounded-lg overflow-hidden bg-gray-200 ${selectedImage === thumb ? "ring-2 ring-teal-600" : ""
-              }`}
+            className={`relative cursor-pointer rounded-lg overflow-hidden bg-gray-200 ${
+              selectedImage === thumb ? "ring-2 ring-teal-600" : ""
+            }`}
             onClick={() => thumb && setSelectedImage(thumb)}
           >
             {thumb ? (
-              <img
+              <Image
                 src={thumb}
                 alt={`Property view ${index + 1}`}
+                width={200}
+                height={200}
                 className="w-full h-full object-cover aspect-square"
               />
             ) : (
@@ -61,4 +71,3 @@ export function PropertyGallery({ mainImage, thumbnails }: PropertyGalleryProps)
     </div>
   );
 }
-

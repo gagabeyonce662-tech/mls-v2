@@ -1,6 +1,8 @@
 "use client";
 
 import { Star, ArrowUpRight } from "lucide-react";
+import Image from "next/image";
+
 import {
   Card,
   CardContent,
@@ -19,7 +21,7 @@ interface BlogCardProps {
 }
 
 const getCategoryVariant = (
-  category: string
+  category: string,
 ): "default" | "secondary" | "outline" => {
   const variants: Record<string, "default" | "secondary" | "outline"> = {
     "Market Analysis": "default",
@@ -40,17 +42,19 @@ export default function BlogCard({ post }: BlogCardProps) {
         "group relative overflow-hidden border border-border/50",
         "rounded-2xl bg-gradient-to-b from-background/60 to-background/40",
         "backdrop-blur-xl shadow-md hover:shadow-xl transition-all duration-300",
-        "hover:border-primary/50 hover:scale-[1.02] cursor-pointer flex flex-col h-full"
+        "hover:border-primary/50 hover:scale-[1.02] cursor-pointer flex flex-col h-full",
       )}
     >
       {/* Image Section */}
       <div className="relative h-48 overflow-hidden">
-        <img
+        <Image
           src={
             post.thumbnail ||
             "https://plus.unsplash.com/premium_photo-1664476845274-27c2dabdd7f0?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&fm=jpg&q=60&w=3000"
           }
           alt={post.title}
+          width={320}
+          height={192}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
 

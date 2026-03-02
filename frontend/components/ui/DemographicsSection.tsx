@@ -1,18 +1,9 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "./card";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "./chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "./chart";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "./table";
+import { Table, TableBody, TableCell, TableRow } from "./table";
 
 interface IncomeDistribution {
   range: string;
@@ -152,7 +143,10 @@ export function DemographicsSection({
                                 {payload[0].payload.range}
                               </span>
                               <span className="text-sm font-bold">
-                                {((payload[0].value as number) * 100).toFixed(1)}%
+                                {((payload[0].value as number) * 100).toFixed(
+                                  1,
+                                )}
+                                %
                               </span>
                             </div>
                           </div>
@@ -171,4 +165,3 @@ export function DemographicsSection({
     </div>
   );
 }
-

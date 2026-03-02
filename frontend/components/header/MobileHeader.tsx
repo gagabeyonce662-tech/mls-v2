@@ -99,10 +99,11 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
                     <DropdownMenuItem
                       key={province.code}
                       onClick={() => setSelectedProvince(province.code)}
-                      className={`cursor-pointer ${selectedProvince === province.code
-                        ? "bg-ds-card text-ds-primary font-semibold"
-                        : ""
-                        }`}
+                      className={`cursor-pointer ${
+                        selectedProvince === province.code
+                          ? "bg-ds-card text-ds-primary font-semibold"
+                          : ""
+                      }`}
                     >
                       <div className="flex items-center space-x-3">
                         <MapPin className="w-4 h-4" />

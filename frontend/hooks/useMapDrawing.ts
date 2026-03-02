@@ -76,7 +76,7 @@ export const useMapDrawing = (
     if (rectLayerRef.current) {
       try {
         rectLayerRef.current.remove();
-      } catch { }
+      } catch {}
       rectLayerRef.current = null;
     }
   };
@@ -88,7 +88,7 @@ export const useMapDrawing = (
     if (rectLayerRef.current) {
       try {
         rectLayerRef.current.remove();
-      } catch { }
+      } catch {}
       rectLayerRef.current = null;
     }
 
@@ -104,7 +104,7 @@ export const useMapDrawing = (
     if (rectLayerRef.current) {
       try {
         rectLayerRef.current.remove();
-      } catch { }
+      } catch {}
       rectLayerRef.current = null;
     }
     mapRef.current.off("mousedown", onMapMouseDown);
@@ -118,7 +118,7 @@ export const useMapDrawing = (
     if (rectLayerRef.current) {
       try {
         rectLayerRef.current.remove();
-      } catch { }
+      } catch {}
       rectLayerRef.current = null;
     }
     drawStartRef.current = null;

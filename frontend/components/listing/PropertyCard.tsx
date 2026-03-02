@@ -3,6 +3,7 @@
 import React from "react";
 import { Bed, Bath, Maximize, Home, Loader2 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { colors } from "@/config/design-system";
 
 interface PropertyCardProps {
@@ -61,9 +62,11 @@ export const PropertyCard = ({
       >
         <div className="relative h-48 flex items-center justify-center overflow-hidden">
           {imageUrl && (
-            <img
+            <Image
               src={imageUrl}
               alt={`Property in ${displayCity}`}
+              width={320}
+              height={192}
               className="w-full h-full object-cover filter blur-md scale-105"
             />
           )}
@@ -175,15 +178,16 @@ export const PropertyCard = ({
 
         {/* Actual Image */}
         {imageUrl ? (
-          <img
+          <Image
             src={imageUrl}
             alt={`Property in ${displayCity}`}
+            width={320}
+            height={192}
             className={`w-full h-full object-cover transition-opacity duration-700 ${
               imageLoaded ? "opacity-100" : "opacity-0"
             }`}
             loading="lazy"
             onLoad={() => onImageLoad(propertyKey)}
-            onError={(e) => onImageError(propertyKey, e)}
           />
         ) : (
           <div

@@ -23,8 +23,7 @@ export function MortgageCalculator() {
     }
 
     const monthlyPayment =
-      principal *
-      (monthlyRate * Math.pow(1 + monthlyRate, numPayments)) /
+      (principal * (monthlyRate * Math.pow(1 + monthlyRate, numPayments))) /
       (Math.pow(1 + monthlyRate, numPayments) - 1);
 
     return monthlyPayment;
@@ -87,7 +86,11 @@ export function MortgageCalculator() {
         <div className="pt-4 border-t">
           <div className="text-sm text-gray-600 mb-1">Mortgage Payment</div>
           <div className="text-3xl font-bold text-teal-600">
-            ${monthlyPayment.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            $
+            {monthlyPayment.toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
           </div>
           <div className="text-xs text-gray-500 mt-1">per month</div>
         </div>
@@ -95,4 +98,3 @@ export function MortgageCalculator() {
     </Card>
   );
 }
-

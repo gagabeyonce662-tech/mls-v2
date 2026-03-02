@@ -8,170 +8,23 @@ import {
   PreConnPropertyFilterParams,
   NearestSchoolsResponse,
 } from "./types";
+import { PropertyResponseSchema } from "./propertySchema";
 
 /**
  * Helper function to map API response to Property interface
  */
 export function mapPropertyFromAPI(prop: any): Property {
-  console.log("Mapping property from API:", prop);
-
-  // Build address from components
-  const addressParts = [];
-  if (prop.unit_number) addressParts.push(`${prop.unit_number}-`);
-  if (prop.street_number) addressParts.push(prop.street_number);
-  if (prop.street_dir_prefix) addressParts.push(prop.street_dir_prefix);
-  if (prop.street_name) addressParts.push(prop.street_name);
-  if (prop.street_suffix) addressParts.push(prop.street_suffix);
-  if (prop.street_dir_suffix) addressParts.push(prop.street_dir_suffix);
-
-  const builtAddress = addressParts.join(" ").trim();
-
-  // Format price
-  const listPrice = prop.list_price
-    ? parseFloat(prop.list_price)
-    : prop.ListPrice || 0;
-
-  // Handle media properly
-  let mediaArray: Array<{
-    media_url: string;
-    media_category: string;
-    is_preferred: boolean;
-    order: number;
-  }> = [];
-
-  if (prop.media) {
-    if (Array.isArray(prop.media)) {
-      mediaArray = prop.media;
-    } else if (typeof prop.media === "object" && prop.media.media_url) {
-      mediaArray = [
-        {
-          media_url: prop.media.media_url,
-          media_category: prop.media.media_category || "Property Photo",
-          is_preferred:
-            prop.media.is_preferred !== undefined
-              ? prop.media.is_preferred
-              : true,
-          order: 0,
-        },
-      ];
-    } else if (typeof prop.media === "string") {
-      mediaArray = [
-        {
-          media_url: prop.media,
-          media_category: "Property Photo",
-          is_preferred: true,
-          order: 0,
-        },
-      ];
-    }
+  try {
+    return PropertyResponseSchema.parse(prop) as Property;
+  } catch (error) {
+    console.error(
+      "Zod Schema Parsing Error for property:",
+      prop?.id || prop?.listing_key,
+      error,
+    );
+    // Fallback simply returns the messy object if parsing critically fails
+    return prop as Property;
   }
-
-  // Handle rooms safely
-  let roomsArray: Array<{
-    room_type: string;
-    room_level: string;
-    room_length: string | null;
-    room_width: string | null;
-    room_dimensions: string;
-  }> = [];
-
-  if (prop.rooms) {
-    if (Array.isArray(prop.rooms)) {
-      roomsArray = prop.rooms;
-    } else if (typeof prop.rooms === "object") {
-      roomsArray = [prop.rooms];
-    }
-  }
-
-  const mappedProperty: Property = {
-    PropertyKey:
-      prop.listing_key ||
-      prop.listingKey ||
-      prop.ListingKey ||
-      prop.PropertyKey ||
-      prop.id ||
-      "",
-    ListingKey:
-      prop.listing_key ||
-      prop.listingKey ||
-      prop.ListingKey ||
-      prop.PropertyKey ||
-      prop.id ||
-      "",
-    list_price: prop.list_price,
-    listing_key:
-      prop.listing_key ||
-      prop.listingKey ||
-      prop.ListingKey ||
-      prop.PropertyKey ||
-      prop.id,
-    ListPrice: listPrice,
-    City: prop.city || prop.City || "",
-    city: prop.city,
-    StateOrProvince: prop.state_or_province || prop.StateOrProvince || "ON",
-    PropertySubType:
-      prop.category_type ||
-      prop.property_sub_type ||
-      prop.PropertySubType ||
-      "Exclusive",
-    BedroomsTotal: prop.bedrooms_total || prop.BedroomsTotal || 0,
-    bedrooms_total: prop.bedrooms_total,
-    BathroomsTotalInteger:
-      prop.bathrooms_total_integer || prop.BathroomsTotalInteger || 0,
-    bathrooms_total_integer: prop.bathrooms_total_integer,
-    StandardStatus: prop.standard_status || prop.StandardStatus || "Active",
-    standard_status: prop.standard_status,
-    ModificationTimestamp:
-      prop.ModificationTimestamp || new Date().toISOString(),
-    unparsed_address: prop.unparsed_address,
-    postal_code: prop.postal_code,
-    latitude: prop.latitude,
-    longitude: prop.longitude,
-    public_remarks: prop.public_remarks,
-    media: mediaArray,
-    rooms: roomsArray,
-    category_type: prop.category_type,
-    photos_count: prop.photos_count,
-    listing_url: prop.listing_url,
-    building_area_total: prop.building_area_total,
-    year_built: prop.year_built,
-
-    // Fields for comparison component
-    address: prop.unparsed_address || builtAddress || prop.address || "",
-    location: prop.city || prop.City || "",
-    province: prop.state_or_province || prop.StateOrProvince || "ON",
-    postalCode: prop.postal_code || prop.PostalCode || "",
-    cooling: prop.cooling || prop.Cooling || "",
-    basement: prop.basement || prop.Basement || "",
-    zoning: prop.zoning || prop.Zoning || "",
-    parking_total: prop.parking_total || prop.ParkingTotal || 0,
-    parking_features: prop.parking_features || prop.ParkingFeatures || "",
-    total_actual_rent: prop.total_actual_rent,
-
-    // Legacy fields
-    Photos: mediaArray.map((m) => ({ PhotoURL: m.media_url })),
-    Media: mediaArray,
-    Rooms: roomsArray,
-    LivingArea: prop.building_area_total
-      ? parseFloat(prop.building_area_total)
-      : null,
-    YearBuilt: prop.year_built ? parseInt(prop.year_built) : null,
-    PublicRemarks: prop.public_remarks,
-    PostalCode: prop.postal_code,
-    Latitude: prop.latitude,
-    Longitude: prop.longitude,
-    Description: prop.public_remarks,
-    PropertyType:
-      prop.category_type ||
-      prop.property_sub_type ||
-      prop.PropertyType ||
-      "Exclusive",
-
-    // Spread all other properties
-    ...prop,
-  };
-
-  return mappedProperty;
 }
 
 /**
@@ -350,7 +203,9 @@ export async function fetchLeaseProperties(
 /**
  * Generic filtered properties fetcher
  */
-export async function fetchFilteredProperties(filters: Record<string, any>): Promise<any> {
+export async function fetchFilteredProperties(
+  filters: Record<string, any>,
+): Promise<any> {
   const params = new URLSearchParams();
 
   Object.entries(filters).forEach(([key, value]) => {
@@ -432,7 +287,9 @@ export async function fetchPropertyByKey(
       errorMsg.includes("not exist") ||
       errorMsg.includes("does not exist")
     ) {
-      console.warn(`Property with key ${propertyKey} not found or no longer available.`);
+      console.warn(
+        `Property with key ${propertyKey} not found or no longer available.`,
+      );
       return null;
     }
 
@@ -490,7 +347,10 @@ export async function fetchCompareProperties(propertyKeys: string[]): Promise<{
 
       return { results, count: results.length };
     } catch (error) {
-      console.warn("Comparison API failed, falling back to individual fetches:", error);
+      console.warn(
+        "Comparison API failed, falling back to individual fetches:",
+        error,
+      );
       // Fallback to fetch individually
       const properties = await Promise.all(
         propertyKeys.map((key) => fetchPropertyByKey(key)),

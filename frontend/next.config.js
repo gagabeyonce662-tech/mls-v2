@@ -1,12 +1,36 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+
   images: {
-    domains: ['images.unsplash.com', 'i.pravatar.cc', 'estate-4u.com'], // Add domains for external images
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "i.pravatar.cc",
+      },
+      {
+        protocol: "https",
+        hostname: "ddfcdn.realtor.ca",
+      },
+      {
+        protocol: "https",
+        hostname: "staging.vsell4u.ca",
+      },
+      {
+        protocol: "http",
+        hostname: "staging.vsell4u.ca",
+      },
+      {
+        protocol: "https",
+        hostname: "estate-4u.com",
+      },
+    ],
   },
+
   reactStrictMode: true,
 };
 

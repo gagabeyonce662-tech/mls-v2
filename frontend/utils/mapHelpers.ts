@@ -2,11 +2,11 @@
 
 export const formatPrice = (price: string | number | undefined) => {
   if (!price) return "Price not available";
-  const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+  const numPrice = typeof price === "string" ? parseFloat(price) : price;
   if (isNaN(numPrice)) return String(price);
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(numPrice);
@@ -14,7 +14,7 @@ export const formatPrice = (price: string | number | undefined) => {
 
 export const debounce = <T extends (...args: any[]) => void>(
   fn: T,
-  delay: number
+  delay: number,
 ) => {
   let timer: NodeJS.Timeout;
   return (...args: Parameters<T>) => {

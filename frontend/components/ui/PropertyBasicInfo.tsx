@@ -25,19 +25,25 @@ export function PropertyBasicInfo({
           <p className="text-lg text-gray-600 mt-1">
             {neighborhood} - {city}
           </p>
-          <p className="text-gray-500">{city}, {province}</p>
+          <p className="text-gray-500">
+            {city}, {province}
+          </p>
         </div>
         <div className="flex flex-col md:items-end gap-2">
           {estimatedValue && (
             <div>
               <span className="text-sm text-gray-600">Estimated Value: </span>
-              <span className="text-xl font-semibold text-gray-900">{estimatedValue}</span>
+              <span className="text-xl font-semibold text-gray-900">
+                {estimatedValue}
+              </span>
             </div>
           )}
           {estimatedRent && (
             <div>
               <span className="text-sm text-gray-600">Estimated Rent: </span>
-              <span className="text-xl font-semibold text-gray-900">{estimatedRent}</span>
+              <span className="text-xl font-semibold text-gray-900">
+                {estimatedRent}
+              </span>
             </div>
           )}
         </div>
@@ -45,4 +51,3 @@ export function PropertyBasicInfo({
     </div>
   );
 }
-

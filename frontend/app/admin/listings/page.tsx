@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
+
 import {
   fetchAllExclusiveProperties,
   deleteProperty,
@@ -49,15 +51,7 @@ export default function AdminListingsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadProperties();
-  }, []);
-
-  useEffect(() => {
-    filterProperties();
-  }, [searchQuery, statusFilter, properties]);
-
-  const loadProperties = async () => {
+  const loadProperties = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await fetchAllExclusiveProperties();
@@ -72,9 +66,9 @@ export default function AdminListingsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
-  const filterProperties = () => {
+  const filterProperties = useCallback(() => {
     let filtered = [...properties];
 
     if (searchQuery) {
@@ -94,7 +88,15 @@ export default function AdminListingsPage() {
     }
 
     setFilteredProperties(filtered);
-  };
+  }, [properties, searchQuery, statusFilter]);
+
+  useEffect(() => {
+    loadProperties();
+  }, [loadProperties]);
+
+  useEffect(() => {
+    filterProperties();
+  }, [searchQuery, statusFilter, properties, filterProperties]);
 
   const handleDelete = async () => {
     if (!propertyToDelete) return;
@@ -230,9 +232,11 @@ export default function AdminListingsPage() {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded bg-gray-100 flex-shrink-0 overflow-hidden">
                           {property.media?.[0]?.media_url ? (
-                            <img
+                            <Image
                               src={property.media[0].media_url}
                               alt=""
+                              width={40}
+                              height={40}
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -261,12 +265,13 @@ export default function AdminListingsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${property.standard_status === "Active"
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          property.standard_status === "Active"
                             ? "bg-green-100 text-green-700"
                             : property.standard_status === "Sold"
                               ? "bg-red-100 text-red-700"
                               : "bg-gray-100 text-gray-600"
-                          }`}
+                        }`}
                       >
                         {property.standard_status || "Active"}
                       </span>
@@ -274,9 +279,9 @@ export default function AdminListingsPage() {
                     <td className="px-6 py-4 text-gray-500">
                       {property.ModificationTimestamp
                         ? format(
-                          new Date(property.ModificationTimestamp),
-                          "MMM d, yyyy",
-                        )
+                            new Date(property.ModificationTimestamp),
+                            "MMM d, yyyy",
+                          )
                         : "Unknown"}
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -303,7 +308,11 @@ export default function AdminListingsPage() {
                           <DropdownMenuItem
                             className="cursor-pointer gap-2 text-red-600 focus:text-red-700 focus:bg-red-50"
                             onClick={() =>
-                              setPropertyToDelete(property.ListingKey ? String(property.ListingKey) : null)
+                              setPropertyToDelete(
+                                property.ListingKey
+                                  ? String(property.ListingKey)
+                                  : null,
+                              )
                             }
                           >
                             <Trash2 className="w-4 h-4" /> Delete

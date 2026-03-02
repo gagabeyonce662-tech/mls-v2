@@ -1,7 +1,11 @@
 "use client";
 
 import { useProvince } from "@/contexts/ProvinceContext";
-import { fetchProperties, type PropertyFilterParams, type Property } from "@/lib/api";
+import {
+  fetchProperties,
+  type PropertyFilterParams,
+  type Property,
+} from "@/lib/api";
 import { useCallback } from "react";
 
 /**
@@ -16,19 +20,22 @@ export function useProvinceProperties() {
    * @param additionalFilters - Optional additional filters to apply
    * @returns Promise<Property[]>
    */
-  const fetchProvinceProperties = useCallback(async (
-    additionalFilters: Omit<PropertyFilterParams, 'province'> = {}
-  ): Promise<Property[]> => {
-    const provinceName = getProvinceName(selectedProvince);
-    
-    const filters: PropertyFilterParams = {
-      province: provinceName,
-      ...additionalFilters
-    };
+  const fetchProvinceProperties = useCallback(
+    async (
+      additionalFilters: Omit<PropertyFilterParams, "province"> = {},
+    ): Promise<Property[]> => {
+      const provinceName = getProvinceName(selectedProvince);
 
-    console.log('Fetching properties with province filter:', filters);
-    return fetchProperties(filters);
-  }, [selectedProvince]); // Remove getProvinceName dependency
+      const filters: PropertyFilterParams = {
+        province: provinceName,
+        ...additionalFilters,
+      };
+
+      console.log("Fetching properties with province filter:", filters);
+      return fetchProperties(filters);
+    },
+    [selectedProvince, getProvinceName],
+  );
 
   /**
    * Get the current province information
@@ -36,14 +43,14 @@ export function useProvinceProperties() {
   const getCurrentProvince = useCallback(() => {
     return {
       code: selectedProvince,
-      name: getProvinceName(selectedProvince)
+      name: getProvinceName(selectedProvince),
     };
-  }, [selectedProvince]); // Remove getProvinceName dependency
+  }, [selectedProvince, getProvinceName]);
 
   return {
     fetchProvinceProperties,
     getCurrentProvince,
     selectedProvince,
-    provinceName: getProvinceName(selectedProvince)
+    provinceName: getProvinceName(selectedProvince),
   };
 }

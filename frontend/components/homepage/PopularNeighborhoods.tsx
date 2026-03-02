@@ -3,10 +3,14 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { config } from "@/config";
-// 
+//
 
 const neighborhoods = config.popularNeighborhoods || [
-  { name: "Downtown", image: "/images/neighborhoods/downtown.jpg", listings: 124 },
+  {
+    name: "Downtown",
+    image: "/images/neighborhoods/downtown.jpg",
+    listings: 124,
+  },
   { name: "Uptown", image: "/images/neighborhoods/uptown.jpg", listings: 89 },
   { name: "Seaside", image: "/images/neighborhoods/seaside.jpg", listings: 56 },
 ];
@@ -32,15 +36,10 @@ export default function PopularNeighborhoods() {
                 height={300}
                 className="object-cover w-full h-56 group-hover:scale-110 transition-transform"
               />
-              <div
-                className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"
-              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
               <div className="absolute bottom-4 left-4 text-white">
                 <h3 className="text-xl font-semibold">{area.name}</h3>
-                <p
-                  className="text-sm"
-                  style={{ color: config.primaryColor }}
-                >
+                <p className="text-sm" style={{ color: config.primaryColor }}>
                   {area.listings} Listings
                 </p>
               </div>

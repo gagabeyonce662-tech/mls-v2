@@ -5,6 +5,7 @@ import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 
 interface Props {
   images: string[];
@@ -26,10 +27,12 @@ export default function FullGalleryModal({
   scheduleUrl,
 }: Props) {
   const [index, setIndex] = React.useState<number>(startIndex);
+  const [prevOpen, setPrevOpen] = React.useState(open);
 
-  useEffect(() => {
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) setIndex(startIndex);
-  }, [startIndex, open]);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -116,17 +119,23 @@ export default function FullGalleryModal({
 
           <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
             <AnimatePresence mode="wait">
-              <motion.img
+              <motion.div
                 key={index}
-                src={images[index]}
-                alt={`Photo ${index + 1}`}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 1.05 }}
                 transition={{ duration: 0.3 }}
-                className="max-h-full max-w-full object-contain drop-shadow-2xl rounded-lg"
-                draggable={false}
-              />
+                className="relative w-full h-full flex items-center justify-center"
+              >
+                <Image
+                  src={images[index]}
+                  alt={`Photo ${index + 1}`}
+                  fill
+                  className="object-contain drop-shadow-2xl rounded-lg"
+                  draggable={false}
+                  priority
+                />
+              </motion.div>
             </AnimatePresence>
           </div>
 
@@ -175,9 +184,11 @@ export default function FullGalleryModal({
                     : "ring-transparent opacity-40 hover:opacity-100"
                 }`}
               >
-                <img
+                <Image
                   src={src}
                   alt="thumbnail"
+                  width={200}
+                  height={150}
                   className="w-full h-full object-cover"
                 />
               </button>

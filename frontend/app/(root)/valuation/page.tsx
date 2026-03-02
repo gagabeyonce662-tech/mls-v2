@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Image from "next/image";
+
 import { colors } from "@/config/design-system";
 import {
   Search,
@@ -670,9 +672,11 @@ export default function HomeValuation() {
               >
                 {/* Image with overlay */}
                 <div className="relative h-56 overflow-hidden">
-                  <img
+                  <Image
                     src={property.image}
                     alt={property.name}
+                    width={400}
+                    height={300}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     loading="lazy"
                   />

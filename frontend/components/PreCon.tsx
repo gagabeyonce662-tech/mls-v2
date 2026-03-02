@@ -1,19 +1,19 @@
-import React, { useRef, useState } from 'react';
-import { uploadPreConnProperties } from '@/lib/api'; // adjust path to your helper
+import React, { useRef, useState } from "react";
+import { uploadPreConnProperties } from "@/lib/api"; // adjust path to your helper
 
 type Props = {
   authToken?: string | null;
   fieldName?: string;
   additionalFormFields?: Record<string, string>;
   maxGetSizeBytes?: number; // soft-limit for GET mode (warn)
-  useGet?: boolean;         // default true per your request
+  useGet?: boolean; // default true per your request
   onSuccess?: (resp: any) => void;
   onError?: (err: any) => void;
 };
 
 export default function CSVUploadPreConn({
   authToken = null,
-  fieldName = 'file',
+  fieldName = "file",
   additionalFormFields = {},
   maxGetSizeBytes = 8 * 1024, // 8 KB warn threshold for GET (tweak as needed)
   useGet = true,
@@ -28,15 +28,17 @@ export default function CSVUploadPreConn({
   function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const f = files[0];
-    if (!f.name.toLowerCase().endsWith('.csv')) {
-      setStatus('Please select a .csv file');
+    if (!f.name.toLowerCase().endsWith(".csv")) {
+      setStatus("Please select a .csv file");
       return;
     }
     setSelectedFile(f);
     setStatus(null);
-    console.info('Selected CSV:', f.name, f.size);
+    console.info("Selected CSV:", f.name, f.size);
     if (useGet && f.size > maxGetSizeBytes) {
-      setStatus(`Warning: file is ${f.size} bytes — GET mode may fail due to URL length limits.`);
+      setStatus(
+        `Warning: file is ${f.size} bytes — GET mode may fail due to URL length limits.`,
+      );
     }
   }
 
@@ -51,12 +53,14 @@ export default function CSVUploadPreConn({
 
   async function upload() {
     if (!selectedFile) {
-      setStatus('No file selected');
+      setStatus("No file selected");
       return;
     }
 
     setUploading(true);
-    setStatus(useGet ? 'Sending CSV via GET (query param)...' : 'Uploading via POST...');
+    setStatus(
+      useGet ? "Sending CSV via GET (query param)..." : "Uploading via POST...",
+    );
 
     try {
       const resp = await uploadPreConnProperties(selectedFile, {
@@ -66,13 +70,13 @@ export default function CSVUploadPreConn({
         useGet,
       });
 
-      console.info('Upload response:', resp);
-      setStatus('Upload successful');
+      console.info("Upload response:", resp);
+      setStatus("Upload successful");
       onSuccess && onSuccess(resp);
     } catch (err: any) {
-      console.error('Upload error:', err);
+      console.error("Upload error:", err);
       const body = err?.body ?? null;
-      setStatus(`Upload failed${body ? `: ${JSON.stringify(body)}` : ''}`);
+      setStatus(`Upload failed${body ? `: ${JSON.stringify(body)}` : ""}`);
       onError && onError(err);
     } finally {
       setUploading(false);
@@ -81,10 +85,14 @@ export default function CSVUploadPreConn({
 
   return (
     <div className="max-w-xl mx-auto">
-      <label className="block text-sm font-medium mb-2">Upload CSV (pre-conn)</label>
+      <label className="block text-sm font-medium mb-2">
+        Upload CSV (pre-conn)
+      </label>
 
       <div
-        onDragOver={e => { e.preventDefault(); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+        }}
         onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
         className="flex items-center justify-center w-full p-6 border-2 border-dashed rounded-lg cursor-pointer"
@@ -93,9 +101,16 @@ export default function CSVUploadPreConn({
         <div className="text-center">
           <p className="text-sm">Drag & drop a CSV here, or click to select</p>
           <p className="text-xs text-gray-400 mt-1">
-            Mode: {useGet ? 'GET (csv in query) — small files only' : 'POST (multipart/form-data) — recommended'}
+            Mode:{" "}
+            {useGet
+              ? "GET (csv in query) — small files only"
+              : "POST (multipart/form-data) — recommended"}
           </p>
-          {selectedFile && <p className="mt-2 text-sm font-medium">Selected: {selectedFile.name} ({selectedFile.size} bytes)</p>}
+          {selectedFile && (
+            <p className="mt-2 text-sm font-medium">
+              Selected: {selectedFile.name} ({selectedFile.size} bytes)
+            </p>
+          )}
         </div>
       </div>
 
@@ -113,11 +128,15 @@ export default function CSVUploadPreConn({
           disabled={!selectedFile || uploading}
           className="px-4 py-2 rounded bg-purple-600 text-white disabled:opacity-50"
         >
-          {uploading ? 'Sending...' : 'Upload'}
+          {uploading ? "Sending..." : "Upload"}
         </button>
 
         <button
-          onClick={() => { setSelectedFile(null); setStatus(null); if (inputRef.current) inputRef.current.value = ''; }}
+          onClick={() => {
+            setSelectedFile(null);
+            setStatus(null);
+            if (inputRef.current) inputRef.current.value = "";
+          }}
           className="px-3 py-2 rounded border"
         >
           Clear
@@ -127,8 +146,15 @@ export default function CSVUploadPreConn({
       {status && <p className="mt-3 text-sm text-gray-700">{status}</p>}
 
       <div className="mt-3 text-xs text-gray-500">
-        <p>Note: GET mode sends the CSV content inside the URL query parameter `csv`. This can fail for larger files.</p>
-        <p>If you see errors like CORS, URL too long, or no server response — switch to <strong>POST</strong> mode (set <code>useGet=false</code>) or update the server to accept multipart uploads.</p>
+        <p>
+          Note: GET mode sends the CSV content inside the URL query parameter
+          `csv`. This can fail for larger files.
+        </p>
+        <p>
+          If you see errors like CORS, URL too long, or no server response —
+          switch to <strong>POST</strong> mode (set <code>useGet=false</code>)
+          or update the server to accept multipart uploads.
+        </p>
       </div>
     </div>
   );

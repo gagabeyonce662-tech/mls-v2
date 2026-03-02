@@ -40,6 +40,31 @@ export default function ListingsPage() {
   // Get the prefetch function
   const prefetchProperty = usePrefetchProperty();
 
+  const getPropertyKey = useCallback((property: any) => {
+    return (
+      property?.listing_key ||
+      property?.PropertyKey ||
+      property?.id ||
+      `property-${property?.city || "unknown"}-${property?.ListPrice || "0"}`
+    );
+  }, []);
+
+  const handleImageLoad = useCallback((propertyKey: string) => {
+    setLoadedImages((prev) => {
+      const newSet = new Set(prev);
+      newSet.add(propertyKey);
+      return newSet;
+    });
+  }, []);
+
+  const handleImageError = useCallback(
+    (propertyKey: string, e: React.SyntheticEvent<HTMLImageElement>) => {
+      handleImageLoad(propertyKey);
+      e.currentTarget.style.display = "none";
+    },
+    [handleImageLoad],
+  );
+
   // Use TanStack Query for infinite scroll
   const {
     data,
@@ -84,34 +109,22 @@ export default function ListingsPage() {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [allProperties, isLoading]);
+  }, [allProperties, isLoading, getPropertyKey]);
 
-  useEffect(() => {
-    if (currentCity || searchTerm) {
-      setLoadedCards(new Set());
-      setLoadedImages(new Set());
-    }
-  }, [currentCity, searchTerm]);
+  const [prevSearch, setPrevSearch] = useState({
+    city: currentCity,
+    term: searchTerm,
+  });
+  if (currentCity !== prevSearch.city || searchTerm !== prevSearch.term) {
+    setPrevSearch({ city: currentCity, term: searchTerm });
+    setLoadedCards(new Set());
+    setLoadedImages(new Set());
+  }
 
   const handleSearch = useCallback(() => {
     setCurrentCity(searchTerm.trim());
     refetch();
   }, [searchTerm, refetch]);
-
-  const clearSearch = useCallback(() => {
-    setSearchTerm("");
-    setCurrentCity("");
-    refetch();
-  }, [refetch]);
-
-  const getPropertyKey = (property: any) => {
-    return (
-      property.listing_key ||
-      property.PropertyKey ||
-      property.id ||
-      `property-${property.city || "unknown"}-${property.ListPrice || "0"}`
-    );
-  };
 
   const getPropertyImageUrl = (property: any) => {
     try {
@@ -191,21 +204,11 @@ export default function ListingsPage() {
     setSelectedProperty(null);
   };
 
-  const handleImageLoad = (propertyKey: string) => {
-    setLoadedImages((prev) => {
-      const newSet = new Set(prev);
-      newSet.add(propertyKey);
-      return newSet;
-    });
-  };
-
-  const handleImageError = (
-    propertyKey: string,
-    e: React.SyntheticEvent<HTMLImageElement>,
-  ) => {
-    handleImageLoad(propertyKey);
-    e.currentTarget.style.display = "none";
-  };
+  const clearSearch = useCallback(() => {
+    setSearchTerm("");
+    setCurrentCity("");
+    refetch();
+  }, [refetch]);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const lastPropertyRef = useCallback(

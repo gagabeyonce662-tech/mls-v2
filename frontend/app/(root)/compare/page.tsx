@@ -3,7 +3,9 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Image from "next/image";
 import React, { useState, useEffect, useMemo } from "react";
+
 import {
   useCompareProperties,
   useAllExclusiveProperties,
@@ -44,7 +46,47 @@ function ComparePageContent() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Initialize selected IDs from URL - using a lazy initializer for state
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const idsParam = searchParams.get("ids");
+      if (idsParam) {
+        return decodeURIComponent(idsParam)
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean);
+      }
+      const allIds = searchParams.getAll("ids");
+      if (allIds.length > 0) {
+        return allIds
+          .map((id) => decodeURIComponent(id).trim())
+          .filter(Boolean);
+      }
+    } catch (e) {
+      console.error("Error parsing initial IDs", e);
+    }
+    return [];
+  });
+
+  const [prevParams, setPrevParams] = useState<string | null>(
+    params?.get("ids") || params?.getAll("ids").join(",") || null,
+  );
+
+  const idsParam =
+    params?.get("ids") || params?.getAll("ids").join(",") || null;
+  if (idsParam !== prevParams) {
+    setPrevParams(idsParam);
+    if (idsParam) {
+      const ids = idsParam
+        .split(",")
+        .map((id) => decodeURIComponent(id).trim())
+        .filter(Boolean);
+      setSelectedIds(ids);
+    }
+  }
+
   const [showAddPropertiesModal, setShowAddPropertiesModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [debugMode, setDebugMode] = useState(
@@ -58,38 +100,6 @@ function ComparePageContent() {
       console.log("DEBUG MODAL - Modal opened");
     }
   }, [showAddPropertiesModal]);
-
-  // Initialize selected IDs from URL
-  useEffect(() => {
-    if (!params) return;
-
-    try {
-      const idsParam = params.get("ids");
-      console.log("Compare Page - URL IDs param:", idsParam);
-
-      if (!idsParam) {
-        const allIds = params.getAll("ids");
-        if (allIds.length > 0) {
-          console.log("Compare Page - Multiple ID params found:", allIds);
-          setSelectedIds(
-            allIds.map((id) => decodeURIComponent(id).trim()).filter(Boolean),
-          );
-        }
-        return;
-      }
-
-      const decodedIds = decodeURIComponent(idsParam);
-      const ids = decodedIds
-        .split(",")
-        .map((id) => id.trim())
-        .filter(Boolean);
-
-      console.log("Compare Page - Parsed IDs:", ids);
-      setSelectedIds(ids);
-    } catch (error) {
-      console.error("Compare Page - Error parsing property IDs:", error);
-    }
-  }, [params, forceRefresh]);
 
   // Update URL when selectedIds change
   useEffect(() => {
@@ -382,60 +392,60 @@ function ComparePageContent() {
         price: formatPrice(),
         address: getStringValue(
           property.unparsed_address ||
-          property.address ||
-          property.FullAddress ||
-          property.StreetAddress ||
-          property.Address ||
-          property.street_address,
+            property.address ||
+            property.FullAddress ||
+            property.StreetAddress ||
+            property.Address ||
+            property.street_address,
           "Address not available",
         ),
         municipality: getStringValue(
           property.city ||
-          property.City ||
-          property.Municipality ||
-          property.town,
+            property.City ||
+            property.Municipality ||
+            property.town,
           "N/A",
         ),
         province: getStringValue(
           property.state_or_province ||
-          property.StateOrProvince ||
-          property.State ||
-          property.Province ||
-          "ON",
+            property.StateOrProvince ||
+            property.State ||
+            property.Province ||
+            "ON",
         ),
         postalCode: getStringValue(
           property.postal_code ||
-          property.postalCode ||
-          property.PostalCode ||
-          property.zip_code,
+            property.postalCode ||
+            property.PostalCode ||
+            property.zip_code,
           "N/A",
         ),
         propertyType: getStringValue(
           property.property_sub_type ||
-          property.PropertySubType ||
-          property.PropertyType ||
-          property.property_type ||
-          property.category_type ||
-          property.type ||
-          "Property",
+            property.PropertySubType ||
+            property.PropertyType ||
+            property.property_type ||
+            property.category_type ||
+            property.type ||
+            "Property",
         ),
         bedrooms: getNumberValue(
           property.bedrooms_total ||
-          property.BedroomsTotal ||
-          property.bedrooms,
+            property.BedroomsTotal ||
+            property.bedrooms,
         ),
         bathrooms: getNumberValue(
           property.bathrooms_total_integer ||
-          property.BathroomsTotalInteger ||
-          property.bathrooms,
+            property.BathroomsTotalInteger ||
+            property.bathrooms,
         ),
         totalRooms: getNumberValue(
           property.total_rooms ||
-          (Array.isArray(property.rooms)
-            ? property.rooms.length
-            : Array.isArray(property.Rooms)
-              ? property.Rooms.length
-              : 0),
+            (Array.isArray(property.rooms)
+              ? property.rooms.length
+              : Array.isArray(property.Rooms)
+                ? property.Rooms.length
+                : 0),
         ),
         yearBuilt: (() => {
           const yearFields = [
@@ -699,15 +709,12 @@ function ComparePageContent() {
 
                   {property.image ? (
                     <div className="h-48 bg-gray-100">
-                      <img
+                      <Image
                         src={property.image}
                         alt={property.address}
+                        width={320}
+                        height={192}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src =
-                            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIwIiBoZWlnaHQ9IjI0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
-                        }}
                       />
                     </div>
                   ) : (
@@ -1001,12 +1008,13 @@ function ComparePageContent() {
                         return (
                           <div
                             key={propertyId}
-                            className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${isSelected
+                            className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${
+                              isSelected
                                 ? "border-blue-500 bg-blue-50"
                                 : isMaxReached && !isSelected
                                   ? "opacity-50 cursor-not-allowed"
                                   : "border-gray-200 hover:border-blue-300"
-                              }`}
+                            }`}
                             onClick={() => {
                               if (isMaxReached && !isSelected) return;
                               if (isSelected) {
@@ -1019,16 +1027,12 @@ function ComparePageContent() {
                             <div className="flex gap-4">
                               {getImageUrl() ? (
                                 <div className="w-24 h-24 flex-shrink-0">
-                                  <img
-                                    src={getImageUrl()}
-                                    alt={getAddress()}
+                                  <Image
+                                    src={getImageUrl() || ""}
+                                    alt={getAddress() || ""}
+                                    width={96}
+                                    height={96}
                                     className="w-full h-full object-cover rounded"
-                                    onError={(e) => {
-                                      const target =
-                                        e.target as HTMLImageElement;
-                                      target.src =
-                                        "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM2NjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZTwvdGV4dD48L3N2Zz4=";
-                                    }}
                                   />
                                 </div>
                               ) : (
@@ -1057,12 +1061,13 @@ function ComparePageContent() {
                                     {bedrooms} bed • {bathrooms} bath
                                   </div>
                                   <span
-                                    className={`px-3 py-1 rounded text-xs font-medium whitespace-nowrap ${isSelected
+                                    className={`px-3 py-1 rounded text-xs font-medium whitespace-nowrap ${
+                                      isSelected
                                         ? "bg-red-100 text-red-700"
                                         : isMaxReached && !isSelected
                                           ? "bg-gray-100 text-gray-500"
                                           : "bg-blue-100 text-blue-700"
-                                      }`}
+                                    }`}
                                   >
                                     {isSelected
                                       ? "Selected"
@@ -1129,16 +1134,17 @@ function ComparePageContent() {
 
 export default function ComparePage() {
   return (
-    <React.Suspense fallback={
-      <div className="min-h-screen bg-[#0b1220] flex items-center justify-center text-white">
-        <div className="flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-xl font-semibold">Loading Comparison...</p>
+    <React.Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0b1220] flex items-center justify-center text-white">
+          <div className="flex flex-col items-center">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-xl font-semibold">Loading Comparison...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <ComparePageContent />
     </React.Suspense>
   );
 }
-

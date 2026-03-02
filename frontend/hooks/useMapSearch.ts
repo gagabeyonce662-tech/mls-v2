@@ -1,5 +1,9 @@
 import { useState, useCallback } from "react";
-import { fetchFilteredProperties, mapPropertyFromAPI, fetchAPI } from "@/lib/api";
+import {
+  fetchFilteredProperties,
+  mapPropertyFromAPI,
+  fetchAPI,
+} from "@/lib/api";
 import { PropertyMarker } from "@/components/map/types";
 import { Property } from "@/lib/api/types";
 
@@ -79,7 +83,7 @@ export const useMapSearch = (API_BASE_URL: string) => {
             markers.map((m: any) => [m.lat, m.lng]),
           );
           mapRef.current.fitBounds(bounds.pad(0.2));
-        } catch { }
+        } catch {}
       }
     } catch (err: any) {
       console.error(err);
