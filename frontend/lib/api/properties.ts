@@ -116,7 +116,7 @@ export async function fetchExclusiveProperties(
   try {
     const queryParams = new URLSearchParams();
 
-    const limit = filters?.limit || 6;
+    const limit = filters?.limit || 12;
     const offset = filters?.offset || 0;
 
     queryParams.append("limit", limit.toString());

@@ -18,6 +18,7 @@ import PropertyHistory from "@/components/listing/details/PropertyHistory";
 import PropertyDetailsGrid from "@/components/listing/details/PropertyDetailsGrid";
 import PropertySidebar from "@/components/listing/details/PropertySidebar";
 import SimilarProperties from "@/components/listing/SimilarProperties";
+import { PropertyViewerTracker } from "@/components/listing/PropertyViewerTracker";
 
 interface ListingPageProps {
   params: Promise<{
@@ -37,13 +38,7 @@ export default async function ListingPage(props: ListingPageProps) {
   const propertyImages =
     property.media && property.media.length > 0
       ? property.media.map((m: any) => m.media_url).filter(Boolean)
-      : property.Media && property.Media.length > 0
-        ? property.Media.map((m: any) => m.MediaURL || m.media_url).filter(
-            Boolean,
-          )
-        : property.Photos && property.Photos.length > 0
-          ? property.Photos.map((p: any) => p.PhotoURL || p).filter(Boolean)
-          : [];
+      : [];
 
   const getPrice = () => {
     const price = property.list_price ?? property.ListPrice;
@@ -72,9 +67,15 @@ export default async function ListingPage(props: ListingPageProps) {
   };
 
   const getLivingArea = () => {
-    if (property.building_area_total)
-      return `${property.building_area_total} sq ft`;
-    if (property.LivingArea) return `${property.LivingArea} sq ft`;
+    const area =
+      property.building_area_total ||
+      property.LivingArea ||
+      property.LivingAreaMinimum;
+    if (area) return `${area} sq ft`;
+
+    if (property.LivingAreaMinimum && property.LivingAreaMaximum) {
+      return `${property.LivingAreaMinimum} - ${property.LivingAreaMaximum} sq ft`;
+    }
     return "N/A";
   };
 
@@ -103,6 +104,7 @@ export default async function ListingPage(props: ListingPageProps) {
   return (
     <div className="min-h-screen bg-ds-background">
       <Header />
+      <PropertyViewerTracker property={property} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-16 animate-in fade-in duration-700">
         <PropertyHeader

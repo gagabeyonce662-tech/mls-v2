@@ -1,20 +1,11 @@
-"use client";
-
 import React from "react";
 import Link from "next/link";
 import { colors } from "@/config/design-system";
+import { useCompare } from "@/contexts/CompareContext";
 
-interface CompareBarProps {
-  compareList: any[];
-  onRemove: (property: any) => void;
-  getPropertyKey: (property: any) => string;
-}
+export const CompareBar = () => {
+  const { compareList, removeFromCompare, getPropertyKey } = useCompare();
 
-export const CompareBar = ({
-  compareList,
-  onRemove,
-  getPropertyKey,
-}: CompareBarProps) => {
   if (compareList.length === 0) return null;
 
   return (
@@ -30,7 +21,7 @@ export const CompareBar = ({
                 {property.city || property.City || "Property"}
               </span>
               <button
-                onClick={() => onRemove(property)}
+                onClick={() => removeFromCompare(getPropertyKey(property))}
                 className="text-red-500 font-bold"
               >
                 ×

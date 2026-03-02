@@ -19,22 +19,25 @@ export const PropertyRoomSchema = z.object({
 
 // A preprocessor to extract the arrays from various forms
 const mediaPreprocessor = (val: any) => {
-  if (Array.isArray(val)) return val;
-  if (typeof val === "object" && val && val.media_url) {
-    return [
-      {
-        media_url: val.media_url,
-        media_category: val.media_category || "Property Photo",
-        is_preferred: val.is_preferred !== undefined ? val.is_preferred : true,
-        order: 0,
-      },
-    ];
+  if (Array.isArray(val)) {
+    return val.map((m: any) => ({
+      media_url: m.media_url || m.MediaURL || "",
+      media_category: m.media_category || m.MediaCategory || "Property Photo",
+      is_preferred:
+        m.is_preferred !== undefined
+          ? m.is_preferred
+          : m.PreferredPhotoYN !== undefined
+            ? m.PreferredPhotoYN
+            : true,
+      order: m.order || m.Order || 0,
+    }));
   }
-  if (typeof val === "string") {
+  if (typeof val === "object" && val && (val.media_url || val.MediaURL)) {
     return [
       {
-        media_url: val,
-        media_category: "Property Photo",
+        media_url: val.media_url || val.MediaURL,
+        media_category:
+          val.media_category || val.MediaCategory || "Property Photo",
         is_preferred: true,
         order: 0,
       },
@@ -55,16 +58,16 @@ export const PropertyResponseSchema = z
     list_price: z.union([z.number(), z.string()]).optional(),
     ListPrice: z.union([z.number(), z.string()]).optional(),
 
-    city: z.string().optional(),
-    City: z.string().optional(),
+    city: z.string().nullable().optional(),
+    City: z.string().nullable().optional(),
 
-    state_or_province: z.string().optional(),
-    StateOrProvince: z.string().optional(),
+    state_or_province: z.string().nullable().optional(),
+    StateOrProvince: z.string().nullable().optional(),
 
-    category_type: z.string().optional(),
-    property_sub_type: z.string().optional(),
-    PropertySubType: z.string().optional(),
-    PropertyType: z.string().optional(),
+    category_type: z.string().nullable().optional(),
+    property_sub_type: z.string().nullable().optional(),
+    PropertySubType: z.string().nullable().optional(),
+    PropertyType: z.string().nullable().optional(),
 
     bedrooms_total: z.union([z.number(), z.string()]).optional(),
     BedroomsTotal: z.union([z.number(), z.string()]).optional(),
@@ -72,31 +75,33 @@ export const PropertyResponseSchema = z
     bathrooms_total_integer: z.union([z.number(), z.string()]).optional(),
     BathroomsTotalInteger: z.union([z.number(), z.string()]).optional(),
 
-    standard_status: z.string().optional(),
-    StandardStatus: z.string().optional(),
+    standard_status: z.string().nullable().optional(),
+    StandardStatus: z.string().nullable().optional(),
 
-    ModificationTimestamp: z.string().optional(),
+    ModificationTimestamp: z.string().nullable().optional(),
 
-    unparsed_address: z.string().optional(),
-    address: z.string().optional(),
-    unit_number: z.string().optional(),
-    street_number: z.string().optional(),
-    street_dir_prefix: z.string().optional(),
-    street_name: z.string().optional(),
-    street_suffix: z.string().optional(),
-    street_dir_suffix: z.string().optional(),
+    unparsed_address: z.string().nullable().optional(),
+    address: z.string().nullable().optional(),
+    unit_number: z.string().nullable().optional(),
+    street_number: z.string().nullable().optional(),
+    street_dir_prefix: z.string().nullable().optional(),
+    street_name: z.string().nullable().optional(),
+    street_suffix: z.string().nullable().optional(),
+    street_dir_suffix: z.string().nullable().optional(),
 
-    postal_code: z.string().optional(),
-    PostalCode: z.string().optional(),
+    postal_code: z.string().nullable().optional(),
+    PostalCode: z.string().nullable().optional(),
 
     latitude: z.union([z.string(), z.number()]).optional(),
+    Latitude: z.union([z.string(), z.number()]).optional(),
     longitude: z.union([z.string(), z.number()]).optional(),
+    Longitude: z.union([z.string(), z.number()]).optional(),
 
-    public_remarks: z.string().optional(),
-    PublicRemarks: z.string().optional(),
+    public_remarks: z.string().nullable().optional(),
+    PublicRemarks: z.string().nullable().optional(),
 
     photos_count: z.number().optional(),
-    listing_url: z.string().optional(),
+    listing_url: z.string().nullable().optional(),
 
     building_area_total: z
       .union([z.string(), z.number()])
@@ -226,16 +231,17 @@ export const PropertyResponseSchema = z
         prop.ModificationTimestamp || new Date().toISOString(),
       unparsed_address: prop.unparsed_address,
       postal_code: prop.postal_code,
-      latitude: prop.latitude,
-      longitude: prop.longitude,
+      latitude: prop.latitude ?? prop.Latitude,
+      longitude: prop.longitude ?? prop.Longitude,
       public_remarks: prop.public_remarks || prop.PublicRemarks,
       media: resolvedMedia,
       rooms: prop.rooms || prop.Rooms || [],
       category_type: prop.category_type,
       photos_count: prop.photos_count,
       listing_url: prop.listing_url,
-      building_area_total: prop.building_area_total,
-      year_built: prop.year_built,
+      building_area_total:
+        prop.building_area_total || prop.LivingArea || prop.LivingAreaMinimum,
+      year_built: prop.year_built || prop.YearBuilt,
 
       // UI Support Fields
       address: resolvedAddress,
@@ -262,10 +268,20 @@ export const PropertyResponseSchema = z
       Photos: resolvedMedia.map((m: any) => ({ PhotoURL: m.media_url })),
       Media: resolvedMedia,
       Rooms: prop.rooms || prop.Rooms || [],
-      LivingArea: prop.building_area_total
-        ? parseFloat(String(prop.building_area_total))
-        : null,
-      YearBuilt: prop.year_built ? parseInt(String(prop.year_built)) : null,
+      LivingArea:
+        prop.building_area_total || prop.LivingArea || prop.LivingAreaMinimum
+          ? parseFloat(
+              String(
+                prop.building_area_total ||
+                  prop.LivingArea ||
+                  prop.LivingAreaMinimum,
+              ),
+            )
+          : null,
+      YearBuilt:
+        prop.year_built || prop.YearBuilt
+          ? parseInt(String(prop.year_built || prop.YearBuilt))
+          : null,
       PublicRemarks: prop.public_remarks || prop.PublicRemarks,
       PostalCode: resolvedPostal,
       Latitude: prop.latitude,

@@ -24,6 +24,7 @@ import { formatPrice } from "@/lib/helpers";
 // Types
 import { PropertyMarker } from "@/components/map/types";
 import { Property } from "@/lib/api/types";
+import { useWatched } from "@/contexts/WatchedContext";
 
 // Dynamic leaflet imports
 const MapContainer = dynamic(
@@ -67,6 +68,8 @@ export default function MapOnlyPage() {
     handleSearchThisArea,
     fetchExclusivePropertiesForBBox,
   } = useMapSearch(API_BASE_URL);
+
+  const { addToHistory } = useWatched();
 
   const {
     searchQuery,
@@ -129,7 +132,7 @@ export default function MapOnlyPage() {
           const group = markers.map((m) => [m.lat, m.lng]);
           const bounds = L.latLngBounds(group as any);
           mapRef.current.fitBounds(bounds.pad(0.2));
-        } catch { }
+        } catch {}
       }
       setLoadingApi(false);
     } catch (err: any) {
@@ -206,10 +209,8 @@ export default function MapOnlyPage() {
         initialSearchDone.current = true;
         handleSearchThisArea({ current: map });
       }
-    } catch { }
+    } catch {}
   };
-
-
 
   const clearAll = () => {
     clearRect();
@@ -222,6 +223,9 @@ export default function MapOnlyPage() {
 
   const handleViewOnMap = (property: PropertyMarker) => {
     setSelectedPropertyId(property.id);
+    if (property.raw) {
+      addToHistory(property.raw);
+    }
     if (mapRef.current) {
       mapRef.current.flyTo([property.lat, property.lng], 16, {
         animate: true,
@@ -259,10 +263,10 @@ export default function MapOnlyPage() {
 
   const markerToShow = searchResult
     ? {
-      lat: searchResult.lat,
-      lng: searchResult.lng,
-      title: searchResult.display_name || "Search result",
-    }
+        lat: searchResult.lat,
+        lng: searchResult.lng,
+        title: searchResult.display_name || "Search result",
+      }
     : null;
 
   return (
@@ -318,7 +322,12 @@ export default function MapOnlyPage() {
                       ? getSelectedIcon(L)
                       : getCustomIcon(L)
                   }
-                  eventHandlers={{ click: () => setSelectedPropertyId(m.id) }}
+                  eventHandlers={{
+                    click: () => {
+                      setSelectedPropertyId(m.id);
+                      if (m.raw) addToHistory(m.raw);
+                    },
+                  }}
                 >
                   <Popup>
                     <div className="max-w-xs p-1">
@@ -372,7 +381,6 @@ export default function MapOnlyPage() {
                   </Popup>
                 </Marker>
               )}
-
             </MapContainer>
 
             <MapSidebar

@@ -43,6 +43,7 @@ export const useMapSearch = (API_BASE_URL: string) => {
   }) {
     const params = new URLSearchParams();
     Object.entries(bbox).forEach(([k, v]) => params.append(k, String(v)));
+    params.append("limit", "100"); // Increase default for map view
     const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/?${params.toString()}`;
 
     return await fetchAPI<any>(url, { cache: "no-store" });
