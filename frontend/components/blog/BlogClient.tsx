@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { colors } from "@/config/design-system";
 import { VlogPost } from "@/lib/api";
+import { env } from "@/lib/env";
 
 interface BlogClientProps {
   posts: VlogPost[];
@@ -64,7 +65,7 @@ export default function BlogClient({
     if (post.thumbnail) {
       // Handle relative URLs from Django backend
       if (post.thumbnail.startsWith("/")) {
-        return `${process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca"}${post.thumbnail}`;
+        return `${env.NEXT_PUBLIC_API_URL}${post.thumbnail}`;
       }
       return post.thumbnail;
     }

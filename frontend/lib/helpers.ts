@@ -1,6 +1,7 @@
 // lib/helpers.ts
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca";
+import { env } from "./env";
+
+export const API_BASE_URL = env.NEXT_PUBLIC_API_URL;
 
 export function debounce<T extends (...args: any[]) => void>(
   fn: T,

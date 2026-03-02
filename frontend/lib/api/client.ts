@@ -1,7 +1,8 @@
 // lib/api/client.ts
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca";
+import { env } from "../env";
+
+export const API_BASE_URL = env.NEXT_PUBLIC_API_URL;
 
 /**
  * Enhanced fetch wrapper with better error handling

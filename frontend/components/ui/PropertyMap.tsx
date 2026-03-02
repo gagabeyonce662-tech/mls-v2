@@ -4,6 +4,8 @@ import { MapPin, Maximize2 } from "lucide-react";
 import { Button } from "./button";
 import { Input } from "./input";
 
+import { env } from "@/lib/env";
+
 interface PropertyMapProps {
   latitude: number;
   longitude: number;
@@ -17,8 +19,7 @@ export function PropertyMap({
 }: PropertyMapProps) {
   // Note: Replace YOUR_GOOGLE_MAPS_API_KEY with your actual API key in production
   // For now, using a placeholder that will show a map with the address
-  const googleMapsApiKey =
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_GOOGLE_MAPS_API_KEY";
+  const googleMapsApiKey = env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const mapUrl =
     googleMapsApiKey !== "YOUR_GOOGLE_MAPS_API_KEY"
       ? `https://www.google.com/maps/embed/v1/place?key=${googleMapsApiKey}&q=${encodeURIComponent(address)}`

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { env } from "@/lib/env";
 
 interface AdminAuthContextType {
   isAuthenticated: boolean;
@@ -27,7 +28,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   // The secret passphrase - in a real app this would be more secure,
   // but for a client-side gate without backend auth, this is the pattern.
-  const ADMIN_PASSPHRASE = process.env.NEXT_PUBLIC_ADMIN_PASSPHRASE;
+  const ADMIN_PASSPHRASE = env.NEXT_PUBLIC_ADMIN_PASSPHRASE;
 
   useEffect(() => {
     // Session is now initialized in useState

@@ -14,15 +14,19 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "estate-4u.com",
-      },
-      {
-        protocol: "https",
         hostname: "ddfcdn.realtor.ca",
       },
       {
         protocol: "https",
         hostname: "staging.vsell4u.ca",
+      },
+      {
+        protocol: "http",
+        hostname: "staging.vsell4u.ca",
+      },
+      {
+        protocol: "https",
+        hostname: "estate-4u.com",
       },
     ],
   },
