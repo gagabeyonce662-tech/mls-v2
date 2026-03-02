@@ -465,7 +465,6 @@ export default function RentalListingsPage() {
                                 width={320}
                                 height={192}
                                 className="w-full h-full object-cover filter blur-md scale-105"
-                                unoptimized
                               />
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 filter blur-md">
@@ -556,7 +555,6 @@ export default function RentalListingsPage() {
                                 width={320}
                                 height={192}
                                 className="w-full h-full object-cover"
-                                unoptimized
                               />
                             ) : (
                               <div className="no-image-fallback w-full h-full flex flex-col items-center justify-center text-gray-500">

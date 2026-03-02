@@ -56,7 +56,6 @@ export default function BlogCard({ post }: BlogCardProps) {
           width={320}
           height={192}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          unoptimized
         />
 
         {/* Overlay gradient */}

@@ -715,7 +715,6 @@ function ComparePageContent() {
                         width={320}
                         height={192}
                         className="w-full h-full object-cover"
-                        unoptimized
                       />
                     </div>
                   ) : (
@@ -1034,7 +1033,6 @@ function ComparePageContent() {
                                     width={96}
                                     height={96}
                                     className="w-full h-full object-cover rounded"
-                                    unoptimized
                                   />
                                 </div>
                               ) : (

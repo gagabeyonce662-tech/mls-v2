@@ -143,7 +143,6 @@ export default function PropertyGallery({ images }: PropertyGalleryProps) {
                     width={96}
                     height={64}
                     className="w-full h-full object-cover"
-                    unoptimized
                   />
                 </button>
               ))}

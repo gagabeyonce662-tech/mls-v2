@@ -61,7 +61,6 @@ export function PropertyCardImage({
           } ${imageLoaded ? "opacity-100" : "opacity-0"}`}
           loading="lazy"
           onLoad={() => setImageLoaded(true)}
-          unoptimized
         />
       ) : (
         <div

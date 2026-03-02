@@ -68,7 +68,6 @@ export const PropertyCard = ({
               width={320}
               height={192}
               className="w-full h-full object-cover filter blur-md scale-105"
-              unoptimized
             />
           )}
           <div className="absolute inset-0 bg-black/35 flex items-center justify-center p-4">
@@ -189,7 +188,6 @@ export const PropertyCard = ({
             }`}
             loading="lazy"
             onLoad={() => onImageLoad(propertyKey)}
-            unoptimized
           />
         ) : (
           <div

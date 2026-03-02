@@ -29,7 +29,6 @@ export function PropertyGallery({
             fill
             className="w-full h-full object-cover"
             priority
-            unoptimized
           />
           <div className="absolute top-4 left-4">
             <Badge className="bg-gray-900 text-white">New Listing</Badge>
@@ -54,7 +53,6 @@ export function PropertyGallery({
                 width={200}
                 height={200}
                 className="w-full h-full object-cover aspect-square"
-                unoptimized
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">

@@ -194,7 +194,6 @@ export default function BlogClient({
                       width={600}
                       height={400}
                       className="w-full h-full object-cover"
-                      unoptimized
                     />
                     {post.category && (
                       <div className="absolute top-4 left-4">

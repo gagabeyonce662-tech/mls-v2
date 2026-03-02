@@ -238,7 +238,6 @@ export default function AdminListingsPage() {
                               width={40}
                               height={40}
                               className="w-full h-full object-cover"
-                              unoptimized
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-300">

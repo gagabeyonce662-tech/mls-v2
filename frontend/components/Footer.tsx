@@ -188,7 +188,6 @@ const Footer = () => {
                   width={135}
                   height={40}
                   className="h-10 w-auto"
-                  unoptimized
                 />
               </a>
               <a href="#" className="block">
@@ -198,7 +197,6 @@ const Footer = () => {
                   width={120}
                   height={40}
                   className="h-10 w-auto"
-                  unoptimized
                 />
               </a>
             </div>

@@ -329,7 +329,6 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
                             width={96}
                             height={96}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                            unoptimized
                           />
                         </div>
                         <div className="flex-1">

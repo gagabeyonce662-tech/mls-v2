@@ -260,7 +260,6 @@ export default function SearchResults({
                           width={400}
                           height={224}
                           className="w-full h-full object-cover"
-                          unoptimized
                         />
                       ) : (
                         <div

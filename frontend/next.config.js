@@ -16,8 +16,17 @@ const nextConfig = {
         protocol: "https",
         hostname: "estate-4u.com",
       },
+      {
+        protocol: "https",
+        hostname: "ddfcdn.realtor.ca",
+      },
+      {
+        protocol: "https",
+        hostname: "staging.vsell4u.ca",
+      },
     ],
   },
+
   reactStrictMode: true,
 };
 

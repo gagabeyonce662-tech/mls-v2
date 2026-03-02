@@ -102,7 +102,6 @@ export default function PropertyCard({
             width={400}
             height={300}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-            unoptimized
           />
         ) : (
           <div className="w-full h-full bg-gray-100 flex items-center justify-center">

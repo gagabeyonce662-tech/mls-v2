@@ -193,7 +193,6 @@ export default function SimilarProperties({
                   width={400}
                   height={300}
                   className="w-full h-full object-cover"
-                  unoptimized
                 />
                 <div className="absolute top-3 left-3 bg-ds-primary text-white px-2 py-1 rounded text-sm font-semibold">
                   {similarProperty.property_type || "Property"}
