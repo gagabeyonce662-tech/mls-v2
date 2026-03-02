@@ -17,6 +17,7 @@ import PropertyStats from "@/components/listing/details/PropertyStats";
 import PropertyHistory from "@/components/listing/details/PropertyHistory";
 import PropertyDetailsGrid from "@/components/listing/details/PropertyDetailsGrid";
 import PropertySidebar from "@/components/listing/details/PropertySidebar";
+import SimilarProperties from "@/components/listing/SimilarProperties";
 
 interface ListingPageProps {
   params: Promise<{
@@ -160,43 +161,7 @@ export default async function ListingPage(props: ListingPageProps) {
         </div>
 
         {/* Similar Properties Section */}
-        <section className="mt-20 border-t border-ds-card-border pt-16">
-          <h2 className={`${ds.h2} mb-8`}>Similar Properties</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="group bg-white rounded-2xl shadow-sm border border-ds-card-border overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1"
-              >
-                <div className="h-56 bg-ds-card relative overflow-hidden">
-                  <Image
-                    src={`https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800&auto=format&fit=crop`}
-                    alt="Similar home"
-                    width={800}
-                    height={600}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                </div>
-                <div className="p-5">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-ds-primary font-bold text-lg">
-                      $1,245,000
-                    </span>
-                    <span className="text-xs font-semibold px-2 py-1 bg-gray-100 rounded text-ds-body">
-                      Active
-                    </span>
-                  </div>
-                  <p className="font-semibold text-ds-heading mb-1">
-                    Luxury Villa in {getCity()}
-                  </p>
-                  <p className="text-sm text-ds-body">
-                    4 Beds • 3 Baths • 2,400 sqft
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        <SimilarProperties property={property} />
       </main>
 
       <Footer />

@@ -477,3 +477,48 @@ export async function fetchNearestSchools(
     return null;
   }
 }
+
+/**
+ * Fetch similar properties based on city, price range, and property type
+ */
+export async function fetchSimilarProperties(
+  property: Property,
+  limit: number = 4,
+): Promise<Property[]> {
+  try {
+    const city = property.city || property.City;
+    const propertyType = property.category_type || property.PropertySubType;
+    const price =
+      typeof property.list_price === "string"
+        ? parseFloat(property.list_price)
+        : (property.list_price as number) || (property.ListPrice as number);
+
+    if (!city) return [];
+
+    const filters: any = {
+      city,
+      limit: limit + 1, // Fetch one extra to account for the current property
+    };
+
+    if (propertyType) {
+      filters.property_type = propertyType;
+    }
+
+    if (price) {
+      filters.price_min = price * 0.8;
+      filters.price_max = price * 1.2;
+    }
+
+    const data = await fetchFilteredProperties(filters);
+    const results = (data.results || []).map(mapPropertyFromAPI);
+
+    // Filter out the current property
+    const currentId = property.listing_key || property.ListingKey;
+    return results
+      .filter((p: Property) => (p.listing_key || p.ListingKey) !== currentId)
+      .slice(0, limit);
+  } catch (error) {
+    console.error("Error fetching similar properties:", error);
+    return [];
+  }
+}
