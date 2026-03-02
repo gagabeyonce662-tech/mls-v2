@@ -104,20 +104,38 @@ export const PropertyResponseSchema = z
       .optional(),
     year_built: z.union([z.string(), z.number()]).nullable().optional(),
 
-    cooling: z.string().optional(),
-    Cooling: z.string().optional(),
+    cooling: z
+      .union([z.string(), z.array(z.string())])
+      .nullable()
+      .optional(),
+    Cooling: z
+      .union([z.string(), z.array(z.string())])
+      .nullable()
+      .optional(),
 
-    basement: z.string().optional(),
-    Basement: z.string().optional(),
+    basement: z
+      .union([z.string(), z.array(z.string())])
+      .nullable()
+      .optional(),
+    Basement: z
+      .union([z.string(), z.array(z.string())])
+      .nullable()
+      .optional(),
 
-    zoning: z.string().optional(),
-    Zoning: z.string().optional(),
+    zoning: z.string().nullable().optional(),
+    Zoning: z.string().nullable().optional(),
 
-    parking_total: z.number().optional(),
-    ParkingTotal: z.number().optional(),
+    parking_total: z.number().nullable().optional(),
+    ParkingTotal: z.number().nullable().optional(),
 
-    parking_features: z.string().optional(),
-    ParkingFeatures: z.string().optional(),
+    parking_features: z
+      .union([z.string(), z.array(z.string())])
+      .nullable()
+      .optional(),
+    ParkingFeatures: z
+      .union([z.string(), z.array(z.string())])
+      .nullable()
+      .optional(),
 
     total_actual_rent: z.string().optional(),
 
@@ -224,11 +242,20 @@ export const PropertyResponseSchema = z
       location: resolvedCity,
       province: resolvedProvince,
       postalCode: resolvedPostal,
-      cooling: prop.cooling || prop.Cooling || "",
-      basement: prop.basement || prop.Basement || "",
+      cooling: (() => {
+        const v = prop.cooling || prop.Cooling;
+        return Array.isArray(v) ? v.join(", ") : v || "";
+      })(),
+      basement: (() => {
+        const v = prop.basement || prop.Basement;
+        return Array.isArray(v) ? v.join(", ") : v || "";
+      })(),
       zoning: prop.zoning || prop.Zoning || "",
       parking_total: prop.parking_total || prop.ParkingTotal || 0,
-      parking_features: prop.parking_features || prop.ParkingFeatures || "",
+      parking_features: (() => {
+        const v = prop.parking_features || prop.ParkingFeatures;
+        return Array.isArray(v) ? v.join(", ") : v || "";
+      })(),
       total_actual_rent: prop.total_actual_rent,
 
       // Legacy Support

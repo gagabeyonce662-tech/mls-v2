@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
+import { env } from "@/lib/env";
 
 // Layout components
 import Header from "@/components/Header";
@@ -41,8 +42,7 @@ const Popup = dynamic(() => import("react-leaflet").then((m) => m.Popup), {
 });
 
 export default function MapOnlyPage() {
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca";
+  const API_BASE_URL = env.NEXT_PUBLIC_API_URL;
   const [mounted, setMounted] = useState(false);
   const [L, setL] = useState<any>(null);
   const mapRef = useRef<any | null>(null);
@@ -179,19 +179,6 @@ export default function MapOnlyPage() {
       window.removeEventListener("scroll", updateRect, true);
     };
   }, [resultsOpen, searchQuery, setAnchorRect]);
-
-  useEffect(() => {
-    return () => {
-      try {
-        if (mapRef.current && typeof mapRef.current.remove === "function") {
-          mapRef.current.remove();
-          mapRef.current = null;
-        }
-      } catch (err) {
-        console.warn("Error while removing leaflet map on unmount:", err);
-      }
-    };
-  }, []);
 
   if (!mounted || !L) {
     return (

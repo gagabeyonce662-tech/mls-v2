@@ -15,6 +15,7 @@ import Image from "next/image";
 
 import { colors } from "@/config/design-system";
 import { fetchVlogPostBySlug, fetchVlogPosts } from "@/lib/api";
+import { env } from "@/lib/env";
 
 export async function generateStaticParams() {
   try {
@@ -55,7 +56,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
   const getImageUrl = (imageUrl: string | undefined) => {
     if (!imageUrl) return fallbackImage;
     if (imageUrl.startsWith("/")) {
-      return `${process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca"}${imageUrl}`;
+      return `${env.NEXT_PUBLIC_API_URL}${imageUrl}`;
     }
     return imageUrl;
   };
@@ -219,7 +220,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
                       <source
                         src={
                           post.video_file.startsWith("/")
-                            ? `${process.env.NEXT_PUBLIC_API_URL || "https://staging.vsell4u.ca"}${post.video_file}`
+                            ? `${env.NEXT_PUBLIC_API_URL}${post.video_file}`
                             : post.video_file
                         }
                         type="video/mp4"
