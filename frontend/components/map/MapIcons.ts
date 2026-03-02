@@ -20,3 +20,4 @@ export const getSelectedIcon = (leaflet: typeof L) =>
     iconSize: [25, 41],
     iconAnchor: [12, 41],
   });
+

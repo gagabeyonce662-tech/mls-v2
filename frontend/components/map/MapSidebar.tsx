@@ -9,6 +9,7 @@ interface MapSidebarProps {
   selectedPropertyId: string | null;
   onViewOnMap: (property: PropertyMarker) => void;
   onViewStreetView: (property: PropertyMarker) => void;
+  loading?: boolean;
 }
 
 export const MapSidebar = ({
@@ -16,10 +17,11 @@ export const MapSidebar = ({
   selectedPropertyId,
   onViewOnMap,
   onViewStreetView,
+  loading = false,
 }: MapSidebarProps) => {
   const [mobileExpanded, setMobileExpanded] = useState(false);
 
-  if (apiMarkers.length === 0) return null;
+  if (!loading && apiMarkers.length === 0) return null;
 
   return (
     <>
@@ -27,6 +29,7 @@ export const MapSidebar = ({
       <motion.aside
         initial={{ x: -420 }}
         animate={{ x: 0 }}
+        transition={{ type: "tween", ease: "easeOut", duration: 0.4 }}
         className="absolute top-4 left-4 bottom-4 hidden xl:flex w-[360px] flex-col rounded-2xl overflow-hidden shadow-2xl border border-ds-card-border bg-white/95 backdrop-blur-md z-[500]"
       >
         <div className="p-6 border-b border-ds-card-border bg-ds-card">
@@ -34,20 +37,31 @@ export const MapSidebar = ({
             Properties in View
           </h2>
           <p className="text-sm text-ds-body">
-            Showing {apiMarkers.length} matching homes
+            {loading ? "Loading properties…" : `Showing ${apiMarkers.length} matching homes`}
           </p>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
-          {apiMarkers.map((property) => (
-            <PropertyCard
-              key={property.id}
-              property={property}
-              onViewOnMap={() => onViewOnMap(property)}
-              onViewStreetView={() => onViewStreetView(property)}
-              isSelected={selectedPropertyId === property.id}
-            />
-          ))}
+          {loading ? (
+            // Skeleton cards
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-ds-card-border bg-ds-card p-4 animate-pulse space-y-3">
+                <div className="h-4 bg-gray-200 rounded w-3/4" />
+                <div className="h-3 bg-gray-200 rounded w-1/2" />
+                <div className="h-3 bg-gray-200 rounded w-2/3" />
+              </div>
+            ))
+          ) : (
+            apiMarkers.map((property) => (
+              <PropertyCard
+                key={property.id}
+                property={property}
+                onViewOnMap={() => onViewOnMap(property)}
+                onViewStreetView={() => onViewStreetView(property)}
+                isSelected={selectedPropertyId === property.id}
+              />
+            ))
+          )}
         </div>
       </motion.aside>
 
@@ -69,7 +83,7 @@ export const MapSidebar = ({
                 <div className="flex items-center gap-2">
                   <Home className="w-4 h-4 text-ds-primary" />
                   <span className="text-sm font-bold text-ds-heading">
-                    {apiMarkers.length} Properties Found
+                    {loading ? "Finding properties…" : `${apiMarkers.length} Properties Found`}
                   </span>
                 </div>
                 {mobileExpanded ? (
@@ -87,22 +101,31 @@ export const MapSidebar = ({
                   initial={{ height: 0 }}
                   animate={{ height: "50vh" }}
                   exit={{ height: 0 }}
-                  transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                  transition={{ type: "tween", ease: "easeOut", duration: 0.3 }}
                   className="overflow-hidden"
                 >
                   <div className="h-full overflow-y-auto p-4 space-y-4 no-scrollbar border-t border-ds-card-border">
-                    {apiMarkers.map((property) => (
-                      <PropertyCard
-                        key={property.id}
-                        property={property}
-                        onViewOnMap={() => {
-                          onViewOnMap(property);
-                          setMobileExpanded(false);
-                        }}
-                        onViewStreetView={() => onViewStreetView(property)}
-                        isSelected={selectedPropertyId === property.id}
-                      />
-                    ))}
+                    {loading ? (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="rounded-xl border border-ds-card-border bg-ds-card p-4 animate-pulse space-y-3">
+                          <div className="h-4 bg-gray-200 rounded w-3/4" />
+                          <div className="h-3 bg-gray-200 rounded w-1/2" />
+                        </div>
+                      ))
+                    ) : (
+                      apiMarkers.map((property) => (
+                        <PropertyCard
+                          key={property.id}
+                          property={property}
+                          onViewOnMap={() => {
+                            onViewOnMap(property);
+                            setMobileExpanded(false);
+                          }}
+                          onViewStreetView={() => onViewStreetView(property)}
+                          isSelected={selectedPropertyId === property.id}
+                        />
+                      ))
+                    )}
                   </div>
                 </motion.div>
               )}

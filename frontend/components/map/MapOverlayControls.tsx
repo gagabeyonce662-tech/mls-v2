@@ -40,14 +40,10 @@ export const MapOverlayControls = ({
   onClearAll,
   loading,
 }: MapOverlayControlsProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // Auto-open the desktop tray after a brief delay
-  useEffect(() => {
-    const timer = setTimeout(() => setIsOpen(true), 1000);
-    return () => clearTimeout(timer);
-  }, []);
+  // Auto-open is now handled by initial state to sync with left sidebar
 
   return (
     <>
@@ -129,11 +125,10 @@ export const MapOverlayControls = ({
                     onToggleDrawing();
                     setMobileFiltersOpen(false);
                   }}
-                  className={`flex-1 p-3 rounded-xl border flex items-center justify-center gap-2 text-sm font-semibold transition-all ${
-                    drawing
-                      ? "bg-red-500 text-white border-red-600"
-                      : "bg-ds-card text-ds-heading border-ds-card-border"
-                  }`}
+                  className={`flex-1 p-3 rounded-xl border flex items-center justify-center gap-2 text-sm font-semibold transition-all ${drawing
+                    ? "bg-red-500 text-white border-red-600"
+                    : "bg-ds-card text-ds-heading border-ds-card-border"
+                    }`}
                 >
                   {drawing ? (
                     <>
@@ -201,7 +196,7 @@ export const MapOverlayControls = ({
             initial={{ x: 60, opacity: 0, scale: 0.95 }}
             animate={{ x: 0, opacity: 1, scale: 1 }}
             exit={{ x: 60, opacity: 0, scale: 0.95 }}
-            transition={{ type: "tween", ease: "easeOut", duration: 0.35 }}
+            transition={{ type: "tween", ease: "easeOut", duration: 0.4 }}
             className="absolute top-4 right-4 bottom-4 z-[1000] w-[360px] hidden lg:flex flex-col pointer-events-auto"
           >
             <div className="flex flex-col h-full rounded-2xl border border-ds-card-border bg-white/95 backdrop-blur-sm shadow-md overflow-hidden">
@@ -245,11 +240,10 @@ export const MapOverlayControls = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={onToggleDrawing}
-                  className={`w-full p-3 rounded-xl border flex items-center justify-center gap-2 transition-all text-sm font-semibold ${
-                    drawing
-                      ? "bg-red-500 text-white border-red-600"
-                      : "bg-ds-card text-ds-heading border-ds-card-border hover:bg-white hover:border-ds-primary hover:text-ds-primary"
-                  }`}
+                  className={`w-full p-3 rounded-xl border flex items-center justify-center gap-2 transition-all text-sm font-semibold ${drawing
+                    ? "bg-red-500 text-white border-red-600"
+                    : "bg-ds-card text-ds-heading border-ds-card-border hover:bg-white hover:border-ds-primary hover:text-ds-primary"
+                    }`}
                   title={drawing ? "Cancel Drawing" : "Draw Area on Map"}
                 >
                   {drawing ? (

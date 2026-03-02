@@ -47,6 +47,7 @@ export default function MapOnlyPage() {
   const [L, setL] = useState<any>(null);
   const mapRef = useRef<any | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const initialSearchDone = useRef(false);
 
   // Custom Hooks
   const {
@@ -128,7 +129,7 @@ export default function MapOnlyPage() {
           const group = markers.map((m) => [m.lat, m.lng]);
           const bounds = L.latLngBounds(group as any);
           mapRef.current.fitBounds(bounds.pad(0.2));
-        } catch {}
+        } catch { }
       }
       setLoadingApi(false);
     } catch (err: any) {
@@ -200,8 +201,15 @@ export default function MapOnlyPage() {
       map.on("moveend", () => {
         if (!loadingApi && !drawing) setShowSearchThisArea(true);
       });
-    } catch {}
+      // Auto-load properties for the initial viewport — only once
+      if (!initialSearchDone.current) {
+        initialSearchDone.current = true;
+        handleSearchThisArea({ current: map });
+      }
+    } catch { }
   };
+
+
 
   const clearAll = () => {
     clearRect();
@@ -251,10 +259,10 @@ export default function MapOnlyPage() {
 
   const markerToShow = searchResult
     ? {
-        lat: searchResult.lat,
-        lng: searchResult.lng,
-        title: searchResult.display_name || "Search result",
-      }
+      lat: searchResult.lat,
+      lng: searchResult.lng,
+      title: searchResult.display_name || "Search result",
+    }
     : null;
 
   return (
@@ -364,6 +372,7 @@ export default function MapOnlyPage() {
                   </Popup>
                 </Marker>
               )}
+
             </MapContainer>
 
             <MapSidebar
@@ -371,6 +380,7 @@ export default function MapOnlyPage() {
               selectedPropertyId={selectedPropertyId}
               onViewOnMap={handleViewOnMap}
               onViewStreetView={handleViewStreetView}
+              loading={loadingApi}
             />
           </div>
         </div>
