@@ -17,9 +17,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_ADMIN_PASSPHRASE: z
     .string()
     .min(1, "Admin passphrase cannot be empty"),
-  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z
-    .string()
-    .min(1, "Google Maps API Key cannot be empty"),
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
   NEXT_PUBLIC_API_TOKEN: z.string().optional(),
 });
 
