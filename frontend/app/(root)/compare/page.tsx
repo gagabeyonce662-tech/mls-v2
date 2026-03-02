@@ -10,6 +10,7 @@ import {
   useCompareProperties,
   useAllExclusiveProperties,
 } from "@/hooks/react-query";
+import { useCompare } from "@/contexts/CompareContext";
 import {
   X,
   Plus,
@@ -45,6 +46,11 @@ import { Property } from "@/lib/api/types";
 function ComparePageContent() {
   const router = useRouter();
   const params = useSearchParams();
+  const {
+    addToCompare,
+    removeFromCompare: removeFromGlobalCompare,
+    getPropertyKey,
+  } = useCompare();
 
   // Initialize selected IDs from URL - using a lazy initializer for state
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
@@ -519,10 +525,12 @@ function ComparePageContent() {
     });
   }, [selectedIds, compareData]);
 
-  const handleAddProperty = (propertyId: string) => {
+  const handleAddProperty = (property: any) => {
+    const propertyId = getPropertyKey(property);
     if (!selectedIds.includes(propertyId)) {
       const newSelectedIds = [...selectedIds, propertyId];
       setSelectedIds(newSelectedIds);
+      addToCompare(property);
       console.log("Added property:", propertyId, "New IDs:", newSelectedIds);
       setShowAddPropertiesModal(false); // Close modal after adding
     }
@@ -531,6 +539,7 @@ function ComparePageContent() {
   const handleRemoveProperty = (propertyId: string) => {
     const newSelectedIds = selectedIds.filter((id) => id !== propertyId);
     setSelectedIds(newSelectedIds);
+    removeFromGlobalCompare(propertyId);
     console.log("Removed property:", propertyId, "New IDs:", newSelectedIds);
   };
 
@@ -1020,7 +1029,7 @@ function ComparePageContent() {
                               if (isSelected) {
                                 handleRemoveProperty(propertyId);
                               } else {
-                                handleAddProperty(propertyId);
+                                handleAddProperty(property);
                               }
                             }}
                           >

@@ -156,7 +156,7 @@ export const useInfiniteExclusiveProperties = (
     >
   >,
 ) => {
-  const limit = filters?.limit || 6;
+  const limit = filters?.limit || 12;
 
   return useInfiniteQuery({
     queryKey: queryKeys.exclusive.infinite(filters),
@@ -591,6 +591,40 @@ export const useNewlyListedProperties = (
     queryFn: () => fetchNewlyListedProperties(filters),
     ...baseQueryOptions,
     ...options,
+  });
+};
+
+export const useInfiniteNewlyListedProperties = (
+  filters?: Omit<PropertyFilterParams & { days_threshold?: number }, "offset">,
+  options?: Partial<
+    UseInfiniteQueryOptions<
+      {
+        results: any[];
+        count: number;
+        next: number | null;
+        previous: number | null;
+      },
+      Error
+    >
+  >,
+) => {
+  const limit = filters?.limit || 12;
+
+  return useInfiniteQuery({
+    queryKey: ["newly-listed", "infinite", filters],
+    queryFn: ({ pageParam = 0 }) =>
+      fetchNewlyListedProperties({
+        ...filters,
+        limit,
+        offset: pageParam as number,
+      }),
+    getNextPageParam: (lastPage, allPages) => {
+      const loadedItems = allPages.flatMap((page) => page.results).length;
+      return loadedItems < lastPage.count ? loadedItems : undefined;
+    },
+    initialPageParam: 0,
+    ...baseQueryOptions,
+    ...(options as any),
   });
 };
 

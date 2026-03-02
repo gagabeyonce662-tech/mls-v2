@@ -2,30 +2,33 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Heart, Loader2, Eye } from "lucide-react";
 import { colors, propertyCard } from "@/config/design-system";
 import type { Property } from "@/lib/api";
 import { getPropertyKey } from "@/lib/propertyUtils";
 import { PropertyCardImage } from "@/components/property-card/PropertyCardImage";
 import { PropertyCardContent } from "@/components/property-card/PropertyCardContent";
 import { usePrefetchProperty } from "@/hooks/react-query";
-
-/* ──────────────────────────── component ──────────────────────────── */
-
+import { useWatched } from "@/contexts/WatchedContext";
 interface PropertyCardProps {
   property: Property;
   variant?: "new" | "featured";
   index?: number;
+  onQuickView?: (property: Property) => void;
 }
 
 export default function PropertyCard({
   property,
   variant = "featured",
   index = 0,
+  onQuickView,
 }: PropertyCardProps) {
   const [clicked, setClicked] = useState(false);
   const propertyKey = getPropertyKey(property);
   const prefetch = usePrefetchProperty();
+
+  const { toggleFavorite, isFavorite, addToHistory } = useWatched();
+  const saved = isFavorite(propertyKey);
 
   return (
     <div
@@ -38,7 +41,10 @@ export default function PropertyCard({
     >
       <Link
         href={`/listing/${propertyKey}`}
-        onClick={() => setClicked(true)}
+        onClick={() => {
+          setClicked(true);
+          addToHistory(property);
+        }}
         className="block h-full"
       >
         {/* Click overlay */}
@@ -62,6 +68,31 @@ export default function PropertyCard({
         {/* ── Content ── */}
         <PropertyCardContent property={property} />
       </Link>
+
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleFavorite(property);
+        }}
+        className={`absolute top-3 left-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-lg active:scale-95 ${
+          saved ? "text-red-500" : "text-gray-400 hover:text-red-400"
+        }`}
+      >
+        <Heart className={`w-5 h-5 ${saved ? "fill-current" : ""}`} />
+      </button>
+
+      {/* ── Quick View Button ── */}
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onQuickView?.(property);
+        }}
+        className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-lg active:scale-95 text-ds-heading opacity-0 group-hover:opacity-100"
+      >
+        <Eye className="w-5 h-5" />
+      </button>
     </div>
   );
 }

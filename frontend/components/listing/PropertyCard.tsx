@@ -1,10 +1,11 @@
 "use client";
 
 import React from "react";
-import { Bed, Bath, Maximize, Home, Loader2 } from "lucide-react";
+import { Bed, Bath, Maximize, Home, Loader2, Heart, Eye } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { colors } from "@/config/design-system";
+import { useWatched } from "@/contexts/WatchedContext";
 
 interface PropertyCardProps {
   property: any;
@@ -18,6 +19,7 @@ interface PropertyCardProps {
   isClicked: boolean;
   onCardClick: (property: any) => void;
   onMouseEnter: (propertyKey: string) => void;
+  onQuickView: (property: any) => void;
   onImageLoad: (propertyKey: string) => void;
   onImageError: (
     propertyKey: string,
@@ -38,10 +40,13 @@ export const PropertyCard = ({
   isClicked,
   onCardClick,
   onMouseEnter,
+  onQuickView,
   onImageLoad,
   onImageError,
   formatPrice,
 }: PropertyCardProps) => {
+  const { toggleFavorite, isFavorite, addToHistory } = useWatched();
+  const saved = isFavorite(propertyKey);
   const displayPrice = property.list_price || property.ListPrice || 0;
   const displayCity = property.city || property.City || "Unknown City";
   const displayPropertyType =
@@ -130,7 +135,7 @@ export const PropertyCard = ({
     <div
       onClick={() => onCardClick(property)}
       onMouseEnter={() => onMouseEnter(propertyKey)}
-      className={`bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all block cursor-pointer relative min-h-[300px] ${
+      className={`bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all block cursor-pointer relative min-h-[300px] group ${
         isClicked ? "pointer-events-none" : ""
       } ${
         cardLoaded ? "opacity-100 translate-y-0" : "opacity-70 translate-y-2"
@@ -165,6 +170,32 @@ export const PropertyCard = ({
             ✓
           </div>
         )}
+
+        {/* Favorite Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleFavorite(property);
+          }}
+          className={`absolute top-2 left-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-md active:scale-90 ${
+            saved
+              ? "text-red-500 scale-105"
+              : "text-gray-400 hover:text-red-400"
+          }`}
+        >
+          <Heart className={`w-4.5 h-4.5 ${saved ? "fill-current" : ""}`} />
+        </button>
+
+        {/* Quick View Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onQuickView(property);
+          }}
+          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-md active:scale-95 text-ds-heading opacity-0 group-hover:opacity-100"
+        >
+          <Eye className="w-4 h-4" />
+        </button>
 
         {/* Image Loading State */}
         {imageUrl && !imageLoaded && (

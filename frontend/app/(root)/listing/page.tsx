@@ -11,24 +11,45 @@ import {
   usePrefetchProperty,
 } from "@/hooks/react-query";
 import { useUserAuth } from "@/contexts/UserAuthContext";
+import { useCompare } from "@/contexts/CompareContext";
+import { useWatched } from "@/contexts/WatchedContext";
 
 // Modular Components
 import { PropertyCard } from "@/components/listing/PropertyCard";
 import { ListingSearch } from "@/components/listing/ListingSearch";
 import { CompareBar } from "@/components/listing/CompareBar";
 import { CompareModal } from "@/components/listing/CompareModal";
+import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
 
 export default function ListingsPage() {
   const router = useRouter();
   const { user } = useUserAuth();
   const isLoggedIn = !!user;
 
+  // Quick View State
+  const [showQuickView, setShowQuickView] = useState(false);
+  const [quickViewProperty, setQuickViewProperty] = useState<any>(null);
+
+  const handleQuickView = useCallback((property: any) => {
+    setQuickViewProperty(property);
+    setShowQuickView(true);
+  }, []);
+
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
   const [currentCity, setCurrentCity] = useState("");
 
-  // Compare state
-  const [compareList, setCompareList] = useState<any[]>([]);
+  // Compare state from context
+  const {
+    compareList,
+    addToCompare,
+    removeFromCompare,
+    isPropertySelected,
+    getPropertyKey,
+  } = useCompare();
+
+  const { addToHistory } = useWatched();
+
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [showCompareModal, setShowCompareModal] = useState(false);
 
@@ -39,15 +60,6 @@ export default function ListingsPage() {
 
   // Get the prefetch function
   const prefetchProperty = usePrefetchProperty();
-
-  const getPropertyKey = useCallback((property: any) => {
-    return (
-      property?.listing_key ||
-      property?.PropertyKey ||
-      property?.id ||
-      `property-${property?.city || "unknown"}-${property?.ListPrice || "0"}`
-    );
-  }, []);
 
   const handleImageLoad = useCallback((propertyKey: string) => {
     setLoadedImages((prev) => {
@@ -77,7 +89,7 @@ export default function ListingsPage() {
   } = useInfiniteExclusiveProperties(
     {
       city: currentCity || undefined,
-      limit: 24,
+      limit: 12,
     },
     {
       enabled: true,
@@ -159,27 +171,16 @@ export default function ListingsPage() {
     }
   };
 
-  const isPropertySelected = (property: any) => {
-    return compareList.some(
-      (p) => getPropertyKey(p) === getPropertyKey(property),
-    );
-  };
-
-  const removePropertyFromCompare = (property: any) => {
-    setCompareList((prev) =>
-      prev.filter((p) => getPropertyKey(p) !== getPropertyKey(property)),
-    );
-  };
-
   const handlePropertyClick = (property: any) => {
     setClickedProperty(getPropertyKey(property));
-    const alreadySelected = isPropertySelected(property);
+    addToHistory(property); // Track viewing
+    const alreadySelected = isPropertySelected(getPropertyKey(property));
 
     if (compareList.length > 0) {
       if (alreadySelected) {
-        removePropertyFromCompare(property);
+        removeFromCompare(getPropertyKey(property));
       } else {
-        setCompareList((prev) => [...prev, property]);
+        addToCompare(property);
       }
       setTimeout(() => setClickedProperty(null), 300);
       return;
@@ -192,13 +193,14 @@ export default function ListingsPage() {
 
   const handleCompareSelect = () => {
     if (!selectedProperty) return;
-    setCompareList((prev) => [...prev, selectedProperty]);
+    addToCompare(selectedProperty);
     setShowCompareModal(false);
     setSelectedProperty(null);
   };
 
   const handleViewFromModal = () => {
     if (!selectedProperty) return;
+    addToHistory(selectedProperty); // Track viewing
     setShowCompareModal(false);
     router.push(`/listing/${getPropertyKey(selectedProperty)}`);
     setSelectedProperty(null);
@@ -276,11 +278,7 @@ export default function ListingsPage() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      <CompareBar
-        compareList={compareList}
-        onRemove={removePropertyFromCompare}
-        getPropertyKey={getPropertyKey}
-      />
+      <CompareBar />
 
       <div className="pt-24 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -354,13 +352,14 @@ export default function ListingsPage() {
                     propertyKey={propertyKey}
                     isLoggedIn={isLoggedIn}
                     isLocked={!isLoggedIn && index >= 8}
-                    isSelected={isPropertySelected(property)}
+                    isSelected={isPropertySelected(propertyKey)}
                     imageUrl={getPropertyImageUrl(property)}
                     imageLoaded={loadedImages.has(propertyKey)}
                     cardLoaded={loadedCards.has(propertyKey)}
                     isClicked={clickedProperty === propertyKey}
                     onCardClick={handlePropertyClick}
                     onMouseEnter={prefetchProperty}
+                    onQuickView={handleQuickView}
                     onImageLoad={handleImageLoad}
                     onImageError={handleImageError}
                     formatPrice={formatPrice}
@@ -390,6 +389,12 @@ export default function ListingsPage() {
         onViewDetails={handleViewFromModal}
         onAddToCompare={handleCompareSelect}
         formatPrice={formatPrice}
+      />
+
+      <PropertyQuickViewModal
+        show={showQuickView}
+        property={quickViewProperty}
+        onClose={() => setShowQuickView(false)}
       />
 
       <Footer />

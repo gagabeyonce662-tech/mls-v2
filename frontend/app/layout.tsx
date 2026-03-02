@@ -2,6 +2,8 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { ProvinceProvider } from "@/contexts/ProvinceContext";
 import { UserAuthProvider } from "@/contexts/UserAuthContext";
+import { CompareProvider } from "@/contexts/CompareContext";
+import { WatchedProvider } from "@/contexts/WatchedContext";
 
 export const metadata: Metadata = {
   title:
@@ -22,7 +24,11 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <UserAuthProvider>
-          <ProvinceProvider>{children}</ProvinceProvider>
+          <ProvinceProvider>
+            <CompareProvider>
+              <WatchedProvider>{children}</WatchedProvider>
+            </CompareProvider>
+          </ProvinceProvider>
         </UserAuthProvider>
       </body>
     </html>

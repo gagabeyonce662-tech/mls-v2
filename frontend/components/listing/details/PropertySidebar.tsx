@@ -1,6 +1,17 @@
-import React from "react";
-import { MapPin } from "lucide-react";
+"use client";
+
+import {
+  MapPin,
+  Navigation,
+  ExternalLink,
+  Columns,
+  Check,
+  Heart,
+} from "lucide-react";
 import { ds } from "@/lib/design-system-utils";
+import Link from "next/link";
+import { useCompare } from "@/contexts/CompareContext";
+import { useWatched } from "@/contexts/WatchedContext";
 
 interface PropertySidebarProps {
   property: any;
@@ -13,6 +24,17 @@ export default function PropertySidebar({
 }: PropertySidebarProps) {
   const lat = property.latitude;
   const lon = property.longitude;
+  const {
+    addToCompare,
+    removeFromCompare,
+    isPropertySelected,
+    getPropertyKey,
+  } = useCompare();
+  const { toggleFavorite, isFavorite } = useWatched();
+
+  const propertyKey = getPropertyKey(property);
+  const isSelected = isPropertySelected(propertyKey);
+  const isSaved = isFavorite(propertyKey);
 
   return (
     <div className="space-y-6 sticky top-24">
@@ -43,7 +65,28 @@ export default function PropertySidebar({
             </div>
           )}
         </div>
-        <div className="mt-3 flex items-center gap-2 text-[10px] text-ds-body font-mono">
+        {lat && lon && (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 py-2 px-3 text-[11px] font-semibold bg-gray-50 border border-ds-card-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-ds-body"
+            >
+              <Navigation className="w-3 h-3 text-ds-primary" />
+              Google Maps
+            </a>
+            <Link
+              href={`/map-search?lat=${lat}&lng=${lon}&zoom=15`}
+              className="flex items-center justify-center gap-1.5 py-2 px-3 text-[11px] font-semibold bg-gray-50 border border-ds-card-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-ds-body"
+            >
+              <ExternalLink className="w-3 h-3 text-ds-primary" />
+              Explore Area
+            </Link>
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center gap-2 text-[10px] text-ds-body font-mono">
           <MapPin className="w-3 h-3" />
           {lat && lon ? (
             <span>
@@ -67,11 +110,37 @@ export default function PropertySidebar({
       </div>
 
       {/* Share / Save Actions */}
-      <div className="flex gap-3">
-        <button className="flex-1 py-2 text-sm font-medium border border-ds-card-border rounded-lg hover:bg-ds-card transition-colors">
-          Save
+      <div className="flex gap-2">
+        <button
+          onClick={() =>
+            isSelected ? removeFromCompare(propertyKey) : addToCompare(property)
+          }
+          className={`flex-1 flex flex-col items-center justify-center py-3 text-[10px] font-bold border rounded-xl transition-all ${
+            isSelected
+              ? "bg-blue-50 border-blue-200 text-blue-700 shadow-inner"
+              : "bg-white border-ds-card-border text-ds-body hover:bg-gray-50 shadow-sm"
+          }`}
+        >
+          {isSelected ? (
+            <Check className="w-4 h-4 mb-1" />
+          ) : (
+            <Columns className="w-4 h-4 mb-1" />
+          )}
+          {isSelected ? "Added" : "Compare"}
         </button>
-        <button className="flex-1 py-2 text-sm font-medium border border-ds-card-border rounded-lg hover:bg-ds-card transition-colors">
+        <button
+          onClick={() => toggleFavorite(property)}
+          className={`flex-1 flex flex-col items-center justify-center py-3 text-[10px] font-bold border rounded-xl transition-all ${
+            isSaved
+              ? "bg-red-50 border-red-200 text-red-600 shadow-inner"
+              : "bg-white border-ds-card-border text-ds-body hover:bg-gray-50 shadow-sm"
+          }`}
+        >
+          <Heart className={`w-4 h-4 mb-1 ${isSaved ? "fill-current" : ""}`} />
+          {isSaved ? "Saved" : "Save"}
+        </button>
+        <button className="flex-1 flex flex-col items-center justify-center py-3 text-[10px] font-bold bg-white border border-ds-card-border rounded-xl text-ds-body hover:bg-gray-50 shadow-sm transition-all">
+          <div className="w-4 h-4 mb-1" />
           Share
         </button>
       </div>

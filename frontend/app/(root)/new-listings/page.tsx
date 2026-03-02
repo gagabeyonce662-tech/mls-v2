@@ -1,62 +1,65 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useRef } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Container from "@/components/Container";
 import PropertyCard from "@/components/PropertyCard";
 import { PropertyCardSkeleton } from "@/components/property-card/PropertyCardSkeleton";
-import { fetchNewlyListedProperties, mapPropertyFromAPI } from "@/lib/api";
+import { useInfiniteNewlyListedProperties } from "@/hooks/react-query";
+import { mapPropertyFromAPI } from "@/lib/api";
 import { Property } from "@/lib/api/types";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  SlidersHorizontal,
-} from "lucide-react";
+import { Calendar, SlidersHorizontal, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const ITEMS_PER_PAGE = 12;
+import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
 
 export default function NewListingsPage() {
-  const [currentPage, setCurrentPage] = useState(1);
+  const [showQuickView, setShowQuickView] = React.useState(false);
+  const [selectedProperty, setSelectedProperty] = React.useState<any>(null);
 
-  // Use React Query for better performance and caching
-  const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ["new-listings", currentPage],
-    queryFn: async () => {
-      const offset = (currentPage - 1) * ITEMS_PER_PAGE;
-      const response = await fetchNewlyListedProperties({
-        limit: ITEMS_PER_PAGE,
-        offset: offset,
-      });
-
-      const results = (response.results || []).map((p: any) =>
-        mapPropertyFromAPI(p),
-      );
-
-      return {
-        results,
-        count: response.count || 0,
-      };
-    },
-    placeholderData: keepPreviousData, // Keep showing old data while fetching new page
-    staleTime: 5 * 60 * 1000, // 5 minutes
+  const handleQuickView = (property: any) => {
+    setSelectedProperty(property);
+    setShowQuickView(true);
+  };
+  // Use TanStack Query for infinite scroll
+  const {
+    data,
+    isLoading,
+    isError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch,
+  } = useInfiniteNewlyListedProperties({
+    limit: 12,
   });
 
-  const properties = data?.results || [];
-  const totalCount = data?.count || 0;
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+  // Extract all properties from pages and map them
+  const allProperties =
+    data?.pages.flatMap((page) =>
+      (page.results || []).map((p: any) => mapPropertyFromAPI(p)),
+    ) || [];
 
-  // Scroll to top when page changes
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [currentPage]);
+  const totalCount = data?.pages[0]?.count || 0;
+
+  // Infinite Scroll Observer
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const lastPropertyRef = useCallback(
+    (node: HTMLDivElement) => {
+      if (isLoading || isFetchingNextPage) return;
+      if (observerRef.current) observerRef.current.disconnect();
+      observerRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      });
+      if (node) observerRef.current.observe(node);
+    },
+    [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage],
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50/50">
-      {/* Dynamic SEO context would normally be in a separate layout or head component */}
       <title>Newly Listed Properties | EstateforYou</title>
       <meta
         name="description"
@@ -93,7 +96,7 @@ export default function NewListingsPage() {
                   Properties
                 </span>
               </div>
-              {isFetching && !isLoading && (
+              {isFetchingNextPage && (
                 <div className="w-2 h-2 bg-ds-primary rounded-full animate-ping" />
               )}
             </div>
@@ -106,83 +109,57 @@ export default function NewListingsPage() {
                 <PropertyCardSkeleton key={i} />
               ))}
             </div>
-          ) : properties.length > 0 ? (
+          ) : allProperties.length > 0 ? (
             <>
-              <div
-                className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 transition-opacity duration-300 ${isFetching ? "opacity-50" : "opacity-100"}`}
-              >
-                {properties.map((property: Property, index: number) => (
-                  <PropertyCard
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {allProperties.map((property: Property, index: number) => (
+                  <div
                     key={
                       property.listing_key ||
                       property.PropertyKey ||
                       `new-${index}`
                     }
-                    property={property}
-                    variant="new"
-                    index={index}
-                  />
+                    ref={
+                      index === allProperties.length - 1
+                        ? lastPropertyRef
+                        : null
+                    }
+                  >
+                    <PropertyCard
+                      property={property}
+                      variant="new"
+                      index={index % 12} // Use mod for stagger delay
+                      onQuickView={handleQuickView}
+                    />
+                  </div>
                 ))}
               </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="mt-16 flex items-center justify-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    disabled={currentPage === 1 || isFetching}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="h-10 w-10 border-ds-card-border hover:bg-white"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </Button>
+              {/* Loading More State */}
+              {isFetchingNextPage && (
+                <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {[...Array(4)].map((_, i) => (
+                    <PropertyCardSkeleton key={`loading-${i}`} />
+                  ))}
+                </div>
+              )}
 
-                  <div className="flex items-center gap-1 mx-4">
-                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                      let pageNum = currentPage;
-                      if (currentPage <= 3) pageNum = i + 1;
-                      else if (currentPage >= totalPages - 2)
-                        pageNum = totalPages - 4 + i;
-                      else pageNum = currentPage - 2 + i;
-
-                      if (pageNum < 1 || pageNum > totalPages) return null;
-
-                      return (
-                        <Button
-                          key={pageNum}
-                          variant={
-                            currentPage === pageNum ? "default" : "ghost"
-                          }
-                          size="sm"
-                          disabled={isFetching}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`h-10 w-10 font-bold transition-all ${
-                            currentPage === pageNum
-                              ? "shadow-md scale-110"
-                              : "text-ds-body hover:text-ds-primary hover:bg-ds-card"
-                          }`}
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    disabled={currentPage === totalPages || isFetching}
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    className="h-10 w-10 border-ds-card-border hover:bg-white"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </Button>
+              {/* End of results */}
+              {!hasNextPage && allProperties.length > 0 && (
+                <div className="mt-16 text-center text-ds-body py-8 border-t border-ds-card-border">
+                  <p className="font-medium italic">
+                    You&apos;ve reached the end of the new listings catalogue.
+                  </p>
                 </div>
               )}
             </>
+          ) : isError ? (
+            <div className="text-center py-16">
+              <h3 className="text-xl font-bold text-ds-heading mb-4">
+                Error loading properties
+              </h3>
+              <Button onClick={() => refetch()}>Retry Connection</Button>
+            </div>
           ) : (
             <div className="bg-white rounded-2xl border border-dashed border-gray-300 py-32 text-center shadow-inner">
               <div className="max-w-md mx-auto space-y-4">
@@ -204,12 +181,6 @@ export default function NewListingsPage() {
                   >
                     Explore Map Search
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => (window.location.href = "/")}
-                  >
-                    Go Back Home
-                  </Button>
                 </div>
               </div>
             </div>
@@ -218,6 +189,12 @@ export default function NewListingsPage() {
       </main>
 
       <Footer />
+
+      <PropertyQuickViewModal
+        show={showQuickView}
+        property={selectedProperty}
+        onClose={() => setShowQuickView(false)}
+      />
     </div>
   );
 }

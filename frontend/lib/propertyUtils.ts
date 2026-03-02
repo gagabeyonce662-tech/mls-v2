@@ -110,7 +110,10 @@ export const getBathrooms = (property: Property): number => {
 
 export const getSqft = (property: Property): number | null => {
   const val =
-    property.building_area_total ?? (property as any).LivingArea ?? null;
+    property.building_area_total ??
+    (property as any).LivingArea ??
+    (property as any).LivingAreaMinimum ??
+    null;
   if (!val) return null;
   const num = typeof val === "string" ? parseFloat(val) : val;
   return Number.isFinite(num) && num > 0 ? num : null;
