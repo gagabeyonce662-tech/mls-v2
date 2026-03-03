@@ -22,24 +22,20 @@ const UserAuthContext = createContext<UserAuthContextType | undefined>(
 );
 
 export function UserAuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window !== "undefined") {
-      const savedUser = localStorage.getItem("user_session");
-      if (savedUser) {
-        try {
-          return JSON.parse(savedUser);
-        } catch (e) {
-          console.error("Failed to parse user session", e);
-          localStorage.removeItem("user_session");
-        }
-      }
-    }
-    return null;
-  });
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // User state is now initialized in useState
+    const savedUser = localStorage.getItem("user_session");
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        console.error("Failed to parse user session", e);
+        localStorage.removeItem("user_session");
+      }
+    }
+    setIsLoading(false);
   }, []);
 
   const login = async (email: string, name: string = "User") => {
