@@ -11,6 +11,7 @@ interface RentalPropertiesProps {
   properties: any[];
   isLoading: boolean;
   onQuickView?: (property: any) => void;
+  totalCount?: number;
 }
 
 export default function RentalProperties({
@@ -18,6 +19,7 @@ export default function RentalProperties({
   properties,
   isLoading,
   onQuickView,
+  totalCount,
 }: RentalPropertiesProps) {
   const showLoadingSkeletons = isLoading;
 
@@ -31,12 +33,12 @@ export default function RentalProperties({
               className="text-2xl font-bold mb-2"
               style={{ color: colors.heading }}
             >
-              {searchQuery ? `Rentals in ${searchQuery}` : "Best for Rental"}
+              Rental Properties
             </h2>
-            <p style={{ color: colors.body }}>
+            <p className="text-sm" style={{ color: colors.body }}>
               {showLoadingSkeletons
                 ? "Finding rental properties..."
-                : `Find your perfect rental property (${properties.length} available)`}
+                : `Find your perfect rental property (${totalCount || properties.length} available)`}
             </p>
           </div>
 
@@ -56,9 +58,9 @@ export default function RentalProperties({
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {showLoadingSkeletons
-            ? [...Array(6)].map((_, i) => (
+            ? [...Array(4)].map((_, i) => (
               <div
                 key={`skeleton-${i}`}
                 className="rounded-2xl overflow-hidden animate-pulse"
@@ -100,7 +102,7 @@ export default function RentalProperties({
             ))
             : properties.length > 0
               ? properties
-                .slice(0, 6)
+                .slice(0, 4)
                 .map((property, index) => (
                   <PropertyCard
                     key={

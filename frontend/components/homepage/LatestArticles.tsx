@@ -44,7 +44,7 @@ export default function LatestArticles() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {articles.map((article) => (
             <div key={article.id} className="group cursor-pointer">
               <div className="relative h-56 rounded-xl overflow-hidden mb-4">

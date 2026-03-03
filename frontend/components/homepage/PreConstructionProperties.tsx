@@ -11,6 +11,7 @@ interface PreConstructionPropertiesProps {
   properties: any[];
   isLoading: boolean;
   onQuickView?: (property: any) => void;
+  totalCount?: number;
 }
 
 export default function PreConstructionProperties({
@@ -18,6 +19,7 @@ export default function PreConstructionProperties({
   properties,
   isLoading,
   onQuickView,
+  totalCount,
 }: PreConstructionPropertiesProps) {
   const showLoadingSkeletons = isLoading;
 
@@ -37,8 +39,8 @@ export default function PreConstructionProperties({
             </h2>
             <p style={{ color: colors.body }}>
               {showLoadingSkeletons
-                ? "Finding pre-construction properties..."
-                : `Explore new developments (${properties.length} available)`}
+                ? "Searching for projects..."
+                : `Exclusive pre-construction investment opportunities (${totalCount || properties.length})`}
             </p>
           </div>
 
@@ -58,9 +60,9 @@ export default function PreConstructionProperties({
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {showLoadingSkeletons
-            ? [...Array(6)].map((_, i) => (
+            ? [...Array(4)].map((_, i) => (
               <div
                 key={`skeleton-${i}`}
                 className="rounded-2xl overflow-hidden animate-pulse"
@@ -102,7 +104,7 @@ export default function PreConstructionProperties({
             ))
             : properties.length > 0
               ? properties
-                .slice(0, 6)
+                .slice(0, 4)
                 .map((property, index) => (
                   <PropertyCard
                     key={
@@ -118,13 +120,13 @@ export default function PreConstructionProperties({
                 ))
               : !showLoadingSkeletons && (
                 <div className="col-span-3 text-center py-16">
-                  <div
-                    className="text-xl font-semibold mb-2"
+                  <h2
+                    className="text-xl font-bold mb-2"
                     style={{ color: colors.heading }}
                   >
                     No pre-construction properties found
-                  </div>
-                  <p style={{ color: colors.body }}>
+                  </h2>
+                  <p className="text-sm" style={{ color: colors.body }}>
                     Check back soon for new developments.
                   </p>
                 </div>

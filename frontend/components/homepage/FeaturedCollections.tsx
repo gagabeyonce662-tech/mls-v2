@@ -38,14 +38,14 @@ export default function FeaturedCollections() {
   ];
 
   return (
-    <div className="py-8 bg-white w-full overflow-hidden">
+    <div className="py-4 bg-white w-full overflow-hidden">
       <div className="w-full px-4 sm:px-6 lg:px-12">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {collections.map((collection) => (
             <Link
               key={collection.id}
               href={collection.href}
-              className="group relative h-80 rounded-xl overflow-hidden shadow-lg cursor-pointer transform transition-transform hover:scale-105"
+              className="group relative h-48 rounded-xl overflow-hidden shadow-lg cursor-pointer transform transition-transform hover:scale-105"
             >
               <Image
                 src={collection.image}
@@ -56,7 +56,7 @@ export default function FeaturedCollections() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
               <div className="absolute inset-0 flex items-end p-6">
-                <h3 className="text-white text-ds-h5 font-inter">
+                <h3 className="text-white text-base font-inter font-semibold">
                   {collection.title}
                 </h3>
               </div>

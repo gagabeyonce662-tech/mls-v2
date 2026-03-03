@@ -34,6 +34,9 @@ export default function HomePage() {
   const [rentalProperties, setRentalProperties] = useState<Property[]>([]);
   const [preConnProperties, setPreConnProperties] = useState<Property[]>([]);
   const [searchResults, setSearchResults] = useState<Property[]>([]);
+  const [totalExclusiveCount, setTotalExclusiveCount] = useState(0);
+  const [totalRentalCount, setTotalRentalCount] = useState(0);
+  const [totalPreConnCount, setTotalPreConnCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingRentals, setIsLoadingRentals] = useState(true);
@@ -63,6 +66,7 @@ export default function HomePage() {
       setIsLoading(true);
       const response = await fetchExclusiveProperties({});
       setProperties(response.results || []);
+      setTotalExclusiveCount(response.count || 0);
       hasInitialLoadCompleted.current = true;
       prevProvinceRef.current = selectedProvince;
       setIsLoading(false);
@@ -76,6 +80,7 @@ export default function HomePage() {
       setIsLoadingRentals(true);
       const response = await fetchLeaseProperties({});
       setRentalProperties(response.results || []);
+      setTotalRentalCount(response.count || 0);
       hasRentalInitialLoadCompleted.current = true;
       setIsLoadingRentals(false);
     };
@@ -88,6 +93,7 @@ export default function HomePage() {
       setIsLoadingPreConn(true);
       const response = await fetchPreConnProperties({});
       setPreConnProperties(response.results || []);
+      setTotalPreConnCount(response.count || 0);
       hasPreConnInitialLoadCompleted.current = true;
       setIsLoadingPreConn(false);
     };
@@ -124,6 +130,7 @@ export default function HomePage() {
         code ? { province: code } : {},
       );
       setProperties(response.results || []);
+      setTotalExclusiveCount(response.count || 0);
       prevProvinceRef.current = selectedProvince;
       setIsLoading(false);
     };
@@ -190,12 +197,13 @@ export default function HomePage() {
 
               <NewlyListedListings
                 searchQuery={searchQuery || "Latest Properties"}
-                showLimit={8}
+                showLimit={4}
                 onQuickView={handleQuickView}
               />
 
               <FeaturedListings
                 properties={properties}
+                totalCount={totalExclusiveCount}
                 searchQuery={
                   selectedProvince
                     ? `Exclusive in ${getProvinceName(selectedProvince)}`
@@ -205,11 +213,13 @@ export default function HomePage() {
               />
               <RentalProperties
                 properties={rentalProperties}
+                totalCount={totalRentalCount}
                 isLoading={isLoadingRentals}
                 onQuickView={handleQuickView}
               />
               <PreConstructionProperties
                 properties={preConnProperties}
+                totalCount={totalPreConnCount}
                 isLoading={isLoadingPreConn}
                 onQuickView={handleQuickView}
               />

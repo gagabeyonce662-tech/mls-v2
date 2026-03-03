@@ -82,12 +82,12 @@ export default function HeroSection({
       </div>
 
       {/* main content */}
-      <div className="relative z-20 max-w-7xl mx-auto px-6 lg:px-8 py-24 md:py-28 lg:py-32">
+      <div className="relative z-20 max-w-7xl mx-auto px-6 lg:px-8 py-16 md:py-20 lg:py-24">
         <div className="max-w-3xl text-white/95">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight drop-shadow">
             Find Your Place
           </h1>
-          <p className="mt-4 text-lg text-white/85 max-w-xl">
+          <p className="mt-4 text-base text-white/85 max-w-xl">
             Watch listings, communities and custom areas. Stay informed when
             listings are added and sold.
           </p>
@@ -184,7 +184,7 @@ export default function HeroSection({
       </div>
 
       {/* spacing at bottom */}
-      <div className="h-8 md:h-12 lg:h-16" />
+      <div className="h-4 md:h-6 lg:h-8" />
     </section>
   );
 }
