@@ -24,6 +24,7 @@ import {
 /* ================================================================== */
 interface PropertyFilterProps {
   onPropertiesUpdate?: (properties: any[], query: string) => void;
+  variant?: "sidebar" | "horizontal";
 }
 
 import { FilterSection } from "@/components/ui/FilterSection";
@@ -104,6 +105,7 @@ function FilterInput({
 /* ================================================================== */
 export default function PropertyFilter({
   onPropertiesUpdate,
+  variant = "sidebar",
 }: PropertyFilterProps) {
   /* ── state ── */
   const [searchQuery, setSearchQuery] = useState("");
@@ -371,6 +373,233 @@ export default function PropertyFilter({
   /* ================================================================ */
   /*  Render                                                          */
   /* ================================================================ */
+  const [showMore, setShowMore] = useState(false);
+
+  if (variant === "horizontal") {
+    return (
+      <div
+        className="w-full backdrop-blur-xl bg-white/80 border border-white/40 rounded-[32px] p-6 lg:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] mb-12 relative z-30 transition-all duration-500"
+      >
+        <div className="flex flex-col lg:flex-row items-end gap-6 lg:gap-8">
+          {/* City Search */}
+          <div className="w-full lg:w-1/5">
+            <label className="block text-[10px] font-black mb-2.5 uppercase tracking-[0.15em] text-ds-primary/60">Location</label>
+            <div className="relative group">
+              <input
+                type="text"
+                placeholder="City (e.g. Toronto)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full py-3.5 px-5 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all duration-300 placeholder:text-ds-body/30"
+              />
+            </div>
+          </div>
+
+          {/* Property Type */}
+          <div className="w-full lg:w-1/5">
+            <label className="block text-[10px] font-black mb-2.5 uppercase tracking-[0.15em] text-ds-primary/60">Property Type</label>
+            <select
+              multiple
+              value={propertyType}
+              onChange={(e) => {
+                const options = Array.from(e.target.selectedOptions, option => option.value);
+                setPropertyType(options);
+              }}
+              className="w-full py-3.5 px-5 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all duration-300 appearance-none min-h-[48px] cursor-pointer scrollbar-hide"
+              size={1}
+              onFocus={(e) => { e.target.size = 5; e.target.classList.add('bg-white'); }}
+              onBlur={(e) => { e.target.size = 1; e.target.classList.remove('bg-white'); }}
+              onChangeCapture={(e: any) => e.target.size = 1}
+            >
+              {availablePropertyTypes.map(type => (
+                <option key={type} value={type.toLowerCase().replace(" ", "-")} className="py-2 px-1 rounded-lg hover:bg-ds-primary/10">{type}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Price Range */}
+          <div className="w-full lg:w-1/4 flex gap-4">
+            <div className="flex-1">
+              <label className="block text-[10px] font-black mb-2.5 uppercase tracking-[0.15em] text-ds-primary/60">Min Price</label>
+              <div className="relative group">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] font-bold text-ds-primary/40">$</span>
+                <input
+                  type="text"
+                  placeholder="0"
+                  value={formatPrice(priceRange.min)}
+                  onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value.replace(/[^0-9]/g, "") })}
+                  className="w-full py-3.5 pl-8 pr-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all duration-300 placeholder:text-ds-body/30"
+                />
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="block text-[10px] font-black mb-2.5 uppercase tracking-[0.15em] text-ds-primary/60">Max Price</label>
+              <div className="relative group">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] font-bold text-ds-primary/40">$</span>
+                <input
+                  type="text"
+                  placeholder="Any"
+                  value={formatPrice(priceRange.max)}
+                  onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value.replace(/[^0-9]/g, "") })}
+                  className="w-full py-3.5 pl-8 pr-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all duration-300 placeholder:text-ds-body/30"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Beds & Baths */}
+          <div className="w-full lg:w-1/5 flex gap-4">
+            <div className="flex-1">
+              <label className="block text-[10px] font-black mb-2.5 uppercase tracking-[0.15em] text-ds-primary/60">Beds</label>
+              <select
+                value={bedrooms}
+                onChange={(e) => setBedrooms(e.target.value)}
+                className="w-full py-3.5 px-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all duration-300 cursor-pointer"
+              >
+                <option value="all">Any</option>
+                <option value="1+">1+</option>
+                <option value="2+">2+</option>
+                <option value="3+">3+</option>
+                <option value="4+">4+</option>
+                <option value="5+">5+</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-[10px] font-black mb-2.5 uppercase tracking-[0.15em] text-ds-primary/60">Baths</label>
+              <select
+                value={bathrooms}
+                onChange={(e) => setBathrooms(e.target.value)}
+                className="w-full py-3.5 px-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all duration-300 cursor-pointer"
+              >
+                <option value="all">Any</option>
+                <option value="1+">1+</option>
+                <option value="2+">2+</option>
+                <option value="3+">3+</option>
+                <option value="4+">4+</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="w-full lg:w-auto flex flex-col sm:flex-row items-center gap-3">
+            <button
+              onClick={handleClearFilters}
+              title="Reset all filters"
+              className="h-[52px] px-4 border border-ds-card-border rounded-2xl text-ds-body hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-all duration-300 flex items-center justify-center group"
+            >
+              <RotateCcw className="w-4 h-4 group-hover:rotate-[-120deg] transition-transform duration-500" />
+            </button>
+            <button
+              onClick={() => setShowMore(!showMore)}
+              className={`h-[52px] px-5 border rounded-2xl text-[13px] font-bold transition-all duration-300 flex items-center justify-center gap-2 group whitespace-nowrap ${showMore ? 'bg-ds-primary/10 border-ds-primary/30 text-ds-primary' : 'bg-white/50 border-ds-card-border text-ds-body hover:bg-white hover:border-ds-primary/30 hover:text-ds-primary'
+                }`}
+            >
+              <SlidersHorizontal className={`w-4 h-4 transition-transform duration-500 ${showMore ? 'rotate-180' : ''}`} />
+              {showMore ? "Fewer" : "More"}
+            </button>
+            <button
+              onClick={handleApply}
+              disabled={isLoading}
+              className="w-full lg:w-auto h-[52px] px-10 bg-gradient-to-r from-ds-primary to-ds-primary/80 text-white rounded-2xl font-black text-[13px] uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] hover:shadow-[0_12px_24px_rgba(var(--primary-rgb),0.3)] transition-all duration-300 active:scale-[0.98] disabled:opacity-50"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Search
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* More Filters Section */}
+        {showMore && (
+          <div className="mt-8 pt-8 border-t border-ds-card-border/50 animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 items-end">
+              {/* Square Footage */}
+              <div className="flex flex-col gap-2.5">
+                <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-ds-primary/60">Living Space</label>
+                <div className="flex gap-4">
+                  <div className="flex-1 relative group">
+                    <input
+                      type="text"
+                      placeholder="Min sqft"
+                      value={formatNumber(squareFootage.min)}
+                      onChange={(e) => setSquareFootage({ ...squareFootage, min: e.target.value.replace(/[^0-9]/g, "") })}
+                      className="w-full py-3.5 px-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all placeholder:text-ds-body/30"
+                    />
+                  </div>
+                  <div className="flex-1 relative group">
+                    <input
+                      type="text"
+                      placeholder="Max sqft"
+                      value={formatNumber(squareFootage.max)}
+                      onChange={(e) => setSquareFootage({ ...squareFootage, max: e.target.value.replace(/[^0-9]/g, "") })}
+                      className="w-full py-3.5 px-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all placeholder:text-ds-body/30"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Lot Size */}
+              <div className="flex flex-col gap-2.5">
+                <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-ds-primary/60">Lot Size</label>
+                <div className="flex gap-4">
+                  <div className="flex-1 relative group">
+                    <input
+                      type="text"
+                      placeholder="Min sqft"
+                      value={formatNumber(lotSize.min)}
+                      onChange={(e) => setLotSize({ ...lotSize, min: e.target.value.replace(/[^0-9]/g, "") })}
+                      className="w-full py-3.5 px-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all placeholder:text-ds-body/30"
+                    />
+                  </div>
+                  <div className="flex-1 relative group">
+                    <input
+                      type="text"
+                      placeholder="Max sqft"
+                      value={formatNumber(lotSize.max)}
+                      onChange={(e) => setLotSize({ ...lotSize, max: e.target.value.replace(/[^0-9]/g, "") })}
+                      className="w-full py-3.5 px-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all placeholder:text-ds-body/30"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Results Limit */}
+              <div className="flex flex-col gap-2.5">
+                <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-ds-primary/60">Results Yield</label>
+                <select
+                  value={limit}
+                  onChange={(e) => setLimit(e.target.value)}
+                  className="w-full py-3.5 px-5 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all bg-white cursor-pointer hover:bg-white"
+                >
+                  <option value="10">10 properties</option>
+                  <option value="25">25 properties</option>
+                  <option value="50">50 properties</option>
+                  <option value="100">100 properties</option>
+                </select>
+              </div>
+
+              {/* Clear All */}
+              <div className="flex items-center">
+                <button
+                  onClick={handleClearFilters}
+                  className="w-full lg:w-auto h-[52px] px-8 border border-ds-card-border rounded-2xl text-[13px] font-bold text-ds-body hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-all duration-300 flex items-center justify-center gap-3 group"
+                >
+                  <RotateCcw className="w-4 h-4 group-hover:rotate-[-120deg] transition-transform duration-500" />
+                  Reset All
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className="w-full max-h-[calc(100vh-12rem)] flex flex-col rounded-2xl overflow-hidden"
@@ -474,6 +703,7 @@ export default function PropertyFilter({
         style={{
           scrollbarWidth: "thin",
           scrollbarColor: `${colors.cardsBoarder} transparent`,
+          overscrollBehavior: "contain",
         }}
       >
         {/* Results Limit */}

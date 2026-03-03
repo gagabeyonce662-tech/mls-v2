@@ -120,8 +120,16 @@ export default function HomePage() {
     load();
   }, [selectedProvince, getProvinceName]);
 
-  const handlePropertiesUpdate = (newProperties: Property[]) =>
+  const handlePropertiesUpdate = (newProperties: Property[], query: string = "") => {
     setProperties(newProperties);
+    setSearchResults(newProperties);
+    setSearchQuery(query || "Filtered Properties");
+
+    // Optional: Scroll to results on mobile
+    if (window.innerWidth < 1024) {
+      window.scrollTo({ top: 400, behavior: "smooth" });
+    }
+  };
 
   const handleSearchResults = (results: Property[], query: string = "") => {
     setSearchResults(results);
@@ -148,56 +156,50 @@ export default function HomePage() {
           onSearchResults={handleSearchResults}
         />
 
-        <Container className="section-gap-sm">
+        <Container className="section-gap-sm px-4 lg:px-8">
           <FeaturedCollections />
         </Container>
 
-        <Container className="flex relative gap-0 w-full section-gap">
-          <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0">
-            <div
-              className="sticky top-4 h-[calc(100vh-80px)] overflow-y-auto"
-              style={{
-                borderRight: `1px solid ${colors.boarder}`,
-                paddingRight: "12px",
-              }}
-            >
-              <PropertyFilter onPropertiesUpdate={handlePropertiesUpdate} />
-            </div>
-          </aside>
+        <Container className="w-full section-gap px-4 lg:px-8">
+          <div className="w-full">
+            <PropertyFilter
+              onPropertiesUpdate={handlePropertiesUpdate}
+              variant="horizontal"
+            />
 
-          <main className="flex-1 min-w-0 px-0 lg:px-4">
-            {searchQuery && (
-              <div className="mt-6">
+            <div className="space-y-16">
+              {searchQuery && (
                 <SearchResults
                   properties={searchResults}
                   isLoading={isSearching}
                   searchQuery={searchQuery}
                   onClearSearch={handleClearSearch}
                 />
-              </div>
-            )}
-            <NewlyListedListings
-              searchQuery={searchQuery || "Latest Properties"}
-              showLimit={6}
-            />
+              )}
 
-            <FeaturedListings
-              properties={properties}
-              searchQuery={
-                selectedProvince
-                  ? `Exclusive in ${getProvinceName(selectedProvince)}`
-                  : "Exclusive Properties"
-              }
-            />
-            <RentalProperties
-              properties={rentalProperties}
-              isLoading={isLoadingRentals}
-            />
-            <PreConstructionProperties
-              properties={preConnProperties}
-              isLoading={isLoadingPreConn}
-            />
-          </main>
+              <NewlyListedListings
+                searchQuery={searchQuery || "Latest Properties"}
+                showLimit={8}
+              />
+
+              <FeaturedListings
+                properties={properties}
+                searchQuery={
+                  selectedProvince
+                    ? `Exclusive in ${getProvinceName(selectedProvince)}`
+                    : "Exclusive Properties"
+                }
+              />
+              <RentalProperties
+                properties={rentalProperties}
+                isLoading={isLoadingRentals}
+              />
+              <PreConstructionProperties
+                properties={preConnProperties}
+                isLoading={isLoadingPreConn}
+              />
+            </div>
+          </div>
         </Container>
 
         <Container className="section-gap">

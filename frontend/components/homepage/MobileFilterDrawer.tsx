@@ -16,6 +16,17 @@ export default function MobileFilterDrawer({
   onClose,
   onPropertiesUpdate,
 }: MobileFilterDrawerProps) {
+  React.useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [open]);
+
   return (
     <div
       aria-hidden={!open}
@@ -37,7 +48,10 @@ export default function MobileFilterDrawer({
             Close
           </button>
         </div>
-        <div className="p-3 overflow-y-auto h-[calc(100%-60px)]">
+        <div
+          className="p-3 overflow-y-auto h-[calc(100%-60px)]"
+          style={{ overscrollBehavior: "contain" }}
+        >
           <PropertyFilter onPropertiesUpdate={onPropertiesUpdate} />
         </div>
       </aside>
