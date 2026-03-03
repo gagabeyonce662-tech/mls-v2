@@ -19,6 +19,7 @@ import PropertyDetailsGrid from "@/components/listing/details/PropertyDetailsGri
 import PropertySidebar from "@/components/listing/details/PropertySidebar";
 import SimilarProperties from "@/components/listing/SimilarProperties";
 import { PropertyViewerTracker } from "@/components/listing/PropertyViewerTracker";
+import { MortgageCalculator } from "@/components/ui/MortgageCalculator";
 
 interface ListingPageProps {
   params: Promise<{
@@ -83,10 +84,10 @@ export default async function ListingPage(props: ListingPageProps) {
     {
       date: property.ModificationTimestamp
         ? new Date(property.ModificationTimestamp).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          })
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
         : "Recent",
       event: property.StandardStatus || property.standard_status || "Listed",
       price: getPrice(),
@@ -148,6 +149,18 @@ export default async function ListingPage(props: ListingPageProps) {
             </section>
 
             <PropertyHistory history={history} />
+
+            {/* Mortgage Calculator Section */}
+            <section className="bg-white border border-ds-card-border rounded-2xl p-8 shadow-sm">
+              <div className="max-w-3xl">
+                <h2 className={`${ds.h3} mb-6 text-2xl`}>Mortgage Calculator</h2>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-start">
+                  <div className="xl:col-span-2">
+                    <MortgageCalculator initialPrice={typeof property.list_price === 'number' ? property.list_price : parseFloat(String(property.list_price || property.ListPrice || '0'))} />
+                  </div>
+                </div>
+              </div>
+            </section>
 
             <PropertyDetailsGrid
               property={property}
