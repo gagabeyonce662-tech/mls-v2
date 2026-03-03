@@ -13,6 +13,7 @@ interface SearchResultsProps {
   searchQuery: string;
   onClearSearch: () => void;
   onQuickView?: (property: Property) => void;
+  totalCount?: number;
 }
 
 export default function SearchResults({
@@ -21,6 +22,7 @@ export default function SearchResults({
   searchQuery,
   onClearSearch,
   onQuickView,
+  totalCount,
 }: SearchResultsProps) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -161,7 +163,7 @@ export default function SearchResults({
             <p style={{ color: colors.body }}>
               {isLoading
                 ? "Searching properties..."
-                : `${properties.length} properties found for "${searchQuery}"`}
+                : `${totalCount || properties.length} properties found for "${searchQuery}"`}
             </p>
           </div>
 
@@ -233,8 +235,8 @@ export default function SearchResults({
         {/* Grid */}
         {!isLoading && properties.length > 0 && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {properties.slice(0, 6).map((property) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {properties.slice(0, 4).map((property) => {
                 const propertyKey = getPropertyKey(property);
                 const displayPrice = getDisplayPrice(property);
                 const displayCity = getDisplayCity(property);

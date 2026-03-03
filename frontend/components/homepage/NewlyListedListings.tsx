@@ -20,6 +20,7 @@ export default function NewlyListedListings({
   onQuickView,
 }: NewlyListedListingsProps) {
   const [properties, setProperties] = useState<Property[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
 
@@ -35,6 +36,7 @@ export default function NewlyListedListings({
               : undefined,
         });
         setProperties(response.results || []);
+        setTotalCount(response.count || (response.results || []).length);
       } catch (error) {
         console.error("Error fetching newly listed properties:", error);
         setIsError(true);
@@ -60,10 +62,10 @@ export default function NewlyListedListings({
                 {searchQuery || "Newly Listed Properties"}
               </h2>
             </div>
-            <p style={{ color: colors.body }}>
+            <p className="text-sm" style={{ color: colors.body }}>
               {isLoading
                 ? "Finding new listings..."
-                : `${properties.length} new properties available`}
+                : `${totalCount} new properties available`}
             </p>
           </div>
 
@@ -98,7 +100,7 @@ export default function NewlyListedListings({
         )}
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {isLoading
             ? [...Array(showLimit)].map((_, i) => (
               <div

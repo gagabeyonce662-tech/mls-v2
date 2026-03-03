@@ -34,7 +34,7 @@ export function PropertyCardContent({ property }: PropertyCardContentProps) {
     <div className="p-4">
       {/* Price */}
       <p
-        className="text-xl font-bold mb-1"
+        className="text-lg font-bold mb-1"
         style={{ color: price > 0 ? colors.primary : colors.body }}
       >
         {formatPrice(price)}

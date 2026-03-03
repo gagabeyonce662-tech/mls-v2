@@ -14,6 +14,7 @@ interface FeaturedListingsProps {
   searchQuery: string;
   isLoading?: boolean;
   onQuickView?: (property: Property) => void;
+  totalCount?: number;
 }
 
 export default function FeaturedListings({
@@ -22,6 +23,7 @@ export default function FeaturedListings({
   properties: propsProperties,
   isLoading: propsIsLoading,
   onQuickView,
+  totalCount: propsTotalCount,
 }: FeaturedListingsProps) {
   const {
     data: hookProperties = [],
@@ -34,6 +36,7 @@ export default function FeaturedListings({
   });
 
   const properties = propsProperties || hookProperties;
+  const totalCount = propsTotalCount !== undefined ? propsTotalCount : (hookProperties as any).count || properties.length;
   const isLoading =
     propsIsLoading !== undefined ? propsIsLoading : hookIsLoading;
   const showLoadingSkeletons =
@@ -53,10 +56,10 @@ export default function FeaturedListings({
                 ? `Properties in ${searchQuery}`
                 : "Featured Properties"}
             </h2>
-            <p style={{ color: colors.body }}>
+            <p className="text-sm" style={{ color: colors.body }}>
               {showLoadingSkeletons
                 ? "Finding properties..."
-                : `${properties.length} properties found`}
+                : `${totalCount} properties found`}
             </p>
           </div>
 
@@ -91,9 +94,9 @@ export default function FeaturedListings({
         )}
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {showLoadingSkeletons
-            ? [...Array(6)].map((_, i) => (
+            ? [...Array(4)].map((_, i) => (
               <div
                 key={`skeleton-${i}`}
                 className="rounded-2xl overflow-hidden animate-pulse"
@@ -135,7 +138,7 @@ export default function FeaturedListings({
             ))
             : properties.length > 0
               ? properties
-                .slice(0, 6)
+                .slice(0, 4)
                 .map((property, index) => (
                   <PropertyCard
                     key={
