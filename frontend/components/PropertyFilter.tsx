@@ -378,7 +378,7 @@ export default function PropertyFilter({
   if (variant === "horizontal") {
     return (
       <div
-        className="w-full backdrop-blur-xl bg-white/80 border border-white/40 rounded-[32px] p-6 lg:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] mb-12 relative z-30 transition-all duration-500"
+        className="w-full backdrop-blur-xl bg-white/80 border border-white/40 rounded-[32px] p-6 lg:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)]  relative z-30 transition-all duration-500"
       >
         <div className="flex flex-col lg:flex-row items-end gap-6 lg:gap-8">
           {/* City Search */}

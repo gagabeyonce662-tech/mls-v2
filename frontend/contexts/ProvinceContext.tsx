@@ -32,18 +32,17 @@ const ProvinceContext = createContext<ProvinceContextType | undefined>(
 );
 
 export function ProvinceProvider({ children }: { children: React.ReactNode }) {
-  const [selectedProvince, setSelectedProvince] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const savedProvince = localStorage.getItem("selectedProvince");
-      if (
-        savedProvince &&
-        CANADIAN_PROVINCES.some((p) => p.code === savedProvince)
-      ) {
-        return savedProvince;
-      }
+  const [selectedProvince, setSelectedProvince] = useState<string>("ON");
+
+  useEffect(() => {
+    const savedProvince = localStorage.getItem("selectedProvince");
+    if (
+      savedProvince &&
+      CANADIAN_PROVINCES.some((p) => p.code === savedProvince)
+    ) {
+      setSelectedProvince(savedProvince);
     }
-    return "ON";
-  }); // Default to Ontario
+  }, []);
 
   // Save province to localStorage whenever it changes
 

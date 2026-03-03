@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function LocationsSection() {
   const locations = [
@@ -55,10 +56,11 @@ export default function LocationsSection() {
           {" "}
           {/* was gap-8 */}
           {marqueeLocations.map((location, i) => (
-            <div
+            <Link
               key={`${location.id}-${i}`}
+              href={`/listing?city=${encodeURIComponent(location.name)}`}
               className="relative h-72 w-64 rounded-xl overflow-hidden shadow-lg cursor-pointer group flex-shrink-0"
-              /* was h-80 w-72 + very large card */
+            /* was h-80 w-72 + very large card */
             >
               <Image
                 src={location.image}
@@ -75,7 +77,7 @@ export default function LocationsSection() {
                   {location.name}
                 </h3>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

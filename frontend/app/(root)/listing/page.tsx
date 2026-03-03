@@ -21,6 +21,8 @@ import { CompareBar } from "@/components/listing/CompareBar";
 import { CompareModal } from "@/components/listing/CompareModal";
 import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
 
+import { useSearchParams } from "next/navigation";
+
 export default function ListingsPage() {
   const router = useRouter();
   const { user } = useUserAuth();
@@ -35,9 +37,12 @@ export default function ListingsPage() {
     setShowQuickView(true);
   }, []);
 
+  const searchParams = useSearchParams();
+  const initialCity = searchParams.get("city") || "";
+
   // Search state
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentCity, setCurrentCity] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialCity);
+  const [currentCity, setCurrentCity] = useState(initialCity);
 
   // Compare state from context
   const {
