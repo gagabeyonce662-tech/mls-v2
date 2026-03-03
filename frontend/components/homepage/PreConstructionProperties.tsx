@@ -10,12 +10,14 @@ interface PreConstructionPropertiesProps {
   searchQuery?: string;
   properties: any[];
   isLoading: boolean;
+  onQuickView?: (property: any) => void;
 }
 
 export default function PreConstructionProperties({
   searchQuery,
   properties,
   isLoading,
+  onQuickView,
 }: PreConstructionPropertiesProps) {
   const showLoadingSkeletons = isLoading;
 
@@ -111,6 +113,7 @@ export default function PreConstructionProperties({
                     property={property}
                     variant="featured"
                     index={index}
+                    onQuickView={onQuickView}
                   />
                 ))
               : !showLoadingSkeletons && (

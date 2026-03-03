@@ -11,11 +11,13 @@ import PropertyCard from "@/components/PropertyCard";
 interface NewlyListedListingsProps {
   searchQuery?: string;
   showLimit?: number;
+  onQuickView?: (property: Property) => void;
 }
 
 export default function NewlyListedListings({
   searchQuery = "",
   showLimit = 6,
+  onQuickView,
 }: NewlyListedListingsProps) {
   const [properties, setProperties] = useState<Property[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -151,6 +153,7 @@ export default function NewlyListedListings({
                     property={property}
                     variant="new"
                     index={index}
+                    onQuickView={onQuickView}
                   />
                 ))
               : !isLoading && (

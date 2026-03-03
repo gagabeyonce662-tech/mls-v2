@@ -12,6 +12,7 @@ interface SearchResultsProps {
   isLoading: boolean;
   searchQuery: string;
   onClearSearch: () => void;
+  onQuickView?: (property: Property) => void;
 }
 
 export default function SearchResults({
@@ -19,6 +20,7 @@ export default function SearchResults({
   isLoading,
   searchQuery,
   onClearSearch,
+  onQuickView,
 }: SearchResultsProps) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -33,8 +35,7 @@ export default function SearchResults({
     return (
       (property as any).listing_key ||
       (property as any).PropertyKey ||
-      `search-${(property as any).city || (property as any).City || "unknown"}-${
-        (property as any).ListPrice || (property as any).list_price || "0"
+      `search-${(property as any).city || (property as any).City || "unknown"}-${(property as any).ListPrice || (property as any).list_price || "0"
       }`
     );
   };

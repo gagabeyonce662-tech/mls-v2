@@ -141,14 +141,13 @@ export const PropertyQuickViewModal = ({
             >
               {formatPrice(price)}
             </h2>
-            <div className="flex gap-2">
+            <div className="flex gap-2 md:mr-16">
               <button
                 onClick={() => toggleFavorite(property)}
-                className={`p-2.5 rounded-xl border transition-all ${
-                  isSaved
+                className={`p-2.5 rounded-xl border transition-all ${isSaved
                     ? "bg-red-50 border-red-100 text-red-500"
                     : "bg-white border-ds-card-border text-ds-body hover:border-red-200 hover:text-red-400"
-                }`}
+                  }`}
               >
                 <Heart className={`w-5 h-5 ${isSaved ? "fill-current" : ""}`} />
               </button>
@@ -241,11 +240,10 @@ export const PropertyQuickViewModal = ({
             <button
               onClick={handleAddToCompare}
               disabled={isSelected}
-              className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold transition-all border ${
-                isSelected
+              className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold transition-all border ${isSelected
                   ? "bg-emerald-50 border-emerald-100 text-emerald-600 disabled:opacity-100"
                   : "bg-white border-ds-card-border text-ds-heading hover:bg-gray-50"
-              }`}
+                }`}
             >
               {isSelected ? (
                 <>
@@ -267,7 +265,7 @@ export const PropertyQuickViewModal = ({
           onClick={onClose}
           className="absolute top-8 right-8 z-20 hidden md:flex items-center justify-center w-12 h-12 rounded-full bg-white border border-ds-card-border shadow-xl hover:bg-gray-50 transition-all active:scale-95 group"
         >
-          <X className="w-6 h-6 text-ds-heading group-hover:rotate-90 transition-transform" />
+          <X className="w-6 h-6 text-ds-heading transition-transform" />
         </button>
       </div>
 

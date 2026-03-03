@@ -27,6 +27,7 @@ import {
 import { useProvince } from "@/contexts/ProvinceContext";
 
 import MobileFilterDrawer from "@/components/homepage/MobileFilterDrawer";
+import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
 
 export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -46,6 +47,15 @@ export default function HomePage() {
   const prevProvinceRef = useRef<string | null>(null);
 
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [quickViewOpen, setQuickViewOpen] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(
+    null,
+  );
+
+  const handleQuickView = (property: Property) => {
+    setSelectedProperty(property);
+    setQuickViewOpen(true);
+  };
 
   useEffect(() => {
     if (hasInitialLoadCompleted.current) return;
@@ -174,12 +184,14 @@ export default function HomePage() {
                   isLoading={isSearching}
                   searchQuery={searchQuery}
                   onClearSearch={handleClearSearch}
+                  onQuickView={handleQuickView}
                 />
               )}
 
               <NewlyListedListings
                 searchQuery={searchQuery || "Latest Properties"}
                 showLimit={8}
+                onQuickView={handleQuickView}
               />
 
               <FeaturedListings
@@ -189,14 +201,17 @@ export default function HomePage() {
                     ? `Exclusive in ${getProvinceName(selectedProvince)}`
                     : "Exclusive Properties"
                 }
+                onQuickView={handleQuickView}
               />
               <RentalProperties
                 properties={rentalProperties}
                 isLoading={isLoadingRentals}
+                onQuickView={handleQuickView}
               />
               <PreConstructionProperties
                 properties={preConnProperties}
                 isLoading={isLoadingPreConn}
+                onQuickView={handleQuickView}
               />
             </div>
           </div>
@@ -239,6 +254,12 @@ export default function HomePage() {
           setMobileFilterOpen(false);
           handlePropertiesUpdate(newProps);
         }}
+      />
+
+      <PropertyQuickViewModal
+        show={quickViewOpen}
+        property={selectedProperty}
+        onClose={() => setQuickViewOpen(false)}
       />
     </div>
   );
