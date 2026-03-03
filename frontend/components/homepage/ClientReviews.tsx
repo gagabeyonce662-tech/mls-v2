@@ -173,46 +173,9 @@ export default function ClientReviews() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {reviews.map((review) => (
-            <div
-              key={review.id}
-              className="bg-white rounded-xl shadow-md p-6 space-y-4"
-            >
-              <div className="flex items-center gap-4">
-                <Image
-                  src={review.avatar}
-                  alt={review.name}
-                  width={56}
-                  height={56}
-                  className="w-14 h-14 rounded-full object-cover"
-                />
-                <div>
-                  <h3 className="text-ds-text text-ds-heading font-inter">
-                    {review.name}
-                  </h3>
-                  <p className="text-ds-small-regular text-ds-body font-inter">
-                    {review.location}
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-1">
-                {[...Array(review.rating)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className="w-5 h-5 fill-yellow-400 text-yellow-400"
-                  />
-                ))}
-              </div>
-              <p className="text-ds-body-regular text-ds-body leading-relaxed font-inter">
-                {review.text}
-              </p>
-        {/* 🎭 Horizontal Scrolling Container */}
-        <div className="relative -mx-4 px-4 overflow-x-auto pb-4 hide-scrollbar scroll-smooth">
-          <div className="flex items-stretch gap-4 w-max">
-            {reviews.map((review, index) => (
-              <ReviewCard key={review.id} review={review} index={index} />
-            ))}
-          </div>
+          {reviews.map((review, index) => (
+            <ReviewCard key={review.id} review={review} index={index} />
+          ))}
         </div>
 
         {/* 🏢 Trust Indicator */}
@@ -232,15 +195,6 @@ export default function ClientReviews() {
         </div>
       </div>
 
-      <style jsx>{`
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
     </section>
   );
 }
