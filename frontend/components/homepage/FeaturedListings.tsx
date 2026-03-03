@@ -13,6 +13,7 @@ interface FeaturedListingsProps {
   properties?: Property[];
   searchQuery: string;
   isLoading?: boolean;
+  onQuickView?: (property: Property) => void;
 }
 
 export default function FeaturedListings({
@@ -20,6 +21,7 @@ export default function FeaturedListings({
   searchQuery,
   properties: propsProperties,
   isLoading: propsIsLoading,
+  onQuickView,
 }: FeaturedListingsProps) {
   const {
     data: hookProperties = [],
@@ -144,6 +146,7 @@ export default function FeaturedListings({
                     property={property}
                     variant="featured"
                     index={index}
+                    onQuickView={onQuickView}
                   />
                 ))
               : !showLoadingSkeletons && (

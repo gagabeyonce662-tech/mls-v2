@@ -10,12 +10,14 @@ interface RentalPropertiesProps {
   searchQuery?: string;
   properties: any[];
   isLoading: boolean;
+  onQuickView?: (property: any) => void;
 }
 
 export default function RentalProperties({
   searchQuery,
   properties,
   isLoading,
+  onQuickView,
 }: RentalPropertiesProps) {
   const showLoadingSkeletons = isLoading;
 
@@ -109,6 +111,7 @@ export default function RentalProperties({
                     property={property}
                     variant="featured"
                     index={index}
+                    onQuickView={onQuickView}
                   />
                 ))
               : !showLoadingSkeletons && (
