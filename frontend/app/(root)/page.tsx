@@ -120,8 +120,16 @@ export default function HomePage() {
     load();
   }, [selectedProvince, getProvinceName]);
 
-  const handlePropertiesUpdate = (newProperties: Property[]) =>
+  const handlePropertiesUpdate = (newProperties: Property[], query: string = "") => {
     setProperties(newProperties);
+    setSearchResults(newProperties);
+    setSearchQuery(query || "Filtered Properties");
+
+    // Optional: Scroll to results on mobile
+    if (window.innerWidth < 1024) {
+      window.scrollTo({ top: 400, behavior: "smooth" });
+    }
+  };
 
   const handleSearchResults = (results: Property[], query: string = "") => {
     setSearchResults(results);

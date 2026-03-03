@@ -474,6 +474,7 @@ export default function PropertyFilter({
         style={{
           scrollbarWidth: "thin",
           scrollbarColor: `${colors.cardsBoarder} transparent`,
+          overscrollBehavior: "contain",
         }}
       >
         {/* Results Limit */}
