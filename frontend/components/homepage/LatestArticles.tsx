@@ -33,6 +33,16 @@ export default function LatestArticles() {
       image:
         "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&q=80",
     },
+    {
+      id: 4,
+      title: "Maximizing Your Property Value Before Selling",
+      category: "SELLING",
+      date: "October 15, 2025",
+      excerpt:
+        "Simple upgrades and staging tips that can significantly increase your home's appeal and market price.",
+      image:
+        "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=400&q=80",
+    },
   ];
 
   return (
