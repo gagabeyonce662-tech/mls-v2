@@ -46,6 +46,7 @@ export default function NewListingPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<FormDataInputs>({
     defaultValues: {
@@ -58,6 +59,28 @@ export default function NewListingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+
+  const autoFill = () => {
+    setValue("unparsed_address", "123 Test Street");
+    setValue("city", "Toronto");
+    setValue("postal_code", "M5V 2N8");
+    setValue("list_price", 1200000);
+    setValue("bedrooms_total", 3);
+    setValue("bathrooms_total_integer", 2);
+    setValue("building_area_total", 1500);
+    setValue(
+      "public_remarks",
+      "This is a stunning test property featuring modern finishes, spacious living areas, and premium appliances. Perfect for families looking for a turnkey home in a prime neighborhood.",
+    );
+    setValue("property_sub_type", "Detached");
+    setValue("state_or_province", "ON");
+    setValue("standard_status", "Active");
+
+    toast({
+      title: "Form Auto-filled",
+      description: "Dummy data has been populated for testing.",
+    });
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -143,24 +166,37 @@ export default function NewListingPage() {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12"
       >
-        <div className="flex items-center gap-6">
-          <Link
-            href="/admin/listings"
-            className="p-4 bg-white hover:bg-ds-card text-ds-heading rounded-2xl border border-ds-card-border shadow-xl hover:shadow-2xl transition-all group"
-          >
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          </Link>
-          <div>
-            <h1 className="text-4xl font-black text-ds-heading tracking-tight">
-              Create Listing
-            </h1>
-            <p className="text-ds-body font-medium flex items-center gap-2 mt-1 opacity-70">
-              <Building2 className="w-4 h-4" />
-              Add a new property to the exclusive registry
-            </p>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
+          <div className="flex items-center gap-6">
+            <Link
+              href="/admin/listings"
+              className="p-4 bg-white hover:bg-ds-card text-ds-heading rounded-2xl border border-ds-card-border shadow-xl hover:shadow-2xl transition-all group"
+            >
+              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            </Link>
+            <div>
+              <h1 className="text-4xl font-black text-ds-heading tracking-tight">
+                Create Listing
+              </h1>
+              <p className="text-ds-body font-medium flex items-center gap-2 mt-1 opacity-70">
+                <Building2 className="w-4 h-4" />
+                Add a new property to the exclusive registry
+              </p>
+            </div>
           </div>
+
+          {/* Development Auto-fill Button */}
+          {process.env.NODE_ENV === "development" && (
+            <button
+              type="button"
+              onClick={autoFill}
+              className="flex items-center gap-2 px-6 py-3 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl font-bold hover:bg-amber-100 transition-all shadow-sm active:scale-95"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Auto-fill Test Data
+            </button>
+          )}
         </div>
       </motion.div>
 
