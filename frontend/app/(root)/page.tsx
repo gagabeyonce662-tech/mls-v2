@@ -177,7 +177,7 @@ export default function HomePage() {
           <FeaturedCollections />
         </Container>
 
-        <Container className="w-full section-gap px-4 lg:px-8">
+        <div className="w-full section-gap px-4 lg:px-6">
           <div className="w-full">
             <PropertyFilter
               onPropertiesUpdate={handlePropertiesUpdate}
@@ -225,7 +225,7 @@ export default function HomePage() {
               />
             </div>
           </div>
-        </Container>
+        </div>
 
         <Container className="section-gap">
           <LocationsSection />

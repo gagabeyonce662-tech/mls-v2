@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import {
-  Sparkles,
+  Search,
   SlidersHorizontal,
   RotateCcw,
   Home,
@@ -11,6 +11,7 @@ import {
   Bath,
   Maximize2,
   LandPlot,
+  Sparkles,
 } from "lucide-react";
 import { colors } from "@/config/design-system";
 import {
@@ -378,224 +379,222 @@ export default function PropertyFilter({
   if (variant === "horizontal") {
     return (
       <div
-        className="w-full backdrop-blur-xl bg-white/80 border border-white/40 rounded-[32px] p-6 lg:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)]  relative z-30 transition-all duration-500"
+        className="w-full relative z-30 overflow-hidden rounded-xl transition-all duration-500"
+        style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1a2f5a 100%)' }}
       >
-        <div className="flex flex-col lg:flex-row items-end gap-6 lg:gap-8">
-          {/* City Search */}
-          <div className="w-full lg:w-1/5">
-            <label className="block text-[10px] font-black mb-2.5 uppercase tracking-[0.15em] text-ds-primary/60">Location</label>
-            <div className="relative group">
-              <input
-                type="text"
-                placeholder="City (e.g. Toronto)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full py-3.5 px-5 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all duration-300 placeholder:text-ds-body/30"
-              />
-            </div>
-          </div>
+        {/* Subtle decorative gradient orb */}
+        <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full opacity-20 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, #3b82f6, transparent)' }} />
+        <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, #60a5fa, transparent)' }} />
 
-          {/* Property Type */}
-          <div className="w-full lg:w-1/5">
-            <label className="block text-[10px] font-black mb-2.5 uppercase tracking-[0.15em] text-ds-primary/60">Property Type</label>
-            <select
-              multiple
-              value={propertyType}
-              onChange={(e) => {
-                const options = Array.from(e.target.selectedOptions, option => option.value);
-                setPropertyType(options);
-              }}
-              className="w-full py-3.5 px-5 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all duration-300 appearance-none min-h-[48px] cursor-pointer scrollbar-hide"
-              size={1}
-              onFocus={(e) => { e.target.size = 5; e.target.classList.add('bg-white'); }}
-              onBlur={(e) => { e.target.size = 1; e.target.classList.remove('bg-white'); }}
-              onChangeCapture={(e: any) => e.target.size = 1}
-            >
-              {availablePropertyTypes.map(type => (
-                <option key={type} value={type.toLowerCase().replace(" ", "-")} className="py-2 px-1 rounded-lg hover:bg-ds-primary/10">{type}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Price Range */}
-          <div className="w-full lg:w-1/4 flex gap-4">
-            <div className="flex-1">
-              <label className="block text-[10px] font-black mb-2.5 uppercase tracking-[0.15em] text-ds-primary/60">Min Price</label>
-              <div className="relative group">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] font-bold text-ds-primary/40">$</span>
+        <div className="relative p-4 lg:p-5">
+          <div className="flex flex-col lg:flex-row items-end gap-3">
+            {/* Location */}
+            <div className="w-full lg:w-1/5">
+              <label className="block text-[9px] font-semibold mb-1.5 uppercase tracking-widest text-white/40">Location</label>
+              <div className="relative">
+                <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
                 <input
                   type="text"
-                  placeholder="0"
-                  value={formatPrice(priceRange.min)}
-                  onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value.replace(/[^0-9]/g, "") })}
-                  className="w-full py-3.5 pl-8 pr-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all duration-300 placeholder:text-ds-body/30"
+                  placeholder="City (e.g. Toronto)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full py-2.5 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200"
                 />
               </div>
             </div>
-            <div className="flex-1">
-              <label className="block text-[10px] font-black mb-2.5 uppercase tracking-[0.15em] text-ds-primary/60">Max Price</label>
-              <div className="relative group">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] font-bold text-ds-primary/40">$</span>
-                <input
-                  type="text"
-                  placeholder="Any"
-                  value={formatPrice(priceRange.max)}
-                  onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value.replace(/[^0-9]/g, "") })}
-                  className="w-full py-3.5 pl-8 pr-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all duration-300 placeholder:text-ds-body/30"
-                />
-              </div>
-            </div>
-          </div>
 
-          {/* Beds & Baths */}
-          <div className="w-full lg:w-1/5 flex gap-4">
-            <div className="flex-1">
-              <label className="block text-[10px] font-black mb-2.5 uppercase tracking-[0.15em] text-ds-primary/60">Beds</label>
-              <select
-                value={bedrooms}
-                onChange={(e) => setBedrooms(e.target.value)}
-                className="w-full py-3.5 px-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all duration-300 cursor-pointer"
-              >
-                <option value="all">Any</option>
-                <option value="1+">1+</option>
-                <option value="2+">2+</option>
-                <option value="3+">3+</option>
-                <option value="4+">4+</option>
-                <option value="5+">5+</option>
-              </select>
-            </div>
-            <div className="flex-1">
-              <label className="block text-[10px] font-black mb-2.5 uppercase tracking-[0.15em] text-ds-primary/60">Baths</label>
-              <select
-                value={bathrooms}
-                onChange={(e) => setBathrooms(e.target.value)}
-                className="w-full py-3.5 px-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all duration-300 cursor-pointer"
-              >
-                <option value="all">Any</option>
-                <option value="1+">1+</option>
-                <option value="2+">2+</option>
-                <option value="3+">3+</option>
-                <option value="4+">4+</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="w-full lg:w-auto flex flex-col sm:flex-row items-center gap-3">
-            <button
-              onClick={handleClearFilters}
-              title="Reset all filters"
-              className="h-[52px] px-4 border border-ds-card-border rounded-2xl text-ds-body hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-all duration-300 flex items-center justify-center group"
-            >
-              <RotateCcw className="w-4 h-4 group-hover:rotate-[-120deg] transition-transform duration-500" />
-            </button>
-            <button
-              onClick={() => setShowMore(!showMore)}
-              className={`h-[52px] px-5 border rounded-2xl text-[13px] font-bold transition-all duration-300 flex items-center justify-center gap-2 group whitespace-nowrap ${showMore ? 'bg-ds-primary/10 border-ds-primary/30 text-ds-primary' : 'bg-white/50 border-ds-card-border text-ds-body hover:bg-white hover:border-ds-primary/30 hover:text-ds-primary'
-                }`}
-            >
-              <SlidersHorizontal className={`w-4 h-4 transition-transform duration-500 ${showMore ? 'rotate-180' : ''}`} />
-              {showMore ? "Fewer" : "More"}
-            </button>
-            <button
-              onClick={handleApply}
-              disabled={isLoading}
-              className="w-full lg:w-auto h-[52px] px-10 bg-gradient-to-r from-ds-primary to-ds-primary/80 text-white rounded-2xl font-black text-[13px] uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] hover:shadow-[0_12px_24px_rgba(var(--primary-rgb),0.3)] transition-all duration-300 active:scale-[0.98] disabled:opacity-50"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  Search
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* More Filters Section */}
-        {showMore && (
-          <div className="mt-8 pt-8 border-t border-ds-card-border/50 animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 items-end">
-              {/* Square Footage */}
-              <div className="flex flex-col gap-2.5">
-                <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-ds-primary/60">Living Space</label>
-                <div className="flex gap-4">
-                  <div className="flex-1 relative group">
-                    <input
-                      type="text"
-                      placeholder="Min sqft"
-                      value={formatNumber(squareFootage.min)}
-                      onChange={(e) => setSquareFootage({ ...squareFootage, min: e.target.value.replace(/[^0-9]/g, "") })}
-                      className="w-full py-3.5 px-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all placeholder:text-ds-body/30"
-                    />
-                  </div>
-                  <div className="flex-1 relative group">
-                    <input
-                      type="text"
-                      placeholder="Max sqft"
-                      value={formatNumber(squareFootage.max)}
-                      onChange={(e) => setSquareFootage({ ...squareFootage, max: e.target.value.replace(/[^0-9]/g, "") })}
-                      className="w-full py-3.5 px-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all placeholder:text-ds-body/30"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Lot Size */}
-              <div className="flex flex-col gap-2.5">
-                <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-ds-primary/60">Lot Size</label>
-                <div className="flex gap-4">
-                  <div className="flex-1 relative group">
-                    <input
-                      type="text"
-                      placeholder="Min sqft"
-                      value={formatNumber(lotSize.min)}
-                      onChange={(e) => setLotSize({ ...lotSize, min: e.target.value.replace(/[^0-9]/g, "") })}
-                      className="w-full py-3.5 px-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all placeholder:text-ds-body/30"
-                    />
-                  </div>
-                  <div className="flex-1 relative group">
-                    <input
-                      type="text"
-                      placeholder="Max sqft"
-                      value={formatNumber(lotSize.max)}
-                      onChange={(e) => setLotSize({ ...lotSize, max: e.target.value.replace(/[^0-9]/g, "") })}
-                      className="w-full py-3.5 px-4 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all placeholder:text-ds-body/30"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Results Limit */}
-              <div className="flex flex-col gap-2.5">
-                <label className="block text-[10px] font-black uppercase tracking-[0.15em] text-ds-primary/60">Results Yield</label>
+            {/* Property Type */}
+            <div className="w-full lg:w-1/5">
+              <label className="block text-[9px] font-semibold mb-1.5 uppercase tracking-widest text-white/40">Type</label>
+              <div className="relative">
+                <LandPlot className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none z-10" />
                 <select
-                  value={limit}
-                  onChange={(e) => setLimit(e.target.value)}
-                  className="w-full py-3.5 px-5 bg-white/50 border border-ds-card-border rounded-2xl text-[13px] font-medium focus:ring-4 focus:ring-ds-primary/10 focus:border-ds-primary/30 outline-none transition-all bg-white cursor-pointer hover:bg-white"
+                  multiple
+                  value={propertyType}
+                  onChange={(e) => {
+                    const options = Array.from(e.target.selectedOptions, option => option.value);
+                    setPropertyType(options);
+                  }}
+                  className="w-full py-2.5 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200 appearance-none min-h-[38px] cursor-pointer"
+                  size={1}
+                  onFocus={(e) => { e.target.size = 5; e.target.style.background = 'rgba(255,255,255,0.15)'; }}
+                  onBlur={(e) => { e.target.size = 1; e.target.style.background = ''; }}
+                  onChangeCapture={(e: any) => e.target.size = 1}
                 >
-                  <option value="10">10 properties</option>
-                  <option value="25">25 properties</option>
-                  <option value="50">50 properties</option>
-                  <option value="100">100 properties</option>
+                  {availablePropertyTypes.map(type => (
+                    <option key={type} value={type.toLowerCase().replace(" ", "-")} className="bg-[#1a2f5a] text-white py-1">{type}</option>
+                  ))}
                 </select>
               </div>
+            </div>
 
-              {/* Clear All */}
-              <div className="flex items-center">
-                <button
-                  onClick={handleClearFilters}
-                  className="w-full lg:w-auto h-[52px] px-8 border border-ds-card-border rounded-2xl text-[13px] font-bold text-ds-body hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-all duration-300 flex items-center justify-center gap-3 group"
-                >
-                  <RotateCcw className="w-4 h-4 group-hover:rotate-[-120deg] transition-transform duration-500" />
-                  Reset All
-                </button>
+            {/* Price Range */}
+            <div className="w-full lg:w-1/4 flex gap-2">
+              <div className="flex-1">
+                <label className="block text-[9px] font-semibold mb-1.5 uppercase tracking-widest text-white/40">Min Price</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+                  <input
+                    type="text"
+                    placeholder="0"
+                    value={formatPrice(priceRange.min)}
+                    onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value.replace(/[^0-9]/g, "") })}
+                    className="w-full py-2.5 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200"
+                  />
+                </div>
+              </div>
+              <div className="flex-1">
+                <label className="block text-[9px] font-semibold mb-1.5 uppercase tracking-widest text-white/40">Max Price</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+                  <input
+                    type="text"
+                    placeholder="Any"
+                    value={formatPrice(priceRange.max)}
+                    onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value.replace(/[^0-9]/g, "") })}
+                    className="w-full py-2.5 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200"
+                  />
+                </div>
               </div>
             </div>
+
+            {/* Beds & Baths */}
+            <div className="w-full lg:w-1/6 flex gap-2">
+              <div className="flex-1">
+                <label className="block text-[9px] font-semibold mb-1.5 uppercase tracking-widest text-white/40">Beds</label>
+                <div className="relative">
+                  <BedDouble className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
+                  <select
+                    value={bedrooms}
+                    onChange={(e) => setBedrooms(e.target.value)}
+                    className="w-full py-2.5 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200 cursor-pointer appearance-none"
+                  >
+                    <option value="all" className="bg-[#1a2f5a] text-white">Any</option>
+                    <option value="1+" className="bg-[#1a2f5a] text-white">1+</option>
+                    <option value="2+" className="bg-[#1a2f5a] text-white">2+</option>
+                    <option value="3+" className="bg-[#1a2f5a] text-white">3+</option>
+                    <option value="4+" className="bg-[#1a2f5a] text-white">4+</option>
+                    <option value="5+" className="bg-[#1a2f5a] text-white">5+</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex-1">
+                <label className="block text-[9px] font-semibold mb-1.5 uppercase tracking-widest text-white/40">Baths</label>
+                <div className="relative">
+                  <Bath className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
+                  <select
+                    value={bathrooms}
+                    onChange={(e) => setBathrooms(e.target.value)}
+                    className="w-full py-2.5 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200 cursor-pointer appearance-none"
+                  >
+                    <option value="all" className="bg-[#1a2f5a] text-white">Any</option>
+                    <option value="1+" className="bg-[#1a2f5a] text-white">1+</option>
+                    <option value="2+" className="bg-[#1a2f5a] text-white">2+</option>
+                    <option value="3+" className="bg-[#1a2f5a] text-white">3+</option>
+                    <option value="4+" className="bg-[#1a2f5a] text-white">4+</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="w-full lg:w-auto flex items-center gap-2">
+              <button
+                onClick={handleApply}
+                disabled={isLoading}
+                className="flex-1 lg:flex-none h-[38px] px-8 rounded-lg font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] disabled:opacity-50 text-white"
+                style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', boxShadow: '0 0 20px rgba(59,130,246,0.3), 0 4px 12px rgba(37,99,235,0.25)' }}
+              >
+                {isLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Search className="w-3.5 h-3.5" />
+                    Search
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setShowMore(!showMore)}
+                className={`h-[38px] px-4 rounded-lg text-[11px] font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 whitespace-nowrap flex-shrink-0 ${showMore ? 'bg-white/15 border border-white/25 text-white' : 'border border-white/[0.12] text-white/50 hover:bg-white/10 hover:text-white/80 hover:border-white/25'
+                  }`}
+              >
+                <SlidersHorizontal className={`w-3.5 h-3.5 transition-transform duration-500 ${showMore ? 'rotate-180' : ''}`} />
+                {showMore ? "Less" : "Advanced"}
+              </button>
+              <button
+                onClick={handleClearFilters}
+                title="Reset all filters"
+                className="h-[38px] w-[38px] rounded-lg border border-white/[0.12] text-white/40 hover:bg-white/10 hover:text-red-400 hover:border-red-400/30 transition-all duration-200 flex items-center justify-center group flex-shrink-0"
+              >
+                <RotateCcw className="w-3.5 h-3.5 group-hover:rotate-[-120deg] transition-transform duration-500" />
+              </button>
+            </div>
           </div>
-        )}
+
+          {/* Expanded Filters */}
+          {showMore && (
+            <div className="mt-4 pt-4 border-t border-white/[0.08] animate-in fade-in slide-in-from-top-4 duration-500 ease-out">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+                {/* Square Footage */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="block text-[9px] font-semibold uppercase tracking-widest text-white/40">Living Space</label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <Maximize2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-white/30" />
+                      <input type="text" placeholder="Min sqft" value={formatNumber(squareFootage.min)} onChange={(e) => setSquareFootage({ ...squareFootage, min: e.target.value.replace(/[^0-9]/g, "") })} className="w-full py-2 pl-8 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 outline-none transition-all" />
+                    </div>
+                    <div className="flex-1 relative">
+                      <Maximize2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-white/30" />
+                      <input type="text" placeholder="Max sqft" value={formatNumber(squareFootage.max)} onChange={(e) => setSquareFootage({ ...squareFootage, max: e.target.value.replace(/[^0-9]/g, "") })} className="w-full py-2 pl-8 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 outline-none transition-all" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lot Size */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="block text-[9px] font-semibold uppercase tracking-widest text-white/40">Lot Size</label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <LandPlot className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-white/30" />
+                      <input type="text" placeholder="Min sqft" value={formatNumber(lotSize.min)} onChange={(e) => setLotSize({ ...lotSize, min: e.target.value.replace(/[^0-9]/g, "") })} className="w-full py-2 pl-8 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 outline-none transition-all" />
+                    </div>
+                    <div className="flex-1 relative">
+                      <LandPlot className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-white/30" />
+                      <input type="text" placeholder="Max sqft" value={formatNumber(lotSize.max)} onChange={(e) => setLotSize({ ...lotSize, max: e.target.value.replace(/[^0-9]/g, "") })} className="w-full py-2 pl-8 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 outline-none transition-all" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Results Limit */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="block text-[9px] font-semibold uppercase tracking-widest text-white/40">Results</label>
+                  <select
+                    value={limit}
+                    onChange={(e) => setLimit(e.target.value)}
+                    className="w-full py-2.5 pl-3 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white focus:bg-white/[0.12] focus:border-white/30 outline-none transition-all cursor-pointer appearance-none"
+                  >
+                    <option value="10" className="bg-[#1a2f5a] text-white">10 properties</option>
+                    <option value="25" className="bg-[#1a2f5a] text-white">25 properties</option>
+                    <option value="50" className="bg-[#1a2f5a] text-white">50 properties</option>
+                    <option value="100" className="bg-[#1a2f5a] text-white">100 properties</option>
+                  </select>
+                </div>
+
+                {/* Reset */}
+                <div className="flex items-end">
+                  <button
+                    onClick={handleClearFilters}
+                    className="w-full h-[38px] rounded-lg border border-white/[0.12] text-[11px] font-semibold text-white/40 hover:bg-white/10 hover:text-red-400 hover:border-red-400/30 transition-all duration-200 flex items-center justify-center gap-2 group"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 group-hover:rotate-[-120deg] transition-transform duration-500" />
+                    Reset All
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
