@@ -6,7 +6,7 @@ import { SlidersHorizontal, Map, Home, Building2, Calculator, BadgeInfo, FileTex
 import HeroSection from "@/components/homepage/HeroSection";
 import FeaturedCollections from "@/components/homepage/FeaturedCollections";
 import FeaturedListings from "@/components/homepage/FeaturedListings";
-import SearchResults from "@/components/homepage/SearchResults";
+
 import RentalProperties from "@/components/homepage/RentalProperties";
 import PreConstructionProperties from "@/components/homepage/PreConstructionProperties";
 import LocationsSection from "@/components/homepage/LocationsSection";
@@ -176,66 +176,23 @@ export default function HomePage() {
           />
         </section>
 
-        {/* 🔗 Quick Navigation Internal Links for SEO */}
-        <section className="w-full bg-white border-b overflow-hidden" aria-label="Quick Navigation">
-          <Container>
-            <nav className="flex items-center gap-2 py-3 overflow-x-auto no-scrollbar whitespace-nowrap px-4">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-ds-body/40 mr-2 shrink-0">Browse:</span>
-              {[
-                { name: "All Properties", href: "/listing", icon: Home },
-                { name: "Rentals", href: "/listing/rental", icon: Key },
-                { name: "Pre-Construction", href: "/Precon", icon: Building2 },
-                { name: "Map Search", href: "/map-search", icon: Map },
-                { name: "Home Valuation", href: "/valuation", icon: BadgeInfo },
-                { name: "Mortgage Tool", href: "/mortgage-calculator", icon: Calculator },
-                { name: "Real Estate Blog", href: "/blog", icon: FileText },
-              ].map((link) => {
-                const Icon = link.icon;
-                return (
-                  <Link
-                    key={link.name}
-                    href={link.href}
-                    className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-ds-card/50 border border-ds-card-border text-xs font-semibold text-ds-heading hover:bg-ds-primary hover:text-white hover:border-ds-primary transition-all duration-200"
-                  >
-                    <Icon className="w-3.5 h-3.5 opacity-60" />
-                    {link.name}
-                  </Link>
-                );
-              })}
-            </nav>
-          </Container>
-        </section>
+        <div className="mt-2 w-full">
+          <FeaturedCollections />
+        </div>
 
-        <section className="section-gap-sm px-4 lg:px-8" aria-label="Featured Collections">
-          <Container>
-            <FeaturedCollections />
-          </Container>
-        </section>
-
-        <section className="w-full section-gap px-4 lg:px-6" aria-label="Properties and Search Filters">
+        <div className="w-full mt-2 mb-6 px-4 lg:px-6">
           <div className="w-full">
             <PropertyFilter
               onPropertiesUpdate={handlePropertiesUpdate}
               variant="horizontal"
             />
 
-            <div className="space-y-16">
+            <div className="space-y-4 overflow-x-hidden">
               {searchQuery && (
-                <section aria-label="Search Results">
-                  <SearchResults
-                    properties={searchResults}
-                    isLoading={isSearching}
-                    searchQuery={searchQuery}
-                    onClearSearch={handleClearSearch}
-                    onQuickView={handleQuickView}
-                  />
-                </section>
-              )}
-
-              <section aria-label="Newly Listed Properties">
-                <NewlyListedListings
-                  searchQuery={searchQuery || "Latest Properties"}
-                  showLimit={4}
+                <FeaturedListings
+                  properties={searchResults}
+                  isLoading={isSearching}
+                  searchQuery={searchQuery}
                   onQuickView={handleQuickView}
                 />
               </section>
@@ -262,14 +219,35 @@ export default function HomePage() {
                 />
               </section>
 
-              <section aria-label="Pre-Construction Projects">
-                <PreConstructionProperties
-                  properties={preConnProperties}
-                  totalCount={totalPreConnCount}
-                  isLoading={isLoadingPreConn}
-                  onQuickView={handleQuickView}
-                />
-              </section>
+              <NewlyListedListings
+                searchQuery={searchQuery || "Latest Properties"}
+                showLimit={12}
+                onQuickView={handleQuickView}
+              />
+
+              <FeaturedListings
+                properties={properties}
+                totalCount={totalExclusiveCount}
+                searchQuery={
+                  selectedProvince
+                    ? `Exclusive in ${getProvinceName(selectedProvince)}`
+                    : "Exclusive Properties"
+                }
+                onQuickView={handleQuickView}
+              />
+
+              <RentalProperties
+                properties={rentalProperties}
+                totalCount={totalRentalCount}
+                isLoading={isLoadingRentals}
+                onQuickView={handleQuickView}
+              />
+              <PreConstructionProperties
+                properties={preConnProperties}
+                totalCount={totalPreConnCount}
+                isLoading={isLoadingPreConn}
+                onQuickView={handleQuickView}
+              />
             </div>
           </div>
         </section>

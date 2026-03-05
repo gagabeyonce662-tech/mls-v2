@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Image from "next/image";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 
 import {
   useCompareProperties,
@@ -47,81 +47,54 @@ function ComparePageContent() {
   const router = useRouter();
   const params = useSearchParams();
   const {
+    compareList,
     addToCompare,
     removeFromCompare: removeFromGlobalCompare,
     getPropertyKey,
   } = useCompare();
 
-  // Initialize selected IDs from URL - using a lazy initializer for state
-  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const searchParams = new URLSearchParams(window.location.search);
-      const idsParam = searchParams.get("ids");
-      if (idsParam) {
-        return decodeURIComponent(idsParam)
-          .split(",")
-          .map((id) => id.trim())
-          .filter(Boolean);
-      }
-      const allIds = searchParams.getAll("ids");
-      if (allIds.length > 0) {
-        return allIds
-          .map((id) => decodeURIComponent(id).trim())
-          .filter(Boolean);
-      }
-    } catch (e) {
-      console.error("Error parsing initial IDs", e);
-    }
-    return [];
-  });
+  // Get current IDs from URL
+  const urlIds = useMemo(() => {
+    const ids = params?.get("ids");
+    if (!ids) return [];
+    return ids
+      .split(",")
+      .map((id: string) => decodeURIComponent(id).trim())
+      .filter(Boolean);
+  }, [params]);
 
-  const [prevParams, setPrevParams] = useState<string | null>(
-    params?.get("ids") || params?.getAll("ids").join(",") || null,
-  );
+  const [selectedIds, setSelectedIds] = useState<string[]>(urlIds);
 
-  const idsParam =
-    params?.get("ids") || params?.getAll("ids").join(",") || null;
-  if (idsParam !== prevParams) {
-    setPrevParams(idsParam);
-    if (idsParam) {
-      const ids = idsParam
-        .split(",")
-        .map((id) => decodeURIComponent(id).trim())
-        .filter(Boolean);
-      setSelectedIds(ids);
+  // Helper to update URL when selectedIds change locally (adding/removing)
+  const updateUrl = useCallback((ids: string[]) => {
+    const newParams = new URLSearchParams();
+    if (ids.length > 0) {
+      newParams.set("ids", ids.join(","));
+      router.replace(`/compare?${newParams.toString()}`, { scroll: false });
+    } else {
+      router.replace("/compare", { scroll: false });
     }
-  }
+  }, [router]);
 
   const [showAddPropertiesModal, setShowAddPropertiesModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [debugMode, setDebugMode] = useState(
-    process.env.NODE_ENV === "development",
-  );
-  const [forceRefresh, setForceRefresh] = useState(0);
 
-  // Debug hook response
+  // Sync state with URL if URL changes (e.g. back/forward navigation)
   useEffect(() => {
-    if (showAddPropertiesModal) {
-      console.log("DEBUG MODAL - Modal opened");
+    if (urlIds.length > 0 && JSON.stringify(urlIds) !== JSON.stringify(selectedIds)) {
+      setSelectedIds(urlIds);
     }
-  }, [showAddPropertiesModal]);
+  }, [urlIds, selectedIds]);
 
-  // Update URL when selectedIds change
+  // If page is loaded with NO IDs in URL, but we have items in global compareList,
+  // we should populate the page with them.
   useEffect(() => {
-    if (selectedIds.length > 0) {
-      const newParams = new URLSearchParams();
-      newParams.set("ids", selectedIds.join(","));
-      const newUrl = `/compare?${newParams.toString()}`;
-      console.log("Compare Page - Updating URL to:", newUrl);
-      router.replace(newUrl, { scroll: false });
-    } else if (params?.get("ids")) {
-      // Remove ids param if no properties selected
-      const newParams = new URLSearchParams(params.toString());
-      newParams.delete("ids");
-      router.replace(`/compare?${newParams.toString()}`, { scroll: false });
+    if (selectedIds.length === 0 && compareList && compareList.length > 0 && !params?.get("ids")) {
+      const globalIds = compareList.map((p: any) => getPropertyKey(p));
+      setSelectedIds(globalIds);
+      updateUrl(globalIds);
     }
-  }, [selectedIds, router, params]);
+  }, [compareList, getPropertyKey, params, selectedIds.length, updateUrl]);
 
   // Use the compare endpoint hook
   const {
@@ -398,60 +371,60 @@ function ComparePageContent() {
         price: formatPrice(),
         address: getStringValue(
           property.unparsed_address ||
-            property.address ||
-            property.FullAddress ||
-            property.StreetAddress ||
-            property.Address ||
-            property.street_address,
+          property.address ||
+          property.FullAddress ||
+          property.StreetAddress ||
+          property.Address ||
+          property.street_address,
           "Address not available",
         ),
         municipality: getStringValue(
           property.city ||
-            property.City ||
-            property.Municipality ||
-            property.town,
+          property.City ||
+          property.Municipality ||
+          property.town,
           "N/A",
         ),
         province: getStringValue(
           property.state_or_province ||
-            property.StateOrProvince ||
-            property.State ||
-            property.Province ||
-            "ON",
+          property.StateOrProvince ||
+          property.State ||
+          property.Province ||
+          "ON",
         ),
         postalCode: getStringValue(
           property.postal_code ||
-            property.postalCode ||
-            property.PostalCode ||
-            property.zip_code,
+          property.postalCode ||
+          property.PostalCode ||
+          property.zip_code,
           "N/A",
         ),
         propertyType: getStringValue(
           property.property_sub_type ||
-            property.PropertySubType ||
-            property.PropertyType ||
-            property.property_type ||
-            property.category_type ||
-            property.type ||
-            "Property",
+          property.PropertySubType ||
+          property.PropertyType ||
+          property.property_type ||
+          property.category_type ||
+          property.type ||
+          "Property",
         ),
         bedrooms: getNumberValue(
           property.bedrooms_total ||
-            property.BedroomsTotal ||
-            property.bedrooms,
+          property.BedroomsTotal ||
+          property.bedrooms,
         ),
         bathrooms: getNumberValue(
           property.bathrooms_total_integer ||
-            property.BathroomsTotalInteger ||
-            property.bathrooms,
+          property.BathroomsTotalInteger ||
+          property.bathrooms,
         ),
         totalRooms: getNumberValue(
           property.total_rooms ||
-            (Array.isArray(property.rooms)
-              ? property.rooms.length
-              : Array.isArray(property.Rooms)
-                ? property.Rooms.length
-                : 0),
+          (Array.isArray(property.rooms)
+            ? property.rooms.length
+            : Array.isArray(property.Rooms)
+              ? property.Rooms.length
+              : 0),
         ),
         yearBuilt: (() => {
           const yearFields = [
@@ -530,22 +503,20 @@ function ComparePageContent() {
     if (!selectedIds.includes(propertyId)) {
       const newSelectedIds = [...selectedIds, propertyId];
       setSelectedIds(newSelectedIds);
+      updateUrl(newSelectedIds);
       addToCompare(property);
-      console.log("Added property:", propertyId, "New IDs:", newSelectedIds);
-      setShowAddPropertiesModal(false); // Close modal after adding
+      setShowAddPropertiesModal(false);
     }
   };
 
   const handleRemoveProperty = (propertyId: string) => {
     const newSelectedIds = selectedIds.filter((id) => id !== propertyId);
     setSelectedIds(newSelectedIds);
+    updateUrl(newSelectedIds);
     removeFromGlobalCompare(propertyId);
-    console.log("Removed property:", propertyId, "New IDs:", newSelectedIds);
   };
 
   const handleForceRefresh = () => {
-    console.log("Force refreshing...");
-    setForceRefresh((prev) => prev + 1);
     refetch();
   };
 
@@ -1017,13 +988,12 @@ function ComparePageContent() {
                         return (
                           <div
                             key={propertyId}
-                            className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${
-                              isSelected
-                                ? "border-blue-500 bg-blue-50"
-                                : isMaxReached && !isSelected
-                                  ? "opacity-50 cursor-not-allowed"
-                                  : "border-gray-200 hover:border-blue-300"
-                            }`}
+                            className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer ${isSelected
+                              ? "border-blue-500 bg-blue-50"
+                              : isMaxReached && !isSelected
+                                ? "opacity-50 cursor-not-allowed"
+                                : "border-gray-200 hover:border-blue-300"
+                              }`}
                             onClick={() => {
                               if (isMaxReached && !isSelected) return;
                               if (isSelected) {
@@ -1070,13 +1040,12 @@ function ComparePageContent() {
                                     {bedrooms} bed • {bathrooms} bath
                                   </div>
                                   <span
-                                    className={`px-3 py-1 rounded text-xs font-medium whitespace-nowrap ${
-                                      isSelected
-                                        ? "bg-red-100 text-red-700"
-                                        : isMaxReached && !isSelected
-                                          ? "bg-gray-100 text-gray-500"
-                                          : "bg-blue-100 text-blue-700"
-                                    }`}
+                                    className={`px-3 py-1 rounded text-xs font-medium whitespace-nowrap ${isSelected
+                                      ? "bg-red-100 text-red-700"
+                                      : isMaxReached && !isSelected
+                                        ? "bg-gray-100 text-gray-500"
+                                        : "bg-blue-100 text-blue-700"
+                                      }`}
                                   >
                                     {isSelected
                                       ? "Selected"

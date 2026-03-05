@@ -17,7 +17,6 @@ import { useWatched } from "@/contexts/WatchedContext";
 // Modular Components
 import { PropertyCard } from "@/components/listing/PropertyCard";
 import { ListingSearch } from "@/components/listing/ListingSearch";
-import { CompareBar } from "@/components/listing/CompareBar";
 import { CompareModal } from "@/components/listing/CompareModal";
 import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
 
@@ -282,8 +281,6 @@ export default function ListingsPage() {
   return (
     <div className="min-h-screen bg-white">
       <Header />
-
-      <CompareBar />
 
       <div className="pt-24 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
