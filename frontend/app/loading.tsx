@@ -12,7 +12,7 @@ export default function Loading() {
         <div className="relative flex items-center justify-center p-8 bg-white rounded-2xl shadow-2xl animate-pulse">
           <Image
             src="https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
-            alt="EstateforYou Logo"
+            alt="Estate-4u Logo"
             width={240}
             height={80}
             priority
@@ -24,7 +24,7 @@ export default function Loading() {
       {/* Loading Text */}
       <div className="mt-12 flex flex-col items-center gap-3">
         <div className="text-[#0C1536] font-bold text-xl tracking-wider uppercase">
-          Welcome to <span className="text-[#4C7DFF]">EstateforYou</span>
+          Welcome to <span className="text-[#4C7DFF]">Estate-4u</span>
         </div>
         <div className="flex gap-1.5">
           <div className="w-2 h-2 rounded-full bg-[#4C7DFF] animate-bounce [animation-delay:-0.3s]"></div>

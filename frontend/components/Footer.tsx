@@ -4,10 +4,19 @@ import {
   HomeIcon,
   Facebook,
   Instagram,
-  Linkedin,
   Youtube,
-  Twitter,
+  MessageCircle,
+  Phone,
+  Mail,
+  MapPin,
+  Building2,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import Link from "next/link";
 import Image from "next/image";
 import { colors } from "@/config/design-system";
@@ -19,23 +28,46 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-8">
           {/* Logo and Description */}
           <div className="lg:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: colors.cards }}
-              >
-                <HomeIcon
-                  className="w-5 h-5"
-                  style={{ color: colors.primary }}
-                />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <div className="relative h-10 w-40">
+                  <Image
+                    src="https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
+                    alt="Estate-4u Logo"
+                    width={160}
+                    height={40}
+                    className="h-full w-full object-contain brightness-0 invert"
+                    priority
+                  />
+                </div>
               </div>
-              <span className="text-ds-h5 font-inter">EstateforYou</span>
+
+              {/* Brokerage Logo */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-1 px-2 rounded border border-white/20 flex items-center space-x-2 cursor-help opacity-90 hover:opacity-100 transition-opacity bg-white/10">
+                      <Image
+                        src="https://estate-4u.com/wp-content/uploads/elementor/thumbs/Remax-N-Logo_11-rbufwi97ttun502ryrnerevnq8q4d38qspkdwun580.png"
+                        alt="RE/MAX Brokerage Logo"
+                        width={120}
+                        height={35}
+                        className="h-7 w-auto object-contain"
+                      />
+                      <span className="text-[10px] uppercase tracking-wider font-bold">Brokerage</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Our Brokerage</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             <p
               className="text-ds-body-regular leading-relaxed mb-6 font-inter"
               style={{ color: colors.cards, opacity: 0.8 }}
             >
-              LogoIpsum is a cutting-edge property and real estate discovery
+              Estate-4u is a cutting-edge property and real estate discovery
               portal for finding residential & commercial properties. Start your
               property searching journey with us, powered by an intuitive
               technology platform with a team of dedicated professionals at your
@@ -43,23 +75,21 @@ const Footer = () => {
             </p>
             <div className="flex gap-3">
               <a
-                href="#"
-                className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors"
-              >
-                <Facebook className="w-5 h-5" />
-              </a>
-              <a
-                href="#"
+                href="https://www.facebook.com/Estate4uCorp"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:opacity-80"
                 style={{
                   backgroundColor: `${colors.cards}20`,
                   color: colors.cards,
                 }}
               >
-                <Linkedin className="w-5 h-5" />
+                <Facebook className="w-5 h-5" />
               </a>
               <a
-                href="#"
+                href="https://www.instagram.com/estate4uprec/"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:opacity-80"
                 style={{
                   backgroundColor: `${colors.cards}20`,
@@ -69,7 +99,9 @@ const Footer = () => {
                 <Instagram className="w-5 h-5" />
               </a>
               <a
-                href="#"
+                href="https://www.youtube.com/channel/UC7g87rmbTk4N8v5n4QAGfWw"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:opacity-80"
                 style={{
                   backgroundColor: `${colors.cards}20`,
@@ -79,88 +111,99 @@ const Footer = () => {
                 <Youtube className="w-5 h-5" />
               </a>
               <a
-                href="#"
+                href="https://wa.link/9m5jf2"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:opacity-80"
                 style={{
                   backgroundColor: `${colors.cards}20`,
                   color: colors.cards,
                 }}
               >
-                <Twitter className="w-5 h-5" />
+                <MessageCircle className="w-5 h-5" />
               </a>
             </div>
           </div>
 
-          {/* Company */}
+          {/* Services */}
           <div>
             <h3
-              className="text-ds-text mb-4 font-inter"
+              className="text-ds-text mb-4 font-inter font-bold"
               style={{ color: colors.cards }}
             >
-              COMPANY
+              SERVICES
             </h3>
             <ul className="space-y-3">
               <li>
                 <Link
-                  href="/about"
+                  href="/map-search"
                   className="transition-colors text-sm hover:opacity-80"
                   style={{ color: colors.cards, opacity: 0.8 }}
                 >
-                  About
+                  Map Search
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/pricing"
+                  href="/Precon"
                   className="transition-colors text-sm hover:opacity-80"
                   style={{ color: colors.cards, opacity: 0.8 }}
                 >
-                  Pricing
+                  Pre-Construction
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/portfolio"
+                  href="/new-listings"
                   className="transition-colors text-sm hover:opacity-80"
                   style={{ color: colors.cards, opacity: 0.8 }}
                 >
-                  Portfolio
+                  New Listings
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/feedback"
+                  href="/valuation"
                   className="transition-colors text-sm hover:opacity-80"
                   style={{ color: colors.cards, opacity: 0.8 }}
                 >
-                  Feedback
+                  Home Valuation
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Support */}
+          {/* Tools & Resources */}
           <div>
             <h3 className="font-bold mb-4" style={{ color: colors.cards }}>
-              SUPPORT
+              TOOLS
             </h3>
             <ul className="space-y-3">
               <li>
                 <Link
-                  href="/faqs"
+                  href="/mortgage-calculator"
                   className="transition-colors text-sm hover:opacity-80"
                   style={{ color: colors.cards, opacity: 0.8 }}
                 >
-                  FAQs
+                  Mortgage Calculator
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/features"
+                  href="/blog"
                   className="transition-colors text-sm hover:opacity-80"
                   style={{ color: colors.cards, opacity: 0.8 }}
                 >
-                  Features
+                  Blog
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/watched"
+                  className="transition-colors text-sm hover:opacity-80"
+                  style={{ color: colors.cards, opacity: 0.8 }}
+                >
+                  Watched Listings
                 </Link>
               </li>
               <li>
@@ -169,37 +212,47 @@ const Footer = () => {
                   className="transition-colors text-sm hover:opacity-80"
                   style={{ color: colors.cards, opacity: 0.8 }}
                 >
-                  Contact us
+                  Contact Us
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Download App */}
+          {/* Contact Details */}
           <div>
             <h3 className="font-bold mb-4" style={{ color: colors.cards }}>
-              DOWNLOAD APP
+              CONTACT
             </h3>
-            <div className="space-y-3">
-              <a href="#" className="block">
-                <Image
-                  src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
-                  alt="Get it on Google Play"
-                  width={135}
-                  height={40}
-                  className="h-10 w-auto"
-                />
-              </a>
-              <a href="#" className="block">
-                <Image
-                  src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg"
-                  alt="Download on the App Store"
-                  width={120}
-                  height={40}
-                  className="h-10 w-auto"
-                />
-              </a>
-            </div>
+            <ul className="space-y-4">
+              <li className="flex items-start space-x-3 text-sm" style={{ opacity: 0.9 }}>
+                <Phone className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold" style={{ color: colors.cards }}>Direct</p>
+                  <a href="tel:+14168214200" className="hover:underline">+1 (416) 821-4200</a>
+                </div>
+              </li>
+              <li className="flex items-start space-x-3 text-sm" style={{ opacity: 0.9 }}>
+                <Phone className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold" style={{ color: colors.cards }}>Sales</p>
+                  <a href="tel:+16475152000" className="hover:underline">+1 (647) 515-2000</a>
+                </div>
+              </li>
+              <li className="flex items-start space-x-3 text-sm" style={{ opacity: 0.9 }}>
+                <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold" style={{ color: colors.cards }}>Email</p>
+                  <a href="mailto:info@estate-4u.com" className="hover:underline">info@estate-4u.com</a>
+                </div>
+              </li>
+              <li className="flex items-start space-x-3 text-sm" style={{ opacity: 0.9 }}>
+                <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold" style={{ color: colors.cards }}>Office</p>
+                  <p className="leading-tight">100 Milverton Dr #610, Mississauga, ON L5R 4H1</p>
+                </div>
+              </li>
+            </ul>
           </div>
         </div>
 

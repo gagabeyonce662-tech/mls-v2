@@ -60,7 +60,7 @@ export default function NewListingsPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50/50">
-      <title>Newly Listed Properties | EstateforYou</title>
+      <title>Newly Listed Properties | Estate-4u</title>
       <meta
         name="description"
         content="Discover the latest real estate inventory updated in the last 24-48 hours."
