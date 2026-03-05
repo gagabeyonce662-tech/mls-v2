@@ -114,7 +114,7 @@ export default function MortgageCalculatorSection() {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-xs">
                     <label className="text-white/60 font-semibold uppercase tracking-wider text-[9px]">Price</label>
-                    <span className="text-white font-bold font-inter">${amount.toLocaleString()}</span>
+                    <span className="text-white font-bold font-inter">${amount.toLocaleString('en-US')}</span>
                   </div>
                   <input
                     type="range"
@@ -154,7 +154,7 @@ export default function MortgageCalculatorSection() {
                       exit={{ opacity: 0, y: -5 }}
                       className="text-4xl font-black text-white"
                     >
-                      ${monthly.toLocaleString()}
+                      ${monthly.toLocaleString('en-US')}
                     </motion.div>
                   </AnimatePresence>
                 </div>

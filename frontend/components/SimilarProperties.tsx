@@ -134,9 +134,9 @@ export default function SimilarProperties({
     if (typeof price === "string") {
       const numPrice = parseFloat(price);
       if (isNaN(numPrice)) return "Price on request";
-      return `$${numPrice.toLocaleString()}`;
+      return `$${numPrice.toLocaleString('en-US')}`;
     }
-    return `$${price.toLocaleString()}`;
+    return `$${price.toLocaleString('en-US')}`;
   };
 
   // Helper function to get similar property image
@@ -200,13 +200,12 @@ export default function SimilarProperties({
                 </div>
                 {similarProperty.status && (
                   <div
-                    className={`absolute top-3 right-3 px-2 py-1 rounded text-xs font-semibold ${
-                      similarProperty.status === "Active"
+                    className={`absolute top-3 right-3 px-2 py-1 rounded text-xs font-semibold ${similarProperty.status === "Active"
                         ? "bg-green-500 text-white"
                         : similarProperty.status === "Pending"
                           ? "bg-yellow-500 text-white"
                           : "bg-gray-500 text-white"
-                    }`}
+                      }`}
                   >
                     {similarProperty.status}
                   </div>

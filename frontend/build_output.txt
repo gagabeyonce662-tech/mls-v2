@@ -1,0 +1,53 @@
+
+> nextjs@0.1.0 build
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local, .env.production
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 29.5s
+  Running TypeScript ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/31) ...
+  Generating static pages using 7 workers (7/31) 
+  Generating static pages using 7 workers (15/31) 
+  Generating static pages using 7 workers (23/31) 
+✓ Generating static pages using 7 workers (31/31) in 2.3s
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /admin/dashboard
+├ ○ /admin/listings
+├ ○ /admin/listings/new
+├ ○ /blog
+├ ● /blog/[slug]
+│ ├ /blog/real-estate-agent-toronto
+│ ├ /blog/niagara-falls-real-estate-agent-home-condo-and-investment-deals
+│ ├ /blog/top-real-estate-agents-brantford
+│ └ [+7 more paths]
+├ ○ /compare
+├ ○ /listing
+├ ƒ /listing/[id]
+├ ○ /listing/rental
+├ ƒ /listing/rental/[id]
+├ ○ /map-search
+├ ○ /mortgage-calculator
+├ ○ /new-listings
+├ ○ /Precon
+├ ○ /robots.txt
+├ ○ /sign-in
+├ ○ /sign-up
+├ ƒ /sitemap.xml
+├ ○ /tools
+├ ○ /valuation
+└ ○ /watched
+
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+

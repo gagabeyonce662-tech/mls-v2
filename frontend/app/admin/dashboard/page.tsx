@@ -180,24 +180,23 @@ export default function AdminDashboardPage() {
                     {listing.City}, {listing.StateOrProvince}
                   </span>
                   <span>•</span>
-                  <span>${listing.ListPrice?.toLocaleString()}</span>
+                  <span>${listing.ListPrice?.toLocaleString('en-US')}</span>
                 </div>
               </div>
               <div className="text-right">
                 <div className="text-xs font-medium text-gray-900">
                   {listing.ModificationTimestamp
                     ? format(
-                        new Date(listing.ModificationTimestamp),
-                        "MMM d, yyyy",
-                      )
+                      new Date(listing.ModificationTimestamp),
+                      "MMM d, yyyy",
+                    )
                     : "Recently"}
                 </div>
                 <div
-                  className={`text-[10px] px-2 py-0.5 rounded-full inline-block mt-1 font-medium ${
-                    listing.standard_status === "Active"
+                  className={`text-[10px] px-2 py-0.5 rounded-full inline-block mt-1 font-medium ${listing.standard_status === "Active"
                       ? "bg-green-100 text-green-700"
                       : "bg-gray-100 text-gray-600"
-                  }`}
+                    }`}
                 >
                   {listing.standard_status || "Active"}
                 </div>

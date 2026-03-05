@@ -51,7 +51,7 @@ export function DemographicsSection({
                   Population
                 </TableCell>
                 <TableCell className="text-gray-900">
-                  {demographics.population.toLocaleString()}
+                  {demographics.population.toLocaleString('en-US')}
                 </TableCell>
               </TableRow>
               <TableRow>

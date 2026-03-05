@@ -53,9 +53,9 @@ export async function generateMetadata({
   const images =
     property.media && property.media.length > 0
       ? property.media
-          .map((m: any) => m.media_url)
-          .filter(Boolean)
-          .slice(0, 5)
+        .map((m: any) => m.media_url)
+        .filter(Boolean)
+        .slice(0, 5)
       : ["https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"];
 
   return {
@@ -96,7 +96,7 @@ export default async function ListingPage(props: ListingPageProps) {
     const numericPrice = typeof price === "string" ? parseFloat(price) : price;
     return isNaN(numericPrice)
       ? "Price on request"
-      : `$${numericPrice.toLocaleString()}`;
+      : `$${numericPrice.toLocaleString('en-US')}`;
   };
 
   const getBedCount = () =>
@@ -132,10 +132,10 @@ export default async function ListingPage(props: ListingPageProps) {
     {
       date: property.ModificationTimestamp
         ? new Date(property.ModificationTimestamp).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          })
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
         : "Recent",
       event: property.StandardStatus || property.standard_status || "Listed",
       price: getPrice(),
@@ -211,12 +211,12 @@ export default async function ListingPage(props: ListingPageProps) {
                         typeof property.list_price === "number"
                           ? property.list_price
                           : parseFloat(
-                              String(
-                                property.list_price ||
-                                  property.ListPrice ||
-                                  "0",
-                              ),
-                            )
+                            String(
+                              property.list_price ||
+                              property.ListPrice ||
+                              "0",
+                            ),
+                          )
                       }
                     />
                   </div>

@@ -201,14 +201,14 @@ export default function PropertyFilter({
     if (!price) return "";
     const num = parseInt(price.replace(/[^0-9]/g, ""));
     if (isNaN(num)) return price;
-    return `$${num.toLocaleString()}`;
+    return `$${num.toLocaleString('en-US')}`;
   };
 
   const formatNumber = (num: string) => {
     if (!num) return "";
     const value = parseInt(num.replace(/[^0-9]/g, ""));
     if (isNaN(value)) return num;
-    return value.toLocaleString();
+    return value.toLocaleString('en-US');
   };
 
   /* ── API ── */
@@ -297,10 +297,10 @@ export default function PropertyFilter({
         filterDescriptions.push(`City: ${searchQuery.trim()}`);
       if (priceRange.min || priceRange.max) {
         const min = priceRange.min
-          ? `$${parseInt(priceRange.min.replace(/[^0-9]/g, "")).toLocaleString()}`
+          ? `$${parseInt(priceRange.min.replace(/[^0-9]/g, "")).toLocaleString('en-US')}`
           : "Any";
         const max = priceRange.max
-          ? `$${parseInt(priceRange.max.replace(/[^0-9]/g, "")).toLocaleString()}`
+          ? `$${parseInt(priceRange.max.replace(/[^0-9]/g, "")).toLocaleString('en-US')}`
           : "Any";
         filterDescriptions.push(`Price: ${min} - ${max}`);
       }
@@ -313,19 +313,19 @@ export default function PropertyFilter({
         filterDescriptions.push(notifyFor.replace("-", " "));
       if (squareFootage.min || squareFootage.max) {
         const min = squareFootage.min
-          ? `${parseInt(squareFootage.min.replace(/[^0-9]/g, "")).toLocaleString()} sqft`
+          ? `${parseInt(squareFootage.min.replace(/[^0-9]/g, "")).toLocaleString('en-US')} sqft`
           : "Any";
         const max = squareFootage.max
-          ? `${parseInt(squareFootage.max.replace(/[^0-9]/g, "")).toLocaleString()} sqft`
+          ? `${parseInt(squareFootage.max.replace(/[^0-9]/g, "")).toLocaleString('en-US')} sqft`
           : "Any";
         filterDescriptions.push(`Square footage: ${min} - ${max}`);
       }
       if (lotSize.min || lotSize.max) {
         const min = lotSize.min
-          ? `${parseInt(lotSize.min.replace(/[^0-9]/g, "")).toLocaleString()} sqft lot`
+          ? `${parseInt(lotSize.min.replace(/[^0-9]/g, "")).toLocaleString('en-US')} sqft lot`
           : "Any";
         const max = lotSize.max
-          ? `${parseInt(lotSize.max.replace(/[^0-9]/g, "")).toLocaleString()} sqft lot`
+          ? `${parseInt(lotSize.max.replace(/[^0-9]/g, "")).toLocaleString('en-US')} sqft lot`
           : "Any";
         filterDescriptions.push(`Lot size: ${min} - ${max}`);
       }
