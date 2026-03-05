@@ -7,6 +7,7 @@ import {
   fetchExclusiveProperties,
   fetchLeaseProperties,
   fetchPreConnProperties,
+  fetchVlogPosts,
 } from "@/lib/api";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -31,12 +32,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: route === "" ? 1 : 0.8,
   }));
 
-  // Dynamic routes - Properties
+  // Dynamic routes
   try {
-    const [exclusive, lease, preConn] = await Promise.all([
+    const [exclusive, lease, preConn, blogs] = await Promise.all([
       fetchExclusiveProperties({ limit: 50 }),
       fetchLeaseProperties({ limit: 50 }),
       fetchPreConnProperties({ limit: 50 }),
+      fetchVlogPosts(),
     ]);
 
     const exclusiveRoutes = (exclusive.results || []).map((p: any) => ({
@@ -54,10 +56,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
     const preConnRoutes = (preConn.results || []).map((p: any) => ({
-      url: `${baseUrl}/Precon/${p.id || p.listing_key}`, // Adjusted based on precon folder structure if needed
+      url: `${baseUrl}/Precon/${p.id || p.listing_key}`,
       lastModified: new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.6,
+    }));
+
+    const blogRoutes = (blogs || []).map((post: any) => ({
+      url: `${baseUrl}/blog/${post.slug}`,
+      lastModified: new Date(post.updated_at || post.created_at || new Date()),
+      changeFrequency: "monthly" as const,
+      priority: 0.5,
     }));
 
     return [
@@ -65,6 +74,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...exclusiveRoutes,
       ...leaseRoutes,
       ...preConnRoutes,
+      ...blogRoutes,
     ];
   } catch (error) {
     console.error("Sitemap generation error:", error);
