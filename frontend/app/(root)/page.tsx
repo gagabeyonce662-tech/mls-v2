@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
+import { SlidersHorizontal, Map, Home, Building2, Calculator, BadgeInfo, FileText, Key } from "lucide-react";
 import HeroSection from "@/components/homepage/HeroSection";
 import FeaturedCollections from "@/components/homepage/FeaturedCollections";
 import FeaturedListings from "@/components/homepage/FeaturedListings";
@@ -168,16 +169,50 @@ export default function HomePage() {
       <Header />
 
       <main className="w-full flex-1">
-        <HeroSection
-          onSearchStart={handleSearchStart}
-          onSearchResults={handleSearchResults}
-        />
+        <section aria-label="Find Property">
+          <HeroSection
+            onSearchStart={handleSearchStart}
+            onSearchResults={handleSearchResults}
+          />
+        </section>
 
-        <Container className="section-gap-sm px-4 lg:px-8">
-          <FeaturedCollections />
-        </Container>
+        {/* 🔗 Quick Navigation Internal Links for SEO */}
+        <section className="w-full bg-white border-b overflow-hidden" aria-label="Quick Navigation">
+          <Container>
+            <nav className="flex items-center gap-2 py-3 overflow-x-auto no-scrollbar whitespace-nowrap px-4">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-ds-body/40 mr-2 shrink-0">Browse:</span>
+              {[
+                { name: "All Properties", href: "/listing", icon: Home },
+                { name: "Rentals", href: "/listing/rental", icon: Key },
+                { name: "Pre-Construction", href: "/Precon", icon: Building2 },
+                { name: "Map Search", href: "/map-search", icon: Map },
+                { name: "Home Valuation", href: "/valuation", icon: BadgeInfo },
+                { name: "Mortgage Tool", href: "/mortgage-calculator", icon: Calculator },
+                { name: "Real Estate Blog", href: "/blog", icon: FileText },
+              ].map((link) => {
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-ds-card/50 border border-ds-card-border text-xs font-semibold text-ds-heading hover:bg-ds-primary hover:text-white hover:border-ds-primary transition-all duration-200"
+                  >
+                    <Icon className="w-3.5 h-3.5 opacity-60" />
+                    {link.name}
+                  </Link>
+                );
+              })}
+            </nav>
+          </Container>
+        </section>
 
-        <div className="w-full section-gap px-4 lg:px-6">
+        <section className="section-gap-sm px-4 lg:px-8" aria-label="Featured Collections">
+          <Container>
+            <FeaturedCollections />
+          </Container>
+        </section>
+
+        <section className="w-full section-gap px-4 lg:px-6" aria-label="Properties and Search Filters">
           <div className="w-full">
             <PropertyFilter
               onPropertiesUpdate={handlePropertiesUpdate}
@@ -186,62 +221,82 @@ export default function HomePage() {
 
             <div className="space-y-16">
               {searchQuery && (
-                <SearchResults
-                  properties={searchResults}
-                  isLoading={isSearching}
-                  searchQuery={searchQuery}
-                  onClearSearch={handleClearSearch}
-                  onQuickView={handleQuickView}
-                />
+                <section aria-label="Search Results">
+                  <SearchResults
+                    properties={searchResults}
+                    isLoading={isSearching}
+                    searchQuery={searchQuery}
+                    onClearSearch={handleClearSearch}
+                    onQuickView={handleQuickView}
+                  />
+                </section>
               )}
 
-              <NewlyListedListings
-                searchQuery={searchQuery || "Latest Properties"}
-                showLimit={4}
-                onQuickView={handleQuickView}
-              />
+              <section aria-label="Newly Listed Properties">
+                <NewlyListedListings
+                  searchQuery={searchQuery || "Latest Properties"}
+                  showLimit={4}
+                  onQuickView={handleQuickView}
+                />
+              </section>
 
-              <FeaturedListings
-                properties={properties}
-                totalCount={totalExclusiveCount}
-                searchQuery={
-                  selectedProvince
-                    ? `Exclusive in ${getProvinceName(selectedProvince)}`
-                    : "Exclusive Properties"
-                }
-                onQuickView={handleQuickView}
-              />
-              <RentalProperties
-                properties={rentalProperties}
-                totalCount={totalRentalCount}
-                isLoading={isLoadingRentals}
-                onQuickView={handleQuickView}
-              />
-              <PreConstructionProperties
-                properties={preConnProperties}
-                totalCount={totalPreConnCount}
-                isLoading={isLoadingPreConn}
-                onQuickView={handleQuickView}
-              />
+              <section aria-label="Featured Properties">
+                <FeaturedListings
+                  properties={properties}
+                  totalCount={totalExclusiveCount}
+                  searchQuery={
+                    selectedProvince
+                      ? `Exclusive in ${getProvinceName(selectedProvince)}`
+                      : "Exclusive Properties"
+                  }
+                  onQuickView={handleQuickView}
+                />
+              </section>
+
+              <section aria-label="Rental Properties">
+                <RentalProperties
+                  properties={rentalProperties}
+                  totalCount={totalRentalCount}
+                  isLoading={isLoadingRentals}
+                  onQuickView={handleQuickView}
+                />
+              </section>
+
+              <section aria-label="Pre-Construction Projects">
+                <PreConstructionProperties
+                  properties={preConnProperties}
+                  totalCount={totalPreConnCount}
+                  isLoading={isLoadingPreConn}
+                  onQuickView={handleQuickView}
+                />
+              </section>
             </div>
           </div>
-        </div>
+        </section>
 
-        <Container className="section-gap">
-          <LocationsSection />
-        </Container>
+        <section className="section-gap" aria-label="Common Locations">
+          <Container>
+            <LocationsSection />
+          </Container>
+        </section>
 
-        <Container className="section-gap">
-          <LatestArticles />
-        </Container>
+        <section className="section-gap" aria-label="Latest Real Estate News">
+          <Container>
+            <LatestArticles />
+          </Container>
+        </section>
 
-        <Container className="section-gap">
-          <MortgageSection />
-        </Container>
+        <section className="section-gap" aria-label="Mortgage Tools">
+          <Container>
+            <MortgageSection />
+          </Container>
+        </section>
 
-        <Container className="section-gap">
-          <ClientReviews />
-        </Container>
+        <section className="section-gap" aria-label="Client Success Stories">
+          <Container>
+            <ClientReviews />
+          </Container>
+        </section>
 
         {/* Mobile Filter FAB */}
         <button

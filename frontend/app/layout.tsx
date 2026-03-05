@@ -9,11 +9,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://estate-4u.com"),
   title: {
     default:
-      "Gunneet Singh | Top Realtor in Toronto GTA | Real Estate Agent in Toronto",
-    template: "%s | Gunneet Singh - Toronto Real Estate",
+      "Toronto & GTA Real Estate — Homes for Sale, Rentals & Pre-Construction | Estate-4u",
+    template: "%s | Estate-4u - Toronto Real Estate",
   },
   description:
-    "Find your perfect home with Gunneet Singh, a top realtor in Toronto GTA. Whether you're buying or selling, Estate-4u can help make the process easy. Contact us today for expert real estate agent in Toronto.",
+    "Browse 1000+ Toronto & GTA listings — detached homes, condos, rentals & pre-construction projects. Free home valuations, mortgage tools & expert guidance from Estate-4u.",
   keywords: [
     "Toronto Real Estate",
     "GTA Realtor",
@@ -40,9 +40,9 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_CA",
     url: "https://estate-4u.com",
-    title: "Gunneet Singh | Top Realtor in Toronto GTA",
+    title: "Toronto & GTA Real Estate — Estate-4u",
     description:
-      "Expert real estate services in Toronto and the GTA. Find your dream home with Gunneet Singh.",
+      "Browse 1000+ Toronto & GTA listings. Homes for sale, condos, rentals and pre-construction projects with expert guidance.",
     siteName: "Estate-4u",
     images: [
       {
@@ -55,9 +55,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Gunneet Singh | Top Realtor in Toronto GTA",
+    title: "Toronto & GTA Real Estate — Estate-4u",
     description:
-      "Expert real estate services in Toronto and the GTA. Find your dream home with Gunneet Singh.",
+      "Browse 1000+ Toronto & GTA listings. Homes for sale, condos, rentals and pre-construction projects with expert guidance.",
     images: ["https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"],
   },
   robots: {
