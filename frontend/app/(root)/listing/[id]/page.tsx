@@ -1,5 +1,6 @@
 // app/(root)/listing/[id]/page.tsx
 import React from "react";
+import { Metadata } from "next";
 import { Home as HomeIcon } from "lucide-react";
 import Header from "@/components/Header";
 import Image from "next/image";
@@ -25,6 +26,53 @@ interface ListingPageProps {
   params: Promise<{
     id: string;
   }>;
+}
+
+export async function generateMetadata({
+  params,
+}: ListingPageProps): Promise<Metadata> {
+  const id = (await params).id;
+  const property = await fetchPropertyByKey(id);
+
+  if (!property) {
+    return {
+      title: "Property Not Found",
+    };
+  }
+
+  const address =
+    property.unparsed_address ||
+    `${property.address || ""} ${property.city || ""}`.trim() ||
+    "Property Details";
+
+  const description =
+    property.public_remarks ||
+    property.PublicRemarks ||
+    `Check out this property at ${address}. View photos, details and more on Estate-4u.`;
+
+  const images =
+    property.media && property.media.length > 0
+      ? property.media
+          .map((m: any) => m.media_url)
+          .filter(Boolean)
+          .slice(0, 5)
+      : ["https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"];
+
+  return {
+    title: `${address} | Toronto Real Estate`,
+    description: description.substring(0, 160),
+    openGraph: {
+      title: `${address} | Estate-4u`,
+      description: description.substring(0, 160),
+      images: images,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${address} | Estate-4u`,
+      description: description.substring(0, 160),
+      images: images[0],
+    },
+  };
 }
 
 export default async function ListingPage(props: ListingPageProps) {
@@ -84,10 +132,10 @@ export default async function ListingPage(props: ListingPageProps) {
     {
       date: property.ModificationTimestamp
         ? new Date(property.ModificationTimestamp).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })
         : "Recent",
       event: property.StandardStatus || property.standard_status || "Listed",
       price: getPrice(),
@@ -153,10 +201,24 @@ export default async function ListingPage(props: ListingPageProps) {
             {/* Mortgage Calculator Section */}
             <section className="bg-white border border-ds-card-border rounded-2xl p-8 shadow-sm">
               <div className="max-w-3xl">
-                <h2 className={`${ds.h3} mb-6 text-2xl`}>Mortgage Calculator</h2>
+                <h2 className={`${ds.h3} mb-6 text-2xl`}>
+                  Mortgage Calculator
+                </h2>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-start">
                   <div className="xl:col-span-2">
-                    <MortgageCalculator initialPrice={typeof property.list_price === 'number' ? property.list_price : parseFloat(String(property.list_price || property.ListPrice || '0'))} />
+                    <MortgageCalculator
+                      initialPrice={
+                        typeof property.list_price === "number"
+                          ? property.list_price
+                          : parseFloat(
+                              String(
+                                property.list_price ||
+                                  property.ListPrice ||
+                                  "0",
+                              ),
+                            )
+                      }
+                    />
                   </div>
                 </div>
               </div>

@@ -31,6 +31,7 @@ import {
   getListingDate,
   getParkingSpaces,
   getPropertyKey,
+  getDetailUrl,
 } from "@/lib/propertyUtils";
 import { useWatched } from "@/contexts/WatchedContext";
 import { useCompare } from "@/contexts/CompareContext";
@@ -71,7 +72,7 @@ export const PropertyQuickViewModal = ({
   const handleFullDetails = () => {
     addToHistory(property);
     onClose();
-    router.push(`/listing/${propertyKey}`);
+    router.push(getDetailUrl(property));
   };
 
   const handleAddToCompare = () => {
@@ -144,10 +145,11 @@ export const PropertyQuickViewModal = ({
             <div className="flex gap-2 md:mr-16">
               <button
                 onClick={() => toggleFavorite(property)}
-                className={`p-2.5 rounded-xl border transition-all ${isSaved
+                className={`p-2.5 rounded-xl border transition-all ${
+                  isSaved
                     ? "bg-red-50 border-red-100 text-red-500"
                     : "bg-white border-ds-card-border text-ds-body hover:border-red-200 hover:text-red-400"
-                  }`}
+                }`}
               >
                 <Heart className={`w-5 h-5 ${isSaved ? "fill-current" : ""}`} />
               </button>
@@ -155,7 +157,7 @@ export const PropertyQuickViewModal = ({
                 className="p-2.5 rounded-xl border border-ds-card-border bg-white text-ds-body hover:bg-gray-50 transition-all hidden sm:block"
                 onClick={() =>
                   navigator.clipboard.writeText(
-                    window.location.origin + `/listing/${propertyKey}`,
+                    window.location.origin + getDetailUrl(property),
                   )
                 }
               >
@@ -240,10 +242,11 @@ export const PropertyQuickViewModal = ({
             <button
               onClick={handleAddToCompare}
               disabled={isSelected}
-              className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold transition-all border ${isSelected
+              className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold transition-all border ${
+                isSelected
                   ? "bg-emerald-50 border-emerald-100 text-emerald-600 disabled:opacity-100"
                   : "bg-white border-ds-card-border text-ds-heading hover:bg-gray-50"
-                }`}
+              }`}
             >
               {isSelected ? (
                 <>

@@ -20,7 +20,7 @@ export async function fetchAPI<T>(
       },
     });
 
-    console.log(`API Request: ${url} - Status: ${response.status}`);
+    // console.log(`API Request: ${url} - Status: ${response.status}`);
 
     if (!response.ok) {
       let errorData;
@@ -51,9 +51,18 @@ export async function fetchAPI<T>(
 
     const data = await response.json();
     return data;
-  } catch (error) {
+  } catch (error: any) {
     // Avoid double logging if it's already logged above
     if (error instanceof Error && !error.message.startsWith("API_ERROR:")) {
+      // Ignore Next.js dynamic server usage errors (bailouts from static generation)
+      const err = error as any;
+      if (
+        err.digest === "DYNAMIC_SERVER_USAGE" ||
+        (typeof err.message === "string" &&
+          err.message.includes("DYNAMIC_SERVER_USAGE"))
+      ) {
+        throw error;
+      }
       console.error(`Network error fetching ${url}:`, error);
     }
     throw error;

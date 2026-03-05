@@ -1,4 +1,5 @@
 // app/rental/[id]/page.tsx
+import { Metadata } from "next";
 import {
   Bed,
   Bath,
@@ -26,6 +27,68 @@ interface RentalPropertyPageProps {
   params: Promise<{
     id: string;
   }>;
+}
+
+export async function generateMetadata({
+  params,
+}: RentalPropertyPageProps): Promise<Metadata> {
+  const id = (await params).id;
+  const property = await fetchPropertyByKey(id);
+
+  if (!property) {
+    return {
+      title: "Rental Property Not Found",
+    };
+  }
+
+  const address =
+    property.unparsed_address ||
+    `${property.address || ""} ${property.city || ""}`.trim() ||
+    "Rental Property Details";
+
+  const getPropertyType = () => {
+    if (property.category_type) return property.category_type;
+    if (property.PropertySubType) return property.PropertySubType;
+    if (property.PropertyType) return property.PropertyType;
+    return "Rental Property";
+  };
+
+  const description =
+    property.public_remarks ||
+    property.PublicRemarks ||
+    `Check out this ${getPropertyType()} for rent at ${address}. View photos and details on Estate-4u.`;
+
+  const images = (
+    property.media && property.media.length > 0
+      ? property.media.map((m: any) => String(m.media_url))
+      : property.Media && property.Media.length > 0
+        ? property.Media.map((m: any) => String(m.MediaURL || m.media_url))
+        : property.Photos && property.Photos.length > 0
+          ? property.Photos.map((p: any) => String(p.PhotoURL || p))
+          : []
+  )
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (images.length === 0) {
+    images.push("https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png");
+  }
+
+  return {
+    title: `${address} | Rental in Toronto`,
+    description: description.substring(0, 160),
+    openGraph: {
+      title: `${address} | Estate-4u Rental`,
+      description: description.substring(0, 160),
+      images: images,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${address} | Estate-4u Rental`,
+      description: description.substring(0, 160),
+      images: images[0],
+    },
+  };
 }
 
 export default async function RentalPropertyPage(

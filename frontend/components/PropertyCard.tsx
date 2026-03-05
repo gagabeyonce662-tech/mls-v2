@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Heart, Loader2, Eye } from "lucide-react";
 import { colors, propertyCard } from "@/config/design-system";
 import type { Property } from "@/lib/api";
-import { getPropertyKey } from "@/lib/propertyUtils";
+import { getPropertyKey, getDetailUrl } from "@/lib/propertyUtils";
 import { PropertyCardImage } from "@/components/property-card/PropertyCardImage";
 import { PropertyCardContent } from "@/components/property-card/PropertyCardContent";
 import { usePrefetchProperty } from "@/hooks/react-query";
@@ -40,7 +40,7 @@ export default function PropertyCard({
       onMouseEnter={() => propertyKey && prefetch(propertyKey)}
     >
       <Link
-        href={`/listing/${propertyKey}`}
+        href={getDetailUrl(property)}
         onClick={() => {
           setClicked(true);
           addToHistory(property);

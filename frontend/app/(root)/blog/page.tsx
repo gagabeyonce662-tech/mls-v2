@@ -12,7 +12,7 @@ export default function BlogPage() {
   const [vlogPosts, setVlogPosts] = useState<VlogPost[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch blog posts from API on component mount
+  // Fetch blog posts from local WordPress data on component mount
   useEffect(() => {
     const loadPosts = async () => {
       setLoading(true);

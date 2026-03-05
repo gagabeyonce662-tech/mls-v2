@@ -10,3 +10,4 @@ export * from "./api/properties";
 export * from "./api/vlogs";
 export * from "./api/admin";
 export * from "./api/testing";
+export * from "./api/wordpress";

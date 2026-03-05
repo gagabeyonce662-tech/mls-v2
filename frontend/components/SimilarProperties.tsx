@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Bed, Bath, Maximize } from "lucide-react";
 import { ds } from "@/lib/design-system-utils";
 import Link from "next/link";
+import { getDetailUrl } from "@/lib/propertyUtils";
 
 interface SimilarPropertiesProps {
   currentPropertyId: string;
@@ -153,8 +154,8 @@ export default function SimilarProperties({
   };
 
   // Handle property click
-  const handlePropertyClick = (propertyId: string) => {
-    router.push(`/listing/${propertyId}`);
+  const handlePropertyClick = (property: any) => {
+    router.push(getDetailUrl(property));
   };
 
   return (
@@ -183,7 +184,7 @@ export default function SimilarProperties({
           {similarProperties.map((similarProperty, index) => (
             <div
               key={similarProperty.id}
-              onClick={() => handlePropertyClick(similarProperty.id)}
+              onClick={() => handlePropertyClick(similarProperty)}
               className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
             >
               <div className="relative h-48">
