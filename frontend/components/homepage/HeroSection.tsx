@@ -77,24 +77,24 @@ export default function HeroSection({
     >
       {/* dark overlay + subtle gradient */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden>
-        <div className="absolute inset-0 bg-white/20 mix-blend-lighten"></div>
-        <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-black/40 to-transparent"></div>
+        <div className="absolute inset-0 bg-white/10 mix-blend-lighten"></div>
+        <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-black/50 to-transparent"></div>
       </div>
 
       {/* main content */}
-      <div className="relative z-20 max-w-7xl mx-auto px-6 lg:px-8 py-16 md:py-20 lg:py-24">
-        <div className="max-w-3xl text-white/95">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight drop-shadow">
+      <div className="relative z-20 max-w-7xl mx-auto px-6 lg:px-8 pt-16 pb-6 md:pt-20 md:pb-8 lg:pt-24 lg:pb-10">
+        <div className="max-w-3xl text-white/95 text-left">
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight drop-shadow">
             Find Your Place
           </h1>
-          <p className="mt-4 text-base text-white/85 max-w-xl">
+          <p className="mt-4 text-sm md:text-base text-white/85 max-w-xl">
             Watch listings, communities and custom areas. Stay informed when
             listings are added and sold.
           </p>
 
           {/* Search box */}
-          <div className="mt-8">
-            <div className="mx-auto mt-6 max-w-4xl">
+          <div className="mt-6">
+            <div className="mx-auto mt-4 max-w-4xl">
               <div
                 className="flex items-stretch rounded-full shadow-xl overflow-hidden ring-1 ring-black/5"
                 style={{ backgroundColor: colors.cards }}
@@ -183,8 +183,6 @@ export default function HeroSection({
         </div>
       </div>
 
-      {/* spacing at bottom */}
-      <div className="h-4 md:h-6 lg:h-8" />
     </section>
   );
 }

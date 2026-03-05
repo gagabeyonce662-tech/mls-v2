@@ -48,10 +48,10 @@ export default function NewlyListedListings({
   }, [showLimit, searchQuery]);
 
   return (
-    <div className="py-12">
+    <div className="pt-8 pb-12">
       <div className="w-full">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center overflow-x-auto justify-between mb-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-5 h-5" style={{ color: colors.primary }} />
@@ -99,13 +99,18 @@ export default function NewlyListedListings({
           </div>
         )}
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Responsive Grid - Default 4 on Desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 gap-6">
           {isLoading
-            ? [...Array(showLimit)].map((_, i) => (
+            ? [...Array(8)].map((_, i) => (
               <div
                 key={`skeleton-${i}`}
-                className="rounded-2xl overflow-hidden animate-pulse"
+                className={`w-full rounded-2xl overflow-hidden animate-pulse ${i === 0 ? "block" :
+                  i === 1 ? "hidden sm:block" :
+                    i < 4 ? "hidden lg:block" :
+                      i < 6 ? "hidden 2xl:block" :
+                        "hidden 3xl:block"
+                  }`}
                 style={{ border: `1px solid ${colors.cardsBoarder}` }}
               >
                 <div
@@ -144,22 +149,31 @@ export default function NewlyListedListings({
             ))
             : properties.length > 0
               ? properties
-                .slice(0, showLimit)
+                .slice(0, 8)
                 .map((property, index) => (
-                  <PropertyCard
+                  <div
                     key={
                       property.listing_key ||
                       property.PropertyKey ||
                       `new-${index}`
                     }
-                    property={property}
-                    variant="new"
-                    index={index}
-                    onQuickView={onQuickView}
-                  />
+                    className={`w-full ${index === 0 ? "block" :
+                        index === 1 ? "hidden sm:block" :
+                          index < 4 ? "hidden lg:block" :
+                            index < 6 ? "hidden 2xl:block" :
+                              "hidden 3xl:block"
+                      }`}
+                  >
+                    <PropertyCard
+                      property={property}
+                      variant="new"
+                      index={index}
+                      onQuickView={onQuickView}
+                    />
+                  </div>
                 ))
               : !isLoading && (
-                <div className="col-span-3 text-center py-16">
+                <div className="w-full text-center py-16">
                   <div
                     className="text-xl font-semibold mb-2"
                     style={{ color: colors.heading }}
