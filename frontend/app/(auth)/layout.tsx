@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { HomeIcon } from "lucide-react";
 import { colors } from "@/config/design-system";
 
@@ -19,14 +20,18 @@ export default function AuthLayout({
 
         <Link
           href="/"
-          className="flex items-center space-x-3 z-10 transition-transform hover:scale-105"
+          className="flex items-center z-10 transition-transform hover:scale-105"
         >
-          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-lg">
-            <HomeIcon className="w-6 h-6 text-ds-primary" />
+          <div className="relative h-12 w-48 transition-transform duration-300">
+            <Image
+              src="https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
+              alt="Estate-4u"
+              width={192}
+              height={48}
+              className="h-full w-full object-contain filter brightness-0 invert"
+              priority
+            />
           </div>
-          <span className="text-2xl font-bold text-white font-inter">
-            EstateforYou
-          </span>
         </Link>
 
         <div className="z-10">
@@ -42,7 +47,7 @@ export default function AuthLayout({
         </div>
 
         <div className="z-10 text-white/60 text-sm">
-          © 2025 EstateforYou. All rights reserved.
+          © 2025 Estate-4u. All rights reserved.
         </div>
       </div>
 

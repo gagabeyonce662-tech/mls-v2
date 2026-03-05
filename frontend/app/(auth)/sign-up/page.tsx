@@ -48,7 +48,7 @@ export default function SignUpPage() {
       await registerUser(data.name, data.email);
       toast({
         title: "Account created!",
-        description: "Welcome to EstateforYou. Your account is ready.",
+        description: "Welcome to Estate-4u. Your account is ready.",
       });
       router.push("/");
     } catch (error) {

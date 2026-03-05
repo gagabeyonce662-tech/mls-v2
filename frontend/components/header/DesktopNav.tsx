@@ -29,9 +29,8 @@ export default function DesktopNav({ isScrolled }: DesktopNavProps) {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       style={{ backgroundColor: "#0C1536" }}
-      className={`hidden lg:block fixed top-0 left-0 right-0 z-50 transition-all duration-500 antialiased ${
-        isScrolled ? "shadow-2xl py-1" : "py-3"
-      }`}
+      className={`hidden lg:block fixed top-0 left-0 right-0 z-50 transition-all duration-500 antialiased ${isScrolled ? "shadow-2xl py-1" : "py-3"
+        }`}
     >
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between h-16">
@@ -40,7 +39,7 @@ export default function DesktopNav({ isScrolled }: DesktopNavProps) {
             <div className="relative h-12 w-48 transition-transform duration-300 group-hover:scale-105">
               <Image
                 src="https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
-                alt="EstateforYou"
+                alt="Estate-4u"
                 width={192}
                 height={48}
                 className="h-full w-full object-contain filter brightness-0 invert"
@@ -58,17 +57,15 @@ export default function DesktopNav({ isScrolled }: DesktopNavProps) {
                   <Link
                     key={item.name}
                     href={item.href}
-                    className={`relative text-xs font-semibold uppercase tracking-wider transition-all duration-300 font-inter group ${
-                      isActive ? "text-white" : "text-white/60 hover:text-white"
-                    }`}
+                    className={`relative text-xs font-semibold uppercase tracking-wider transition-all duration-300 font-inter group ${isActive ? "text-white" : "text-white/60 hover:text-white"
+                      }`}
                   >
                     {item.name}
                     <span
-                      className={`absolute -bottom-1.5 left-0 h-0.5 transition-all duration-300 ${
-                        isActive
+                      className={`absolute -bottom-1.5 left-0 h-0.5 transition-all duration-300 ${isActive
                           ? "w-full bg-[#4C7DFF]"
                           : "w-0 group-hover:w-full bg-[#4C7DFF]/50"
-                      }`}
+                        }`}
                     />
                   </Link>
                 );

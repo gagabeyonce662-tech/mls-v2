@@ -27,9 +27,8 @@ export default function MobileNav({ isScrolled }: MobileNavProps) {
   return (
     <header
       style={{ backgroundColor: "#0C1536" }}
-      className={`lg:hidden fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        isScrolled ? "shadow-xl py-1" : "py-3"
-      }`}
+      className={`lg:hidden fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${isScrolled ? "shadow-xl py-1" : "py-3"
+        }`}
     >
       <div className="flex items-center justify-between px-4 h-16">
         {/* Menu & Logo */}
@@ -56,7 +55,7 @@ export default function MobileNav({ isScrolled }: MobileNavProps) {
                     <div className="relative h-8 w-32">
                       <Image
                         src="https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
-                        alt="EstateforYou"
+                        alt="Estate-4u"
                         width={128}
                         height={32}
                         className="h-full w-full object-contain filter brightness-0 invert"
@@ -138,7 +137,7 @@ export default function MobileNav({ isScrolled }: MobileNavProps) {
             <div className="relative h-10 w-40">
               <Image
                 src="https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
-                alt="EstateforYou"
+                alt="Estate-4u"
                 width={160}
                 height={40}
                 className="h-full w-full object-contain filter brightness-0 invert"
