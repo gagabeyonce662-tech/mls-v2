@@ -69,29 +69,9 @@ export default function HeroSection({
 
   return (
     <section
-      className="relative w-full overflow-hidden border-t border-b h-[320px] md:h-[380px] flex items-center -mt-[var(--header-height)] pt-[var(--header-height)]"
-      style={{ borderColor: colors.boarder }}
+      className="relative w-full overflow-hidden h-[500px] md:h-[600px] flex items-center"
+      style={{ backgroundColor: colors.heading }}
     >
-      {/* dark overlay + subtle gradient */}
-      <div className="absolute inset-0 pointer-events-none" aria-hid
-        <div className="absolute inset-0 bg-white/10 mix-blend-lighten"></div>
-        <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-black/50 to-transparent"></div>
-      </div>
-
-      {/* main content */}
-      <div className="relative z-20 max-w-7xl mx-auto px-6 lg:px-8 pt-16 pb-6 md:pt-20 md:pb-8 lg:pt-24 lg:pb-10">
-        <div className="max-w-3xl text-white/95 text-left">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight drop-shadow">
-            Find Your Place
-          </h1>
-          <p className="mt-4 text-sm md:text-base text-white/85 max-w-xl">
-            Watch listings, communities and custom areas. Stay informed when
-            listings are added and sold.
-          </p>
-
-          {/* Search box */}
-          <div className="mt-6">
-            <div className="mx-auto mt-4 max-w-4xl">
       {/* Animated Background Image (Ken Burns Effect) */}
       <motion.div
         initial={{ scale: 1.1 }}
@@ -110,13 +90,13 @@ export default function HeroSection({
       />
 
       {/* Sophisticated Overlay */}
-      <div className="absolute inset-0 z-10 pointer-events-none" aria-hidden>
+      <div className="absolute inset-0 z-10 pointer-events-none" aria-hidden="true">
         <div className="absolute inset-0 bg-black/40"></div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20"></div>
       </div>
 
-      {/* Main Content Area - Intelligently pushed down to clear header but within full-bleed section */}
-      <div className="relative z-20 w-full max-w-7xl mx-auto px-6 lg:px-8 transition-all duration-300">
+      {/* Main Content Area */}
+      <div className="relative z-20 w-full max-w-7xl mx-auto px-6 lg:px-8">
         <div className="max-w-4xl">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
@@ -173,15 +153,9 @@ export default function HeroSection({
                     className="appearance-none bg-transparent text-white text-base py-3 md:py-4 pr-8 pl-2 focus:outline-none cursor-pointer font-medium"
                     aria-label="Search Type"
                   >
-                    <option value="Buy" className="text-gray-900">
-                      Buy
-                    </option>
-                    <option value="Rent" className="text-gray-900">
-                      Rent
-                    </option>
-                    <option value="Sell" className="text-gray-900">
-                      Sell
-                    </option>
+                    <option value="Buy" className="text-gray-900">Buy</option>
+                    <option value="Rent" className="text-gray-900">Rent</option>
+                    <option value="Sell" className="text-gray-900">Sell</option>
                   </select>
                   <ChevronDown className="w-4 h-4 -ml-6 text-white/60 pointer-events-none" />
                 </div>
@@ -217,7 +191,6 @@ export default function HeroSection({
           </motion.div>
         </div>
       </div>
-
     </section>
   );
 }

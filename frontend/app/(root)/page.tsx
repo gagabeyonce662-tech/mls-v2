@@ -180,7 +180,7 @@ export default function HomePage() {
           <FeaturedCollections />
         </div>
 
-        <div className="w-full mt-2 mb-6 px-4 lg:px-6">
+        <section className="w-full section-gap px-4 lg:px-6" aria-label="Properties and Search Filters">
           <div className="w-full">
             <PropertyFilter
               onPropertiesUpdate={handlePropertiesUpdate}
@@ -189,10 +189,20 @@ export default function HomePage() {
 
             <div className="space-y-4 overflow-x-hidden">
               {searchQuery && (
-                <FeaturedListings
-                  properties={searchResults}
-                  isLoading={isSearching}
-                  searchQuery={searchQuery}
+                <section aria-label="Search Results">
+                  <FeaturedListings
+                    properties={searchResults}
+                    isLoading={isSearching}
+                    searchQuery={searchQuery}
+                    onQuickView={handleQuickView}
+                  />
+                </section>
+              )}
+
+              <section aria-label="Newly Listed Properties">
+                <NewlyListedListings
+                  searchQuery={searchQuery || "Latest Properties"}
+                  showLimit={4}
                   onQuickView={handleQuickView}
                 />
               </section>
@@ -219,35 +229,14 @@ export default function HomePage() {
                 />
               </section>
 
-              <NewlyListedListings
-                searchQuery={searchQuery || "Latest Properties"}
-                showLimit={12}
-                onQuickView={handleQuickView}
-              />
-
-              <FeaturedListings
-                properties={properties}
-                totalCount={totalExclusiveCount}
-                searchQuery={
-                  selectedProvince
-                    ? `Exclusive in ${getProvinceName(selectedProvince)}`
-                    : "Exclusive Properties"
-                }
-                onQuickView={handleQuickView}
-              />
-
-              <RentalProperties
-                properties={rentalProperties}
-                totalCount={totalRentalCount}
-                isLoading={isLoadingRentals}
-                onQuickView={handleQuickView}
-              />
-              <PreConstructionProperties
-                properties={preConnProperties}
-                totalCount={totalPreConnCount}
-                isLoading={isLoadingPreConn}
-                onQuickView={handleQuickView}
-              />
+              <section aria-label="Pre-Construction Projects">
+                <PreConstructionProperties
+                  properties={preConnProperties}
+                  totalCount={totalPreConnCount}
+                  isLoading={isLoadingPreConn}
+                  onQuickView={handleQuickView}
+                />
+              </section>
             </div>
           </div>
         </section>
