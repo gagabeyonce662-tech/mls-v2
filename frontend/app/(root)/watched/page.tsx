@@ -11,7 +11,6 @@ import { useWatched } from "@/contexts/WatchedContext";
 import { useCompare } from "@/contexts/CompareContext";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { PropertyCard } from "@/components/listing/PropertyCard";
-import { CompareBar } from "@/components/listing/CompareBar";
 import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
 
 export default function WatchedPage() {
@@ -84,7 +83,6 @@ export default function WatchedPage() {
   return (
     <div className="min-h-screen bg-ds-background flex flex-col font-inter">
       <Header />
-      <CompareBar />
 
       <main className="flex-1 pt-24 pb-16">
         <Container>
@@ -108,11 +106,10 @@ export default function WatchedPage() {
                   setActiveTab("favorites");
                   setSearchTerm("");
                 }}
-                className={`pb-4 text-sm font-bold transition-all relative ${
-                  activeTab === "favorites"
+                className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "favorites"
                     ? "text-ds-primary"
                     : "text-ds-body hover:text-ds-heading"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <Heart
@@ -129,11 +126,10 @@ export default function WatchedPage() {
                   setActiveTab("history");
                   setSearchTerm("");
                 }}
-                className={`pb-4 text-sm font-bold transition-all relative ${
-                  activeTab === "history"
+                className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "history"
                     ? "text-ds-primary"
                     : "text-ds-body hover:text-ds-heading"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4" />
@@ -263,10 +259,10 @@ export default function WatchedPage() {
                       cardLoaded={true}
                       isClicked={clickedProperty === pKey}
                       onCardClick={handlePropertyClick}
-                      onMouseEnter={() => {}}
+                      onMouseEnter={() => { }}
                       onQuickView={handleQuickView}
-                      onImageLoad={() => {}}
-                      onImageError={() => {}}
+                      onImageLoad={() => { }}
+                      onImageError={() => { }}
                       formatPrice={formatPrice}
                     />
                   </div>

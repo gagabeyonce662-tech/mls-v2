@@ -20,8 +20,7 @@ import { propertyCard } from "@/config/design-system";
 export const getPropertyKey = (property: Property): string =>
   property.listing_key ||
   property.PropertyKey ||
-  `property-${property.city || property.City || "unknown"}-${
-    property.ListPrice || property.list_price || "0"
+  `property-${property.city || property.City || "unknown"}-${property.ListPrice || property.list_price || "0"
   }`;
 
 /* ──────────────────────────── Location ──────────────────────────── */
@@ -80,11 +79,11 @@ export const getPrice = (property: Property): number => {
 export const formatPrice = (price: number): string =>
   price > 0
     ? new Intl.NumberFormat(propertyCard.currency.locale, {
-        style: "currency",
-        currency: propertyCard.currency.code,
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(price)
+      style: "currency",
+      currency: propertyCard.currency.code,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price)
     : propertyCard.fallbackText.noPrice;
 
 /* ──────────────────────────── Classification ──────────────────────────── */
@@ -177,8 +176,56 @@ export const getThumbnail = (property: Property): string | null => {
   return null;
 };
 
-export const getPhotosCount = (property: Property): number =>
-  property.photos_count ?? 0;
+export const getPhotos = (property: Property): string[] => {
+  const candidates = [
+    (property as any).photos,
+    property.Photos,
+    property.media,
+    property.Media,
+    (property as any).images,
+    (property as any).Images,
+  ];
+
+  const allPhotos: string[] = [];
+
+  for (const field of candidates) {
+    if (!field) continue;
+
+    if (Array.isArray(field) && field.length > 0) {
+      for (const item of field) {
+        if (typeof item === "string" && item.trim()) {
+          allPhotos.push(item);
+        } else if (typeof item === "object" && item !== null) {
+          for (const k of MEDIA_URL_KEYS) {
+            if ((item as any)[k]) {
+              allPhotos.push((item as any)[k]);
+              break;
+            }
+          }
+        }
+      }
+    } else if (typeof field === "object") {
+      for (const k of MEDIA_URL_KEYS) {
+        if ((field as any)[k]) {
+          allPhotos.push((field as any)[k]);
+          break;
+        }
+      }
+    } else if (typeof field === "string" && field.trim()) {
+      allPhotos.push(field);
+    }
+
+    if (allPhotos.length > 0) break;
+  }
+
+  // Deduplicate
+  return allPhotos.filter((item, index) => allPhotos.indexOf(item) === index);
+};
+
+export const getPhotosCount = (property: Property): number => {
+  const photos = getPhotos(property);
+  return photos.length || (property as any).photos_count || 0;
+};
 
 /* ──────────────────────────── Dates ──────────────────────────── */
 

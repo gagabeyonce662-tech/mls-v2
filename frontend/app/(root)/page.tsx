@@ -6,7 +6,7 @@ import { SlidersHorizontal, Map, Home, Building2, Calculator, BadgeInfo, FileTex
 import HeroSection from "@/components/homepage/HeroSection";
 import FeaturedCollections from "@/components/homepage/FeaturedCollections";
 import FeaturedListings from "@/components/homepage/FeaturedListings";
-import SearchResults from "@/components/homepage/SearchResults";
+
 import RentalProperties from "@/components/homepage/RentalProperties";
 import PreConstructionProperties from "@/components/homepage/PreConstructionProperties";
 import LocationsSection from "@/components/homepage/LocationsSection";
@@ -219,14 +219,13 @@ export default function HomePage() {
               variant="horizontal"
             />
 
-            <div className="space-y-16">
+            <div className="space-y-4 overflow-x-hidden">
               {searchQuery && (
                 <section aria-label="Search Results">
-                  <SearchResults
+                  <FeaturedListings
                     properties={searchResults}
                     isLoading={isSearching}
                     searchQuery={searchQuery}
-                    onClearSearch={handleClearSearch}
                     onQuickView={handleQuickView}
                   />
                 </section>
