@@ -11,6 +11,7 @@ import {
   formatPrice,
   getThumbnail,
   getPrice,
+  getDetailUrl,
 } from "@/lib/propertyUtils";
 import { PropertyQuickViewModal } from "./PropertyQuickViewModal";
 
@@ -55,7 +56,7 @@ export default function SimilarPropertiesClient({
       return;
     }
 
-    router.push(`/listing/${key}`);
+    router.push(getDetailUrl(property));
   };
 
   const handleImageLoad = (key: string) => {

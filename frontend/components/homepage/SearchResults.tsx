@@ -6,6 +6,7 @@ import { Bed, Bath, Loader2, ChevronRight, X } from "lucide-react";
 
 import { colors } from "@/config/design-system";
 import { type Property } from "@/lib/api";
+import { getDetailUrl } from "@/lib/propertyUtils";
 
 interface SearchResultsProps {
   properties: Property[];
@@ -37,7 +38,8 @@ export default function SearchResults({
     return (
       (property as any).listing_key ||
       (property as any).PropertyKey ||
-      `search-${(property as any).city || (property as any).City || "unknown"}-${(property as any).ListPrice || (property as any).list_price || "0"
+      `search-${(property as any).city || (property as any).City || "unknown"}-${
+        (property as any).ListPrice || (property as any).list_price || "0"
       }`
     );
   };
@@ -249,7 +251,7 @@ export default function SearchResults({
                 return (
                   <Link
                     key={propertyKey}
-                    href={`/listing/${propertyKey}`}
+                    href={getDetailUrl(property)}
                     className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow"
                   >
                     <div

@@ -220,3 +220,45 @@ export const getDescription = (property: Property): string =>
 
 export const getListingUrl = (property: Property): string | null =>
   property.listing_url || null;
+
+/* ──────────────────────────── Navigation ──────────────────────────── */
+
+/**
+ * Checks if the property is a rental/lease based on various possible API fields.
+ */
+export const isRental = (property: Property): boolean => {
+  const type = (
+    property.PropertyType ||
+    property.category_type ||
+    ""
+  ).toLowerCase();
+  const subType = (
+    property.PropertySubType ||
+    property.property_sub_type ||
+    ""
+  ).toLowerCase();
+  const status = (
+    property.standard_status ||
+    property.StandardStatus ||
+    ""
+  ).toLowerCase();
+
+  return (
+    type.includes("lease") ||
+    type.includes("rental") ||
+    subType.includes("lease") ||
+    subType.includes("rental") ||
+    status.includes("lease") ||
+    status.includes("rent") ||
+    !!property.lease_amount ||
+    !!property.total_actual_rent
+  );
+};
+
+/**
+ * Returns the canonical detail page URL for a property.
+ */
+export const getDetailUrl = (property: Property): string => {
+  const key = getPropertyKey(property);
+  return isRental(property) ? `/listing/rental/${key}` : `/listing/${key}`;
+};
