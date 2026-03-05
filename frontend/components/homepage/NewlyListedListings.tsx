@@ -48,14 +48,10 @@ export default function NewlyListedListings({
   }, [showLimit, searchQuery]);
 
   return (
-    <div className="pt-8 pb-12">
-      <div className="w-full">
-        {/* Header */}
-        <div className="flex items-center overflow-x-auto justify-between mb-4">
     <div className="py-8">
       <div className="w-full">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-8">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-5 h-5" style={{ color: colors.primary }} />
@@ -162,10 +158,10 @@ export default function NewlyListedListings({
                       `new-${index}`
                     }
                     className={`w-full ${index === 0 ? "block" :
-                        index === 1 ? "hidden sm:block" :
-                          index < 4 ? "hidden lg:block" :
-                            index < 6 ? "hidden 2xl:block" :
-                              "hidden 3xl:block"
+                      index === 1 ? "hidden sm:block" :
+                        index < 4 ? "hidden lg:block" :
+                          index < 6 ? "hidden 2xl:block" :
+                            "hidden 3xl:block"
                       }`}
                   >
                     <PropertyCard
