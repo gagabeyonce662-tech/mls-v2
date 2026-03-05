@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
+import { SlidersHorizontal, Map, Home, Building2, Calculator, BadgeInfo, FileText, Key } from "lucide-react";
 import HeroSection from "@/components/homepage/HeroSection";
 import FeaturedCollections from "@/components/homepage/FeaturedCollections";
 import FeaturedListings from "@/components/homepage/FeaturedListings";
@@ -168,10 +169,12 @@ export default function HomePage() {
       <Header />
 
       <main className="w-full flex-1">
-        <HeroSection
-          onSearchStart={handleSearchStart}
-          onSearchResults={handleSearchResults}
-        />
+        <section aria-label="Find Property">
+          <HeroSection
+            onSearchStart={handleSearchStart}
+            onSearchResults={handleSearchResults}
+          />
+        </section>
 
         <div className="mt-2 w-full">
           <FeaturedCollections />
@@ -192,7 +195,29 @@ export default function HomePage() {
                   searchQuery={searchQuery}
                   onQuickView={handleQuickView}
                 />
-              )}
+              </section>
+
+              <section aria-label="Featured Properties">
+                <FeaturedListings
+                  properties={properties}
+                  totalCount={totalExclusiveCount}
+                  searchQuery={
+                    selectedProvince
+                      ? `Exclusive in ${getProvinceName(selectedProvince)}`
+                      : "Exclusive Properties"
+                  }
+                  onQuickView={handleQuickView}
+                />
+              </section>
+
+              <section aria-label="Rental Properties">
+                <RentalProperties
+                  properties={rentalProperties}
+                  totalCount={totalRentalCount}
+                  isLoading={isLoadingRentals}
+                  onQuickView={handleQuickView}
+                />
+              </section>
 
               <NewlyListedListings
                 searchQuery={searchQuery || "Latest Properties"}
@@ -225,23 +250,31 @@ export default function HomePage() {
               />
             </div>
           </div>
-        </div>
+        </section>
 
-        <Container className="section-gap">
-          <LocationsSection />
-        </Container>
+        <section className="section-gap" aria-label="Common Locations">
+          <Container>
+            <LocationsSection />
+          </Container>
+        </section>
 
-        <Container className="section-gap">
-          <LatestArticles />
-        </Container>
+        <section className="section-gap" aria-label="Latest Real Estate News">
+          <Container>
+            <LatestArticles />
+          </Container>
+        </section>
 
-        <Container className="section-gap">
-          <MortgageSection />
-        </Container>
+        <section className="section-gap" aria-label="Mortgage Tools">
+          <Container>
+            <MortgageSection />
+          </Container>
+        </section>
 
-        <Container className="section-gap">
-          <ClientReviews />
-        </Container>
+        <section className="section-gap" aria-label="Client Success Stories">
+          <Container>
+            <ClientReviews />
+          </Container>
+        </section>
 
         {/* Mobile Filter FAB */}
         <button
@@ -271,6 +304,6 @@ export default function HomePage() {
         property={selectedProperty}
         onClose={() => setQuickViewOpen(false)}
       />
-    </div>
+    </div >
   );
 }

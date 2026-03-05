@@ -123,9 +123,12 @@ export default function HeroSection({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            <h1 className="text-2xl md:text-4xl text-white font-extrabold leading-tight tracking-tight drop-shadow-xl">
-              Find Your Place
+            <h1 className="text-3xl md:text-5xl lg:text-6xl text-white font-extrabold leading-tight tracking-tight drop-shadow-2xl">
+              Toronto & GTA Homes for Sale, Rent & Pre-Construction
             </h1>
+            <p className="mt-4 text-lg md:text-xl text-white/90 font-medium max-w-2xl drop-shadow-lg">
+              Discover your perfect property with Estate-4u. Real-time updates on active listings, exclusive rentals, and upcoming pre-construction projects across Ontario.
+            </p>
           </motion.div>
 
           <motion.div
