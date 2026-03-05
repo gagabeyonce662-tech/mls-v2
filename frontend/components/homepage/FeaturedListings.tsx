@@ -93,13 +93,19 @@ export default function FeaturedListings({
           </div>
         )}
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Responsive Grid - Default 4 on Desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 gap-6">
           {showLoadingSkeletons
-            ? [...Array(4)].map((_, i) => (
+            ? [...Array(8)].map((_, i) => (
               <div
                 key={`skeleton-${i}`}
-                className="rounded-2xl overflow-hidden animate-pulse"
+                className={`w-full rounded-2xl overflow-hidden animate-pulse ${i === 0 ? "block" :
+                  i === 1 ? "hidden sm:block" :
+                    i < 4 ? "hidden lg:block" :
+                      i === 4 ? "hidden xl:block" :
+                        i === 5 ? "hidden 2xl:block" :
+                          "hidden 3xl:block"
+                  }`}
                 style={{ border: `1px solid ${colors.cardsBoarder}` }}
               >
                 <div
@@ -138,22 +144,28 @@ export default function FeaturedListings({
             ))
             : properties.length > 0
               ? properties
-                .slice(0, 4)
+                .slice(0, 8)
                 .map((property, index) => (
-                  <PropertyCard
-                    key={
-                      property.listing_key ||
-                      property.PropertyKey ||
-                      `feat-${index}`
-                    }
-                    property={property}
-                    variant="featured"
-                    index={index}
-                    onQuickView={onQuickView}
-                  />
+                  <div
+                    key={property.listing_key || property.PropertyKey || `feat-${index}`}
+                    className={`w-full ${index === 0 ? "block" :
+                      index === 1 ? "hidden sm:block" :
+                        index < 4 ? "hidden lg:block" :
+                          index === 4 ? "hidden xl:block" :
+                            index === 5 ? "hidden 2xl:block" :
+                              "hidden 3xl:block"
+                      }`}
+                  >
+                    <PropertyCard
+                      property={property}
+                      variant="featured"
+                      index={index}
+                      onQuickView={onQuickView}
+                    />
+                  </div>
                 ))
               : !showLoadingSkeletons && (
-                <div className="col-span-3 text-center py-16">
+                <div className="w-full text-center py-16">
                   <div
                     className="text-xl font-semibold mb-2"
                     style={{ color: colors.heading }}

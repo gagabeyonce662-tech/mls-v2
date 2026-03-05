@@ -38,29 +38,38 @@ export default function FeaturedCollections() {
   ];
 
   return (
+    <div className="py-2 bg-white w-full overflow-hidden">
+      <div className="w-full px-4 lg:px-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
     <div className="py-4 w-full overflow-hidden">
       <div className="w-full px-4 sm:px-6 lg:px-12">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {collections.map((collection) => (
-            <Link
+            <div
               key={collection.id}
+              className="w-full"
               href={collection.href}
               className="group relative h-40 rounded-xl overflow-hidden shadow-lg cursor-pointer transform transition-transform hover:scale-105"
             >
-              <Image
-                src={collection.image}
-                alt={collection.title}
-                width={400}
-                height={320}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-              <div className="absolute inset-0 flex items-end p-6">
-                <h3 className="text-white text-base font-inter font-semibold">
-                  {collection.title}
-                </h3>
-              </div>
-            </Link>
+              <Link
+                href={collection.href}
+                className="group relative h-32 rounded-xl overflow-hidden shadow-lg cursor-pointer transform transition-transform hover:scale-105 block"
+              >
+                <Image
+                  src={collection.image}
+                  alt={collection.title}
+                  width={400}
+                  height={200}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                <div className="absolute inset-0 flex items-end p-4">
+                  <h3 className="text-white text-sm font-inter font-semibold">
+                    {collection.title}
+                  </h3>
+                </div>
+              </Link>
+            </div>
           ))}
         </div>
       </div>

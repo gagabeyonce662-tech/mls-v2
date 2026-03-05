@@ -385,27 +385,27 @@ export default function PropertyFilter({
         {/* Subtle decorative gradient orb */}
         <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full opacity-20 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, #3b82f6, transparent)' }} />
         <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: 'radial-gradient(circle, #60a5fa, transparent)' }} />
-
-        <div className="relative p-4 lg:p-5">
-          <div className="flex flex-col lg:flex-row items-end gap-3">
+        <div className="relative pt-1.5 pb-3 px-4 lg:pt-2 lg:pb-4 lg:px-6">
+          <div className="flex flex-col lg:flex-row items-end gap-2">
             {/* Location */}
             <div className="w-full lg:w-1/5">
-              <label className="block text-[9px] font-semibold mb-1.5 uppercase tracking-widest text-white/40">Location</label>
+              <label className="block text-[9px] font-semibold mb-1 uppercase tracking-widest text-white/40">Location</label>
               <div className="relative">
                 <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
                 <input
+                  id="search"
                   type="text"
                   placeholder="City (e.g. Toronto)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full py-2.5 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200"
+                  className="w-full py-2 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200"
                 />
               </div>
             </div>
 
             {/* Property Type */}
             <div className="w-full lg:w-1/5">
-              <label className="block text-[9px] font-semibold mb-1.5 uppercase tracking-widest text-white/40">Type</label>
+              <label className="block text-[9px] font-semibold mb-1 uppercase tracking-widest text-white/40">Type</label>
               <div className="relative">
                 <LandPlot className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none z-10" />
                 <select
@@ -415,7 +415,7 @@ export default function PropertyFilter({
                     const options = Array.from(e.target.selectedOptions, option => option.value);
                     setPropertyType(options);
                   }}
-                  className="w-full py-2.5 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200 appearance-none min-h-[38px] cursor-pointer"
+                  className="w-full py-2 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200 appearance-none min-h-[34px] cursor-pointer"
                   size={1}
                   onFocus={(e) => { e.target.size = 5; e.target.style.background = 'rgba(255,255,255,0.15)'; }}
                   onBlur={(e) => { e.target.size = 1; e.target.style.background = ''; }}
@@ -431,7 +431,7 @@ export default function PropertyFilter({
             {/* Price Range */}
             <div className="w-full lg:w-1/4 flex gap-2">
               <div className="flex-1">
-                <label className="block text-[9px] font-semibold mb-1.5 uppercase tracking-widest text-white/40">Min Price</label>
+                <label className="block text-[9px] font-semibold mb-1 uppercase tracking-widest text-white/40">Min Price</label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
                   <input
@@ -439,12 +439,12 @@ export default function PropertyFilter({
                     placeholder="0"
                     value={formatPrice(priceRange.min)}
                     onChange={(e) => setPriceRange({ ...priceRange, min: e.target.value.replace(/[^0-9]/g, "") })}
-                    className="w-full py-2.5 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200"
+                    className="w-full py-2 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200"
                   />
                 </div>
               </div>
               <div className="flex-1">
-                <label className="block text-[9px] font-semibold mb-1.5 uppercase tracking-widest text-white/40">Max Price</label>
+                <label className="block text-[9px] font-semibold mb-1 uppercase tracking-widest text-white/40">Max Price</label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
                   <input
@@ -452,7 +452,7 @@ export default function PropertyFilter({
                     placeholder="Any"
                     value={formatPrice(priceRange.max)}
                     onChange={(e) => setPriceRange({ ...priceRange, max: e.target.value.replace(/[^0-9]/g, "") })}
-                    className="w-full py-2.5 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200"
+                    className="w-full py-2 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white placeholder:text-white/25 focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200"
                   />
                 </div>
               </div>
@@ -461,13 +461,13 @@ export default function PropertyFilter({
             {/* Beds & Baths */}
             <div className="w-full lg:w-1/6 flex gap-2">
               <div className="flex-1">
-                <label className="block text-[9px] font-semibold mb-1.5 uppercase tracking-widest text-white/40">Beds</label>
+                <label className="block text-[9px] font-semibold mb-1 uppercase tracking-widest text-white/40">Beds</label>
                 <div className="relative">
                   <BedDouble className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
                   <select
                     value={bedrooms}
                     onChange={(e) => setBedrooms(e.target.value)}
-                    className="w-full py-2.5 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200 cursor-pointer appearance-none"
+                    className="w-full py-2 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200 cursor-pointer appearance-none"
                   >
                     <option value="all" className="bg-[#1a2f5a] text-white">Any</option>
                     <option value="1+" className="bg-[#1a2f5a] text-white">1+</option>
@@ -479,13 +479,13 @@ export default function PropertyFilter({
                 </div>
               </div>
               <div className="flex-1">
-                <label className="block text-[9px] font-semibold mb-1.5 uppercase tracking-widest text-white/40">Baths</label>
+                <label className="block text-[9px] font-semibold mb-1 uppercase tracking-widest text-white/40">Baths</label>
                 <div className="relative">
                   <Bath className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
                   <select
                     value={bathrooms}
                     onChange={(e) => setBathrooms(e.target.value)}
-                    className="w-full py-2.5 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200 cursor-pointer appearance-none"
+                    className="w-full py-2 pl-9 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white focus:bg-white/[0.12] focus:border-white/30 focus:ring-1 focus:ring-white/20 outline-none transition-all duration-200 cursor-pointer appearance-none"
                   >
                     <option value="all" className="bg-[#1a2f5a] text-white">Any</option>
                     <option value="1+" className="bg-[#1a2f5a] text-white">1+</option>
@@ -502,7 +502,7 @@ export default function PropertyFilter({
               <button
                 onClick={handleApply}
                 disabled={isLoading}
-                className="flex-1 lg:flex-none h-[38px] px-8 rounded-lg font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] disabled:opacity-50 text-white"
+                className="flex-1 lg:flex-none h-[34px] px-8 rounded-lg font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] disabled:opacity-50 text-white"
                 style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', boxShadow: '0 0 20px rgba(59,130,246,0.3), 0 4px 12px rgba(37,99,235,0.25)' }}
               >
                 {isLoading ? (
@@ -516,7 +516,7 @@ export default function PropertyFilter({
               </button>
               <button
                 onClick={() => setShowMore(!showMore)}
-                className={`h-[38px] px-4 rounded-lg text-[11px] font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 whitespace-nowrap flex-shrink-0 ${showMore ? 'bg-white/15 border border-white/25 text-white' : 'border border-white/[0.12] text-white/50 hover:bg-white/10 hover:text-white/80 hover:border-white/25'
+                className={`h-[34px] px-4 rounded-lg text-[11px] font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 whitespace-nowrap flex-shrink-0 ${showMore ? 'bg-white/15 border border-white/25 text-white' : 'border border-white/[0.12] text-white/50 hover:bg-white/10 hover:text-white/80 hover:border-white/25'
                   }`}
               >
                 <SlidersHorizontal className={`w-3.5 h-3.5 transition-transform duration-500 ${showMore ? 'rotate-180' : ''}`} />
@@ -525,7 +525,7 @@ export default function PropertyFilter({
               <button
                 onClick={handleClearFilters}
                 title="Reset all filters"
-                className="h-[38px] w-[38px] rounded-lg border border-white/[0.12] text-white/40 hover:bg-white/10 hover:text-red-400 hover:border-red-400/30 transition-all duration-200 flex items-center justify-center group flex-shrink-0"
+                className="h-[34px] w-[34px] rounded-lg border border-white/[0.12] text-white/40 hover:bg-white/10 hover:text-red-400 hover:border-red-400/30 transition-all duration-200 flex items-center justify-center group flex-shrink-0"
               >
                 <RotateCcw className="w-3.5 h-3.5 group-hover:rotate-[-120deg] transition-transform duration-500" />
               </button>
@@ -572,7 +572,7 @@ export default function PropertyFilter({
                   <select
                     value={limit}
                     onChange={(e) => setLimit(e.target.value)}
-                    className="w-full py-2.5 pl-3 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white focus:bg-white/[0.12] focus:border-white/30 outline-none transition-all cursor-pointer appearance-none"
+                    className="w-full py-2 pl-3 pr-3 bg-white/[0.07] border border-white/[0.12] rounded-lg text-xs font-medium text-white focus:bg-white/[0.12] focus:border-white/30 outline-none transition-all cursor-pointer appearance-none"
                   >
                     <option value="10" className="bg-[#1a2f5a] text-white">10 properties</option>
                     <option value="25" className="bg-[#1a2f5a] text-white">25 properties</option>
@@ -585,7 +585,7 @@ export default function PropertyFilter({
                 <div className="flex items-end">
                   <button
                     onClick={handleClearFilters}
-                    className="w-full h-[38px] rounded-lg border border-white/[0.12] text-[11px] font-semibold text-white/40 hover:bg-white/10 hover:text-red-400 hover:border-red-400/30 transition-all duration-200 flex items-center justify-center gap-2 group"
+                    className="w-full h-[34px] rounded-lg border border-white/[0.12] text-[11px] font-semibold text-white/40 hover:bg-white/10 hover:text-red-400 hover:border-red-400/30 transition-all duration-200 flex items-center justify-center gap-2 group"
                   >
                     <RotateCcw className="w-3.5 h-3.5 group-hover:rotate-[-120deg] transition-transform duration-500" />
                     Reset All

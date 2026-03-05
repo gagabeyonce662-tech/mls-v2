@@ -5,7 +5,7 @@ import { SlidersHorizontal } from "lucide-react";
 import HeroSection from "@/components/homepage/HeroSection";
 import FeaturedCollections from "@/components/homepage/FeaturedCollections";
 import FeaturedListings from "@/components/homepage/FeaturedListings";
-import SearchResults from "@/components/homepage/SearchResults";
+
 import RentalProperties from "@/components/homepage/RentalProperties";
 import PreConstructionProperties from "@/components/homepage/PreConstructionProperties";
 import LocationsSection from "@/components/homepage/LocationsSection";
@@ -173,31 +173,30 @@ export default function HomePage() {
           onSearchResults={handleSearchResults}
         />
 
-        <Container className="section-gap-sm px-4 lg:px-8">
+        <div className="mt-2 w-full">
           <FeaturedCollections />
-        </Container>
+        </div>
 
-        <div className="w-full section-gap px-4 lg:px-6">
+        <div className="w-full mt-2 mb-6 px-4 lg:px-6">
           <div className="w-full">
             <PropertyFilter
               onPropertiesUpdate={handlePropertiesUpdate}
               variant="horizontal"
             />
 
-            <div className="space-y-16">
+            <div className="space-y-4 overflow-x-hidden">
               {searchQuery && (
-                <SearchResults
+                <FeaturedListings
                   properties={searchResults}
                   isLoading={isSearching}
                   searchQuery={searchQuery}
-                  onClearSearch={handleClearSearch}
                   onQuickView={handleQuickView}
                 />
               )}
 
               <NewlyListedListings
                 searchQuery={searchQuery || "Latest Properties"}
-                showLimit={4}
+                showLimit={12}
                 onQuickView={handleQuickView}
               />
 
@@ -211,6 +210,7 @@ export default function HomePage() {
                 }
                 onQuickView={handleQuickView}
               />
+
               <RentalProperties
                 properties={rentalProperties}
                 totalCount={totalRentalCount}

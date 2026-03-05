@@ -72,6 +72,26 @@ export default function HeroSection({
       className="relative w-full overflow-hidden border-t border-b h-[320px] md:h-[380px] flex items-center -mt-[var(--header-height)] pt-[var(--header-height)]"
       style={{ borderColor: colors.boarder }}
     >
+      {/* dark overlay + subtle gradient */}
+      <div className="absolute inset-0 pointer-events-none" aria-hid
+        <div className="absolute inset-0 bg-white/10 mix-blend-lighten"></div>
+        <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-black/50 to-transparent"></div>
+      </div>
+
+      {/* main content */}
+      <div className="relative z-20 max-w-7xl mx-auto px-6 lg:px-8 pt-16 pb-6 md:pt-20 md:pb-8 lg:pt-24 lg:pb-10">
+        <div className="max-w-3xl text-white/95 text-left">
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight drop-shadow">
+            Find Your Place
+          </h1>
+          <p className="mt-4 text-sm md:text-base text-white/85 max-w-xl">
+            Watch listings, communities and custom areas. Stay informed when
+            listings are added and sold.
+          </p>
+
+          {/* Search box */}
+          <div className="mt-6">
+            <div className="mx-auto mt-4 max-w-4xl">
       {/* Animated Background Image (Ken Burns Effect) */}
       <motion.div
         initial={{ scale: 1.1 }}
@@ -194,6 +214,7 @@ export default function HeroSection({
           </motion.div>
         </div>
       </div>
+
     </section>
   );
 }
