@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { ArrowRight } from "lucide-react";
 
 import { colors } from "@/config/design-system";
 
@@ -38,30 +39,32 @@ export default function FeaturedCollections() {
   ];
 
   return (
-    <div className="py-4 bg-white w-full overflow-hidden">
+    <div className="py-2 bg-white w-full overflow-hidden">
       <div className="w-full px-4 lg:px-12">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {collections.map((collection) => (
-            <div
-              key={collection.id}
-              className="w-full"
-            >
+            <div key={collection.id} className="w-full">
               <Link
                 href={collection.href}
-                className="group relative h-40 rounded-xl overflow-hidden shadow-lg cursor-pointer transform transition-transform hover:scale-105 block"
+                className="group relative h-16 sm:h-20 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg cursor-pointer transform transition-all duration-500 ease-out hover:-translate-y-1 block ring-1 ring-black/5"
               >
                 <Image
                   src={collection.image}
                   alt={collection.title}
                   width={400}
-                  height={200}
-                  className="w-full h-full object-cover"
+                  height={120}
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                <div className="absolute inset-0 flex items-end p-4">
-                  <h3 className="text-white text-base font-inter font-semibold">
+                {/* Premium Brand-Colored Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-r from-[#0C1536]/95 via-[#0C1536]/70 to-black/30 group-hover:via-[#0C1536]/80 transition-colors duration-500 ease-out" />
+
+                <div className="absolute inset-0 flex items-center justify-between px-6">
+                  <h3 className="text-white text-sm sm:text-base font-inter font-semibold tracking-wide transition-transform duration-500 ease-out group-hover:translate-x-1">
                     {collection.title}
                   </h3>
+                  <div className="w-8 h-8 rounded-full bg-white/10 group-hover:bg-white/25 flex items-center justify-center transition-all duration-500 ease-out backdrop-blur-md border border-white/10 group-hover:border-white/40 shadow-sm">
+                    <ArrowRight className="w-4 h-4 text-white transition-transform duration-500 ease-out" />
+                  </div>
                 </div>
               </Link>
             </div>

@@ -21,10 +21,20 @@ import { ExclusivePropertiesSection } from "@/components/homepage/sections/Exclu
 import { RentalPropertiesSection } from "@/components/homepage/sections/RentalPropertiesSection";
 import { PreConstructionSection } from "@/components/homepage/sections/PreConstructionSection";
 
-import LocationsSection from "@/components/homepage/LocationsSection";
-import LatestArticles from "@/components/homepage/LatestArticles";
-import MortgageSection from "@/components/homepage/MortgageSection";
-import ClientReviews from "@/components/homepage/ClientReviews";
+import dynamic from "next/dynamic";
+
+const LocationsSection = dynamic(
+  () => import("@/components/homepage/LocationsSection"),
+);
+const LatestArticles = dynamic(
+  () => import("@/components/homepage/LatestArticles"),
+);
+const MortgageSection = dynamic(
+  () => import("@/components/homepage/MortgageSection"),
+);
+const ClientReviews = dynamic(
+  () => import("@/components/homepage/ClientReviews"),
+);
 
 export default function HomePage() {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -38,7 +48,7 @@ export default function HomePage() {
         >
           <Header />
 
-          <main className="w-full flex-1">
+          <main className="w-full flex-1 mt-0">
             {/* Hero Section */}
             <section aria-label="Find Property">
               <HeroSection />
@@ -50,7 +60,10 @@ export default function HomePage() {
             </div>
 
             {/* Content Section */}
-            <section className="w-full section-gap px-4 lg:px-6" aria-label="Properties and Search Filters">
+            <section
+              className="w-full mt-8 px-4 lg:px-6"
+              aria-label="Properties and Search Filters"
+            >
               <div className="w-full">
                 {/* Search & Filters */}
                 <PropertyFilter variant="horizontal" />
@@ -73,7 +86,10 @@ export default function HomePage() {
               </Container>
             </section>
 
-            <section className="section-gap" aria-label="Latest Real Estate News">
+            <section
+              className="section-gap"
+              aria-label="Latest Real Estate News"
+            >
               <Container>
                 <LatestArticles />
               </Container>
@@ -85,7 +101,10 @@ export default function HomePage() {
               </Container>
             </section>
 
-            <section className="section-gap" aria-label="Client Success Stories">
+            <section
+              className="section-gap"
+              aria-label="Client Success Stories"
+            >
               <Container>
                 <ClientReviews />
               </Container>

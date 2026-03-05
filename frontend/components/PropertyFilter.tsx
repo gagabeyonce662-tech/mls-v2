@@ -25,9 +25,18 @@ import { StyledCheckbox } from "@/components/ui/StyledCheckbox";
 import { FilterInput } from "@/components/shared/FilterInput";
 import { useSearch } from "@/contexts/SearchContext";
 import { useFilterState } from "@/hooks/useFilterState";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PropertyFilterProps {
   variant?: "sidebar" | "horizontal";
+  onApplyFilters?: (filters: ExclusivePropertyFilterParams) => void;
+  initialCity?: string;
 }
 
 const propertyTypeMapping: { [key: string]: string } = {
@@ -50,9 +59,12 @@ const availablePropertyTypes = [
 
 export default function PropertyFilter({
   variant = "sidebar",
+  onApplyFilters,
+  initialCity,
 }: PropertyFilterProps) {
   const { applyFilters } = useSearch();
-  const { state, setters, clearFilters, calculateActiveFilters } = useFilterState();
+  const { state, setters, clearFilters, calculateActiveFilters } =
+    useFilterState();
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
 
   const {
@@ -70,7 +82,7 @@ export default function PropertyFilter({
     basement,
     hasPhotos,
     limit,
-    isLoading
+    isLoading,
   } = state;
 
   const {
@@ -86,7 +98,7 @@ export default function PropertyFilter({
     setBasement,
     setHasPhotos,
     setLimit,
-    setIsLoading
+    setIsLoading,
   } = setters;
 
   const fetchFilteredProperties = async () => {
@@ -140,6 +152,12 @@ export default function PropertyFilter({
         if (!isNaN(sqftMax) && sqftMax > 0) filters.building_area_max = sqftMax;
       }
 
+      if (onApplyFilters) {
+        onApplyFilters(filters);
+        setIsLoading(false);
+        return;
+      }
+
       const response = await fetchExclusiveProperties(filters);
       const limitValue = parseInt(limit);
       let results = response.results || [];
@@ -149,9 +167,12 @@ export default function PropertyFilter({
 
       // Generate description
       const filterDescriptions = [];
-      if (propertyType.length > 0) filterDescriptions.push(propertyType.join(", "));
-      if (searchQuery.trim()) filterDescriptions.push(`City: ${searchQuery.trim()}`);
-      if (priceRange.min || priceRange.max) filterDescriptions.push("Price Filtered");
+      if (propertyType.length > 0)
+        filterDescriptions.push(propertyType.join(", "));
+      if (searchQuery.trim())
+        filterDescriptions.push(`City: ${searchQuery.trim()}`);
+      if (priceRange.min || priceRange.max)
+        filterDescriptions.push("Price Filtered");
 
       const query =
         filterDescriptions.length > 0
@@ -170,41 +191,203 @@ export default function PropertyFilter({
   const handleClear = () => {
     clearFilters();
     setActiveFiltersCount(0);
-    applyFilters([], "");
+    if (onApplyFilters) {
+      onApplyFilters({});
+    } else {
+      applyFilters([], "");
+    }
   };
 
   if (variant === "horizontal") {
+    const intents = [
+      { id: "for-sale", label: "Buy" },
+      { id: "for-rent", label: "Rent" },
+      { id: "sold", label: "Sold" },
+    ];
+
+    const currentIntent = notifyFor || "for-sale";
+
     return (
-      <div className="w-full bg-white rounded-xl shadow-sm border p-4 mb-6" style={{ borderColor: colors.cardsBoarder }}>
-        <div className="flex flex-col md:flex-row items-center gap-4">
-          <div className="flex-1 w-full relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <div
+        className="w-full bg-white rounded-2xl shadow-md border p-4 sm:p-6 mb-6 transition-all duration-300 hover:shadow-lg"
+        style={{ borderColor: "#E5E5E5" }}
+      >
+        {/* Intent Tabs */}
+        <div className="flex items-center gap-6 mb-5 border-b border-gray-100 pb-1">
+          {intents.map((intent) => (
+            <button
+              key={intent.id}
+              onClick={() => setNotifyFor(intent.id)}
+              className={`pb-3 text-sm sm:text-base font-semibold transition-all relative ${
+                currentIntent === intent.id
+                  ? "text-ds-primary"
+                  : "text-gray-400 hover:text-gray-700"
+              }`}
+            >
+              {intent.label}
+              {currentIntent === intent.id && (
+                <div className="absolute bottom-0 left-0 w-full h-[3px] bg-ds-primary rounded-t-full" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Search Bar & Actions */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+          <div className="flex-1 w-full relative min-w-[200px]">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+              <Search className="w-5 h-5 text-gray-400" />
+            </div>
             <input
               type="text"
-              placeholder="Search by city..."
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              style={{ borderColor: colors.cardsBoarder }}
+              placeholder={
+                currentIntent === "for-sale"
+                  ? "Search cities, postal codes..."
+                  : currentIntent === "for-rent"
+                    ? "Search rental locations..."
+                    : "Search recently sold..."
+              }
+              className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-ds-primary/20 focus:border-ds-primary focus:bg-white transition-all text-sm sm:text-base"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && fetchFilteredProperties()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  fetchFilteredProperties();
+                }
+              }}
             />
           </div>
-          <div className="flex items-center gap-2 w-full md:w-auto">
+
+          <div className="hidden lg:flex items-center gap-2">
+            <Select
+              value={propertyType[0] || "all"}
+              onValueChange={(val) =>
+                setPropertyType(val === "all" ? [] : [val])
+              }
+            >
+              <SelectTrigger className="w-[150px] h-auto py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none">
+                <SelectValue placeholder="Property Type" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl shadow-lg border-gray-100">
+                <SelectItem value="all" className="font-medium">
+                  All Types
+                </SelectItem>
+                {availablePropertyTypes.map((type) => (
+                  <SelectItem
+                    key={type}
+                    value={type.toLowerCase().replace(" ", "-")}
+                    className="cursor-pointer"
+                  >
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={priceRange.max || "all"}
+              onValueChange={(val) =>
+                setPriceRange({ ...priceRange, max: val === "all" ? "" : val })
+              }
+            >
+              <SelectTrigger className="w-[130px] h-auto py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none">
+                <SelectValue placeholder="Max Price" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl shadow-lg border-gray-100">
+                <SelectItem value="all" className="font-medium">
+                  Any Price
+                </SelectItem>
+                <SelectItem value="500000" className="cursor-pointer">
+                  $500k
+                </SelectItem>
+                <SelectItem value="800000" className="cursor-pointer">
+                  $800k
+                </SelectItem>
+                <SelectItem value="1000000" className="cursor-pointer">
+                  $1M
+                </SelectItem>
+                <SelectItem value="1500000" className="cursor-pointer">
+                  $1.5M
+                </SelectItem>
+                <SelectItem value="2000000" className="cursor-pointer">
+                  $2M+
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={bedrooms || "all"}
+              onValueChange={(val) => setBedrooms(val)}
+            >
+              <SelectTrigger className="w-[110px] h-auto py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none">
+                <SelectValue placeholder="Beds" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl shadow-lg border-gray-100">
+                <SelectItem value="all" className="font-medium">
+                  Any Beds
+                </SelectItem>
+                <SelectItem value="1" className="cursor-pointer">
+                  1+ Beds
+                </SelectItem>
+                <SelectItem value="2" className="cursor-pointer">
+                  2+ Beds
+                </SelectItem>
+                <SelectItem value="3" className="cursor-pointer">
+                  3+ Beds
+                </SelectItem>
+                <SelectItem value="4" className="cursor-pointer">
+                  4+ Beds
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={bathrooms || "all"}
+              onValueChange={(val) => setBathrooms(val)}
+            >
+              <SelectTrigger className="w-[110px] h-auto py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none">
+                <SelectValue placeholder="Baths" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl shadow-lg border-gray-100">
+                <SelectItem value="all" className="font-medium">
+                  Any Baths
+                </SelectItem>
+                <SelectItem value="1" className="cursor-pointer">
+                  1+ Baths
+                </SelectItem>
+                <SelectItem value="2" className="cursor-pointer">
+                  2+ Baths
+                </SelectItem>
+                <SelectItem value="3" className="cursor-pointer">
+                  3+ Baths
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-3 w-full lg:w-auto">
             <button
               onClick={fetchFilteredProperties}
               disabled={isLoading}
-              className="flex-1 md:flex-none px-6 py-2 rounded-lg text-white font-medium transition-all hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: colors.primary }}
+              className="flex-1 md:flex-none px-8 py-3.5 rounded-xl text-white font-semibold transition-all hover:opacity-90 disabled:opacity-50 hover:shadow-md flex items-center justify-center gap-2"
+              style={{ backgroundColor: "#1E3A8A" }}
             >
-              {isLoading ? "Searching..." : "Apply Filters"}
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Searching...</span>
+                </>
+              ) : (
+                "Search"
+              )}
             </button>
             <button
               onClick={handleClear}
-              className="p-2 border rounded-lg hover:bg-gray-50 transition-all"
-              style={{ borderColor: colors.cardsBoarder }}
-              title="Reset"
+              className="p-3.5 border border-gray-200 bg-white rounded-xl hover:bg-gray-50 transition-all text-gray-500 hover:text-gray-800"
+              title="Reset Search"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -234,11 +417,17 @@ export default function PropertyFilter({
             <StyledCheckbox
               key={type}
               label={type}
-              checked={propertyType.includes(type.toLowerCase().replace(" ", "-"))}
+              checked={propertyType.includes(
+                type.toLowerCase().replace(" ", "-"),
+              )}
               onChange={() => {
                 const val = type.toLowerCase().replace(" ", "-");
                 const isChecked = propertyType.includes(val);
-                setPropertyType(isChecked ? propertyType.filter((t) => t !== val) : [...propertyType, val]);
+                setPropertyType(
+                  isChecked
+                    ? propertyType.filter((t) => t !== val)
+                    : [...propertyType, val],
+                );
               }}
             />
           ))}

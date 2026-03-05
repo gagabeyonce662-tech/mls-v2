@@ -64,7 +64,7 @@ export default function HeroSection() {
 
   return (
     <section
-      className="relative w-full overflow-hidden h-[500px] md:h-[700px] flex items-stretch"
+      className="relative w-full overflow-hidden flex items-stretch"
       style={{ backgroundColor: colors.heading }}
     >
       {/* Animated Background Image (Ken Burns Effect) */}
@@ -85,7 +85,10 @@ export default function HeroSection() {
       />
 
       {/* Sophisticated Overlay */}
-      <div className="absolute inset-0 z-10 pointer-events-none" aria-hidden="true">
+      <div
+        className="absolute inset-0 z-10 pointer-events-none"
+        aria-hidden="true"
+      >
         <div className="absolute inset-0 bg-black/30"></div>
         {/* Dual gradients: top-down for header contrast, bottom-up for content depth */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent/20 to-transparent"></div>
@@ -93,18 +96,20 @@ export default function HeroSection() {
       </div>
 
       {/* Main Content Area */}
-      <div className="relative z-20 w-full max-w-7xl mx-auto px-6 lg:px-8 flex flex-col justify-center pt-24 pb-12">
+      <div className="relative z-20 w-full max-w-7xl mx-auto px-6 lg:px-8 flex flex-col justify-center pt-32 md:pt-40 lg:pt-48 pb-10">
         <div className="max-w-4xl">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            <h1 className="text-4xl md:text-5xl lg:text-7xl text-white font-extrabold leading-[1.1] tracking-tight drop-shadow-2xl">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl text-white font-extrabold leading-[1.1] tracking-tight drop-shadow-2xl">
               Toronto & GTA Homes for Sale, Rent & Pre-Construction
             </h1>
             <p className="mt-4 text-lg md:text-xl text-white/90 font-medium max-w-2xl drop-shadow-lg">
-              Discover your perfect property with Estate-4u. Real-time updates on active listings, exclusive rentals, and upcoming pre-construction projects across Ontario.
+              Discover your perfect property with Estate-4u. Real-time updates
+              on active listings, exclusive rentals, and upcoming
+              pre-construction projects across Ontario.
             </p>
           </motion.div>
 
@@ -150,9 +155,15 @@ export default function HeroSection() {
                     className="appearance-none bg-transparent text-white text-base py-3 md:py-4 pr-8 pl-2 focus:outline-none cursor-pointer font-medium"
                     aria-label="Search Type"
                   >
-                    <option value="Buy" className="text-gray-900">Buy</option>
-                    <option value="Rent" className="text-gray-900">Rent</option>
-                    <option value="Sell" className="text-gray-900">Sell</option>
+                    <option value="Buy" className="text-gray-900">
+                      Buy
+                    </option>
+                    <option value="Rent" className="text-gray-900">
+                      Rent
+                    </option>
+                    <option value="Sell" className="text-gray-900">
+                      Sell
+                    </option>
                   </select>
                   <ChevronDown className="w-4 h-4 -ml-6 text-white/60 pointer-events-none" />
                 </div>

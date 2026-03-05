@@ -55,8 +55,8 @@ export const PropertyResponseSchema = z
     PropertyKey: z.string().optional(),
     id: z.string().optional(),
 
-    list_price: z.union([z.number(), z.string()]).optional(),
-    ListPrice: z.union([z.number(), z.string()]).optional(),
+    list_price: z.union([z.number(), z.string()]).nullable().optional(),
+    ListPrice: z.union([z.number(), z.string()]).nullable().optional(),
 
     city: z.string().nullable().optional(),
     City: z.string().nullable().optional(),
@@ -69,11 +69,17 @@ export const PropertyResponseSchema = z
     PropertySubType: z.string().nullable().optional(),
     PropertyType: z.string().nullable().optional(),
 
-    bedrooms_total: z.union([z.number(), z.string()]).optional(),
-    BedroomsTotal: z.union([z.number(), z.string()]).optional(),
+    bedrooms_total: z.union([z.number(), z.string()]).nullable().optional(),
+    BedroomsTotal: z.union([z.number(), z.string()]).nullable().optional(),
 
-    bathrooms_total_integer: z.union([z.number(), z.string()]).optional(),
-    BathroomsTotalInteger: z.union([z.number(), z.string()]).optional(),
+    bathrooms_total_integer: z
+      .union([z.number(), z.string()])
+      .nullable()
+      .optional(),
+    BathroomsTotalInteger: z
+      .union([z.number(), z.string()])
+      .nullable()
+      .optional(),
 
     standard_status: z.string().nullable().optional(),
     StandardStatus: z.string().nullable().optional(),
@@ -92,10 +98,10 @@ export const PropertyResponseSchema = z
     postal_code: z.string().nullable().optional(),
     PostalCode: z.string().nullable().optional(),
 
-    latitude: z.union([z.string(), z.number()]).optional(),
-    Latitude: z.union([z.string(), z.number()]).optional(),
-    longitude: z.union([z.string(), z.number()]).optional(),
-    Longitude: z.union([z.string(), z.number()]).optional(),
+    latitude: z.union([z.string(), z.number()]).nullable().optional(),
+    Latitude: z.union([z.string(), z.number()]).nullable().optional(),
+    longitude: z.union([z.string(), z.number()]).nullable().optional(),
+    Longitude: z.union([z.string(), z.number()]).nullable().optional(),
 
     public_remarks: z.string().nullable().optional(),
     PublicRemarks: z.string().nullable().optional(),
