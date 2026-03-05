@@ -8,13 +8,11 @@ import { type Property } from "@/lib/api";
 interface MobileFilterDrawerProps {
   open: boolean;
   onClose: () => void;
-  onPropertiesUpdate: (props: Property[], q?: string) => void;
 }
 
 export default function MobileFilterDrawer({
   open,
   onClose,
-  onPropertiesUpdate,
 }: MobileFilterDrawerProps) {
   React.useEffect(() => {
     if (open) {
@@ -52,7 +50,7 @@ export default function MobileFilterDrawer({
           className="p-3 overflow-y-auto h-[calc(100%-60px)]"
           style={{ overscrollBehavior: "contain" }}
         >
-          <PropertyFilter onPropertiesUpdate={onPropertiesUpdate} />
+          <PropertyFilter />
         </div>
       </aside>
     </div>
