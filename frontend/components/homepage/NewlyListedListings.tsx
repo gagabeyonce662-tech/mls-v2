@@ -48,10 +48,10 @@ export default function NewlyListedListings({
   }, [showLimit, searchQuery]);
 
   return (
-    <div className="py-12">
+    <div className="py-8">
       <div className="w-full">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-5 h-5" style={{ color: colors.primary }} />

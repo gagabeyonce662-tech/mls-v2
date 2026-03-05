@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -32,6 +32,7 @@ interface MobileHeaderProps {
 
 export function MobileHeader({ navigation }: MobileHeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const {
     selectedProvince,
     setSelectedProvince,
@@ -40,10 +41,25 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
   } = useProvince();
   const { user, logout } = useUserAuth();
 
+  useEffect(() => {
+    const handleScroll = () => {
+      const isScrolled = window.scrollY > 20;
+      setScrolled(isScrolled);
+
+      // Update mobile height variable
+      const height = isScrolled ? "64px" : "96px";
+      document.documentElement.style.setProperty("--header-height-mobile", height);
+    };
+    handleScroll();
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <header className="lg:hidden fixed top-0 left-0 right-0 z-50 shadow-sm transition-all duration-300">
+    <header className={`lg:hidden fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-md shadow-md" : "bg-transparent shadow-none"
+      }`}>
       {/* 🔝 Top Utility Tier (Mobile) */}
-      <div className="bg-[#0C1536] text-white/90 border-b border-white/10">
+      <div className={`bg-[#0C1536] text-white/90 border-b border-white/10 overflow-hidden transition-all duration-300 ${scrolled ? "h-0 opacity-0" : "h-8 opacity-100"}`}>
         <div className="flex justify-between items-center h-8 px-4 text-[11px] font-medium tracking-wide">
           <a href="tel:+14168214200" className="flex items-center space-x-1.5 opacity-90">
             <Phone className="w-3 h-3 text-[#4C7DFF]" />
@@ -57,13 +73,13 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
       </div>
 
       {/* 🧭 Main Navigation Tier (Mobile) */}
-      <div className="bg-white">
-        <div className="flex items-center justify-between px-4 h-16">
+      <div className={`transition-all duration-300 ${scrolled ? "bg-transparent h-14" : "bg-transparent h-16"}`}>
+        <div className="flex items-center justify-between px-4 h-full">
           {/* Hamburger Menu */}
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon">
-                <Menu className="w-6 h-6" style={{ color: colors.heading }} />
+                <Menu className={`w-6 h-6 transition-colors ${scrolled ? "text-ds-heading" : "text-white"}`} />
               </Button>
             </SheetTrigger>
 
@@ -210,13 +226,13 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
 
           {/* Logo */}
           <Link href="/" className="flex items-center">
-            <div className="relative h-10 w-40 transition-transform active:scale-95">
+            <div className={`relative transition-all duration-300 active:scale-95 ${scrolled ? "h-9 w-36" : "h-10 w-40"}`}>
               <Image
                 src="https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
                 alt="Estate-4u"
                 width={160}
                 height={40}
-                className="h-full w-full object-contain"
+                className={`h-full w-full object-contain transition-all duration-300 ${!scrolled ? "brightness-0 invert" : ""}`}
                 priority
               />
             </div>
@@ -230,9 +246,9 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="bg-ds-card border border-ds-card-border rounded-full shadow-sm"
+                  className={`border rounded-full shadow-sm transition-all ${scrolled ? "bg-ds-card border-ds-card-border" : "bg-white/10 border-white/20"}`}
                 >
-                  <LayoutDashboard className="w-5 h-5 text-ds-primary" />
+                  <LayoutDashboard className={`w-5 h-5 ${scrolled ? "text-ds-primary" : "text-white"}`} />
                 </Button>
               </Link>
             ) : (
@@ -240,9 +256,9 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="hover:bg-ds-card rounded-full"
+                  className={`rounded-full transition-all ${scrolled ? "hover:bg-ds-card" : "hover:bg-white/10"}`}
                 >
-                  <User className="w-5 h-5 text-ds-primary drop-shadow-sm" />
+                  <User className={`w-5 h-5 drop-shadow-sm ${scrolled ? "text-ds-primary" : "text-white"}`} />
                 </Button>
               </Link>
             )}

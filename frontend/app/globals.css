@@ -23,6 +23,18 @@ body {
   color: #4b5563;
 }
 
+main {
+  /* Dynamic spacing that respects the intelligent header */
+  margin-top: var(--header-height);
+  transition: margin-top 0.3s ease;
+}
+
+@media (max-width: 1023px) {
+  main {
+    margin-top: var(--header-height-mobile);
+  }
+}
+
 /* Heading styles */
 h1,
 h2,
@@ -57,6 +69,8 @@ h6 {
 
 /* CSS Variables (Custom Design) */
 :root {
+  --header-height: 104px;
+  --header-height-mobile: 64px;
   --font-inter: "Inter", system-ui, -apple-system, sans-serif;
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
@@ -167,6 +181,7 @@ h6 {
 
 /* Animated mesh gradient background */
 @keyframes meshGradient {
+
   0%,
   100% {
     background-position: 0% 50%;
@@ -197,17 +212,16 @@ h6 {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.08) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.08) 50%,
+      transparent 100%);
   animation: shimmer 3s ease-in-out infinite;
 }
 
 /* Float up-and-down */
 @keyframes float {
+
   0%,
   100% {
     transform: translateY(0);
@@ -239,6 +253,7 @@ h6 {
 
 /* Pulse glow */
 @keyframes pulseGlow {
+
   0%,
   100% {
     box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3);
@@ -268,7 +283,7 @@ h6 {
 }
 
 /* Staggered children animation */
-.stagger-children > * {
+.stagger-children>* {
   opacity: 0;
   transform: translateY(20px);
   transition:
@@ -276,31 +291,31 @@ h6 {
     transform 0.5s ease;
 }
 
-.stagger-children.revealed > *:nth-child(1) {
+.stagger-children.revealed>*:nth-child(1) {
   transition-delay: 0ms;
   opacity: 1;
   transform: translateY(0);
 }
 
-.stagger-children.revealed > *:nth-child(2) {
+.stagger-children.revealed>*:nth-child(2) {
   transition-delay: 120ms;
   opacity: 1;
   transform: translateY(0);
 }
 
-.stagger-children.revealed > *:nth-child(3) {
+.stagger-children.revealed>*:nth-child(3) {
   transition-delay: 240ms;
   opacity: 1;
   transform: translateY(0);
 }
 
-.stagger-children.revealed > *:nth-child(4) {
+.stagger-children.revealed>*:nth-child(4) {
   transition-delay: 360ms;
   opacity: 1;
   transform: translateY(0);
 }
 
-.stagger-children.revealed > *:nth-child(5) {
+.stagger-children.revealed>*:nth-child(5) {
   transition-delay: 480ms;
   opacity: 1;
   transform: translateY(0);
