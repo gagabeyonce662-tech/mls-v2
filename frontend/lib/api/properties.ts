@@ -137,7 +137,7 @@ export async function fetchExclusiveProperties(
     }
 
     const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
-    console.log("Fetching exclusive properties from:", url);
+    // console.log("Fetching exclusive properties from:", url);
 
     return await fetchAPI(url, { cache: "no-store" });
   } catch (error) {
@@ -219,7 +219,7 @@ export async function fetchFilteredProperties(
   });
 
   const url = `${API_BASE_URL}/api/mls/properties/filter/?${params.toString()}`;
-  console.log("FILTER URL →", url);
+  // console.log("FILTER URL →", url);
 
   try {
     return await fetchAPI(url, { cache: "no-store" });
@@ -266,7 +266,7 @@ export async function fetchPropertyByKey(
   propertyKey: string,
 ): Promise<Property | null> {
   try {
-    console.log("Fetching property by key:", propertyKey);
+    // console.log("Fetching property by key:", propertyKey);
     const data = await fetchAPI<any>(
       `${API_BASE_URL}/api/mls/properties/${propertyKey}/`,
       {
