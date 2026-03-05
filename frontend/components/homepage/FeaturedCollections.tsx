@@ -41,10 +41,15 @@ export default function FeaturedCollections() {
     <div className="py-2 bg-white w-full overflow-hidden">
       <div className="w-full px-4 lg:px-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+    <div className="py-4 w-full overflow-hidden">
+      <div className="w-full px-4 sm:px-6 lg:px-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {collections.map((collection) => (
             <div
               key={collection.id}
               className="w-full"
+              href={collection.href}
+              className="group relative h-40 rounded-xl overflow-hidden shadow-lg cursor-pointer transform transition-transform hover:scale-105"
             >
               <Link
                 href={collection.href}
