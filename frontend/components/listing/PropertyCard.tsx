@@ -10,6 +10,7 @@ import {
   Heart,
   Plus,
   Check,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -27,10 +28,11 @@ interface PropertyCardProps {
   cardLoaded: boolean;
   isClicked: boolean;
   onCardClick: (property: any) => void;
-  onMouseEnter: (propertyKey: string) => void;
-  onCompare: (property: any) => void;
-  onImageLoad: (propertyKey: string) => void;
-  onImageError: (
+  onMouseEnter?: (propertyKey: string) => void;
+  onCompare?: (property: any) => void;
+  onQuickView?: (property: any) => void;
+  onImageLoad?: (propertyKey: string) => void;
+  onImageError?: (
     propertyKey: string,
     e: React.SyntheticEvent<HTMLImageElement>,
   ) => void;
@@ -50,6 +52,7 @@ export const PropertyCard = ({
   onCardClick,
   onMouseEnter,
   onCompare,
+  onQuickView,
   onImageLoad,
   onImageError,
   formatPrice,
@@ -67,9 +70,8 @@ export const PropertyCard = ({
   if (isLocked) {
     return (
       <div
-        className={`bg-white rounded-xl shadow-md overflow-hidden block relative transition-all duration-300 ${
-          cardLoaded ? "opacity-100 translate-y-0" : "opacity-70 translate-y-2"
-        }`}
+        className={`bg-white rounded-xl shadow-md overflow-hidden block relative transition-all duration-300 ${cardLoaded ? "opacity-100 translate-y-0" : "opacity-70 translate-y-2"
+          }`}
         style={{
           animation: cardLoaded ? "fadeInUp 0.3s ease-out forwards" : "none",
         }}
@@ -149,12 +151,10 @@ export const PropertyCard = ({
   return (
     <div
       onClick={() => onCardClick(property)}
-      onMouseEnter={() => onMouseEnter(propertyKey)}
-      className={`bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all block cursor-pointer relative min-h-[300px] group ${
-        isClicked ? "pointer-events-none" : ""
-      } ${
-        cardLoaded ? "opacity-100 translate-y-0" : "opacity-70 translate-y-2"
-      }`}
+      onMouseEnter={() => onMouseEnter?.(propertyKey)}
+      className={`bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all block cursor-pointer relative min-h-[300px] group ${isClicked ? "pointer-events-none" : ""
+        } ${cardLoaded ? "opacity-100 translate-y-0" : "opacity-70 translate-y-2"
+        }`}
       style={{
         animation: cardLoaded ? "fadeInUp 0.3s ease-out forwards" : "none",
       }}
@@ -185,33 +185,48 @@ export const PropertyCard = ({
             e.stopPropagation();
             toggleFavorite(property);
           }}
-          className={`absolute top-2 left-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-md active:scale-90 ${
-            saved
-              ? "text-red-500 scale-105"
-              : "text-gray-400 hover:text-red-400"
-          }`}
+          className={`absolute top-2 left-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-md active:scale-90 ${saved
+            ? "text-red-500 scale-105"
+            : "text-gray-400 hover:text-red-400"
+            }`}
         >
           <Heart className={`w-4.5 h-4.5 ${saved ? "fill-current" : ""}`} />
         </button>
 
         {/* Compare Button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onCompare(property);
-          }}
-          className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 shadow-md active:scale-95 text-ds-heading ${
-            isSelected
+        {onCompare && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCompare(property);
+            }}
+            className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 shadow-md active:scale-95 text-ds-heading ${isSelected
               ? "text-blue-600 bg-white"
               : "opacity-0 group-hover:opacity-100 hover:bg-white"
-          }`}
-        >
-          {isSelected ? (
-            <Check className="w-4 h-4" />
-          ) : (
-            <Plus className="w-4 h-4" />
-          )}
-        </button>
+              }`}
+            title={isSelected ? "Remove from Compare" : "Add to Compare"}
+          >
+            {isSelected ? (
+              <Check className="w-4 h-4" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+          </button>
+        )}
+
+        {/* Quick View Button */}
+        {onQuickView && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onQuickView(property);
+            }}
+            className="absolute bottom-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 shadow-md active:scale-95 text-ds-heading opacity-0 group-hover:opacity-100 hover:bg-white"
+            title="Quick View"
+          >
+            <Eye className="w-4.5 h-4.5" />
+          </button>
+        )}
 
         {/* Image Loading State */}
         {imageUrl && !imageLoaded && (
@@ -230,11 +245,10 @@ export const PropertyCard = ({
             alt={`Property in ${displayCity}`}
             width={320}
             height={192}
-            className={`w-full h-full object-cover transition-opacity duration-700 ${
-              imageLoaded ? "opacity-100" : "opacity-0"
-            }`}
+            className={`w-full h-full object-cover transition-opacity duration-700 ${imageLoaded ? "opacity-100" : "opacity-0"
+              }`}
             loading="lazy"
-            onLoad={() => onImageLoad(propertyKey)}
+            onLoad={() => onImageLoad?.(propertyKey)}
           />
         ) : (
           <div

@@ -190,7 +190,12 @@ export default function ListingsPage() {
         selectedProperty={selectedProperty}
         onClose={closeCompareModal}
         onViewDetails={handleViewFromModal}
-        onAddToCompare={handleCompareSelect}
+        onAddToCompare={() => {
+          if (selectedProperty) {
+            interactions.handleToggleCompare(selectedProperty);
+          }
+          closeCompareModal();
+        }}
         formatPrice={formatPrice}
       />
 

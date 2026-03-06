@@ -12,6 +12,9 @@ export function usePropertyInteractions() {
     useCompare();
 
   const [clickedProperty, setClickedProperty] = useState<string | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [showQuickView, setShowQuickView] = useState(false);
+  const [showCompareModal, setShowCompareModal] = useState(false);
 
   const handlePropertyClick = useCallback(
     (property: Property) => {
@@ -47,10 +50,51 @@ export function usePropertyInteractions() {
     [isPropertySelected, removeFromCompare, addToCompare],
   );
 
+  const handleCompareSelect = useCallback(
+    (property: Property) => {
+      setSelectedProperty(property);
+      setShowCompareModal(true);
+    },
+    [],
+  );
+
+  const handleQuickView = useCallback(
+    (property: Property) => {
+      setSelectedProperty(property);
+      setShowQuickView(true);
+    },
+    [],
+  );
+
+  const handleViewFromModal = useCallback(() => {
+    if (selectedProperty) {
+      handlePropertyClick(selectedProperty);
+    }
+    setShowCompareModal(false);
+  }, [selectedProperty, handlePropertyClick]);
+
+  const closeCompareModal = useCallback(() => {
+    setShowCompareModal(false);
+    setSelectedProperty(null);
+  }, []);
+
+  const closeQuickView = useCallback(() => {
+    setShowQuickView(false);
+    setSelectedProperty(null);
+  }, []);
+
   return {
     clickedProperty,
+    selectedProperty,
+    showQuickView,
+    showCompareModal,
     handlePropertyClick,
     handleToggleCompare,
+    handleCompareSelect,
+    handleQuickView,
+    handleViewFromModal,
+    closeCompareModal,
+    closeQuickView,
     isPropertySelected,
     compareList,
   };
