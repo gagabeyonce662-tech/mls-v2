@@ -1,102 +1,221 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { useSearch } from "@/contexts/SearchContext";
+import { Search } from "lucide-react";
+
+interface Location {
+  id: number;
+  name: string;
+  image: string;
+}
+
+const LOCATIONS: Location[] = [
+  {
+    id: 1,
+    name: "Toronto",
+    image:
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80",
+  },
+  {
+    id: 2,
+    name: "Brantford",
+    image:
+      "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80",
+  },
+  {
+    id: 3,
+    name: "Kitchener",
+    image:
+      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&q=80",
+  },
+  {
+    id: 4,
+    name: "Mississauga",
+    image:
+      "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=600&q=80",
+  },
+  {
+    id: 5,
+    name: "Oakville",
+    image:
+      "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600&q=80",
+  },
+];
 
 export default function LocationsSection() {
-  const locations = [
-    {
-      id: 1,
-      name: "Toronto",
-      image:
-        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80",
-    },
-    {
-      id: 2,
-      name: "Brantford",
-      image:
-        "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80",
-    },
-    {
-      id: 3,
-      name: "Kitchener",
-      image:
-        "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&q=80",
-    },
-    {
-      id: 4,
-      name: "Mississauga",
-      image:
-        "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=600&q=80",
-    },
-    {
-      id: 5,
-      name: "Oakville",
-      image:
-        "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600&q=80",
-    },
-  ];
+  const { setSearchQuery, clearSearch } = useSearch();
+  const trackRef = useRef<HTMLDivElement>(null);
 
-  const marqueeLocations = [...locations, ...locations];
+  // Drag state
+  const isDragging = useRef(false);
+  const wasDrag = useRef(false); // survives until after onClick fires
+  const startX = useRef(0);
+
+  const currentX = useRef(0); // accumulated drag offset
+  const dragDelta = useRef(0); // delta during current drag
+  const animStartRef = useRef<number | null>(null); // requestAnimationFrame id
+
+  // CSS animation speed: pixels per second
+  const SPEED = 60; // px/s  (matches 25s for ~1500px track)
+
+  /**
+   * We drive the marquee with rAF instead of a pure CSS keyframe so we can
+   * seamlessly pause/resume at any position.
+   */
+  const positionRef = useRef(0); // current translateX (negative)
+  const lastTimeRef = useRef<number | null>(null);
+  const halfWidthRef = useRef(0); // half the track width (= one set of cards)
+  const pausedRef = useRef(false);
+
+  const animate = useCallback((time: number) => {
+    if (!trackRef.current) return;
+
+    if (lastTimeRef.current !== null && !pausedRef.current) {
+      const dt = (time - lastTimeRef.current) / 1000; // seconds
+      positionRef.current -= SPEED * dt;
+
+      // Seamless loop: when we've scrolled one full "set", reset
+      if (
+        halfWidthRef.current > 0 &&
+        positionRef.current <= -halfWidthRef.current
+      ) {
+        positionRef.current += halfWidthRef.current;
+      }
+    }
+
+    lastTimeRef.current = time;
+    trackRef.current.style.transform = `translateX(${positionRef.current + dragDelta.current}px)`;
+    animStartRef.current = requestAnimationFrame(animate);
+  }, []);
+
+  useEffect(() => {
+    // Measure track width after mount
+    if (trackRef.current) {
+      // Track contains locations duplicated x2, so half = one full set
+      halfWidthRef.current = trackRef.current.scrollWidth / 2;
+    }
+    animStartRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animStartRef.current !== null)
+        cancelAnimationFrame(animStartRef.current);
+    };
+  }, [animate]);
+
+  // ─── Pointer (mouse + touch) drag handlers ────────────────────────────────
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    isDragging.current = true;
+    pausedRef.current = true;
+    startX.current = e.clientX;
+    dragDelta.current = 0;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    dragDelta.current = e.clientX - startX.current;
+  };
+
+  const onPointerUp = () => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+
+    // Record whether this gesture was a drag BEFORE resetting delta
+    wasDrag.current = Math.abs(dragDelta.current) > 5;
+
+    // Absorb drag delta into the base position
+    positionRef.current += dragDelta.current;
+    dragDelta.current = 0;
+
+    // Clamp so the loop still works
+    if (halfWidthRef.current > 0) {
+      positionRef.current =
+        ((positionRef.current % halfWidthRef.current) - halfWidthRef.current) %
+        -halfWidthRef.current;
+    }
+
+    // Reset timing so there's no jump when animation resumes
+    lastTimeRef.current = null;
+    pausedRef.current = false;
+  };
+
+  const handleLocationClick = async (locationName: string) => {
+    // Scroll to search area first for better UX
+    const searchTop = document.getElementById("search-results-top");
+    if (searchTop) searchTop.scrollIntoView({ behavior: "smooth" });
+
+    // We only need to update the query - the SearchResultsSection row
+    // on the homepage will pick this up and fetch its own results.
+    setSearchQuery(locationName);
+  };
+
+  const marqueeLocations = [...LOCATIONS, ...LOCATIONS];
 
   return (
-    <div className="py-8 bg-white overflow-hidden">
-      {" "}
-      {/* was py-20 */}
-      <div className="max-w-[1320px] mx-auto px-4 mb-4">
-        {" "}
-        {/* was mb-10 */}
+    <div className="py-8 bg-white overflow-hidden select-none">
+      <div className="px-4 mb-4">
         <h2 className="text-ds-h2 text-ds-heading font-inter text-[22px] mb-2">
-          {" "}
-          {/* tighter */}
           Our locations for you
         </h2>
       </div>
-      <div className="relative overflow-hidden">
-        <div className="flex gap-4 w-max marquee-track">
-          {" "}
-          {/* was gap-8 */}
+
+      {/* Drag-to-scroll track */}
+      <div
+        className="relative overflow-hidden cursor-grab active:cursor-grabbing"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+      >
+        <div ref={trackRef} className="flex gap-4 w-max will-change-transform">
           {marqueeLocations.map((location, i) => (
-            <Link
+            <div
               key={`${location.id}-${i}`}
-              href={`/listing?city=${encodeURIComponent(location.name)}`}
-              className="relative h-72 w-64 rounded-xl overflow-hidden shadow-lg cursor-pointer group flex-shrink-0"
-            /* was h-80 w-72 + very large card */
+              className="relative h-72 w-64 rounded-xl overflow-hidden shadow-lg group flex-shrink-0 cursor-pointer"
+              // Direct click handler that respects drag state
+              onClick={() => {
+                if (!wasDrag.current) {
+                  handleLocationClick(location.name);
+                }
+                wasDrag.current = false; // Reset for next interaction
+              }}
+              draggable={false}
             >
               <Image
                 src={location.image}
                 alt={location.name}
                 width={256}
                 height={288}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                draggable={false}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 pointer-events-none"
               />
+
+              {/* Semi-transparent "Search" button on top right */}
+              <div
+                className="absolute top-4 right-4 z-20 p-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white/30 cursor-pointer pointer-events-auto shadow-xl"
+                onPointerDown={(e) => e.stopPropagation()}
+                onPointerUp={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent the card's own onClick from firing twice
+                  handleLocationClick(location.name);
+                }}
+              >
+                <Search className="w-4 h-4" />
+              </div>
+
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
               <div className="absolute inset-0 flex items-end justify-center p-4">
                 <h3 className="text-white text-lg font-semibold tracking-wide">
-                  {" "}
-                  {/* more compact */}
                   {location.name}
                 </h3>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       </div>
-      <style jsx>{`
-        .marquee-track {
-          animation: marquee 25s linear infinite;
-        }
-        .marquee-track:hover {
-          animation-play-state: paused;
-        }
-        @keyframes marquee {
-          from {
-            transform: translateX(0);
-          }
-          to {
-            transform: translateX(-50%);
-          }
-        }
-      `}</style>
     </div>
   );
 }

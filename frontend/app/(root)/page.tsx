@@ -1,298 +1,130 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import Link from "next/link";
-import { SlidersHorizontal, Map, Home, Building2, Calculator, BadgeInfo, FileText, Key } from "lucide-react";
-import HeroSection from "@/components/homepage/HeroSection";
-import FeaturedCollections from "@/components/homepage/FeaturedCollections";
-import FeaturedListings from "@/components/homepage/FeaturedListings";
+import React, { useState } from "react";
+import { SlidersHorizontal } from "lucide-react";
+import { colors } from "@/config/design-system";
 
-import RentalProperties from "@/components/homepage/RentalProperties";
-import PreConstructionProperties from "@/components/homepage/PreConstructionProperties";
-import LocationsSection from "@/components/homepage/LocationsSection";
-import MortgageSection from "@/components/homepage/MortgageSection";
-import LatestArticles from "@/components/homepage/LatestArticles";
-import ClientReviews from "@/components/homepage/ClientReviews";
-import NewlyListedListings from "@/components/homepage/NewlyListedListings";
+import { QuickViewProvider } from "@/contexts/QuickViewContext";
+
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Container from "@/components/Container";
+import HeroSection from "@/components/homepage/HeroSection";
+import FeaturedCollections from "@/components/homepage/FeaturedCollections";
 import PropertyFilter from "@/components/PropertyFilter";
-import { colors } from "@/config/design-system";
-import {
-  fetchExclusiveProperties,
-  fetchLeaseProperties,
-  fetchPreConnProperties,
-  type Property,
-} from "@/lib/api";
-import { useProvince } from "@/contexts/ProvinceContext";
-
 import MobileFilterDrawer from "@/components/homepage/MobileFilterDrawer";
-import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
+
+import { SearchResultsSection } from "@/components/homepage/sections/SearchResultsSection";
+import { NewlyListedSection } from "@/components/homepage/sections/NewlyListedSection";
+import { ExclusivePropertiesSection } from "@/components/homepage/sections/ExclusivePropertiesSection";
+import { RentalPropertiesSection } from "@/components/homepage/sections/RentalPropertiesSection";
+import { PreConstructionSection } from "@/components/homepage/sections/PreConstructionSection";
+
+import dynamic from "next/dynamic";
+
+const LocationsSection = dynamic(
+  () => import("@/components/homepage/LocationsSection"),
+);
+const LatestArticles = dynamic(
+  () => import("@/components/homepage/LatestArticles"),
+);
+const MortgageSection = dynamic(
+  () => import("@/components/homepage/MortgageSection"),
+);
+const ClientReviews = dynamic(
+  () => import("@/components/homepage/ClientReviews"),
+);
 
 export default function HomePage() {
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [rentalProperties, setRentalProperties] = useState<Property[]>([]);
-  const [preConnProperties, setPreConnProperties] = useState<Property[]>([]);
-  const [searchResults, setSearchResults] = useState<Property[]>([]);
-  const [totalExclusiveCount, setTotalExclusiveCount] = useState(0);
-  const [totalRentalCount, setTotalRentalCount] = useState(0);
-  const [totalPreConnCount, setTotalPreConnCount] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingRentals, setIsLoadingRentals] = useState(true);
-  const [isLoadingPreConn, setIsLoadingPreConn] = useState(true);
-  const [isSearching, setIsSearching] = useState(false);
-  const { selectedProvince, getProvinceName } = useProvince();
-
-  const hasInitialLoadCompleted = useRef(false);
-  const hasRentalInitialLoadCompleted = useRef(false);
-  const hasPreConnInitialLoadCompleted = useRef(false);
-  const prevProvinceRef = useRef<string | null>(null);
-
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  const [quickViewOpen, setQuickViewOpen] = useState(false);
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(
-    null,
-  );
-
-  const handleQuickView = (property: Property) => {
-    setSelectedProperty(property);
-    setQuickViewOpen(true);
-  };
-
-  useEffect(() => {
-    if (hasInitialLoadCompleted.current) return;
-    const load = async () => {
-      setIsLoading(true);
-      const response = await fetchExclusiveProperties({});
-      setProperties(response.results || []);
-      setTotalExclusiveCount(response.count || 0);
-      hasInitialLoadCompleted.current = true;
-      prevProvinceRef.current = selectedProvince;
-      setIsLoading(false);
-    };
-    load();
-  }, [selectedProvince]);
-
-  useEffect(() => {
-    if (hasRentalInitialLoadCompleted.current) return;
-    const load = async () => {
-      setIsLoadingRentals(true);
-      const response = await fetchLeaseProperties({});
-      setRentalProperties(response.results || []);
-      setTotalRentalCount(response.count || 0);
-      hasRentalInitialLoadCompleted.current = true;
-      setIsLoadingRentals(false);
-    };
-    load();
-  }, []);
-
-  useEffect(() => {
-    if (hasPreConnInitialLoadCompleted.current) return;
-    const load = async () => {
-      setIsLoadingPreConn(true);
-      const response = await fetchPreConnProperties({});
-      setPreConnProperties(response.results || []);
-      setTotalPreConnCount(response.count || 0);
-      hasPreConnInitialLoadCompleted.current = true;
-      setIsLoadingPreConn(false);
-    };
-    load();
-  }, []);
-
-  useEffect(() => {
-    if (!hasInitialLoadCompleted.current || !selectedProvince) return;
-    if (selectedProvince === prevProvinceRef.current) return;
-
-    const load = async () => {
-      setIsLoading(true);
-      const provinceName = getProvinceName(selectedProvince);
-      const provinceMapping: any = {
-        Ontario: "ON",
-        Quebec: "QC",
-        "British Columbia": "BC",
-        Alberta: "AB",
-        Manitoba: "MB",
-        Saskatchewan: "SK",
-        "Nova Scotia": "NS",
-        "New Brunswick": "NB",
-        "Newfoundland and Labrador": "NL",
-        "Prince Edward Island": "PE",
-        "Northwest Territories": "NT",
-        Nunavut: "NU",
-        Yukon: "YT",
-      };
-      const code =
-        provinceName === "All Provinces"
-          ? undefined
-          : provinceMapping[provinceName];
-      const response = await fetchExclusiveProperties(
-        code ? { province: code } : {},
-      );
-      setProperties(response.results || []);
-      setTotalExclusiveCount(response.count || 0);
-      prevProvinceRef.current = selectedProvince;
-      setIsLoading(false);
-    };
-    load();
-  }, [selectedProvince, getProvinceName]);
-
-  const handlePropertiesUpdate = (newProperties: Property[], query: string = "") => {
-    setProperties(newProperties);
-    setSearchResults(newProperties);
-    setSearchQuery(query || "Filtered Properties");
-
-    // Optional: Scroll to results on mobile
-    if (window.innerWidth < 1024) {
-      window.scrollTo({ top: 400, behavior: "smooth" });
-    }
-  };
-
-  const handleSearchResults = (results: Property[], query: string = "") => {
-    setSearchResults(results);
-    setSearchQuery(query);
-    setIsSearching(false);
-  };
-
-  const handleSearchStart = () => setIsSearching(true);
-  const handleClearSearch = () => {
-    setSearchResults([]);
-    setSearchQuery("");
-  };
 
   return (
-    <div
-      className="min-h-screen flex flex-col"
-      style={{ backgroundColor: colors.cards }}
-    >
-      <Header />
+    <QuickViewProvider>
+      <div
+        className="min-h-screen flex flex-col"
+        style={{ backgroundColor: colors.cards }}
+      >
+        <Header />
 
-      <main className="w-full flex-1">
-        <section aria-label="Find Property">
-          <HeroSection
-            onSearchStart={handleSearchStart}
-            onSearchResults={handleSearchResults}
-          />
-        </section>
+        <main className="w-full flex-1 mt-0">
+          {/* Hero Section */}
+          <section aria-label="Find Property">
+            <HeroSection />
+          </section>
 
-        <div className="mt-2 w-full">
-          <FeaturedCollections />
-        </div>
-
-        <section className="w-full section-gap px-4 lg:px-6" aria-label="Properties and Search Filters">
-          <div className="w-full">
-            <PropertyFilter
-              onPropertiesUpdate={handlePropertiesUpdate}
-              variant="horizontal"
-            />
-
-            <div className="space-y-4 overflow-x-hidden">
-              {searchQuery && (
-                <section aria-label="Search Results">
-                  <FeaturedListings
-                    properties={searchResults}
-                    isLoading={isSearching}
-                    searchQuery={searchQuery}
-                    onQuickView={handleQuickView}
-                  />
-                </section>
-              )}
-
-              <section aria-label="Newly Listed Properties">
-                <NewlyListedListings
-                  searchQuery={searchQuery || "Latest Properties"}
-                  showLimit={4}
-                  onQuickView={handleQuickView}
-                />
-              </section>
-
-              <section aria-label="Featured Properties">
-                <FeaturedListings
-                  properties={properties}
-                  totalCount={totalExclusiveCount}
-                  searchQuery={
-                    selectedProvince
-                      ? `Exclusive in ${getProvinceName(selectedProvince)}`
-                      : "Exclusive Properties"
-                  }
-                  onQuickView={handleQuickView}
-                />
-              </section>
-
-              <section aria-label="Rental Properties">
-                <RentalProperties
-                  properties={rentalProperties}
-                  totalCount={totalRentalCount}
-                  isLoading={isLoadingRentals}
-                  onQuickView={handleQuickView}
-                />
-              </section>
-
-              <section aria-label="Pre-Construction Projects">
-                <PreConstructionProperties
-                  properties={preConnProperties}
-                  totalCount={totalPreConnCount}
-                  isLoading={isLoadingPreConn}
-                  onQuickView={handleQuickView}
-                />
-              </section>
-            </div>
+          {/* Quick Navigation */}
+          <div className="mt-2 w-full">
+            <FeaturedCollections />
           </div>
-        </section>
 
-        <section className="section-gap" aria-label="Common Locations">
-          <Container>
-            <LocationsSection />
-          </Container>
-        </section>
+          {/* Content Section */}
+          <section
+            className="w-full mt-8 px-4 lg:px-6"
+            aria-label="Properties and Search Filters"
+          >
+            <div className="w-full">
+              {/* Search & Filters */}
+              <PropertyFilter variant="horizontal" />
 
-        <section className="section-gap" aria-label="Latest Real Estate News">
-          <Container>
-            <LatestArticles />
-          </Container>
-        </section>
+              {/* Listing Grids */}
+              <div
+                id="search-results-top"
+                className="space-y-4 overflow-x-hidden"
+              >
+                <SearchResultsSection />
+                <NewlyListedSection />
+                <ExclusivePropertiesSection />
+                <RentalPropertiesSection />
+                <PreConstructionSection />
+              </div>
+            </div>
+          </section>
 
-        <section className="section-gap" aria-label="Mortgage Tools">
-          <Container>
-            <MortgageSection />
-          </Container>
-        </section>
+          {/* Utility Sections */}
+          <section className="section-gap" aria-label="Common Locations">
+            <Container>
+              <LocationsSection />
+            </Container>
+          </section>
 
-        <section className="section-gap" aria-label="Client Success Stories">
-          <Container>
-            <ClientReviews />
-          </Container>
-        </section>
+          <section className="section-gap" aria-label="Latest Real Estate News">
+            <Container>
+              <LatestArticles />
+            </Container>
+          </section>
 
-        {/* Mobile Filter FAB */}
-        <button
-          onClick={() => setMobileFilterOpen(true)}
-          className="lg:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3 rounded-full shadow-lg text-white text-sm font-medium transition-all hover:scale-105 active:scale-95"
-          style={{ backgroundColor: colors.primary }}
-          aria-label="Open filters"
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-          Filters
-        </button>
-      </main>
+          <section className="section-gap" aria-label="Mortgage Tools">
+            <Container>
+              <MortgageSection />
+            </Container>
+          </section>
 
-      <Footer />
+          <section className="section-gap" aria-label="Client Success Stories">
+            <Container>
+              <ClientReviews />
+            </Container>
+          </section>
 
-      <MobileFilterDrawer
-        open={mobileFilterOpen}
-        onClose={() => setMobileFilterOpen(false)}
-        onPropertiesUpdate={(newProps) => {
-          setMobileFilterOpen(false);
-          handlePropertiesUpdate(newProps);
-        }}
-      />
+          {/* Mobile Filter FAB */}
+          <button
+            onClick={() => setMobileFilterOpen(true)}
+            className="lg:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3 rounded-full shadow-lg text-white text-sm font-medium transition-all hover:scale-105 active:scale-95"
+            style={{ backgroundColor: colors.primary }}
+            aria-label="Open filters"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Filters
+          </button>
+        </main>
 
-      <PropertyQuickViewModal
-        show={quickViewOpen}
-        property={selectedProperty}
-        onClose={() => setQuickViewOpen(false)}
-      />
-    </div >
+        <Footer />
+
+        {/* Drawers */}
+        <MobileFilterDrawer
+          open={mobileFilterOpen}
+          onClose={() => setMobileFilterOpen(false)}
+        />
+      </div>
+    </QuickViewProvider>
   );
 }

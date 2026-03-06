@@ -82,7 +82,7 @@ export function CashflowCalculator() {
 
           <div>
             <label className="block text-sm text-gray-600 mb-1">
-              Down Payment: ${downPaymentAmount.toLocaleString()} (
+              Down Payment: ${downPaymentAmount.toLocaleString('en-US')} (
               {downPaymentPercent}%)
             </label>
             <input
@@ -184,9 +184,8 @@ export function CashflowCalculator() {
             <div className="absolute text-center">
               <p className="text-gray-700 text-lg font-semibold">Cash Flow</p>
               <p
-                className={`text-2xl font-bold ${
-                  positive ? "text-teal-600" : "text-red-600"
-                }`}
+                className={`text-2xl font-bold ${positive ? "text-teal-600" : "text-red-600"
+                  }`}
               >
                 ${cashFlow.toFixed(0)}
               </p>

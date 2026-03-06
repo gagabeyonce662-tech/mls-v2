@@ -7,15 +7,10 @@ import { Search, ChevronDown } from "lucide-react";
 import { colors } from "@/config/design-system";
 import { type Property, searchProperties } from "@/lib/api";
 
-interface HeroSectionProps {
-  onSearchStart: () => void;
-  onSearchResults: (properties: Property[], query: string) => void;
-}
+import { useSearch } from "@/contexts/SearchContext";
 
-export default function HeroSection({
-  onSearchStart,
-  onSearchResults,
-}: HeroSectionProps) {
+export default function HeroSection() {
+  const { startSearch, updateSearchResults, clearSearch } = useSearch();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState("Buy");
   const [isLoading, setIsLoading] = useState(false);
@@ -26,19 +21,19 @@ export default function HeroSection({
 
     setIsLoading(true);
     setError("");
-    onSearchStart();
+    startSearch();
 
     try {
       const query = searchQuery.trim();
 
       if (!query) {
-        onSearchResults([], "");
+        updateSearchResults([], "");
         return;
       }
 
       const properties = await searchProperties(query);
 
-      onSearchResults(properties, query);
+      updateSearchResults(properties, query);
 
       if (properties.length === 0) {
         setError(
@@ -48,7 +43,7 @@ export default function HeroSection({
     } catch (error) {
       console.error("Error searching properties:", error);
       setError("Search failed. Please try again.");
-      onSearchResults([], "");
+      updateSearchResults([], "");
     } finally {
       setIsLoading(false);
     }
@@ -64,12 +59,12 @@ export default function HeroSection({
   const handleClearSearch = () => {
     setSearchQuery("");
     setError("");
-    onSearchResults([], "");
+    clearSearch();
   };
 
   return (
     <section
-      className="relative w-full overflow-hidden h-[500px] md:h-[600px] flex items-center"
+      className="relative w-full overflow-hidden flex items-stretch"
       style={{ backgroundColor: colors.heading }}
     >
       {/* Animated Background Image (Ken Burns Effect) */}
@@ -90,24 +85,31 @@ export default function HeroSection({
       />
 
       {/* Sophisticated Overlay */}
-      <div className="absolute inset-0 z-10 pointer-events-none" aria-hidden="true">
-        <div className="absolute inset-0 bg-black/40"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20"></div>
+      <div
+        className="absolute inset-0 z-10 pointer-events-none"
+        aria-hidden="true"
+      >
+        <div className="absolute inset-0 bg-black/30"></div>
+        {/* Dual gradients: top-down for header contrast, bottom-up for content depth */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent/20 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
       </div>
 
       {/* Main Content Area */}
-      <div className="relative z-20 w-full max-w-7xl mx-auto px-6 lg:px-8">
+      <div className="relative z-20 w-full max-w-7xl mx-auto px-6 lg:px-8 flex flex-col justify-center pt-16 md:pt-24 lg:pt-28 pb-10">
         <div className="max-w-4xl">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            <h1 className="text-3xl md:text-5xl lg:text-6xl text-white font-extrabold leading-tight tracking-tight drop-shadow-2xl">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl text-white font-extrabold leading-[1.1] tracking-tight drop-shadow-2xl">
               Toronto & GTA Homes for Sale, Rent & Pre-Construction
             </h1>
             <p className="mt-4 text-lg md:text-xl text-white/90 font-medium max-w-2xl drop-shadow-lg">
-              Discover your perfect property with Estate-4u. Real-time updates on active listings, exclusive rentals, and upcoming pre-construction projects across Ontario.
+              Discover your perfect property with Estate-4u. Real-time updates
+              on active listings, exclusive rentals, and upcoming
+              pre-construction projects across Ontario.
             </p>
           </motion.div>
 
@@ -153,9 +155,15 @@ export default function HeroSection({
                     className="appearance-none bg-transparent text-white text-base py-3 md:py-4 pr-8 pl-2 focus:outline-none cursor-pointer font-medium"
                     aria-label="Search Type"
                   >
-                    <option value="Buy" className="text-gray-900">Buy</option>
-                    <option value="Rent" className="text-gray-900">Rent</option>
-                    <option value="Sell" className="text-gray-900">Sell</option>
+                    <option value="Buy" className="text-gray-900">
+                      Buy
+                    </option>
+                    <option value="Rent" className="text-gray-900">
+                      Rent
+                    </option>
+                    <option value="Sell" className="text-gray-900">
+                      Sell
+                    </option>
                   </select>
                   <ChevronDown className="w-4 h-4 -ml-6 text-white/60 pointer-events-none" />
                 </div>

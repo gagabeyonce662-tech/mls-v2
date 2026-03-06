@@ -127,7 +127,7 @@ export default async function RentalPropertyPage(
     if (property.lease_amount) {
       return `$${numericPrice.toFixed(2)}/sq ft`;
     }
-    return `$${numericPrice.toLocaleString()}`;
+    return `$${numericPrice.toLocaleString('en-US')}`;
   };
 
   // Format monthly rent if available
@@ -138,7 +138,7 @@ export default async function RentalPropertyPage(
     const rent = typeof rentVal === "string" ? parseFloat(rentVal) : rentVal;
     return isNaN(rent)
       ? "Rent not specified"
-      : `$${rent.toLocaleString()}/month`;
+      : `$${rent.toLocaleString('en-US')}/month`;
   };
 
   const getBedCount = () =>
@@ -179,10 +179,10 @@ export default async function RentalPropertyPage(
     {
       date: property.ModificationTimestamp
         ? new Date(property.ModificationTimestamp).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          })
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
         : "Recent",
       event: property.StandardStatus || property.standard_status || "Available",
       price: getPrice(),
@@ -345,14 +345,12 @@ export default async function RentalPropertyPage(
                   property.PublicRemarks ||
                   property.PrivateRemarks ||
                   property.Description ||
-                  `This ${getPropertyType()} is available for rent in ${getCity()}, ${property.StateOrProvince || "Ontario"}. ${
-                    property.year_built || property.YearBuilt
-                      ? `Built in ${property.year_built || property.YearBuilt}, `
-                      : ""
-                  }this rental property features ${getBedCount()} bedrooms and ${getBathCount()} bathrooms${
-                    getLivingArea() !== "N/A"
-                      ? ` with ${getLivingArea()} of living space`
-                      : ""
+                  `This ${getPropertyType()} is available for rent in ${getCity()}, ${property.StateOrProvince || "Ontario"}. ${property.year_built || property.YearBuilt
+                    ? `Built in ${property.year_built || property.YearBuilt}, `
+                    : ""
+                  }this rental property features ${getBedCount()} bedrooms and ${getBathCount()} bathrooms${getLivingArea() !== "N/A"
+                    ? ` with ${getLivingArea()} of living space`
+                    : ""
                   }. Available ${getAvailabilityDate().toLowerCase()}.`
                 }
                 maxChars={400}

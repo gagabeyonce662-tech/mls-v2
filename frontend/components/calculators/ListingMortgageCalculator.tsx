@@ -63,7 +63,7 @@ export function ListingMortgageCalculator() {
           {/* Down Payment */}
           <div>
             <label className="block text-sm text-gray-600 mb-1">
-              Down Payment: ${downPaymentAmount.toLocaleString()} (
+              Down Payment: ${downPaymentAmount.toLocaleString('en-US')} (
               {downPaymentPercent}%)
             </label>
             <input

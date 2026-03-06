@@ -260,18 +260,17 @@ export default function AdminListingsPage() {
                     </td>
                     <td className="px-6 py-4 font-medium">
                       {property.ListPrice
-                        ? `$${property.ListPrice.toLocaleString()}`
+                        ? `$${property.ListPrice.toLocaleString('en-US')}`
                         : "—"}
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          property.standard_status === "Active"
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${property.standard_status === "Active"
                             ? "bg-green-100 text-green-700"
                             : property.standard_status === "Sold"
                               ? "bg-red-100 text-red-700"
                               : "bg-gray-100 text-gray-600"
-                        }`}
+                          }`}
                       >
                         {property.standard_status || "Active"}
                       </span>
@@ -279,9 +278,9 @@ export default function AdminListingsPage() {
                     <td className="px-6 py-4 text-gray-500">
                       {property.ModificationTimestamp
                         ? format(
-                            new Date(property.ModificationTimestamp),
-                            "MMM d, yyyy",
-                          )
+                          new Date(property.ModificationTimestamp),
+                          "MMM d, yyyy",
+                        )
                         : "Unknown"}
                     </td>
                     <td className="px-6 py-4 text-right">

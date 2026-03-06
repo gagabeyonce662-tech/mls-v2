@@ -89,7 +89,7 @@ export function PropertyCardContent({ property }: PropertyCardContentProps) {
         {sqft && (
           <div className="flex items-center gap-1">
             <Ruler className="w-3.5 h-3.5" />
-            <span>{sqft.toLocaleString()} sqft</span>
+            <span>{sqft.toLocaleString('en-US')} sqft</span>
           </div>
         )}
         {yearBuilt && (

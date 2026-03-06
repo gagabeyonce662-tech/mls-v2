@@ -260,7 +260,7 @@ export const propertyCard = {
 
   /** Card layout dimensions (Tailwind classes) */
   layout: {
-    imageHeight: "h-56",
+    imageHeight: "aspect-[4/3] w-full",
     borderRadius: "rounded-2xl",
     padding: "p-4",
     gap: "gap-6", // grid gap

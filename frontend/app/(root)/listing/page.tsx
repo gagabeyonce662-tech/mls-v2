@@ -11,75 +11,48 @@ import {
   usePrefetchProperty,
 } from "@/hooks/react-query";
 import { useUserAuth } from "@/contexts/UserAuthContext";
-import { useCompare } from "@/contexts/CompareContext";
-import { useWatched } from "@/contexts/WatchedContext";
 
 // Modular Components
-import { PropertyCard } from "@/components/listing/PropertyCard";
-import { ListingSearch } from "@/components/listing/ListingSearch";
 import { CompareModal } from "@/components/listing/CompareModal";
+import PropertyFilter from "@/components/PropertyFilter";
 import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
+import { ExclusivePropertyFilterParams } from "@/lib/api";
+import { usePropertyInteractions } from "@/hooks/usePropertyInteractions";
+import { PropertyGridLayout } from "@/components/listing/PropertyGridLayout";
+import { formatPrice } from "@/lib/propertyUtils";
 
 import { useSearchParams } from "next/navigation";
+import { useSearch } from "@/contexts/SearchContext";
+import { ListingMapView } from "@/components/listing/ListingMapView";
+import { MapToggleButton } from "@/components/listing/MapToggleButton";
 
 export default function ListingsPage() {
-  const router = useRouter();
   const { user } = useUserAuth();
   const isLoggedIn = !!user;
+  const interactions = usePropertyInteractions();
+  const {
+    showQuickView,
+    selectedProperty,
+    showCompareModal,
+    handleViewFromModal,
+    handleCompareSelect,
+    closeCompareModal,
+    closeQuickView,
+  } = interactions;
 
-  // Quick View State
-  const [showQuickView, setShowQuickView] = useState(false);
-  const [quickViewProperty, setQuickViewProperty] = useState<any>(null);
-
-  const handleQuickView = useCallback((property: any) => {
-    setQuickViewProperty(property);
-    setShowQuickView(true);
-  }, []);
+  const { viewMode, toggleViewMode } = useSearch();
 
   const searchParams = useSearchParams();
-  const initialCity = searchParams.get("city") || "";
+  const initialCity =
+    searchParams.get("city") || searchParams.get("search") || "";
 
-  // Search state
-  const [searchTerm, setSearchTerm] = useState(initialCity);
-  const [currentCity, setCurrentCity] = useState(initialCity);
-
-  // Compare state from context
-  const {
-    compareList,
-    addToCompare,
-    removeFromCompare,
-    isPropertySelected,
-    getPropertyKey,
-  } = useCompare();
-
-  const { addToHistory } = useWatched();
-
-  const [selectedProperty, setSelectedProperty] = useState<any>(null);
-  const [showCompareModal, setShowCompareModal] = useState(false);
-
-  // Loading and animation states
-  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
-  const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
-  const [clickedProperty, setClickedProperty] = useState<string | null>(null);
-
-  // Get the prefetch function
-  const prefetchProperty = usePrefetchProperty();
-
-  const handleImageLoad = useCallback((propertyKey: string) => {
-    setLoadedImages((prev) => {
-      const newSet = new Set(prev);
-      newSet.add(propertyKey);
-      return newSet;
+  // Filter state
+  const [filterParams, setFilterParams] =
+    useState<ExclusivePropertyFilterParams>({
+      city: initialCity || undefined,
     });
-  }, []);
 
-  const handleImageError = useCallback(
-    (propertyKey: string, e: React.SyntheticEvent<HTMLImageElement>) => {
-      handleImageLoad(propertyKey);
-      e.currentTarget.style.display = "none";
-    },
-    [handleImageLoad],
-  );
+  const currentCity = filterParams.city || "";
 
   // Use TanStack Query for infinite scroll
   const {
@@ -92,7 +65,7 @@ export default function ListingsPage() {
     refetch,
   } = useInfiniteExclusiveProperties(
     {
-      city: currentCity || undefined,
+      ...filterParams,
       limit: 12,
     },
     {
@@ -103,146 +76,13 @@ export default function ListingsPage() {
   // Extract all properties from pages
   const allProperties = data?.pages.flatMap((page) => page.results) || [];
 
-  // Gradually load cards with staggered animation
-  useEffect(() => {
-    if (!isLoading && allProperties.length > 0) {
-      const timer = setTimeout(() => {
-        const propertyKeys = allProperties.map((property) =>
-          getPropertyKey(property),
-        );
-        propertyKeys.forEach((propertyKey, index) => {
-          setTimeout(
-            () => {
-              setLoadedCards((prev) => {
-                const newSet = new Set(prev);
-                newSet.add(propertyKey);
-                return newSet;
-              });
-            },
-            50 + index * 50,
-          );
-        });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [allProperties, isLoading, getPropertyKey]);
-
-  const [prevSearch, setPrevSearch] = useState({
-    city: currentCity,
-    term: searchTerm,
-  });
-  if (currentCity !== prevSearch.city || searchTerm !== prevSearch.term) {
-    setPrevSearch({ city: currentCity, term: searchTerm });
-    setLoadedCards(new Set());
-    setLoadedImages(new Set());
-  }
-
-  const handleSearch = useCallback(() => {
-    setCurrentCity(searchTerm.trim());
-    refetch();
-  }, [searchTerm, refetch]);
-
-  const getPropertyImageUrl = (property: any) => {
-    try {
-      if (property?.media && typeof property.media === "object") {
-        const mediaUrl = property.media.media_url;
-        if (
-          mediaUrl &&
-          typeof mediaUrl === "string" &&
-          mediaUrl.trim() !== ""
-        ) {
-          return mediaUrl.trim();
-        }
-      }
-
-      const fallbackFields = [
-        property?.photo_url,
-        property?.thumbnail_url,
-        property?.image_url,
-        property?.PhotoURL,
-        property?.MediaURL,
-      ].filter(Boolean);
-
-      if (fallbackFields.length > 0) {
-        const url = fallbackFields[0];
-        if (typeof url === "string" && url.trim() !== "") {
-          return url.trim();
-        }
-      }
-      return null;
-    } catch (error) {
-      return null;
-    }
-  };
-
-  const handlePropertyClick = (property: any) => {
-    setClickedProperty(getPropertyKey(property));
-    addToHistory(property); // Track viewing
-    const alreadySelected = isPropertySelected(getPropertyKey(property));
-
-    if (compareList.length > 0) {
-      if (alreadySelected) {
-        removeFromCompare(getPropertyKey(property));
-      } else {
-        addToCompare(property);
-      }
-      setTimeout(() => setClickedProperty(null), 300);
-      return;
-    }
-
-    setSelectedProperty(property);
-    setShowCompareModal(true);
-    setTimeout(() => setClickedProperty(null), 300);
-  };
-
-  const handleCompareSelect = () => {
-    if (!selectedProperty) return;
-    addToCompare(selectedProperty);
-    setShowCompareModal(false);
-    setSelectedProperty(null);
-  };
-
-  const handleViewFromModal = () => {
-    if (!selectedProperty) return;
-    addToHistory(selectedProperty); // Track viewing
-    setShowCompareModal(false);
-    router.push(`/listing/${getPropertyKey(selectedProperty)}`);
-    setSelectedProperty(null);
-  };
-
-  const clearSearch = useCallback(() => {
-    setSearchTerm("");
-    setCurrentCity("");
-    refetch();
-  }, [refetch]);
-
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const lastPropertyRef = useCallback(
-    (node: HTMLDivElement) => {
-      if (isLoading || isFetchingNextPage) return;
-      if (observerRef.current) observerRef.current.disconnect();
-      observerRef.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
-        }
-      });
-      if (node) observerRef.current.observe(node);
+  const handleApplyFilters = useCallback(
+    (newFilters: ExclusivePropertyFilterParams) => {
+      setFilterParams(newFilters);
+      // Note: react-query will automatically refetch when filterParams (queryKey) changes
     },
-    [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage],
+    [],
   );
-
-  const formatPrice = (price: any) => {
-    const numPrice =
-      typeof price === "string"
-        ? parseFloat(price.replace(/[^0-9.-]+/g, ""))
-        : price || 0;
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(numPrice);
-  };
 
   const renderSkeletons = () => {
     return Array.from({ length: 8 }).map((_, index) => (
@@ -282,7 +122,7 @@ export default function ListingsPage() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      <div className="pt-24 pb-16">
+      <div className="pt-32 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1
@@ -301,27 +141,15 @@ export default function ListingsPage() {
             </p>
           </div>
 
-          <ListingSearch
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            onSearch={handleSearch}
-            onClear={clearSearch}
-            isLoading={isLoading}
-          />
+          <div className="mb-4">
+            <PropertyFilter
+              variant="horizontal"
+              onApplyFilters={handleApplyFilters}
+              initialCity={initialCity}
+            />
+          </div>
 
-          {isLoading && (
-            <div className="flex flex-col items-center justify-center py-8">
-              <Loader2
-                className="w-16 h-16 animate-spin"
-                style={{ color: colors.primary }}
-              />
-              <span className="mt-4" style={{ color: colors.body }}>
-                Loading properties...
-              </span>
-            </div>
-          )}
-
-          {isError && (
+          {isError ? (
             <div className="text-center py-16">
               <div
                 className="text-xl font-semibold mb-2"
@@ -332,54 +160,27 @@ export default function ListingsPage() {
               <button
                 onClick={() => refetch()}
                 className="px-6 py-2 rounded-lg transition-colors hover:opacity-90"
-                style={{ backgroundColor: colors.primary, color: colors.cards }}
+                style={{
+                  backgroundColor: colors.primary,
+                  color: colors.cards,
+                }}
               >
                 Retry
               </button>
             </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {allProperties.map((property, index) => {
-              const propertyKey = getPropertyKey(property);
-              return (
-                <div
-                  key={propertyKey}
-                  ref={
-                    index === allProperties.length - 1 ? lastPropertyRef : null
-                  }
-                >
-                  <PropertyCard
-                    property={property}
-                    propertyKey={propertyKey}
-                    isLoggedIn={isLoggedIn}
-                    isLocked={!isLoggedIn && index >= 8}
-                    isSelected={isPropertySelected(propertyKey)}
-                    imageUrl={getPropertyImageUrl(property)}
-                    imageLoaded={loadedImages.has(propertyKey)}
-                    cardLoaded={loadedCards.has(propertyKey)}
-                    isClicked={clickedProperty === propertyKey}
-                    onCardClick={handlePropertyClick}
-                    onMouseEnter={prefetchProperty}
-                    onQuickView={handleQuickView}
-                    onImageLoad={handleImageLoad}
-                    onImageError={handleImageError}
-                    formatPrice={formatPrice}
-                  />
-                </div>
-              );
-            })}
-            {(isLoading || isFetchingNextPage) && renderSkeletons()}
-          </div>
-
-          {!hasNextPage && allProperties.length > 0 && (
-            <div className="text-center py-8">
-              <p style={{ color: colors.body }}>
-                {currentCity
-                  ? `Showing all ${allProperties.length} properties in ${currentCity}`
-                  : `End of results - ${allProperties.length} properties loaded`}
-              </p>
-            </div>
+          ) : viewMode === "grid" ? (
+            <PropertyGridLayout
+              properties={allProperties}
+              isLoading={isLoading}
+              isFetchingNextPage={isFetchingNextPage}
+              hasNextPage={hasNextPage}
+              fetchNextPage={fetchNextPage}
+              isLoggedIn={isLoggedIn}
+              interactions={interactions}
+              currentCity={currentCity}
+            />
+          ) : (
+            <ListingMapView properties={allProperties} isLoading={isLoading} />
           )}
         </div>
       </div>
@@ -387,7 +188,7 @@ export default function ListingsPage() {
       <CompareModal
         show={showCompareModal}
         selectedProperty={selectedProperty}
-        onClose={() => setShowCompareModal(false)}
+        onClose={closeCompareModal}
         onViewDetails={handleViewFromModal}
         onAddToCompare={handleCompareSelect}
         formatPrice={formatPrice}
@@ -395,11 +196,13 @@ export default function ListingsPage() {
 
       <PropertyQuickViewModal
         show={showQuickView}
-        property={quickViewProperty}
-        onClose={() => setShowQuickView(false)}
+        property={selectedProperty}
+        onClose={closeQuickView}
       />
 
       <Footer />
+
+      <MapToggleButton viewMode={viewMode} onToggle={toggleViewMode} />
 
       <style jsx global>{`
         @keyframes fadeInUp {

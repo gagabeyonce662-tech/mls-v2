@@ -74,7 +74,7 @@ export function OwnershipCostAnalysis({
                                   {payload[0].name}
                                 </span>
                                 <span className="text-sm font-bold">
-                                  ${payload[0].value?.toLocaleString()}
+                                  ${payload[0].value?.toLocaleString('en-US')}
                                 </span>
                               </div>
                             </div>
@@ -92,7 +92,7 @@ export function OwnershipCostAnalysis({
           {/* Cost Breakdown Table */}
           <div className="flex flex-col justify-center">
             <div className="text-3xl font-bold text-teal-600 mb-4">
-              ${totalCost.toLocaleString()}
+              ${totalCost.toLocaleString('en-US')}
             </div>
             <div className="text-sm text-gray-600 mb-4">
               Total Cost per Month
@@ -108,7 +108,7 @@ export function OwnershipCostAnalysis({
                     <span className="text-sm text-gray-700">{cost.name}</span>
                   </div>
                   <span className="text-sm font-semibold text-gray-900">
-                    ${cost.value.toLocaleString()}
+                    ${cost.value.toLocaleString('en-US')}
                   </span>
                 </div>
               ))}

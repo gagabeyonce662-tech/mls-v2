@@ -20,7 +20,7 @@ export const ListingGrid: React.FC<{ className?: string }> = ({
             <article
               className="relative rounded-lg overflow-hidden shadow-md group h-48 md:h-56 focus:outline-none cursor-pointer"
               tabIndex={0}
-              aria-label={`${item.title} — ${item.count.toLocaleString()}`}
+              aria-label={`${item.title} — ${item.count.toLocaleString('en-US')}`}
               role="button"
             >
               {/* Background image */}
@@ -43,7 +43,7 @@ export const ListingGrid: React.FC<{ className?: string }> = ({
 
                 <div>
                   <span className="inline-block bg-white text-gray-800 text-sm font-semibold px-3 py-1 rounded-full shadow">
-                    {item.count.toLocaleString()}
+                    {item.count.toLocaleString('en-US')}
                   </span>
                 </div>
               </div>

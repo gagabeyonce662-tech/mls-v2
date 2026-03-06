@@ -4,23 +4,43 @@ import React, { useCallback, useRef } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Container from "@/components/Container";
-import PropertyCard from "@/components/PropertyCard";
-import { PropertyCardSkeleton } from "@/components/property-card/PropertyCardSkeleton";
+import { PropertyCard } from "@/components/listing/PropertyCard";
+import { CompareModal } from "@/components/listing/CompareModal";
+import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
+import PropertyFilter from "@/components/PropertyFilter";
+import { PropertyFilterParams } from "@/lib/api";
+import { useUserAuth } from "@/contexts/UserAuthContext";
 import { useInfiniteNewlyListedProperties } from "@/hooks/react-query";
 import { mapPropertyFromAPI } from "@/lib/api";
 import { Property } from "@/lib/api/types";
-import { Calendar, SlidersHorizontal, Loader2 } from "lucide-react";
+import { Calendar, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
+import { usePropertyInteractions } from "@/hooks/usePropertyInteractions";
+import { PropertyGridLayout } from "@/components/listing/PropertyGridLayout";
+import { formatPrice } from "@/lib/propertyUtils";
 
 export default function NewListingsPage() {
-  const [showQuickView, setShowQuickView] = React.useState(false);
-  const [selectedProperty, setSelectedProperty] = React.useState<any>(null);
+  const { user } = useUserAuth();
+  const isLoggedIn = !!user;
+  const interactions = usePropertyInteractions();
+  const {
+    showQuickView,
+    selectedProperty,
+    showCompareModal,
+    handleViewFromModal,
+    handleCompareSelect,
+    closeCompareModal,
+    closeQuickView,
+  } = interactions;
 
-  const handleQuickView = (property: any) => {
-    setSelectedProperty(property);
-    setShowQuickView(true);
-  };
+  const [filterParams, setFilterParams] = React.useState<PropertyFilterParams>(
+    {},
+  );
+
+  const handleApplyFilters = React.useCallback((newFilters: any) => {
+    setFilterParams(newFilters);
+  }, []);
+
   // Use TanStack Query for infinite scroll
   const {
     data,
@@ -31,31 +51,41 @@ export default function NewListingsPage() {
     isFetchingNextPage,
     refetch,
   } = useInfiniteNewlyListedProperties({
+    ...filterParams,
     limit: 12,
   });
 
   // Extract all properties from pages and map them
   const allProperties =
-    data?.pages.flatMap((page) =>
+    data?.pages.flatMap((page: any) =>
       (page.results || []).map((p: any) => mapPropertyFromAPI(p)),
     ) || [];
 
   const totalCount = data?.pages[0]?.count || 0;
 
-  // Infinite Scroll Observer
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const lastPropertyRef = useCallback(
-    (node: HTMLDivElement) => {
-      if (isLoading || isFetchingNextPage) return;
-      if (observerRef.current) observerRef.current.disconnect();
-      observerRef.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
-        }
-      });
-      if (node) observerRef.current.observe(node);
-    },
-    [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage],
+  const emptyMessage = (
+    <div className="bg-white rounded-2xl border border-dashed border-gray-300 py-32 text-center shadow-inner">
+      <div className="max-w-md mx-auto space-y-4">
+        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto text-gray-400">
+          <SlidersHorizontal className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-bold text-ds-heading">
+          No New Listings Found
+        </h3>
+        <p className="text-ds-body leading-relaxed">
+          We couldn&apos;t find any properties listed in the last few days. Try
+          broadening your search or explore all our available listings.
+        </p>
+        <div className="flex items-center justify-center gap-4 pt-4">
+          <Button
+            variant="default"
+            onClick={() => (window.location.href = "/map-search")}
+          >
+            Explore Map Search
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 
   return (
@@ -68,7 +98,7 @@ export default function NewListingsPage() {
 
       <Header />
 
-      <main className="flex-1 pt-24 pb-16">
+      <main className="flex-1 pt-32 pb-16">
         <Container>
           {/* Page Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
@@ -102,58 +132,15 @@ export default function NewListingsPage() {
             </div>
           </div>
 
-          {/* Grid Layout */}
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {[...Array(8)].map((_, i) => (
-                <PropertyCardSkeleton key={i} />
-              ))}
-            </div>
-          ) : allProperties.length > 0 ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {allProperties.map((property: Property, index: number) => (
-                  <div
-                    key={
-                      property.listing_key ||
-                      property.PropertyKey ||
-                      `new-${index}`
-                    }
-                    ref={
-                      index === allProperties.length - 1
-                        ? lastPropertyRef
-                        : null
-                    }
-                  >
-                    <PropertyCard
-                      property={property}
-                      variant="new"
-                      index={index % 12} // Use mod for stagger delay
-                      onQuickView={handleQuickView}
-                    />
-                  </div>
-                ))}
-              </div>
+          {/* Filter Bar */}
+          <div className="mb-4">
+            <PropertyFilter
+              variant="horizontal"
+              onApplyFilters={handleApplyFilters}
+            />
+          </div>
 
-              {/* Loading More State */}
-              {isFetchingNextPage && (
-                <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {[...Array(4)].map((_, i) => (
-                    <PropertyCardSkeleton key={`loading-${i}`} />
-                  ))}
-                </div>
-              )}
-
-              {/* End of results */}
-              {!hasNextPage && allProperties.length > 0 && (
-                <div className="mt-16 text-center text-ds-body py-8 border-t border-ds-card-border">
-                  <p className="font-medium italic">
-                    You&apos;ve reached the end of the new listings catalogue.
-                  </p>
-                </div>
-              )}
-            </>
-          ) : isError ? (
+          {isError ? (
             <div className="text-center py-16">
               <h3 className="text-xl font-bold text-ds-heading mb-4">
                 Error loading properties
@@ -161,39 +148,35 @@ export default function NewListingsPage() {
               <Button onClick={() => refetch()}>Retry Connection</Button>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-dashed border-gray-300 py-32 text-center shadow-inner">
-              <div className="max-w-md mx-auto space-y-4">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto text-gray-400">
-                  <SlidersHorizontal className="w-8 h-8" />
-                </div>
-                <h3 className="text-xl font-bold text-ds-heading">
-                  No New Listings Found
-                </h3>
-                <p className="text-ds-body leading-relaxed">
-                  We couldn&apos;t find any properties listed in the last few
-                  days. Try broadening your search or explore all our available
-                  listings.
-                </p>
-                <div className="flex items-center justify-center gap-4 pt-4">
-                  <Button
-                    variant="default"
-                    onClick={() => (window.location.href = "/map-search")}
-                  >
-                    Explore Map Search
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <PropertyGridLayout
+              properties={allProperties}
+              isLoading={isLoading}
+              isFetchingNextPage={isFetchingNextPage}
+              hasNextPage={hasNextPage}
+              fetchNextPage={fetchNextPage}
+              isLoggedIn={isLoggedIn}
+              interactions={interactions}
+              emptyMessage={emptyMessage}
+            />
           )}
         </Container>
       </main>
 
       <Footer />
 
+      <CompareModal
+        show={showCompareModal}
+        selectedProperty={selectedProperty}
+        onClose={closeCompareModal}
+        onViewDetails={handleViewFromModal}
+        onAddToCompare={handleCompareSelect}
+        formatPrice={formatPrice}
+      />
+
       <PropertyQuickViewModal
         show={showQuickView}
         property={selectedProperty}
-        onClose={() => setShowQuickView(false)}
+        onClose={closeQuickView}
       />
     </div>
   );

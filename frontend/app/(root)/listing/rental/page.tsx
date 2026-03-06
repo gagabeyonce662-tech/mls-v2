@@ -24,6 +24,7 @@ import {
   useLeaseProperties,
   type Property,
 } from "@/hooks/react-query";
+import { useUserAuth } from "@/contexts/UserAuthContext";
 
 // Helper function to fix media field in properties
 const fixPropertyMedia = (property: any): Property => {
@@ -82,8 +83,8 @@ export default function RentalListingsPage() {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const lastPropertyRef = useRef<HTMLDivElement | null>(null);
 
-  // AUTH: Replace this with your real auth state
-  const isLoggedIn = false;
+  const { user } = useUserAuth();
+  const isLoggedIn = !!user;
 
   // Use React Query hook for infinite loading with city filter
   const {

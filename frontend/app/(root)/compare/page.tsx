@@ -350,9 +350,9 @@ function ComparePageContent() {
                 property.category_type?.toLowerCase().includes("lease");
 
               if (isLease) {
-                return `$${numPrice.toLocaleString()}/month`;
+                return `$${numPrice.toLocaleString('en-US')}/month`;
               }
-              return `$${numPrice.toLocaleString()}`;
+              return `$${numPrice.toLocaleString('en-US')}`;
             }
           }
         }
@@ -975,7 +975,7 @@ function ComparePageContent() {
                           if (property.list_price) {
                             const numPrice = Number(property.list_price);
                             if (!isNaN(numPrice) && numPrice > 0) {
-                              return `$${numPrice.toLocaleString()}`;
+                              return `$${numPrice.toLocaleString('en-US')}`;
                             }
                           }
                           return "Price on request";

@@ -76,20 +76,7 @@ export function PropertyCardImage({
       {/* Bottom gradient overlay */}
       <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
 
-      {/* Top-left badge */}
-      {variant === "new" && (
-        <div className="absolute top-3 left-3 z-10">
-          <span
-            className="px-3 py-1 rounded-full text-xs font-semibold tracking-wide shadow-md"
-            style={{
-              backgroundColor: propertyCard.badges.newListing.bgColor,
-              color: propertyCard.badges.newListing.textColor,
-            }}
-          >
-            {propertyCard.badges.newListing.label}
-          </span>
-        </div>
-      )}
+      {/* Status pill stays bottom-left */}
 
       {/* Bottom-left status pill — glass effect */}
       <div className="absolute bottom-3 left-3 z-10">
@@ -104,9 +91,9 @@ export function PropertyCardImage({
         </span>
       </div>
 
-      {/* Bottom-right listing date */}
+      {/* Top-right listing date — offset to make room for action icons */}
       {variant === "new" && (
-        <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1 text-white/90 text-xs">
+        <div className="absolute top-3 right-12 z-10 flex items-center gap-1 text-white text-[10px] font-medium bg-black/20 backdrop-blur-md px-2 py-1 rounded-lg">
           <Calendar className="w-3 h-3" />
           {listingDate}
         </div>
