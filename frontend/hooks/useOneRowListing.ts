@@ -32,14 +32,15 @@ export function useOneRowListing(
       if (typeof window === "undefined") return 4;
       const width = window.innerWidth;
 
-      // BREAKPOINTS SYNCED WITH PropertyGridSection.tsx
-      if (width >= 2400) return 12; // 4xl
-      if (width >= 2000) return 8; // 3xl
-      if (width >= 1600) return 6; // 2xl
-      if (width >= 1024) return 4; // lg/xl (Luxury 4-column default)
-      if (width >= 768) return 3; // md
-      if (width >= 640) return 2; // sm
-      return 1; // mobile
+      // BREAKPOINTS SYNCED WITH tailwind.config.ts & PropertyGridSection.tsx:
+      // sm=640, md=768, lg=1024, 2xl=1536, 3xl=1800, 4xl=2200
+      if (width >= 2200) return 12; // 4xl
+      if (width >= 1800) return 8;  // 3xl
+      if (width >= 1536) return 6;  // 2xl
+      if (width >= 1024) return 4;  // lg + xl (1024–1535px)
+      if (width >= 768) return 3;  // md
+      if (width >= 640) return 2;  // sm
+      return 1;                     // mobile
     };
 
     setRequestedCount(calculateRequired());
