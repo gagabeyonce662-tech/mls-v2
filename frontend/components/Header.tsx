@@ -11,6 +11,7 @@ export default function Header() {
     { name: "Agents", href: "/agents" },
     { name: "Tools", href: "/tools" },
     { name: "Watched", href: "/watched" },
+    { name: "Pre-Construction", href: "/pre-construction" },
     { name: "Blog", href: "/blog" },
   ];
 

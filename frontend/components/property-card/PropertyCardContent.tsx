@@ -44,8 +44,9 @@ export function PropertyCardContent({ property }: PropertyCardContentProps) {
       <h3
         className="font-semibold text-sm truncate mb-1"
         style={{ color: colors.heading }}
+        title={property.project_name || `${type} in ${city}`}
       >
-        {type} in {city}
+        {property.project_name ? property.project_name : `${type} in ${city}`}
       </h3>
 
       {/* Address */}
@@ -89,7 +90,7 @@ export function PropertyCardContent({ property }: PropertyCardContentProps) {
         {sqft && (
           <div className="flex items-center gap-1">
             <Ruler className="w-3.5 h-3.5" />
-            <span>{sqft.toLocaleString('en-US')} sqft</span>
+            <span>{sqft.toLocaleString("en-US")} sqft</span>
           </div>
         )}
         {yearBuilt && (

@@ -9,6 +9,52 @@ import {
   NearestSchoolsResponse,
 } from "./types";
 import { PropertyResponseSchema } from "./propertySchema";
+import { fetchWPPreconPropertyAction } from "../actions/wp-precon";
+
+/**
+ * Maps static WP JSON Pre-Construction data to our standard Property schema
+ */
+export function mapPreconToProperty(p: any): Property {
+  const meta = p.property_meta || {};
+  const getMetaStr = (key: string) =>
+    meta[key] && meta[key][0] ? meta[key][0] : "";
+
+  const priceStr = getMetaStr("fave_property_price") || "0";
+  const bedrooms = getMetaStr("fave_property_bedrooms") || "0";
+  const bathrooms = getMetaStr("fave_property_bathrooms") || "0";
+  const sizeStr = getMetaStr("fave_property_size") || "";
+  const address =
+    getMetaStr("fave_property_address") || p.title?.rendered || "";
+  const developer = getMetaStr("fave_developer") || "";
+  const completion = getMetaStr("fave_estimated-completion") || "";
+  const mainImage = p.yoast_head_json?.og_image?.[0]?.url || "";
+  const projectName = p.title?.rendered || "";
+
+  return {
+    listing_key: `precon_${p.id}`,
+    listing_id: `precon_${p.id}`,
+    ListingKey: `precon_${p.id}`,
+    PropertyKey: `precon_${p.id}`,
+    address: address.trim(),
+    city: "Pre-Construction",
+    City: "Pre-Construction",
+    list_price: priceStr,
+    ListPrice: parseFloat(priceStr) || 0,
+    bedrooms_total: bedrooms,
+    bathrooms_total_integer: bathrooms,
+    building_area_total: sizeStr,
+    standard_status: "Pre-Construction",
+    StandardStatus: "Pre-Construction",
+    developer,
+    estimated_completion: completion,
+    property_sub_type: "Pre-Construction",
+    PropertySubType: "Pre-Construction",
+    public_remarks: p.content?.rendered?.replace(/<[^>]*>?/gm, "").trim(),
+    PublicRemarks: p.content?.rendered?.replace(/<[^>]*>?/gm, "").trim(),
+    media: [{ media_url: mainImage, is_preferred: true, order: 1 } as any],
+    project_name: projectName,
+  };
+}
 
 /**
  * Helper function to map API response to Property interface
@@ -266,6 +312,11 @@ export async function fetchPropertyByKey(
   propertyKey: string,
 ): Promise<Property | null> {
   try {
+    if (propertyKey.startsWith("precon_")) {
+      const idStr = propertyKey.replace("precon_", "");
+      return await fetchWPPreconPropertyAction(idStr);
+    }
+
     // console.log("Fetching property by key:", propertyKey);
     const data = await fetchAPI<any>(
       `${API_BASE_URL}/api/mls/properties/${propertyKey}/`,
@@ -317,49 +368,64 @@ export async function fetchCompareProperties(propertyKeys: string[]): Promise<{
       return { results: [], count: 0 };
     }
 
-    const queryParams = new URLSearchParams();
-    propertyKeys.forEach((key) => {
-      if (key && key.trim()) {
-        queryParams.append("listing_key", key.trim());
+    // Partition keys into pre-construction and MLS keys
+    const preConKeys = propertyKeys.filter((k) => k.startsWith("precon_"));
+    const mlsKeys = propertyKeys.filter((k) => !k.startsWith("precon_"));
+
+    // Fetch pre-con ones locally via new WP fetch
+    const preConResults = (
+      await Promise.all(
+        preConKeys.map(async (k) => {
+          const idStr = k.replace("precon_", "");
+          return await fetchWPPreconPropertyAction(idStr);
+        }),
+      )
+    ).filter(Boolean) as Property[];
+
+    let mlsResults: Property[] = [];
+
+    if (mlsKeys.length > 0) {
+      const queryParams = new URLSearchParams();
+      mlsKeys.forEach((key) => {
+        if (key && key.trim()) {
+          queryParams.append("listing_key", key.trim());
+        }
+      });
+
+      const url = `${API_BASE_URL}/api/mls/properties/compare/?${queryParams.toString()}`;
+
+      try {
+        const responseData = await fetchAPI<any>(url, { cache: "no-store" });
+
+        const resultsArray =
+          responseData.results ||
+          responseData.data ||
+          responseData.properties ||
+          responseData ||
+          [];
+
+        if (Array.isArray(resultsArray)) {
+          mlsResults = resultsArray.map((prop: any) =>
+            mapPropertyFromAPI(prop),
+          );
+        } else if (resultsArray && typeof resultsArray === "object") {
+          mlsResults = [mapPropertyFromAPI(resultsArray)];
+        }
+      } catch (error) {
+        console.warn(
+          "Comparison API failed, falling back to individual fetches:",
+          error,
+        );
+        const properties = await Promise.all(
+          mlsKeys.map((key) => fetchPropertyByKey(key)),
+        );
+        mlsResults = properties.filter((p) => p !== null) as Property[];
       }
-    });
-
-    const url = `${API_BASE_URL}/api/mls/properties/compare/?${queryParams.toString()}`;
-
-    try {
-      const responseData = await fetchAPI<any>(url, { cache: "no-store" });
-
-      const resultsArray =
-        responseData.results ||
-        responseData.data ||
-        responseData.properties ||
-        responseData ||
-        [];
-
-      let results: Property[];
-      if (Array.isArray(resultsArray)) {
-        results = resultsArray.map((prop: any) => mapPropertyFromAPI(prop));
-      } else if (resultsArray && typeof resultsArray === "object") {
-        results = [mapPropertyFromAPI(resultsArray)];
-      } else {
-        results = [];
-      }
-
-      return { results, count: results.length };
-    } catch (error) {
-      console.warn(
-        "Comparison API failed, falling back to individual fetches:",
-        error,
-      );
-      // Fallback to fetch individually
-      const properties = await Promise.all(
-        propertyKeys.map((key) => fetchPropertyByKey(key)),
-      );
-      const validProperties = properties.filter(
-        (p) => p !== null,
-      ) as Property[];
-      return { results: validProperties, count: validProperties.length };
     }
+
+    const finalResults = [...preConResults, ...mlsResults];
+
+    return { results: finalResults, count: finalResults.length };
   } catch (error) {
     console.error("Error in fetchCompareProperties:", error);
     return { results: [], count: 0 };

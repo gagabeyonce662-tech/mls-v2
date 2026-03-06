@@ -2,12 +2,14 @@ import React from "react";
 import Link from "next/link";
 import { X, ArrowRight } from "lucide-react";
 import { colors } from "@/config/design-system";
+import { usePathname } from "next/navigation";
 import { useCompare } from "@/contexts/CompareContext";
 
 export const CompareBar = () => {
   const { compareList, removeFromCompare, getPropertyKey } = useCompare();
+  const pathname = usePathname();
 
-  if (compareList.length === 0) return null;
+  if (compareList.length === 0 || pathname.startsWith("/compare")) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white/95 backdrop-blur-md border-t shadow-[0_-10px_30px_rgba(0,0,0,0.1)] transition-all animate-slideUp">
@@ -59,12 +61,22 @@ export const CompareBar = () => {
           scrollbar-width: none;
         }
         @keyframes slideUp {
-          from { transform: translateY(100%); }
-          to { transform: translateY(0); }
+          from {
+            transform: translateY(100%);
+          }
+          to {
+            transform: translateY(0);
+          }
         }
         @keyframes fadeIn {
-          from { opacity: 0; scale: 0.95; }
-          to { opacity: 1; scale: 1; }
+          from {
+            opacity: 0;
+            scale: 0.95;
+          }
+          to {
+            opacity: 1;
+            scale: 1;
+          }
         }
       `}</style>
     </div>

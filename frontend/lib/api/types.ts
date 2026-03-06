@@ -44,6 +44,7 @@ export interface Property {
   latitude?: string | number;
   longitude?: string | number;
   location?: string; // Normalized
+  project_name?: string;
 
   // Physical Stats
   property_sub_type?: string;

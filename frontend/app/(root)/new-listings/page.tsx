@@ -5,8 +5,6 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Container from "@/components/Container";
 import { PropertyCard } from "@/components/listing/PropertyCard";
-import { CompareModal } from "@/components/listing/CompareModal";
-import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
 import PropertyFilter from "@/components/PropertyFilter";
 import { PropertyFilterParams } from "@/lib/api";
 import { useUserAuth } from "@/contexts/UserAuthContext";
@@ -23,15 +21,6 @@ export default function NewListingsPage() {
   const { user } = useUserAuth();
   const isLoggedIn = !!user;
   const interactions = usePropertyInteractions();
-  const {
-    showQuickView,
-    selectedProperty,
-    showCompareModal,
-    handleViewFromModal,
-    handleCompareSelect,
-    closeCompareModal,
-    closeQuickView,
-  } = interactions;
 
   const [filterParams, setFilterParams] = React.useState<PropertyFilterParams>(
     {},
@@ -163,21 +152,6 @@ export default function NewListingsPage() {
       </main>
 
       <Footer />
-
-      <CompareModal
-        show={showCompareModal}
-        selectedProperty={selectedProperty}
-        onClose={closeCompareModal}
-        onViewDetails={handleViewFromModal}
-        onAddToCompare={handleCompareSelect}
-        formatPrice={formatPrice}
-      />
-
-      <PropertyQuickViewModal
-        show={showQuickView}
-        property={selectedProperty}
-        onClose={closeQuickView}
-      />
     </div>
   );
 }

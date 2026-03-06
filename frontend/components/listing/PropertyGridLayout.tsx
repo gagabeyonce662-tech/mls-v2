@@ -34,7 +34,7 @@ export function PropertyGridLayout({
     clickedProperty,
     selectedProperty,
     handlePropertyClick,
-    handleQuickView,
+    handleToggleCompare,
   } = interactions;
 
   // Gradually load cards with staggered animation
@@ -218,7 +218,7 @@ export function PropertyGridLayout({
                     isClicked={clickedProperty === propertyKey}
                     onCardClick={() => handlePropertyClick(property)}
                     onMouseEnter={() => {}} // We might not need prefetch if quick view is handling it
-                    onQuickView={() => handleQuickView(property)}
+                    onCompare={() => handleToggleCompare(property)}
                     onImageLoad={() => handleImageLoad(propertyKey)}
                     onImageError={(key, e) => handleImageError(key, e)}
                     formatPrice={formatPrice}
