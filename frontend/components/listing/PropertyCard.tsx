@@ -1,7 +1,16 @@
 "use client";
 
 import React from "react";
-import { Bed, Bath, Maximize, Home, Loader2, Heart, Eye } from "lucide-react";
+import {
+  Bed,
+  Bath,
+  Maximize,
+  Home,
+  Loader2,
+  Heart,
+  Plus,
+  Check,
+} from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { colors } from "@/config/design-system";
@@ -19,7 +28,7 @@ interface PropertyCardProps {
   isClicked: boolean;
   onCardClick: (property: any) => void;
   onMouseEnter: (propertyKey: string) => void;
-  onQuickView: (property: any) => void;
+  onCompare: (property: any) => void;
   onImageLoad: (propertyKey: string) => void;
   onImageError: (
     propertyKey: string,
@@ -40,7 +49,7 @@ export const PropertyCard = ({
   isClicked,
   onCardClick,
   onMouseEnter,
-  onQuickView,
+  onCompare,
   onImageLoad,
   onImageError,
   formatPrice,
@@ -96,8 +105,14 @@ export const PropertyCard = ({
           <h3
             className="font-semibold mb-1 truncate"
             style={{ color: colors.heading }}
+            title={
+              property.project_name ||
+              `${displayPropertyType} in ${displayCity}`
+            }
           >
-            {displayPropertyType} in {displayCity}
+            {property.project_name
+              ? property.project_name
+              : `${displayPropertyType} in ${displayCity}`}
           </h3>
           <p
             className="text-lg font-bold mb-3"
@@ -164,13 +179,6 @@ export const PropertyCard = ({
         className="relative h-48 flex items-center justify-center overflow-hidden"
         style={{ backgroundColor: colors.boarder }}
       >
-        {/* Selection indicator */}
-        {isSelected && (
-          <div className="absolute top-2 right-2 z-10 bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shadow-lg">
-            ✓
-          </div>
-        )}
-
         {/* Favorite Button */}
         <button
           onClick={(e) => {
@@ -186,15 +194,23 @@ export const PropertyCard = ({
           <Heart className={`w-4.5 h-4.5 ${saved ? "fill-current" : ""}`} />
         </button>
 
-        {/* Quick View Button */}
+        {/* Compare Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onQuickView(property);
+            onCompare(property);
           }}
-          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-md active:scale-95 text-ds-heading opacity-0 group-hover:opacity-100"
+          className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 shadow-md active:scale-95 text-ds-heading ${
+            isSelected
+              ? "text-blue-600 bg-white"
+              : "opacity-0 group-hover:opacity-100 hover:bg-white"
+          }`}
         >
-          <Eye className="w-4 h-4" />
+          {isSelected ? (
+            <Check className="w-4 h-4" />
+          ) : (
+            <Plus className="w-4 h-4" />
+          )}
         </button>
 
         {/* Image Loading State */}
@@ -237,8 +253,13 @@ export const PropertyCard = ({
         <h3
           className="font-semibold mb-1 truncate"
           style={{ color: colors.heading }}
+          title={
+            property.project_name || `${displayPropertyType} in ${displayCity}`
+          }
         >
-          {displayPropertyType} in {displayCity}
+          {property.project_name
+            ? property.project_name
+            : `${displayPropertyType} in ${displayCity}`}
         </h3>
         <p className="text-lg font-bold mb-3" style={{ color: colors.primary }}>
           {formatPrice(displayPrice)}

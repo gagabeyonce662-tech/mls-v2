@@ -16,7 +16,7 @@ export async function uploadPreConnProperties(
   const fieldName = options?.fieldName ?? "file";
   const authToken = options?.authToken ?? null;
   const additionalFormFields = options?.additionalFormFields ?? {};
-  const useGet = options?.useGet ?? true;
+  const useGet = options?.useGet ?? false;
 
   const urlBase = `${API_BASE_URL}/api/mls/properties/upload-pre-conn/`;
 
