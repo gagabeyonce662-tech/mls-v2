@@ -80,11 +80,14 @@ export default function PropertyCard({
           e.stopPropagation();
           toggleFavorite(property);
         }}
-        className={`absolute top-3 left-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-lg active:scale-95 ${saved ? "text-red-500" : "text-gray-400 hover:text-red-400"
-          }`}
+        className={`absolute bottom-3 right-3 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all backdrop-blur-md shadow-lg active:scale-95 ${
+          saved
+            ? "bg-red-500 text-white"
+            : "bg-white/80 text-gray-600 hover:bg-white"
+        }`}
         title={saved ? "Remove from Favorites" : "Add to Favorites"}
       >
-        <Heart className={`w-5 h-5 ${saved ? "fill-current" : ""}`} />
+        <Heart className={`w-4 h-4 ${saved ? "fill-current" : ""}`} />
       </button>
 
       {/* ── Quick View Button ── */}
@@ -111,14 +114,19 @@ export default function PropertyCard({
             addToCompare(property);
           }
         }}
-        className={`absolute top-[56px] right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 ${isCompared
-          ? "bg-ds-primary text-white opacity-100"
-          : "bg-white/90 hover:bg-white text-ds-heading opacity-0 group-hover:opacity-100"
-          }`}
+        className={`absolute top-[56px] right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 ${
+          isCompared
+            ? "bg-ds-primary text-white opacity-100"
+            : "bg-white/90 hover:bg-white text-ds-heading opacity-0 group-hover:opacity-100"
+        }`}
         style={isCompared ? { backgroundColor: colors.primary } : {}}
         title={isCompared ? "Remove from Compare" : "Compare"}
       >
-        {isCompared ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+        {isCompared ? (
+          <Check className="w-5 h-5" />
+        ) : (
+          <Plus className="w-5 h-5" />
+        )}
       </button>
     </div>
   );

@@ -5,62 +5,86 @@ import { fetchExclusiveProperties, Property } from "@/lib/api";
 import { useProvince } from "@/contexts/ProvinceContext";
 import { PropertyGridSection } from "@/components/shared/PropertyGridSection";
 import { useQuickView } from "@/contexts/QuickViewContext";
+import { useOneRowListing } from "@/hooks/useOneRowListing";
 
 export function ExclusivePropertiesSection() {
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  /*
+   * ──────────────────────────────────────────────────────────────────────────────
+   * INTELLIGENT FETCHING LOGIC (DO NOT REMOVE)
+   * This section implements Breakpoint-Aware Incremental Fetching.
+   *
+   * 1. Sensor: We detect the "Requested Count" based on screen width.
+   * 2. Reset Logic: If the province changes, we wipe the cache and start over.
+   * 3. Delta-Fetching: If the screen expands, we fetch only the missing items.
+   * ──────────────────────────────────────────────────────────────────────────────
+   */
   const { selectedProvince, getProvinceName } = useProvince();
   const { openQuickView } = useQuickView();
-  const prevProvinceRef = useRef<string | null>(null);
   const [subtitleText, setSubtitleText] = useState("Exclusive Properties");
+  const isFallbackRef = useRef(false);
 
+  // Reset fallback state when province changes
   useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
+    isFallbackRef.current = false;
+  }, [selectedProvince]);
 
-      const provinceName = getProvinceName(selectedProvince);
-      const provinceMapping: any = {
-        Ontario: "ON",
-        Quebec: "QC",
-        "British Columbia": "BC",
-        Alberta: "AB",
-        Manitoba: "MB",
-        Saskatchewan: "SK",
-        "Nova Scotia": "NS",
-        "New Brunswick": "NB",
-        "Newfoundland and Labrador": "NL",
-        "Prince Edward Island": "PE",
-        "Northwest Territories": "NT",
-        Nunavut: "NU",
-        Yukon: "YT",
-      };
+  const { properties, totalCount, isLoading, requestedCount } =
+    useOneRowListing(
+      async (params) => {
+        const provinceName = getProvinceName(selectedProvince);
+        const provinceMapping: any = {
+          Ontario: "ON",
+          Quebec: "QC",
+          "British Columbia": "BC",
+          Alberta: "AB",
+          Manitoba: "MB",
+          Saskatchewan: "SK",
+          "Nova Scotia": "NS",
+          "New Brunswick": "NB",
+          "Newfoundland and Labrador": "NL",
+          "Prince Edward Island": "PE",
+          "Northwest Territories": "NT",
+          Nunavut: "NU",
+          Yukon: "YT",
+        };
 
-      const code =
-        provinceName === "All Provinces"
-          ? undefined
-          : provinceMapping[provinceName];
-      let response = await fetchExclusiveProperties(
-        code ? { province: code } : {},
-      );
-      let currentSubtitle = code
-        ? `Exclusive in ${provinceName}`
-        : "Exclusive Properties";
+        let code =
+          provinceName === "All Provinces"
+            ? undefined
+            : provinceMapping[provinceName];
 
-      if ((!response.results || response.results.length === 0) && code) {
-        response = await fetchExclusiveProperties({});
-        currentSubtitle = `No exclusive properties found in ${provinceName}. Showing all exclusive properties.`;
-      }
+        // If we are already in fallback mode (for delta-fetches), ignore the code
+        if (isFallbackRef.current) {
+          code = undefined;
+        }
 
-      setProperties(response.results || []);
-      setTotalCount(response.count || 0);
-      setSubtitleText(currentSubtitle);
-      prevProvinceRef.current = selectedProvince;
-      setIsLoading(false);
-    };
+        let response = await fetchExclusiveProperties({
+          province: code,
+          ...params,
+        });
 
-    load();
-  }, [selectedProvince, getProvinceName]);
+        // Update Subtitle side-effect & Trigger Fallback
+        if (params.offset === 0) {
+          if ((!response.results || response.results.length === 0) && code) {
+            // Activate fallback
+            isFallbackRef.current = true;
+            response = await fetchExclusiveProperties({ ...params });
+            setSubtitleText(
+              `No exclusive properties found in ${provinceName}. Showing all exclusive properties.`,
+            );
+          } else {
+            setSubtitleText(
+              code && !isFallbackRef.current
+                ? `Exclusive in ${provinceName}`
+                : "Exclusive Properties",
+            );
+          }
+        }
+
+        return response;
+      },
+      [selectedProvince],
+    );
 
   return (
     <PropertyGridSection
@@ -71,6 +95,8 @@ export function ExclusivePropertiesSection() {
       totalCount={totalCount}
       isLoading={isLoading}
       onQuickView={openQuickView}
+      oneRowOnly={true}
+      limit={requestedCount}
     />
   );
 }

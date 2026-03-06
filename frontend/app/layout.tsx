@@ -4,6 +4,7 @@ import { ProvinceProvider } from "@/contexts/ProvinceContext";
 import { UserAuthProvider } from "@/contexts/UserAuthContext";
 import { CompareProvider } from "@/contexts/CompareContext";
 import { WatchedProvider } from "@/contexts/WatchedContext";
+import { SearchProvider } from "@/contexts/SearchContext";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://estate-4u.com"),
@@ -84,7 +85,9 @@ export default function RootLayout({
         <UserAuthProvider>
           <ProvinceProvider>
             <CompareProvider>
-              <WatchedProvider>{children}</WatchedProvider>
+              <WatchedProvider>
+                <SearchProvider>{children}</SearchProvider>
+              </WatchedProvider>
             </CompareProvider>
           </ProvinceProvider>
         </UserAuthProvider>

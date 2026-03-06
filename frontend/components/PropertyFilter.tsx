@@ -12,6 +12,8 @@ import {
   Maximize2,
   LandPlot,
   Sparkles,
+  Map,
+  LayoutGrid,
 } from "lucide-react";
 import { colors } from "@/config/design-system";
 import {
@@ -62,10 +64,15 @@ export default function PropertyFilter({
   onApplyFilters,
   initialCity,
 }: PropertyFilterProps) {
-  const { applyFilters } = useSearch();
+  const { applyFilters, viewMode, toggleViewMode } = useSearch();
   const { state, setters, clearFilters, calculateActiveFilters } =
     useFilterState();
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
+
+  // Sync initial city from URL into the filter input
+  useState(() => {
+    if (initialCity) setters.setSearchQuery(initialCity);
+  });
 
   const {
     searchQuery,
@@ -388,6 +395,21 @@ export default function PropertyFilter({
               title="Reset Search"
             >
               <RotateCcw className="w-5 h-5" />
+            </button>
+            <button
+              onClick={toggleViewMode}
+              className="p-3.5 border border-gray-200 bg-white rounded-xl hover:bg-gray-50 transition-all text-gray-500 hover:text-gray-800 hidden lg:flex items-center"
+              title={
+                viewMode === "grid"
+                  ? "Switch to Map View"
+                  : "Switch to Grid View"
+              }
+            >
+              {viewMode === "grid" ? (
+                <Map className="w-5 h-5" />
+              ) : (
+                <LayoutGrid className="w-5 h-5" />
+              )}
             </button>
           </div>
         </div>

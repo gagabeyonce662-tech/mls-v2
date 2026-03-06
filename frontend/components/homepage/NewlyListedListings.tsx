@@ -4,7 +4,7 @@
 import { Calendar } from "lucide-react";
 import { colors } from "@/config/design-system";
 import { fetchNewlyListedProperties, type Property } from "@/lib/api";
-import { useState, useEffect } from "react";
+import { useOneRowListing } from "@/hooks/useOneRowListing";
 import { PropertyGridSection } from "../shared/PropertyGridSection";
 
 interface NewlyListedListingsProps {
@@ -18,33 +18,29 @@ export default function NewlyListedListings({
   showLimit = 8,
   onQuickView,
 }: NewlyListedListingsProps) {
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
-
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetchNewlyListedProperties({
-          limit: showLimit,
+  /*
+   * ──────────────────────────────────────────────────────────────────────────────
+   * INTELLIGENT FETCHING LOGIC (DO NOT REMOVE)
+   * This section implements Breakpoint-Aware Incremental Fetching.
+   *
+   * 1. Sensor: We detect the "Requested Count" based on the current screen width.
+   * 2. Cache-Respect: If the screen shrinks, we use the existing cached properties.
+   * 3. Delta-Fetching: If the screen expands and requires more cards than we have,
+   *    we fetch ONLY the missing items using offsets, avoiding redundant data transfer.
+   * ──────────────────────────────────────────────────────────────────────────────
+   */
+  const { properties, totalCount, isLoading, isError, requestedCount } =
+    useOneRowListing(
+      (params) =>
+        fetchNewlyListedProperties({
+          ...params,
           search:
             searchQuery && searchQuery !== "Latest Properties"
               ? searchQuery
               : undefined,
-        });
-        setProperties(response.results || []);
-        setTotalCount(response.count || (response.results || []).length);
-      } catch (error) {
-        console.error("Error fetching newly listed properties:", error);
-        setIsError(true);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, [showLimit, searchQuery]);
+        }),
+      [searchQuery],
+    );
 
   return (
     <PropertyGridSection
@@ -52,7 +48,11 @@ export default function NewlyListedListings({
       subtitle={
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4" style={{ color: colors.primary }} />
-          <span>{isLoading ? "Finding new listings..." : `${totalCount} new properties available`}</span>
+          <span>
+            {isLoading
+              ? "Finding new listings..."
+              : `${totalCount} new properties available`}
+          </span>
         </div>
       }
       viewAllHref="/new-listings"
@@ -63,7 +63,8 @@ export default function NewlyListedListings({
       totalCount={totalCount}
       onQuickView={onQuickView}
       variant="new"
-      limit={showLimit}
+      limit={requestedCount}
+      oneRowOnly={true}
     />
   );
 }

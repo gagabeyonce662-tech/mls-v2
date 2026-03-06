@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { colors } from "@/config/design-system";
 
-import { SearchProvider } from "@/contexts/SearchContext";
 import { QuickViewProvider } from "@/contexts/QuickViewContext";
 
 import Header from "@/components/Header";
@@ -40,97 +39,92 @@ export default function HomePage() {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   return (
-    <SearchProvider>
-      <QuickViewProvider>
-        <div
-          className="min-h-screen flex flex-col"
-          style={{ backgroundColor: colors.cards }}
-        >
-          <Header />
+    <QuickViewProvider>
+      <div
+        className="min-h-screen flex flex-col"
+        style={{ backgroundColor: colors.cards }}
+      >
+        <Header />
 
-          <main className="w-full flex-1 mt-0">
-            {/* Hero Section */}
-            <section aria-label="Find Property">
-              <HeroSection />
-            </section>
+        <main className="w-full flex-1 mt-0">
+          {/* Hero Section */}
+          <section aria-label="Find Property">
+            <HeroSection />
+          </section>
 
-            {/* Quick Navigation */}
-            <div className="mt-2 w-full">
-              <FeaturedCollections />
-            </div>
+          {/* Quick Navigation */}
+          <div className="mt-2 w-full">
+            <FeaturedCollections />
+          </div>
 
-            {/* Content Section */}
-            <section
-              className="w-full mt-8 px-4 lg:px-6"
-              aria-label="Properties and Search Filters"
-            >
-              <div className="w-full">
-                {/* Search & Filters */}
-                <PropertyFilter variant="horizontal" />
+          {/* Content Section */}
+          <section
+            className="w-full mt-8 px-4 lg:px-6"
+            aria-label="Properties and Search Filters"
+          >
+            <div className="w-full">
+              {/* Search & Filters */}
+              <PropertyFilter variant="horizontal" />
 
-                {/* Listing Grids */}
-                <div className="space-y-4 overflow-x-hidden">
-                  <SearchResultsSection />
-                  <NewlyListedSection />
-                  <ExclusivePropertiesSection />
-                  <RentalPropertiesSection />
-                  <PreConstructionSection />
-                </div>
+              {/* Listing Grids */}
+              <div
+                id="search-results-top"
+                className="space-y-4 overflow-x-hidden"
+              >
+                <SearchResultsSection />
+                <NewlyListedSection />
+                <ExclusivePropertiesSection />
+                <RentalPropertiesSection />
+                <PreConstructionSection />
               </div>
-            </section>
+            </div>
+          </section>
 
-            {/* Utility Sections */}
-            <section className="section-gap" aria-label="Common Locations">
-              <Container>
-                <LocationsSection />
-              </Container>
-            </section>
+          {/* Utility Sections */}
+          <section className="section-gap" aria-label="Common Locations">
+            <Container>
+              <LocationsSection />
+            </Container>
+          </section>
 
-            <section
-              className="section-gap"
-              aria-label="Latest Real Estate News"
-            >
-              <Container>
-                <LatestArticles />
-              </Container>
-            </section>
+          <section className="section-gap" aria-label="Latest Real Estate News">
+            <Container>
+              <LatestArticles />
+            </Container>
+          </section>
 
-            <section className="section-gap" aria-label="Mortgage Tools">
-              <Container>
-                <MortgageSection />
-              </Container>
-            </section>
+          <section className="section-gap" aria-label="Mortgage Tools">
+            <Container>
+              <MortgageSection />
+            </Container>
+          </section>
 
-            <section
-              className="section-gap"
-              aria-label="Client Success Stories"
-            >
-              <Container>
-                <ClientReviews />
-              </Container>
-            </section>
+          <section className="section-gap" aria-label="Client Success Stories">
+            <Container>
+              <ClientReviews />
+            </Container>
+          </section>
 
-            {/* Mobile Filter FAB */}
-            <button
-              onClick={() => setMobileFilterOpen(true)}
-              className="lg:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3 rounded-full shadow-lg text-white text-sm font-medium transition-all hover:scale-105 active:scale-95"
-              style={{ backgroundColor: colors.primary }}
-              aria-label="Open filters"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              Filters
-            </button>
-          </main>
+          {/* Mobile Filter FAB */}
+          <button
+            onClick={() => setMobileFilterOpen(true)}
+            className="lg:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-5 py-3 rounded-full shadow-lg text-white text-sm font-medium transition-all hover:scale-105 active:scale-95"
+            style={{ backgroundColor: colors.primary }}
+            aria-label="Open filters"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Filters
+          </button>
+        </main>
 
-          <Footer />
+        <Footer />
 
-          {/* Drawers */}
-          <MobileFilterDrawer
-            open={mobileFilterOpen}
-            onClose={() => setMobileFilterOpen(false)}
-          />
-        </div>
-      </QuickViewProvider>
-    </SearchProvider>
+        {/* Drawers */}
+        <MobileFilterDrawer
+          open={mobileFilterOpen}
+          onClose={() => setMobileFilterOpen(false)}
+        />
+      </div>
+    </QuickViewProvider>
   );
 }
