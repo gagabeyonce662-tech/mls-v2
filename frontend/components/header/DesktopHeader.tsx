@@ -48,11 +48,10 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className={`hidden lg:block fixed top-0 left-0 right-0 z-50 transition-colors duration-500 ${
-        applyLightMode
+      className={`hidden lg:block fixed top-0 left-0 right-0 z-50 transition-colors duration-500 ${applyLightMode
           ? "bg-white/95 backdrop-blur-md shadow-lg"
           : "bg-transparent shadow-none"
-      }`}
+        }`}
     >
       {/* 🔝 Top Utility Tier */}
       <motion.div
@@ -99,11 +98,10 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
                   <DropdownMenuItem
                     key={province.code}
                     onClick={() => setSelectedProvince(province.code)}
-                    className={`cursor-pointer px-3 py-2 text-sm hover:bg-ds-card transition-colors ${
-                      selectedProvince === province.code
+                    className={`cursor-pointer px-3 py-2 text-sm hover:bg-ds-card transition-colors ${selectedProvince === province.code
                         ? "bg-ds-card text-ds-primary font-semibold"
                         : "text-ds-heading"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center space-x-3">
                       <MapPin className="w-4 h-4 text-ds-body" />
@@ -130,14 +128,14 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
           {/* 🏠 Logo */}
           <Link href="/" className="flex items-center group">
             <div
-              className={`relative transition-all duration-500 ease-out group-hover:scale-[1.02] ${scrolled ? "h-10 w-40" : "h-14 w-52"}`}
+              className={`relative transition-all duration-500 ease-out group-hover:scale-[1.02] ${scrolled ? "h-10 w-32" : "h-14 w-44"}`}
             >
               <Image
                 src="https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
                 alt="Estate-4u"
                 width={208}
                 height={56}
-                className={`h-full w-full object-contain transition-all duration-300 ${!applyLightMode ? "brightness-0 invert" : ""}`}
+                className={`h-full w-full object-contain object-left transition-all duration-300 ${!applyLightMode ? "brightness-0 invert" : ""}`}
                 priority
               />
             </div>

@@ -187,12 +187,12 @@ export function PropertyGridLayout({
   return (
     <>
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="flex flex-row flex-nowrap overflow-x-auto gap-4 w-full">
           {renderSkeletons()}
         </div>
       ) : properties.length > 0 ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="flex flex-row flex-nowrap overflow-x-auto gap-4 w-full">
             {properties.map((property: Property, index: number) => {
               const propertyKey =
                 getPropertyKey(property) ||
@@ -204,6 +204,7 @@ export function PropertyGridLayout({
                 <div
                   key={propertyKey}
                   ref={index === properties.length - 1 ? lastPropertyRef : null}
+                  className="flex-1 min-w-[220px] max-w-[320px]"
                 >
                   <PropertyCard
                     property={property}

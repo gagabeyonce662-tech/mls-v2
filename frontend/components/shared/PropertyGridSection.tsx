@@ -60,15 +60,16 @@ export function PropertyGridSection({
   const getResponsiveVisibility = (index: number) => {
     if (!oneRowOnly) return "block";
 
-    // Standard Grid Mappings:
-    if (index === 0) return "block"; // 1
-    if (index === 1) return "hidden sm:block"; // 2
-    if (index === 2) return "hidden md:block"; // 3
-    if (index === 3) return "hidden lg:block"; // 4
-    if (index < 6) return "hidden 2xl:block"; // 6 (Now only for 1600px+)
-    if (index < 8) return "hidden 3xl:block"; // 8
-    return "hidden 4xl:block"; // 12
+    // Synced exactly with useOneRowListing.ts & tailwind.config.ts breakpoints:
+    if (index === 0) return "block";            // always visible (1 col)
+    if (index === 1) return "hidden sm:block";  // 640px+  → 2 cols
+    if (index === 2) return "hidden md:block";  // 768px+  → 3 cols
+    if (index === 3) return "hidden lg:block";  // 1024px+ → 4 cols
+    if (index < 6) return "hidden 2xl:block"; // 1536px+ → 6 cols
+    if (index < 8) return "hidden 3xl:block"; // 1800px+ → 8 cols
+    return "hidden 4xl:block";                  // 2200px+ → 12 cols
   };
+
 
   return (
     <div className="py-12">
@@ -121,40 +122,40 @@ export function PropertyGridSection({
         )}
 
         {/* Responsive Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 4xl:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 4xl:grid-cols-12 gap-6">
           {showLoadingSkeletons
             ? [...Array(limit)].map((_, i) => (
-                <PropertyCardSkeleton key={`skeleton-${i}`} index={i} />
-              ))
+              <PropertyCardSkeleton key={`skeleton-${i}`} index={i} />
+            ))
             : displayProperties.length > 0
               ? displayProperties.map((property, index) => (
-                  <div
-                    key={
-                      property.listing_key ||
-                      property.PropertyKey ||
-                      `${title}-${index}`
-                    }
-                    className={`w-full ${getResponsiveVisibility(index)}`}
-                  >
-                    <PropertyCard
-                      property={property}
-                      variant={variant as any}
-                      index={index}
-                      onQuickView={onQuickView}
-                    />
-                  </div>
-                ))
+                <div
+                  key={
+                    property.listing_key ||
+                    property.PropertyKey ||
+                    `${title}-${index}`
+                  }
+                  className={`w-full ${getResponsiveVisibility(index)}`}
+                >
+                  <PropertyCard
+                    property={property}
+                    variant={variant as any}
+                    index={index}
+                    onQuickView={onQuickView}
+                  />
+                </div>
+              ))
               : !showLoadingSkeletons && (
-                  <div className="col-span-full text-center py-16">
-                    <div
-                      className="text-xl font-semibold mb-2"
-                      style={{ color: colors.heading }}
-                    >
-                      {emptyTitle}
-                    </div>
-                    <p style={{ color: colors.body }}>{emptySubtitle}</p>
+                <div className="col-span-full text-center py-16">
+                  <div
+                    className="text-xl font-semibold mb-2"
+                    style={{ color: colors.heading }}
+                  >
+                    {emptyTitle}
                   </div>
-                )}
+                  <p style={{ color: colors.body }}>{emptySubtitle}</p>
+                </div>
+              )}
         </div>
 
         {/* Mobile View All */}
