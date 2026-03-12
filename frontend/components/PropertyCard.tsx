@@ -79,21 +79,27 @@ export default function PropertyCard({
         <PropertyCardContent property={property} />
       </Link>
 
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          toggleFavorite(property);
-        }}
-        className={`absolute bottom-3 right-3 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all backdrop-blur-md shadow-lg active:scale-95 ${
-          saved
-            ? "bg-red-500 text-white"
-            : "bg-white/80 text-gray-600 hover:bg-white"
-        }`}
-        title={saved ? "Remove from Favorites" : "Add to Favorites"}
-      >
-        <Heart className={`w-4 h-4 ${saved ? "fill-current" : ""}`} />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleFavorite(property);
+            }}
+            className={`absolute bottom-3 right-3 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all backdrop-blur-md shadow-lg active:scale-95 ${
+              saved
+                ? "bg-red-500 text-white"
+                : "bg-white/80 text-gray-600 hover:bg-white"
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${saved ? "fill-current" : ""}`} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          {saved ? "Remove from Favorites" : "Add to Favorites"}
+        </TooltipContent>
+      </Tooltip>
 
       {/* ── Quick View Button ── */}
       <Tooltip>
