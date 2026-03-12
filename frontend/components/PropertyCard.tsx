@@ -11,6 +11,11 @@ import { PropertyCardContent } from "@/components/property-card/PropertyCardCont
 import { usePrefetchProperty } from "@/hooks/react-query";
 import { useWatched } from "@/contexts/WatchedContext";
 import { useCompare } from "@/contexts/CompareContext";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface PropertyCardProps {
   property: Property;
@@ -91,43 +96,53 @@ export default function PropertyCard({
       </button>
 
       {/* ── Quick View Button ── */}
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onQuickView?.(property);
-        }}
-        className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-lg active:scale-95 text-ds-heading opacity-0 group-hover:opacity-100"
-        title="Quick View"
-      >
-        <Eye className="w-5 h-5" />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onQuickView?.(property);
+            }}
+            className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-lg active:scale-95 text-ds-heading opacity-0 group-hover:opacity-100"
+          >
+            <Eye className="w-5 h-5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="left">Quick View</TooltipContent>
+      </Tooltip>
 
       {/* ── Compare Button ── */}
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (isCompared) {
-            removeFromCompare(propertyKey);
-          } else {
-            addToCompare(property);
-          }
-        }}
-        className={`absolute top-[56px] right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 ${
-          isCompared
-            ? "bg-ds-primary text-white opacity-100"
-            : "bg-white/90 hover:bg-white text-ds-heading opacity-0 group-hover:opacity-100"
-        }`}
-        style={isCompared ? { backgroundColor: colors.primary } : {}}
-        title={isCompared ? "Remove from Compare" : "Compare"}
-      >
-        {isCompared ? (
-          <Check className="w-5 h-5" />
-        ) : (
-          <Plus className="w-5 h-5" />
-        )}
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (isCompared) {
+                removeFromCompare(propertyKey);
+              } else {
+                addToCompare(property);
+              }
+            }}
+            className={`absolute top-[56px] right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 ${
+              isCompared
+                ? "bg-ds-primary text-white opacity-100"
+                : "bg-white/90 hover:bg-white text-ds-heading opacity-0 group-hover:opacity-100"
+            }`}
+            style={isCompared ? { backgroundColor: colors.primary } : {}}
+          >
+            {isCompared ? (
+              <Check className="w-5 h-5" />
+            ) : (
+              <Plus className="w-5 h-5" />
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          {isCompared ? "Remove from Compare" : "Compare"}
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 }

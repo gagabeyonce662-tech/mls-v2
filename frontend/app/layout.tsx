@@ -74,6 +74,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { TooltipProvider } from "@/components/ui/tooltip";
+
 export default function RootLayout({
   children,
 }: {
@@ -86,7 +88,9 @@ export default function RootLayout({
           <ProvinceProvider>
             <CompareProvider>
               <WatchedProvider>
-                <SearchProvider>{children}</SearchProvider>
+                <SearchProvider>
+                  <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
+                </SearchProvider>
               </WatchedProvider>
             </CompareProvider>
           </ProvinceProvider>
