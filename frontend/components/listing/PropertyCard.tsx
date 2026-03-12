@@ -16,6 +16,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { colors } from "@/config/design-system";
 import { useWatched } from "@/contexts/WatchedContext";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface PropertyCardProps {
   property: any;
@@ -195,37 +200,48 @@ export const PropertyCard = ({
 
         {/* Compare Button */}
         {onCompare && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onCompare(property);
-            }}
-            className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 shadow-md active:scale-95 text-ds-heading ${isSelected
-              ? "text-blue-600 bg-white"
-              : "opacity-0 group-hover:opacity-100 hover:bg-white"
-              }`}
-            title={isSelected ? "Remove from Compare" : "Add to Compare"}
-          >
-            {isSelected ? (
-              <Check className="w-4 h-4" />
-            ) : (
-              <Plus className="w-4 h-4" />
-            )}
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCompare(property);
+                }}
+                className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 shadow-md active:scale-95 text-ds-heading ${
+                  isSelected
+                    ? "text-blue-600 bg-white"
+                    : "opacity-0 group-hover:opacity-100 hover:bg-white"
+                }`}
+              >
+                {isSelected ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {isSelected ? "Remove from Compare" : "Add to Compare"}
+            </TooltipContent>
+          </Tooltip>
         )}
 
         {/* Quick View Button */}
         {onQuickView && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onQuickView(property);
-            }}
-            className="absolute bottom-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 shadow-md active:scale-95 text-ds-heading opacity-0 group-hover:opacity-100 hover:bg-white"
-            title="Quick View"
-          >
-            <Eye className="w-4.5 h-4.5" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onQuickView(property);
+                }}
+                className="absolute bottom-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 shadow-md active:scale-95 text-ds-heading opacity-0 group-hover:opacity-100 hover:bg-white"
+              >
+                <Eye className="w-4.5 h-4.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Quick View</TooltipContent>
+          </Tooltip>
         )}
 
         {/* Image Loading State */}

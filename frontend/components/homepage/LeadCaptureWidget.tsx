@@ -20,22 +20,24 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 const containerVariants: Variants = {
-  hidden: { x: "100%", opacity: 0 },
+  hidden: { scale: 0.8, opacity: 0, y: 20 },
   visible: { 
-    x: "0%", 
+    scale: 1,
     opacity: 1,
+    y: 0,
     transition: { 
       type: "spring", 
-      damping: 30, 
+      damping: 25, 
       stiffness: 300,
       staggerChildren: 0.1,
-      delayChildren: 0.2
+      delayChildren: 0.1
     }
   },
   exit: { 
-    x: "100%", 
+    scale: 0.8,
     opacity: 0,
-    transition: { ease: "easeInOut" as const, duration: 0.4 }
+    y: 20,
+    transition: { ease: "easeOut", duration: 0.2 }
   }
 };
 
@@ -93,7 +95,7 @@ export const LeadCaptureWidget = () => {
         whileHover={{ scale: 1.05, x: -5 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(true)}
-        className="fixed right-0 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-3 px-3 py-10 rounded-l-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] text-white font-medium overflow-hidden group"
+        className="fixed right-0 top-0 bottom-0 h-fit my-auto z-50 flex flex-col items-center gap-3 px-3 py-10 rounded-l-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] text-white font-medium overflow-hidden group"
         style={{ 
           background: `linear-gradient(135deg, ${colors.primary} 0%, #2a4a8e 100%)`,
         }}
@@ -105,18 +107,6 @@ export const LeadCaptureWidget = () => {
         <div className="mt-2 w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
       </motion.button>
 
-      {/* Backdrop */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsOpen(false)}
-            className="fixed inset-0 bg-black/40 backdrop-blur-md z-[80]"
-          />
-        )}
-      </AnimatePresence>
 
       {/* Drawer */}
       <AnimatePresence>
@@ -126,7 +116,7 @@ export const LeadCaptureWidget = () => {
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="fixed right-0 top-0 h-full w-full max-w-lg bg-white/90 backdrop-blur-2xl shadow-[-20px_0_80px_rgba(0,0,0,0.2)] z-[90] flex flex-col border-l border-white/20"
+            className="fixed right-6 bottom-24 w-[320px] h-auto max-h-[calc(100vh-120px)] bg-white shadow-[0_20px_70px_rgba(0,0,0,0.15)] z-[90] flex flex-col border border-gray-100 rounded-[2rem] overflow-hidden"
           >
             {/* Success Overlay */}
             <AnimatePresence>
@@ -159,34 +149,34 @@ export const LeadCaptureWidget = () => {
             </AnimatePresence>
 
             {/* Header */}
-            <div className="p-8 pt-12 flex items-center justify-between">
+            <div className="p-5 pt-6 flex items-center justify-between">
               <motion.div variants={itemVariants}>
-                <h3 className="text-4xl font-bold tracking-tight" style={{ color: colors.primary }}>
+                <h3 className="text-xl font-bold tracking-tight" style={{ color: colors.primary }}>
                   Explore Beyond <span className="text-blue-500">.</span>
                 </h3>
-                <p className="text-gray-500 mt-2 text-lg">
-                  Leave your details for exclusive insights.
+                <p className="text-gray-400 mt-0.5 text-[11px] font-medium leading-none">
+                  Get exclusive property insights.
                 </p>
               </motion.div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 transition-all hover:rotate-90 duration-300"
+                className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-all hover:rotate-90 duration-300"
               >
-                <X className="w-6 h-6 text-gray-600" />
+                <X className="w-4 h-4 text-gray-500" />
               </button>
             </div>
 
             {/* Form */}
-            <div className="flex-1 overflow-y-auto px-10 py-10">
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-10">
+            <div className="flex-1 overflow-y-auto px-6 pb-6 pt-1">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 {[
                   { id: "name", label: "Full Name", icon: User, placeholder: "John Doe" },
                   { id: "email", label: "Email Address", icon: Mail, placeholder: "john@example.com", type: "email" },
                   { id: "contact", label: "Phone Number", icon: Phone, placeholder: "+1 (555) 123-4567" }
                 ].map((field) => (
                   <motion.div key={field.id} variants={itemVariants} className="group">
-                    <label className="text-xs uppercase tracking-widest font-bold mb-4 block opacity-60 transition-opacity group-focus-within:opacity-100" style={{ color: colors.primary }}>
-                      <field.icon className="w-3 h-3 inline-block mr-2 mb-0.5" />
+                    <label className="text-[10px] uppercase tracking-wider font-bold mb-2 block opacity-60 transition-opacity group-focus-within:opacity-100" style={{ color: colors.primary }}>
+                      <field.icon className="w-2.5 h-2.5 inline-block mr-1.5 mb-0.5" />
                       {field.label}
                     </label>
                     <div className="relative">
@@ -194,7 +184,7 @@ export const LeadCaptureWidget = () => {
                         {...register(field.id as any)}
                         type={field.type || "text"}
                         placeholder={field.placeholder}
-                        className={`h-16 bg-gray-50/50 border-0 border-b-2 rounded-none px-0 text-xl transition-all focus:bg-transparent ${
+                        className={`h-10 bg-gray-50/50 border-0 border-b-2 rounded-none px-0 text-base transition-all focus:bg-transparent ${
                           errors[field.id as keyof FormData] 
                             ? "border-red-400" 
                             : "border-gray-200 focus:border-blue-500"
@@ -209,11 +199,11 @@ export const LeadCaptureWidget = () => {
                   </motion.div>
                 ))}
 
-                <motion.div variants={itemVariants} className="pt-6">
+                <motion.div variants={itemVariants} className="pt-2">
                   <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full h-16 text-lg font-bold rounded-2xl transition-all shadow-xl hover:shadow-2xl disabled:opacity-70 relative overflow-hidden group"
+                    className="w-full h-12 text-sm font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-70 relative overflow-hidden group"
                     style={{ background: colors.primary }}
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
@@ -233,12 +223,12 @@ export const LeadCaptureWidget = () => {
               </form>
 
               {/* Footer */}
-              <motion.div variants={itemVariants} className="mt-16 pt-8 border-t border-gray-100 text-center">
-                <p className="text-[10px] uppercase tracking-tighter text-gray-400 font-bold leading-relaxed px-10">
-                  Secure transmission guaranteed. By clicking submit you agree to our 
-                  <span className="text-gray-900 mx-1">Privacy Architecture</span> 
+              <motion.div variants={itemVariants} className="mt-6 pt-4 border-t border-gray-50 text-center">
+                <p className="text-[9px] uppercase tracking-tighter text-gray-300 font-bold leading-relaxed px-2">
+                  Secure transmission. By submitting you agree to our 
+                  <span className="text-gray-500 mx-1">Privacy</span> 
                   and 
-                  <span className="text-gray-900 ml-1">Terms</span>.
+                  <span className="text-gray-500 ml-1">Terms</span>.
                 </p>
               </motion.div>
             </div>
