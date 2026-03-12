@@ -185,18 +185,24 @@ export const PropertyCard = ({
         style={{ backgroundColor: colors.boarder }}
       >
         {/* Favorite Button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleFavorite(property);
-          }}
-          className={`absolute top-2 left-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-md active:scale-90 ${saved
-            ? "text-red-500 scale-105"
-            : "text-gray-400 hover:text-red-400"
-            }`}
-        >
-          <Heart className={`w-4.5 h-4.5 ${saved ? "fill-current" : ""}`} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFavorite(property);
+              }}
+              className={`absolute top-2 left-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-md active:scale-90 ${
+                saved ? "text-red-500 scale-105" : "text-gray-400 hover:text-red-400"
+              }`}
+            >
+              <Heart className={`w-4.5 h-4.5 ${saved ? "fill-current" : ""}`} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            {saved ? "Remove from Favorites" : "Add to Favorites"}
+          </TooltipContent>
+        </Tooltip>
 
         {/* Compare Button */}
         {onCompare && (
