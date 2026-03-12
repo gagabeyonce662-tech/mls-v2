@@ -19,6 +19,7 @@ import { NewlyListedSection } from "@/components/homepage/sections/NewlyListedSe
 import { ExclusivePropertiesSection } from "@/components/homepage/sections/ExclusivePropertiesSection";
 import { RentalPropertiesSection } from "@/components/homepage/sections/RentalPropertiesSection";
 import { PreConstructionSection } from "@/components/homepage/sections/PreConstructionSection";
+import LeadCaptureWidget from "@/components/homepage/LeadCaptureWidget";
 
 import dynamic from "next/dynamic";
 
@@ -118,6 +119,7 @@ export default function HomePage() {
         </main>
 
         <Footer />
+        <LeadCaptureWidget />
 
         {/* Drawers */}
         <MobileFilterDrawer
