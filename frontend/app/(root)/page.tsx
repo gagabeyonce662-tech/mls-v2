@@ -83,15 +83,11 @@ export default function HomePage() {
 
           {/* Utility Sections */}
           <section className="section-gap" aria-label="Common Locations">
-            <Container>
-              <LocationsSection />
-            </Container>
+            <LocationsSection />
           </section>
 
           <section className="section-gap" aria-label="Latest Real Estate News">
-            <Container>
-              <LatestArticles />
-            </Container>
+            <LatestArticles />
           </section>
 
           <section className="section-gap" aria-label="Mortgage Tools">
@@ -101,9 +97,7 @@ export default function HomePage() {
           </section>
 
           <section className="section-gap" aria-label="Client Success Stories">
-            <Container>
-              <ClientReviews />
-            </Container>
+            <ClientReviews />
           </section>
 
           {/* Mobile Filter FAB */}

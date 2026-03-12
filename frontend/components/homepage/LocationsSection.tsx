@@ -91,13 +91,19 @@ export default function LocationsSection() {
   }, []);
 
   useEffect(() => {
-    // Measure track width after mount
-    if (trackRef.current) {
-      // Track contains locations duplicated x2, so half = one full set
-      halfWidthRef.current = trackRef.current.scrollWidth / 2;
-    }
+    const handleResize = () => {
+      if (trackRef.current) {
+        // Track contains locations duplicated x6, so one full set is 1/6th
+        halfWidthRef.current = trackRef.current.scrollWidth / 6;
+      }
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
     animStartRef.current = requestAnimationFrame(animate);
+
     return () => {
+      window.removeEventListener("resize", handleResize);
       if (animStartRef.current !== null)
         cancelAnimationFrame(animStartRef.current);
     };
@@ -129,7 +135,7 @@ export default function LocationsSection() {
     positionRef.current += dragDelta.current;
     dragDelta.current = 0;
 
-    // Clamp so the loop still works
+    // Clamp so the loop still works with multiple sets
     if (halfWidthRef.current > 0) {
       positionRef.current =
         ((positionRef.current % halfWidthRef.current) - halfWidthRef.current) %
@@ -151,11 +157,18 @@ export default function LocationsSection() {
     setSearchQuery(locationName);
   };
 
-  const marqueeLocations = [...LOCATIONS, ...LOCATIONS];
+  const marqueeLocations = [
+    ...LOCATIONS,
+    ...LOCATIONS,
+    ...LOCATIONS,
+    ...LOCATIONS,
+    ...LOCATIONS,
+    ...LOCATIONS,
+  ];
 
   return (
     <div className="py-8 bg-white overflow-hidden select-none">
-      <div className="px-4 mb-4">
+      <div className="px-4 lg:px-6 mb-4">
         <h2 className="text-ds-h2 text-ds-heading font-inter text-[22px] mb-2">
           Our locations for you
         </h2>

@@ -60,7 +60,7 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="bg-[#0C1536] text-white/90 border-b border-white/10 overflow-hidden"
       >
-        <div className="max-w-7xl mx-auto px-6 h-10 flex items-center justify-between text-xs font-medium tracking-wide">
+        <div className="w-full px-4 lg:px-6 h-10 flex items-center justify-between text-xs font-medium tracking-wide">
           {/* Contact Info */}
           <div className="flex items-center space-x-6">
             <a
@@ -124,7 +124,7 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
       <div
         className={`transition-all duration-500 ease-out ${scrolled ? "bg-transparent h-14" : "bg-transparent h-20"}`}
       >
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-full">
+        <div className="w-full px-4 lg:px-6 flex items-center justify-between h-full">
           {/* 🏠 Logo */}
           <Link href="/" className="flex items-center group">
             <div
@@ -142,7 +142,7 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
           </Link>
 
           {/* 🧭 Navigation Links */}
-          <nav className="flex items-center space-x-10">
+          <nav className="flex-1 flex items-center justify-center gap-x-8 xl:gap-x-12 2xl:gap-x-16 3xl:gap-x-24 px-8">
             {navigation.map((item) => (
               <Link
                 key={item.name}

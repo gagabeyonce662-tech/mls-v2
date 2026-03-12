@@ -85,7 +85,7 @@ function ReviewCard({ review, index }: { review: any, index: number }) {
       whileInView={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5, delay: index * 0.05 }}
       viewport={{ once: true }}
-      className={`w-[280px] bg-white rounded-2xl p-5 border border-ds-card-border shadow-sm hover:shadow-md transition-all duration-300 flex flex-col group cursor-pointer h-fit min-h-full`}
+      className={`w-full bg-white rounded-2xl p-5 border border-ds-card-border shadow-sm hover:shadow-md transition-all duration-300 flex flex-col group cursor-pointer h-fit min-h-full`}
       onClick={() => window.open(googleReviewsUrl, '_blank')}
     >
       <div className="mb-4 flex justify-between items-start">
@@ -151,7 +151,7 @@ function ReviewCard({ review, index }: { review: any, index: number }) {
 export default function ClientReviews() {
   return (
     <section className="py-12 bg-gradient-to-b from-gray-50 to-white overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 lg:px-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-50 border border-teal-100">
@@ -172,7 +172,7 @@ export default function ClientReviews() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 gap-6">
           {reviews.map((review, index) => (
             <ReviewCard key={review.id} review={review} index={index} />
           ))}

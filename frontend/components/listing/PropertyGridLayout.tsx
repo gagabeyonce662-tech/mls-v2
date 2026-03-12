@@ -3,6 +3,7 @@ import { PropertyCard } from "@/components/listing/PropertyCard";
 import { Property } from "@/lib/api";
 import { getPropertyKey } from "@/lib/propertyUtils";
 import { colors } from "@/config/design-system";
+import { cn } from "@/lib/utils";
 
 interface PropertyGridLayoutProps {
   properties: Property[];
@@ -14,6 +15,7 @@ interface PropertyGridLayoutProps {
   interactions: any;
   currentCity?: string;
   emptyMessage?: React.ReactNode;
+  variant?: "grid" | "row";
 }
 
 export function PropertyGridLayout({
@@ -26,6 +28,7 @@ export function PropertyGridLayout({
   interactions,
   currentCity,
   emptyMessage,
+  variant = "grid",
 }: PropertyGridLayoutProps) {
   const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
@@ -138,7 +141,10 @@ export function PropertyGridLayout({
     return Array.from({ length: 8 }).map((_, index) => (
       <div
         key={`skeleton-${index}`}
-        className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse min-h-[300px]"
+        className={cn(
+          "bg-white rounded-xl shadow-md overflow-hidden animate-pulse min-h-[300px]",
+          variant === "row" && "min-w-[220px] max-w-[320px]"
+        )}
       >
         <div
           className="h-48 w-full"
@@ -174,25 +180,38 @@ export function PropertyGridLayout({
     (node: HTMLDivElement) => {
       if (isLoading || isFetchingNextPage) return;
       if (observerRef.current) observerRef.current.disconnect();
+
       observerRef.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
           fetchNextPage();
         }
+      }, {
+        rootMargin: '100px', // Trigger slightly before the end
+        threshold: 0.1
       });
+
       if (node) observerRef.current.observe(node);
     },
     [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage],
   );
 
+  const containerClasses = variant === "row"
+    ? "flex flex-row flex-nowrap overflow-x-auto gap-4 w-full"
+    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 gap-6 w-full";
+
+  const itemClasses = variant === "row"
+    ? "flex-1 min-w-[220px] max-w-[320px]"
+    : "w-full";
+
   return (
     <>
-      {isLoading ? (
-        <div className="flex flex-row flex-nowrap overflow-x-auto gap-4 w-full">
+      {isLoading && properties.length === 0 ? (
+        <div className={containerClasses}>
           {renderSkeletons()}
         </div>
       ) : properties.length > 0 ? (
         <>
-          <div className="flex flex-row flex-nowrap overflow-x-auto gap-4 w-full">
+          <div className={containerClasses}>
             {properties.map((property: Property, index: number) => {
               const propertyKey =
                 getPropertyKey(property) ||
@@ -204,7 +223,7 @@ export function PropertyGridLayout({
                 <div
                   key={propertyKey}
                   ref={index === properties.length - 1 ? lastPropertyRef : null}
-                  className="flex-1 min-w-[220px] max-w-[320px]"
+                  className={itemClasses}
                 >
                   <PropertyCard
                     property={property}
@@ -232,19 +251,10 @@ export function PropertyGridLayout({
             {(isLoading || isFetchingNextPage) && renderSkeletons()}
           </div>
 
-          {!hasNextPage && properties.length > 0 && (
-            <div className="mt-16 text-center text-ds-body py-8 border-t border-ds-card-border">
-              <p className="font-medium italic">
-                {currentCity
-                  ? `Showing all ${properties.length} properties in ${currentCity}`
-                  : `You've reached the end of the catalogue. ${properties.length} properties loaded.`}
-              </p>
-            </div>
-          )}
         </>
       ) : (
         emptyMessage || (
-          <div className="text-center py-16">
+          <div className="text-center py-16 w-full">
             <p className="text-ds-body mb-4">No properties found.</p>
           </div>
         )
