@@ -46,15 +46,15 @@ export default function LatestArticles() {
   ];
 
   return (
-    <div className="py-16 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="py-16 bg-white w-full">
+      <div className="w-full px-4 lg:px-6">
         <div className="mb-8">
           <h2 className="text-ds-h2 text-ds-heading font-inter">
             Latest Articles
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-8">
           {articles.map((article) => (
             <div key={article.id} className="group cursor-pointer">
               <div className="relative h-56 rounded-xl overflow-hidden mb-4">
@@ -78,7 +78,7 @@ export default function LatestArticles() {
                 <h3 className="text-ds-h5 text-ds-heading group-hover:text-ds-primary transition-colors font-inter">
                   {article.title}
                 </h3>
-                <p className="text-ds-body-regular text-ds-body font-inter">
+                <p className="text-ds-body-regular text-ds-body font-inter line-clamp-2">
                   {article.excerpt}
                 </p>
                 <button className="text-ds-primary font-semibold hover:underline font-inter">
