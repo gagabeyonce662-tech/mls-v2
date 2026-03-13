@@ -35,6 +35,9 @@ const MortgageSection = dynamic(
 const ClientReviews = dynamic(
   () => import("@/components/homepage/ClientReviews"),
 );
+const ConnectionsSection = dynamic(
+  () => import("@/components/homepage/ConnectionsSection"),
+);
 
 export default function HomePage() {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -88,6 +91,10 @@ export default function HomePage() {
 
           <section className="section-gap" aria-label="Latest Real Estate News">
             <LatestArticles />
+          </section>
+
+          <section className="section-gap-sm" aria-label="Realtor Connections">
+            <ConnectionsSection />
           </section>
 
           <section className="section-gap" aria-label="Mortgage Tools">
