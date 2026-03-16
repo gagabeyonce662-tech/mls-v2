@@ -37,12 +37,13 @@ export async function fetchAPI<T>(
       if (
         response.status !== 404 &&
         !errorMessage.includes("404") &&
-        !errorMessage.includes("not exist")
+        !errorMessage.includes("not exist") &&
+        !errorMessage.includes("primary key is invalid")
       ) {
         console.error(`API Error ${response.status}: ${errorMessage}`);
       } else {
         console.warn(
-          `API Reference Error ${response.status}: Resource might not exist.`,
+          `API Reference Error ${response.status}: Resource might not exist or key is invalid.`,
         );
       }
 

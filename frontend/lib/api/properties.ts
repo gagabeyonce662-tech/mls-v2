@@ -312,9 +312,13 @@ export async function fetchPropertyByKey(
   propertyKey: string,
 ): Promise<Property | null> {
   try {
-    if (propertyKey.startsWith("precon_")) {
-      const idStr = propertyKey.replace("precon_", "");
-      return await fetchWPPreconPropertyAction(idStr);
+    if (propertyKey.startsWith("precon_") || propertyKey.startsWith("property-")) {
+      if (propertyKey.startsWith("precon_")) {
+        const idStr = propertyKey.replace("precon_", "");
+        return await fetchWPPreconPropertyAction(idStr);
+      }
+      // Synthetic key from CompareContext, just return null
+      return null;
     }
 
     // console.log("Fetching property by key:", propertyKey);
@@ -370,7 +374,9 @@ export async function fetchCompareProperties(propertyKeys: string[]): Promise<{
 
     // Partition keys into pre-construction and MLS keys
     const preConKeys = propertyKeys.filter((k) => k.startsWith("precon_"));
-    const mlsKeys = propertyKeys.filter((k) => !k.startsWith("precon_"));
+    const mlsKeys = propertyKeys.filter(
+      (k) => !k.startsWith("precon_") && !k.startsWith("property-"),
+    );
 
     // Fetch pre-con ones locally via new WP fetch
     const preConResults = (
