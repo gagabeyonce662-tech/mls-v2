@@ -47,9 +47,15 @@ export default function HomePage() {
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
+    
+    // Use a negative top margin for the root to trigger when the sentinel 
+    // reaches the bottom of the sticky header.
     const observer = new IntersectionObserver(
       ([entry]) => setIsSticky(!entry.isIntersecting),
-      { threshold: 0 }
+      { 
+        threshold: [0],
+        rootMargin: "-60px 0px 0px 0px" 
+      }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
