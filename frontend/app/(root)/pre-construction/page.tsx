@@ -10,7 +10,7 @@ import { useUserAuth } from "@/contexts/UserAuthContext";
 import { formatPrice } from "@/lib/propertyUtils";
 import { fetchAllWPPreconPropertiesAction } from "@/lib/actions/wp-precon";
 import { Property } from "@/lib/api/types";
-import { Building2, SlidersHorizontal, HardHat } from "lucide-react";
+import { Building2, SlidersHorizontal, HardHat, Search, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { colors } from "@/config/design-system";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,26 @@ export default function PreConstructionPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [showAll, setShowAll] = React.useState(false);
   const [initialLimit, setInitialLimit] = React.useState(8);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [isSticky, setIsSticky] = React.useState(false);
+  const sentinelRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    // Use a negative top margin for the root to trigger when the sentinel 
+    // reaches the bottom of the sticky header.
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsSticky(!entry.isIntersecting),
+      { 
+        threshold: [0],
+        rootMargin: "-64px 0px 0px 0px" 
+      }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
 
   // Calculate 2 rows worth of items based on viewport
   React.useEffect(() => {
@@ -37,7 +57,7 @@ export default function PreConstructionPage() {
       if (width >= 1536) return 12; // 2xl - 6 columns * 2 rows
       if (width >= 1280) return 8;  // xl - 4 columns * 2 rows
       if (width >= 1024) return 6;  // lg - 3 columns * 2 rows
-      if (width >= 640)  return 4;  // sm - 2 columns * 2 rows
+      if (width >= 640) return 4;  // sm - 2 columns * 2 rows
       return 4;                     // mobile - 2 rows
     };
 
@@ -66,9 +86,20 @@ export default function PreConstructionPage() {
     };
   }, []);
 
+  const filteredProperties = useMemo(() => {
+    if (!searchQuery.trim()) return properties;
+    const q = searchQuery.toLowerCase();
+    return properties.filter((p) => {
+      const name = (p.project_name || "").toLowerCase();
+      const addr = (p.address || "").toLowerCase();
+      const dev = ((p as any).developer || "").toLowerCase();
+      return name.includes(q) || addr.includes(q) || dev.includes(q);
+    });
+  }, [properties, searchQuery]);
+
   const displayedProperties = useMemo(() => {
-    return showAll ? properties : properties.slice(0, initialLimit);
-  }, [properties, showAll, initialLimit]);
+    return showAll ? filteredProperties : filteredProperties.slice(0, initialLimit);
+  }, [filteredProperties, showAll, initialLimit]);
 
   const emptyMessage = (
     <div className="bg-white rounded-2xl border border-dashed border-gray-300 py-32 text-center shadow-inner">
@@ -98,7 +129,7 @@ export default function PreConstructionPage() {
 
       <main className="flex-1 pt-32 pb-16 px-4 lg:px-6">
         {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-ds-primary">
               <HardHat className="w-5 h-5 text-orange-500" />
@@ -114,15 +145,71 @@ export default function PreConstructionPage() {
               before they are built.
             </p>
           </div>
+        </div>
 
-          <div className="bg-white px-4 py-2 rounded-lg border border-ds-card-border shadow-sm flex items-center gap-2">
-            <div className="flex flex-col items-end">
-              <span className="text-ds-heading font-bold text-xl leading-none">
-                {displayedProperties.length} <span className="text-ds-body/40 font-medium text-sm">/ {properties.length}</span>
-              </span>
-              <span className="text-ds-body text-[10px] font-bold uppercase tracking-tight opacity-60">
-                Projects Showing
-              </span>
+        {/* Sentinel to detect when search bar becomes sticky */}
+        <div ref={sentinelRef} className="h-0" />
+
+        {/* Search / Filter Bar — sticky under navbar */}
+        <div
+          className="sticky z-40 -mx-4 lg:-mx-6 px-4 lg:px-6 py-2 transition-all duration-300 origin-top"
+          style={{
+            top: "var(--header-height, 56px)",
+            backgroundColor: "rgb(249 250 251 / 0.95)",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <div
+            className={cn(
+              "w-full bg-white border transition-all duration-300 hover:shadow-lg",
+              isSticky ? "rounded-b-2xl shadow-lg p-2.5 sm:p-3" : "rounded-2xl shadow-md p-4 sm:p-5"
+            )}
+            style={{ borderColor: "#E5E5E5" }}
+          >
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              {/* Search Input */}
+              <div className="flex-1 relative min-w-[200px]">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                  <Search className={cn("text-gray-400 transition-all", isSticky ? "w-4 h-4" : "w-5 h-5")} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search by project name, address, or developer..."
+                  className={cn(
+                    "w-full pl-11 pr-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-ds-primary/20 focus:border-ds-primary focus:bg-white transition-all",
+                    isSticky ? "py-2.5 text-sm" : "py-3.5 text-sm sm:text-base"
+                  )}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              {/* Count + Reset */}
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "bg-gray-50 px-4 rounded-xl border border-gray-200 flex items-center gap-2 transition-all",
+                  isSticky ? "py-2" : "py-2.5"
+                )}>
+                  <span className={cn("text-ds-heading font-bold leading-none transition-all", isSticky ? "text-base" : "text-lg")}>
+                    {filteredProperties.length}
+                  </span>
+                  <span className="text-ds-body text-xs font-medium opacity-60">
+                    Projects
+                  </span>
+                </div>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className={cn(
+                      "border border-gray-200 bg-white rounded-xl hover:bg-gray-50 transition-all text-gray-500 hover:text-gray-800",
+                      isSticky ? "p-2.5" : "p-3.5"
+                    )}
+                    title="Clear Search"
+                  >
+                    <RotateCcw className={cn("transition-all", isSticky ? "w-4 h-4" : "w-5 h-5")} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -132,7 +219,7 @@ export default function PreConstructionPage() {
           isLoading={isLoading}
           isFetchingNextPage={false}
           hasNextPage={false}
-          fetchNextPage={() => {}}
+          fetchNextPage={() => { }}
           isLoggedIn={isLoggedIn}
           interactions={interactions}
           emptyMessage={emptyMessage}
