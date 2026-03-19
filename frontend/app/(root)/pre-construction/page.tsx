@@ -10,10 +10,11 @@ import { useUserAuth } from "@/contexts/UserAuthContext";
 import { formatPrice } from "@/lib/propertyUtils";
 import { fetchAllWPPreconPropertiesAction } from "@/lib/actions/wp-precon";
 import { Property } from "@/lib/api/types";
-import { Building2, SlidersHorizontal, HardHat, Search, RotateCcw } from "lucide-react";
+import { Building2, SlidersHorizontal, HardHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { colors } from "@/config/design-system";
 import { cn } from "@/lib/utils";
+import PropertyFilter from "@/components/PropertyFilter";
 
 export default function PreConstructionPage() {
   const { user } = useUserAuth();
@@ -150,68 +151,15 @@ export default function PreConstructionPage() {
         {/* Sentinel to detect when search bar becomes sticky */}
         <div ref={sentinelRef} className="h-0" />
 
-        {/* Search / Filter Bar — sticky under navbar */}
+        {/* Search & Filters — sticky under navbar */}
         <div
-          className="sticky z-40 -mx-4 lg:-mx-6 px-4 lg:px-6 py-2 transition-all duration-300 origin-top"
+          className="sticky z-40 -mx-4 lg:-mx-6 px-4 lg:px-6 pb-2 pt-2 transition-all duration-300 origin-top"
           style={{
             top: "var(--header-height, 56px)",
-            backgroundColor: "rgb(249 250 251 / 0.95)",
-            backdropFilter: "blur(8px)",
+            backgroundColor: colors.cards,
           }}
         >
-          <div
-            className={cn(
-              "w-full bg-white border transition-all duration-300 hover:shadow-lg",
-              isSticky ? "rounded-b-2xl shadow-lg p-2.5 sm:p-3" : "rounded-2xl shadow-md p-4 sm:p-5"
-            )}
-            style={{ borderColor: "#E5E5E5" }}
-          >
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              {/* Search Input */}
-              <div className="flex-1 relative min-w-[200px]">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                  <Search className={cn("text-gray-400 transition-all", isSticky ? "w-4 h-4" : "w-5 h-5")} />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search by project name, address, or developer..."
-                  className={cn(
-                    "w-full pl-11 pr-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-ds-primary/20 focus:border-ds-primary focus:bg-white transition-all",
-                    isSticky ? "py-2.5 text-sm" : "py-3.5 text-sm sm:text-base"
-                  )}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-
-              {/* Count + Reset */}
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "bg-gray-50 px-4 rounded-xl border border-gray-200 flex items-center gap-2 transition-all",
-                  isSticky ? "py-2" : "py-2.5"
-                )}>
-                  <span className={cn("text-ds-heading font-bold leading-none transition-all", isSticky ? "text-base" : "text-lg")}>
-                    {filteredProperties.length}
-                  </span>
-                  <span className="text-ds-body text-xs font-medium opacity-60">
-                    Projects
-                  </span>
-                </div>
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className={cn(
-                      "border border-gray-200 bg-white rounded-xl hover:bg-gray-50 transition-all text-gray-500 hover:text-gray-800",
-                      isSticky ? "p-2.5" : "p-3.5"
-                    )}
-                    title="Clear Search"
-                  >
-                    <RotateCcw className={cn("transition-all", isSticky ? "w-4 h-4" : "w-5 h-5")} />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+          <PropertyFilter variant="horizontal" isSticky={isSticky} />
         </div>
 
         <PropertyGridLayout
