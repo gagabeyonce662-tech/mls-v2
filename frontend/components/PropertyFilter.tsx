@@ -27,6 +27,7 @@ import { StyledCheckbox } from "@/components/ui/StyledCheckbox";
 import { FilterInput } from "@/components/shared/FilterInput";
 import { useSearch } from "@/contexts/SearchContext";
 import { useFilterState } from "@/hooks/useFilterState";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ interface PropertyFilterProps {
   variant?: "sidebar" | "horizontal";
   onApplyFilters?: (filters: ExclusivePropertyFilterParams) => void;
   initialCity?: string;
+  isSticky?: boolean;
 }
 
 const propertyTypeMapping: { [key: string]: string } = {
@@ -63,6 +65,7 @@ export default function PropertyFilter({
   variant = "sidebar",
   onApplyFilters,
   initialCity,
+  isSticky = false,
 }: PropertyFilterProps) {
   const { applyFilters, viewMode, toggleViewMode } = useSearch();
   const { state, setters, clearFilters, calculateActiveFilters } =
@@ -216,11 +219,21 @@ export default function PropertyFilter({
 
     return (
       <div
-        className="w-full bg-white rounded-2xl shadow-md border p-4 sm:p-6 mb-6 transition-all duration-300 hover:shadow-lg"
+        className={cn(
+          "w-full bg-white border transition-all duration-500 hover:shadow-lg origin-top",
+          isSticky
+            ? "rounded-b-2xl shadow-lg p-2.5 sm:p-3 mb-0 border-t-0"
+            : "rounded-2xl shadow-md p-4 sm:p-6 mb-6",
+        )}
         style={{ borderColor: "#E5E5E5" }}
       >
         {/* Intent Tabs */}
-        <div className="flex items-center gap-6 mb-5 border-b border-gray-100 pb-1">
+        <div
+          className={cn(
+            "flex items-center gap-6 border-b border-gray-100 transition-all duration-500",
+            isSticky ? "mb-2 pb-0 opacity-0 h-0 overflow-hidden" : "mb-5 pb-1 opacity-100",
+          )}
+        >
           {intents.map((intent) => (
             <button
               key={intent.id}
@@ -240,7 +253,12 @@ export default function PropertyFilter({
         </div>
 
         {/* Search Bar & Actions */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+        <div
+          className={cn(
+            "flex flex-col md:flex-row items-stretch md:items-center transition-all duration-500",
+            isSticky ? "gap-2" : "gap-3",
+          )}
+        >
           <div className="flex-1 w-full relative min-w-[200px]">
             <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
               <Search className="w-5 h-5 text-gray-400" />
@@ -254,7 +272,10 @@ export default function PropertyFilter({
                     ? "Search rental locations..."
                     : "Search recently sold..."
               }
-              className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-ds-primary/20 focus:border-ds-primary focus:bg-white transition-all text-sm sm:text-base"
+              className={cn(
+                "w-full pl-11 pr-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-ds-primary/20 focus:border-ds-primary focus:bg-white transition-all",
+                isSticky ? "py-2.5 text-sm" : "py-3.5 text-sm sm:text-base",
+              )}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -273,7 +294,12 @@ export default function PropertyFilter({
                 setPropertyType(val === "all" ? [] : [val])
               }
             >
-              <SelectTrigger className="w-[150px] h-auto py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none">
+              <SelectTrigger
+                className={cn(
+                  "w-[150px] h-auto bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none",
+                  isSticky ? "py-2.5" : "py-3.5",
+                )}
+              >
                 <SelectValue placeholder="Property Type" />
               </SelectTrigger>
               <SelectContent className="rounded-xl shadow-lg border-gray-100">
@@ -298,7 +324,12 @@ export default function PropertyFilter({
                 setPriceRange({ ...priceRange, max: val === "all" ? "" : val })
               }
             >
-              <SelectTrigger className="w-[130px] h-auto py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none">
+              <SelectTrigger
+                className={cn(
+                  "w-[130px] h-auto bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none",
+                  isSticky ? "py-2.5" : "py-3.5",
+                )}
+              >
                 <SelectValue placeholder="Max Price" />
               </SelectTrigger>
               <SelectContent className="rounded-xl shadow-lg border-gray-100">
@@ -327,7 +358,12 @@ export default function PropertyFilter({
               value={bedrooms || "all"}
               onValueChange={(val) => setBedrooms(val)}
             >
-              <SelectTrigger className="w-[110px] h-auto py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none">
+              <SelectTrigger
+                className={cn(
+                  "w-[110px] h-auto bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none",
+                  isSticky ? "py-2.5" : "py-3.5",
+                )}
+              >
                 <SelectValue placeholder="Beds" />
               </SelectTrigger>
               <SelectContent className="rounded-xl shadow-lg border-gray-100">
@@ -353,7 +389,12 @@ export default function PropertyFilter({
               value={bathrooms || "all"}
               onValueChange={(val) => setBathrooms(val)}
             >
-              <SelectTrigger className="w-[110px] h-auto py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none">
+              <SelectTrigger
+                className={cn(
+                  "w-[110px] h-auto bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none",
+                  isSticky ? "py-2.5" : "py-3.5",
+                )}
+              >
                 <SelectValue placeholder="Baths" />
               </SelectTrigger>
               <SelectContent className="rounded-xl shadow-lg border-gray-100">
@@ -377,7 +418,10 @@ export default function PropertyFilter({
             <button
               onClick={fetchFilteredProperties}
               disabled={isLoading}
-              className="flex-1 md:flex-none px-8 py-3.5 rounded-xl text-white font-semibold transition-all hover:opacity-90 disabled:opacity-50 hover:shadow-md flex items-center justify-center gap-2"
+              className={cn(
+                "flex-1 md:flex-none px-8 rounded-xl text-white font-semibold transition-all hover:opacity-90 disabled:opacity-50 hover:shadow-md flex items-center justify-center gap-2",
+                isSticky ? "py-2.5 text-sm" : "py-3.5",
+              )}
               style={{ backgroundColor: "#1E3A8A" }}
             >
               {isLoading ? (
@@ -391,14 +435,20 @@ export default function PropertyFilter({
             </button>
             <button
               onClick={handleClear}
-              className="p-3.5 border border-gray-200 bg-white rounded-xl hover:bg-gray-50 transition-all text-gray-500 hover:text-gray-800"
+              className={cn(
+                "border border-gray-200 bg-white rounded-xl hover:bg-gray-50 transition-all text-gray-500 hover:text-gray-800",
+                isSticky ? "p-2.5" : "p-3.5",
+              )}
               title="Reset Search"
             >
               <RotateCcw className="w-5 h-5" />
             </button>
             <button
               onClick={toggleViewMode}
-              className="p-3.5 border border-gray-200 bg-white rounded-xl hover:bg-gray-50 transition-all text-gray-500 hover:text-gray-800 hidden lg:flex items-center"
+              className={cn(
+                "border border-gray-200 bg-white rounded-xl hover:bg-gray-50 transition-all text-gray-500 hover:text-gray-800 hidden lg:flex items-center",
+                isSticky ? "p-2.5" : "p-3.5",
+              )}
               title={
                 viewMode === "grid"
                   ? "Switch to Map View"

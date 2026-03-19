@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { colors } from "@/config/design-system";
 
@@ -41,6 +41,19 @@ const ConnectionsSection = dynamic(
 
 export default function HomePage() {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [isSticky, setIsSticky] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsSticky(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <QuickViewProvider>
@@ -67,8 +80,19 @@ export default function HomePage() {
             aria-label="Properties and Search Filters"
           >
             <div className="w-full">
-              {/* Search & Filters */}
-              <PropertyFilter variant="horizontal" />
+              {/* Sentinel to detect when filter becomes sticky */}
+              <div ref={sentinelRef} className="h-0" />
+
+              {/* Search & Filters — sticky under navbar */}
+              <div
+                className="sticky z-40 -mx-4 lg:-mx-6 px-4 lg:px-6 pb-2 pt-2 transition-all duration-300 origin-top"
+                style={{
+                  top: "var(--header-height, 56px)",
+                  backgroundColor: colors.cards,
+                }}
+              >
+                <PropertyFilter variant="horizontal" isSticky={isSticky} />
+              </div>
 
               {/* Listing Grids */}
               <div
