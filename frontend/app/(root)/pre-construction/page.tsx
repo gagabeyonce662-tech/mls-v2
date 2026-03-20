@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Container from "@/components/Container";
@@ -102,6 +103,18 @@ export default function PreConstructionPage() {
     return showAll ? filteredProperties : filteredProperties.slice(0, initialLimit);
   }, [filteredProperties, showAll, initialLimit]);
 
+  const builderLogoUrl = useMemo(() => {
+    // Try common logo keys from pre-con sources, then fall back to brand logo.
+    const detectedLogo = properties
+      .map((p: any) => p?.builder_logo || p?.developer_logo || p?.logo_url || p?.logo)
+      .find((url: string | undefined) => typeof url === "string" && url.trim().length > 0);
+
+    return (
+      detectedLogo ||
+      "https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
+    );
+  }, [properties]);
+
   const emptyMessage = (
     <div className="bg-white rounded-2xl border border-dashed border-gray-300 py-32 text-center shadow-inner">
       <div className="max-w-md mx-auto space-y-4">
@@ -183,6 +196,29 @@ export default function PreConstructionPage() {
             </Button>
           </div>
         )}
+
+        <section className="mt-16 sm:mt-20">
+          <div className="relative overflow-hidden rounded-3xl border border-amber-200/60 bg-gradient-to-br from-white via-amber-50/50 to-orange-50/60 px-6 py-10 sm:px-10 sm:py-12 shadow-[0_20px_60px_-30px_rgba(146,64,14,0.45)]">
+            <div className="pointer-events-none absolute -top-16 -right-16 h-44 w-44 rounded-full bg-amber-200/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-14 -left-10 h-36 w-36 rounded-full bg-orange-200/20 blur-3xl" />
+
+            <div className="relative mx-auto max-w-3xl text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700/80">
+                Featured Builder
+              </p>
+
+              <div className="mt-5 rounded-2xl border border-white/80 bg-white/80 px-6 py-8 sm:px-12 sm:py-10 backdrop-blur-sm shadow-[0_14px_36px_-24px_rgba(0,0,0,0.45)]">
+                <Image
+                  src={builderLogoUrl}
+                  alt="Builder Logo"
+                  width={520}
+                  height={170}
+                  className="mx-auto h-28 sm:h-32 md:h-36 w-auto object-contain"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
 
       </main>
 
