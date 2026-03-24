@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 import os
 from pathlib import Path
+from datetime import timedelta
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -41,8 +42,11 @@ INSTALLED_APPS = [
     'corsheaders',
     "ckeditor",
     "ckeditor_uploader",
-    "vlog",  
+    "vlog",
     "mls",
+    "accounts",
+    "rest_framework",
+    "rest_framework_simplejwt",
 ]
 
 MIDDLEWARE = [
@@ -81,6 +85,7 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# --- Neon (production) DB --- commented out for local dev
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -95,6 +100,18 @@ DATABASES = {
         },
     }
 }
+
+# --- Local DB ---
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": "mls",
+#         "USER": "postgres",
+#         "PASSWORD": "postgresql",
+#         "HOST": "localhost",
+#         "PORT": "5432",
+#     }
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -171,3 +188,27 @@ CORS_ALLOW_CREDENTIALS = True
 
 CLIENT_ID = 'uCyucNP7QrV4fLA8YtWngTUg'
 CLIENT_SECRET = 'OFocUcAnQShbZRPUKdaafgEi'
+
+AUTH_USER_MODEL = 'accounts.User'
+
+# Google OAuth
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '909407398208-ftdd1k2p9lr6rk2t7ivop3bbfp8q6b7o.apps.googleusercontent.com')
+
+# GoHighLevel
+GHL_API_KEY = os.environ.get('GHL_API_KEY', '')
+GHL_LOCATION_ID = os.environ.get('GHL_LOCATION_ID', '')
+
+# DRF
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+# JWT
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': False,
+}
