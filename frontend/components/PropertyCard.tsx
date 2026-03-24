@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Heart, Loader2, Eye, Plus, Check } from "lucide-react";
+import { Heart, Loader2, Eye, Plus, Check, ImageIcon, Video } from "lucide-react";
 import { colors, propertyCard } from "@/config/design-system";
 import type { Property } from "@/lib/api";
 import { getPropertyKey, getDetailUrl } from "@/lib/propertyUtils";
@@ -87,7 +87,7 @@ export default function PropertyCard({
               e.stopPropagation();
               toggleFavorite(property);
             }}
-            className={`absolute bottom-3 right-3 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all backdrop-blur-md shadow-lg active:scale-95 ${
+            className={`absolute top-3 left-3 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all backdrop-blur-md shadow-lg active:scale-95 ${
               saved
                 ? "bg-red-500 text-white"
                 : "bg-white/80 text-gray-600 hover:bg-white"
@@ -149,6 +149,63 @@ export default function PropertyCard({
           {isCompared ? "Remove from Compare" : "Compare"}
         </TooltipContent>
       </Tooltip>
+
+      {/* ── Action Footer ── */}
+      <div className="grid grid-cols-4 border-t border-gray-200/70 relative z-10">
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleFavorite(property);
+          }}
+          className={`flex items-center justify-center gap-1 py-2 text-[10px] font-medium transition-colors hover:bg-gray-50 ${
+            saved ? "text-purple-600" : "text-gray-400 hover:text-purple-500"
+          }`}
+        >
+          <Heart className={`w-3 h-3 shrink-0 ${saved ? "fill-current" : ""}`} />
+          <span className="truncate">Favourite</span>
+        </button>
+
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (isCompared) {
+              removeFromCompare(propertyKey);
+            } else {
+              addToCompare(property);
+            }
+          }}
+          className={`flex items-center justify-center gap-1 py-2 text-[10px] font-medium border-l border-gray-200/70 transition-colors hover:bg-gray-50 ${
+            isCompared ? "text-purple-600" : "text-gray-400 hover:text-purple-500"
+          }`}
+        >
+          {isCompared ? (
+            <Check className="w-3 h-3 shrink-0" />
+          ) : (
+            <Plus className="w-3 h-3 shrink-0" />
+          )}
+          <span className="truncate">Compare</span>
+        </button>
+
+        <Link
+          href={getDetailUrl(property)}
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center justify-center gap-1 py-2 text-[10px] font-medium text-gray-400 hover:text-purple-500 border-l border-gray-200/70 transition-colors hover:bg-gray-50"
+        >
+          <ImageIcon className="w-3 h-3 shrink-0" />
+          <span className="truncate">Images</span>
+        </Link>
+
+        <Link
+          href={getDetailUrl(property)}
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center justify-center gap-1 py-2 text-[10px] font-medium text-gray-400 hover:text-purple-500 border-l border-gray-200/70 transition-colors hover:bg-gray-50"
+        >
+          <Video className="w-3 h-3 shrink-0" />
+          <span className="truncate">Videos</span>
+        </Link>
+      </div>
     </div>
   );
 }

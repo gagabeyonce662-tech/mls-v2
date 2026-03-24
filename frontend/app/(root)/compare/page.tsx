@@ -174,7 +174,7 @@ function ComparePageContent() {
 
   if (isLoading && selectedIds.length > 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 pt-20 lg:pt-28">
         <Header />
         <LoadingState
           selectedCount={selectedIds.length}
@@ -187,7 +187,7 @@ function ComparePageContent() {
 
   if (isError) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 pt-20 lg:pt-28">
         <Header />
         <ErrorState
           error={error}
@@ -201,7 +201,7 @@ function ComparePageContent() {
 
   if (selectedIds.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 pt-20 lg:pt-28">
         <Header />
         <EmptyState />
         <Footer />
@@ -212,13 +212,27 @@ function ComparePageContent() {
   const errorProperties = comparisonProperties.filter((p) => p.error);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pt-20 lg:pt-28">
       <Header />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="w-full px-2 sm:px-4 lg:px-6 2xl:px-8 py-8">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.5)] overflow-hidden">
           {/* Header */}
-          <div className="bg-gray-50 p-6 border-b">
+          <div className="bg-gradient-to-r from-slate-50 via-white to-slate-50 p-6 border-b border-slate-200/80">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Side by Side Analysis
+                </p>
+                <h1 className="mt-1 text-2xl font-bold text-slate-900">
+                  Compare Properties
+                </h1>
+              </div>
+              <div className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-semibold text-slate-700 shadow-sm">
+                {comparisonProperties.length}/5 Selected
+              </div>
+            </div>
+
             {/* Error Alert */}
             {errorProperties.length > 0 && (
               <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">

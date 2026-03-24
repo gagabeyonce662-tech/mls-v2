@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Container from "@/components/Container";
@@ -14,6 +15,7 @@ import { Building2, SlidersHorizontal, HardHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { colors } from "@/config/design-system";
 import { cn } from "@/lib/utils";
+import PropertyFilter from "@/components/PropertyFilter";
 
 export default function PreConstructionPage() {
   const { user } = useUserAuth();
@@ -24,6 +26,26 @@ export default function PreConstructionPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [showAll, setShowAll] = React.useState(false);
   const [initialLimit, setInitialLimit] = React.useState(8);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [isSticky, setIsSticky] = React.useState(false);
+  const sentinelRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    // Use a negative top margin for the root to trigger when the sentinel 
+    // reaches the bottom of the sticky header.
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsSticky(!entry.isIntersecting),
+      { 
+        threshold: [0],
+        rootMargin: "-64px 0px 0px 0px" 
+      }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
 
   // Calculate 2 rows worth of items based on viewport
   React.useEffect(() => {
@@ -37,7 +59,7 @@ export default function PreConstructionPage() {
       if (width >= 1536) return 12; // 2xl - 6 columns * 2 rows
       if (width >= 1280) return 8;  // xl - 4 columns * 2 rows
       if (width >= 1024) return 6;  // lg - 3 columns * 2 rows
-      if (width >= 640)  return 4;  // sm - 2 columns * 2 rows
+      if (width >= 640) return 4;  // sm - 2 columns * 2 rows
       return 4;                     // mobile - 2 rows
     };
 
@@ -66,9 +88,32 @@ export default function PreConstructionPage() {
     };
   }, []);
 
+  const filteredProperties = useMemo(() => {
+    if (!searchQuery.trim()) return properties;
+    const q = searchQuery.toLowerCase();
+    return properties.filter((p) => {
+      const name = (p.project_name || "").toLowerCase();
+      const addr = (p.address || "").toLowerCase();
+      const dev = ((p as any).developer || "").toLowerCase();
+      return name.includes(q) || addr.includes(q) || dev.includes(q);
+    });
+  }, [properties, searchQuery]);
+
   const displayedProperties = useMemo(() => {
-    return showAll ? properties : properties.slice(0, initialLimit);
-  }, [properties, showAll, initialLimit]);
+    return showAll ? filteredProperties : filteredProperties.slice(0, initialLimit);
+  }, [filteredProperties, showAll, initialLimit]);
+
+  const builderLogoUrl = useMemo(() => {
+    // Try common logo keys from pre-con sources, then fall back to brand logo.
+    const detectedLogo = properties
+      .map((p: any) => p?.builder_logo || p?.developer_logo || p?.logo_url || p?.logo)
+      .find((url: string | undefined) => typeof url === "string" && url.trim().length > 0);
+
+    return (
+      detectedLogo ||
+      "https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
+    );
+  }, [properties]);
 
   const emptyMessage = (
     <div className="bg-white rounded-2xl border border-dashed border-gray-300 py-32 text-center shadow-inner">
@@ -98,7 +143,7 @@ export default function PreConstructionPage() {
 
       <main className="flex-1 pt-32 pb-16 px-4 lg:px-6">
         {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-ds-primary">
               <HardHat className="w-5 h-5 text-orange-500" />
@@ -114,17 +159,20 @@ export default function PreConstructionPage() {
               before they are built.
             </p>
           </div>
+        </div>
 
-          <div className="bg-white px-4 py-2 rounded-lg border border-ds-card-border shadow-sm flex items-center gap-2">
-            <div className="flex flex-col items-end">
-              <span className="text-ds-heading font-bold text-xl leading-none">
-                {displayedProperties.length} <span className="text-ds-body/40 font-medium text-sm">/ {properties.length}</span>
-              </span>
-              <span className="text-ds-body text-[10px] font-bold uppercase tracking-tight opacity-60">
-                Projects Showing
-              </span>
-            </div>
-          </div>
+        {/* Sentinel to detect when search bar becomes sticky */}
+        <div ref={sentinelRef} className="h-0" />
+
+        {/* Search & Filters — sticky under navbar */}
+        <div
+          className="sticky z-40 -mx-4 lg:-mx-6 px-4 lg:px-6 pb-2 pt-2 transition-all duration-300 origin-top"
+          style={{
+            top: "var(--header-height, 56px)",
+            backgroundColor: colors.cards,
+          }}
+        >
+          <PropertyFilter variant="horizontal" isSticky={isSticky} />
         </div>
 
         <PropertyGridLayout
@@ -132,7 +180,7 @@ export default function PreConstructionPage() {
           isLoading={isLoading}
           isFetchingNextPage={false}
           hasNextPage={false}
-          fetchNextPage={() => {}}
+          fetchNextPage={() => { }}
           isLoggedIn={isLoggedIn}
           interactions={interactions}
           emptyMessage={emptyMessage}
@@ -148,6 +196,29 @@ export default function PreConstructionPage() {
             </Button>
           </div>
         )}
+
+        <section className="mt-16 sm:mt-20">
+          <div className="relative overflow-hidden rounded-3xl border border-amber-200/60 bg-gradient-to-br from-white via-amber-50/50 to-orange-50/60 px-6 py-10 sm:px-10 sm:py-12 shadow-[0_20px_60px_-30px_rgba(146,64,14,0.45)]">
+            <div className="pointer-events-none absolute -top-16 -right-16 h-44 w-44 rounded-full bg-amber-200/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-14 -left-10 h-36 w-36 rounded-full bg-orange-200/20 blur-3xl" />
+
+            <div className="relative mx-auto max-w-3xl text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700/80">
+                Featured Builder
+              </p>
+
+              <div className="mt-5 rounded-2xl border border-white/80 bg-white/80 px-6 py-8 sm:px-12 sm:py-10 backdrop-blur-sm shadow-[0_14px_36px_-24px_rgba(0,0,0,0.45)]">
+                <Image
+                  src={builderLogoUrl}
+                  alt="Builder Logo"
+                  width={520}
+                  height={170}
+                  className="mx-auto h-28 sm:h-32 md:h-36 w-auto object-contain"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
 
       </main>
 
