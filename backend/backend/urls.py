@@ -9,6 +9,7 @@ urlpatterns = [
     path('ckeditor/', include('ckeditor_uploader.urls')), 
     path('api/vlog/',include('vlog.urls')),
     path('api/mls/',include('mls.urls')),
+    path('api/auth/', include('accounts.urls')),
 ]
 
 if settings.DEBUG:
