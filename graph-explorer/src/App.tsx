@@ -30,7 +30,7 @@ interface Node {
 type Workspace = 'unified' | 'backend' | 'frontend';
 
 function App() {
-  const fgRef = useRef<any>();
+  const fgRef = useRef<any>(null);
   const [workspace, setWorkspace] = useState<Workspace>('unified')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
@@ -87,8 +87,8 @@ function App() {
     const nodesById = Object.fromEntries(nodes.map(node => [node.id, node]));
     
     const links = activeDataset.graph.links.map(l => {
-        const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
-        const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+        const sourceId = typeof l.source === 'object' ? (l.source as any).id : l.source;
+        const targetId = typeof l.target === 'object' ? (l.target as any).id : l.target;
         
         const sourceNode = nodesById[sourceId];
         const targetNode = nodesById[targetId];

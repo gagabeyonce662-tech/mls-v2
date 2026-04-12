@@ -1,0 +1,7 @@
+{
+  "name": "mls-root",
+  "private": true,
+  "scripts": {
+    "build": "cd graph-explorer && npm install && npm run build"
+  }
+}

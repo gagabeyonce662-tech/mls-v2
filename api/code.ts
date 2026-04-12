@@ -15,7 +15,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         // Resolve project root. Note: On Vercel, process.cwd() is the deployment root.
-        const projectRoot = resolve(process.cwd(), '..');
+        const projectRoot = resolve(process.cwd());
         const fullPath = normalize(join(projectRoot, file));
 
         // SECURITY 1: Prevent Directory Traversal
