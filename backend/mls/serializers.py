@@ -11,9 +11,13 @@ class MediaSerializer(serializers.ModelSerializer):
         fields = ['url', 'media_url', 'media_file', 'media_category', 'is_preferred', 'order']
 
     def get_url(self, obj):
-        if obj.media_file:
-            return obj.media_file.url
-        return obj.media_url
+        # Defensive check for cases where migrations haven't run yet
+        if hasattr(obj, 'media_file') and obj.media_file:
+            try:
+                return obj.media_file.url
+            except:
+                pass
+        return getattr(obj, 'media_url', '')
 
 
 class RoomSerializer(serializers.ModelSerializer):
@@ -41,8 +45,15 @@ class PropertySerializer(serializers.ModelSerializer):
         # 1. Try to get the preferred photo
         preferred = obj.media.filter(is_preferred=True).first()
         if preferred:
+            # Defensive check for media_file
+            url = preferred.media_url
+            if hasattr(preferred, 'media_file') and preferred.media_file:
+                try:
+                    url = preferred.media_file.url
+                except:
+                    pass
             return {
-                "media_url": preferred.media_file.url if preferred.media_file else preferred.media_url,
+                "media_url": url,
                 "media_category": preferred.media_category,
                 "is_preferred": True
             }
@@ -50,8 +61,14 @@ class PropertySerializer(serializers.ModelSerializer):
         # 2. Fallback: get the first photo by order
         first = obj.media.order_by('order').first()
         if first:
+            url = first.media_url
+            if hasattr(first, 'media_file') and first.media_file:
+                try:
+                    url = first.media_file.url
+                except:
+                    pass
             return {
-                "media_url": first.media_file.url if first.media_file else first.media_url,
+                "media_url": url,
                 "media_category": first.media_category,
                 "is_preferred": False
             }
