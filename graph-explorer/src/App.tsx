@@ -362,6 +362,10 @@ function App() {
         nodeCanvasObject={(node: any, ctx, globalScale) => {
             const isSelected = selectedNode?.id === node.id;
             const isMatch = searchTerm && node.label.toLowerCase().includes(searchTerm.toLowerCase());
+            const degree = node.neighbors?.length || 0;
+            
+            // Dynamic radius based on degree
+            const r = 4 + Math.sqrt(degree) * 1.5;
             
             const fontSize = 12/globalScale;
             ctx.font = `${isSelected ? 'bold' : 'normal'} ${fontSize}px Inter, sans-serif`;
@@ -372,7 +376,7 @@ function App() {
 
             if (isSelected || isMatch) {
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, 8, 0, 2 * Math.PI, false);
+                ctx.arc(node.x, node.y, r + 3, 0, 2 * Math.PI, false);
                 ctx.fillStyle = isMatch ? '#facc1533' : '#ffffff33';
                 ctx.fill();
                 ctx.strokeStyle = isMatch ? '#facc15' : '#fff';
@@ -381,7 +385,7 @@ function App() {
             }
 
             ctx.beginPath();
-            ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI, false);
+            ctx.arc(node.x, node.y, r, 0, 2 * Math.PI, false);
             ctx.fillStyle = isDimmed ? '#ffffff11' : communityColor;
             ctx.fill();
         }}
@@ -394,6 +398,7 @@ function App() {
                 const isDimmed = (highlightCommunity !== null && node.community !== highlightCommunity) || 
                                  (focusSet !== null && !focusSet.has(node.id));
 
+                const r = 4 + Math.sqrt(degree) * 1.5;
                 const showLabel = isSelected || isMatch || globalScale > 2.5 || (globalScale > labelDensity && degree > 2);
                 
                 if (showLabel) {
@@ -409,7 +414,7 @@ function App() {
                     const fontSize = 12/globalScale;
                     ctx.font = `${isSelected ? 'bold' : 'normal'} ${fontSize}px Inter, sans-serif`;
                     ctx.fillStyle = isDimmed ? '#ffffff22' : (isSelected ? '#fff' : 'rgba(255, 255, 255, 0.7)');
-                    ctx.fillText(displayLabel, (node.x || 0) + 8, (node.y || 0) + 3);
+                    ctx.fillText(displayLabel, (node.x || 0) + r + 3, (node.y || 0) + 3);
                 }
             });
         }}
@@ -422,7 +427,8 @@ function App() {
         }}
         linkDirectionalArrowLength={3}
         linkDirectionalArrowRelPos={1}
-        linkColor={() => 'rgba(255, 255, 255, 0.05)'}
+        linkWidth={1.5}
+        linkColor={() => 'rgba(255, 255, 255, 0.4)'}
         onNodeClick={handleNodeClick}
         backgroundColor="#020617"
       />
