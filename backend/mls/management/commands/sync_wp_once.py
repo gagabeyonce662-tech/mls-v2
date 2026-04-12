@@ -9,7 +9,12 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # Look for the file in the frontend/data directory relative to the project root
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        cmds_dir = os.path.dirname(os.path.abspath(__file__))
+        mgmt_dir = os.path.dirname(cmds_dir)
+        app_dir = os.path.dirname(mgmt_dir)
+        backend_dir = os.path.dirname(app_dir)
+        project_root = os.path.dirname(backend_dir)
+        
         json_path = os.path.join(project_root, 'frontend', 'data', 'pre-con-properties.json')
         
         if not os.path.exists(json_path):
