@@ -10,17 +10,25 @@ class Command(BaseCommand):
     help = 'Migration of WordPress posts using local JSON file to bypass API blocks'
 
     def handle(self, *args, **options):
-        # Look for the file in the frontend/data directory relative to the project root
-        cmds_dir = os.path.dirname(os.path.abspath(__file__))
-        mgmt_dir = os.path.dirname(cmds_dir)
-        app_dir = os.path.dirname(mgmt_dir)
-        backend_dir = os.path.dirname(app_dir)
-        project_root = os.path.dirname(backend_dir)
+        # Robust path resolution: check multiple possible locations
+        base_dir = settings.BASE_DIR
+        repo_root = os.path.dirname(base_dir)
+        filename = 'wp-posts.json'
         
-        json_path = os.path.join(project_root, 'frontend', 'data', 'wp-posts.json')
+        possible_paths = [
+            os.path.join(repo_root, 'frontend', 'data', filename), # GitHub Actions (cd backend)
+            os.path.join(base_dir, 'frontend', 'data', filename), # Local (likely wrong but safe)
+            os.path.join(base_dir, '..', 'frontend', 'data', filename) # Another common local structure
+        ]
         
-        if not os.path.exists(json_path):
-            self.stderr.write(f"JSON file not found at {json_path}")
+        json_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                json_path = path
+                break
+        
+        if not json_path:
+            self.stderr.write(f"Vlog JSON file not found. Searched: {possible_paths}")
             return
 
         self.stdout.write(f"Reading posts from {json_path}...")
