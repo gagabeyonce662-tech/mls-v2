@@ -19,7 +19,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     try {
         // Resolve project root. In this self-contained mode, files are in ./corpus
         const projectRoot = resolve(process.cwd(), 'corpus');
-        const fullPath = normalize(join(projectRoot, normalizedFile));
+        const fullPath = normalize(join(projectRoot, normalizedFile + '.txt'));
 
         // SECURITY 1: Prevent Directory Traversal
         if (!fullPath.startsWith(projectRoot)) {

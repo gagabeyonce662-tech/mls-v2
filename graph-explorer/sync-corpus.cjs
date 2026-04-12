@@ -21,9 +21,9 @@ function copyRecursiveSync(src, dest) {
   } else {
     // Only copy code files to keep snippet viewer light
     const ext = path.extname(src).toLowerCase();
-    const ALLOWED_EXTS = ['.py', '.ts', '.tsx', '.css', '.json', '.js', '.md', '.txt', '.html'];
+    const ALLOWED_EXTS = ['.py', '.ts', '.tsx', '.css', '.json', '.js', '.md', '.html'];
     if (ALLOWED_EXTS.includes(ext)) {
-      fs.copyFileSync(src, dest);
+      fs.copyFileSync(src, dest + '.txt');
     }
   }
 }
