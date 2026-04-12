@@ -1,25 +1,33 @@
-import requests
+import json
+import os
+import re
 from django.core.management.base import BaseCommand
 from vlog.models import VlogPost, VlogCategory
 from django.db import transaction
-from django.utils.text import slugify
+from django.conf import settings
 
 class Command(BaseCommand):
-    help = 'One-time migration of WordPress posts to internal Vlog system'
+    help = 'Migration of WordPress posts using local JSON file to bypass API blocks'
 
     def handle(self, *args, **options):
-        url = "https://estate-4u.com/wp-json/wp/v2/posts?per_page=100"
-        self.stdout.write(f"Fetching posts from {url}...")
+        # Look for the file in the frontend/data directory relative to the project root
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        json_path = os.path.join(project_root, 'frontend', 'data', 'wp-posts.json')
         
-        try:
-            response = requests.get(url, timeout=30)
-            response.raise_for_status()
-            wp_data = response.json()
-        except Exception as e:
-            self.stderr.write(f"Failed to fetch posts: {e}")
+        if not os.path.exists(json_path):
+            self.stderr.write(f"JSON file not found at {json_path}")
             return
 
-        self.stdout.write(f"Found {len(wp_data)} posts. Starting migration...")
+        self.stdout.write(f"Reading posts from {json_path}...")
+        
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                wp_data = json.load(f)
+        except Exception as e:
+            self.stderr.write(f"Failed to read JSON: {e}")
+            return
+
+        self.stdout.write(f"Found {len(wp_data)} posts in JSON. Starting migration...")
 
         count = 0
         with transaction.atomic():
@@ -33,10 +41,10 @@ class Command(BaseCommand):
                 title = p.get('title', {}).get('rendered', '')
                 slug = p.get('slug', '')
                 content = p.get('content', {}).get('rendered', '')
-                excerpt = p.get('excerpt', {}).get('rendered', '').strip()
+                excerpt_data = p.get('excerpt', {}).get('rendered', '')
+                
                 # Clean HTML from excerpt
-                import re
-                clean_excerpt = re.sub('<[^<]+?>', '', excerpt)
+                clean_excerpt = re.sub('<[^<]+?>', '', excerpt_data).strip()
                 
                 # Extract thumbnail
                 thumbnail_url = p.get('jetpack_featured_media_url') or \
@@ -57,12 +65,12 @@ class Command(BaseCommand):
                     "allow_comments": p.get('comment_status') == 'open',
                     "category": default_cat,
                     "embed_url": embed_url,
+                    # Since we are using ImageField, we can't easily download here, 
+                    # but we can save the URL in the thumbnail field for now if the field allows it 
+                    # (it doesn't, it's an ImageField).
+                    # Actually, we'll keep the thumbnail empty and let the site use fallback for now, 
+                    # or update the model to use a CharField for external URLs.
                 }
-
-                # Note: We can't easily download the ImageField thumbnail in this script 
-                # without extra logic, but we can store the URL in a separate field or 
-                # just rely on the frontend to handle the thumbnail URL if we add a field.
-                # For now, let's keep it simple.
 
                 obj, created = VlogPost.objects.update_or_create(
                     slug=slug,
@@ -73,4 +81,4 @@ class Command(BaseCommand):
                 if count % 10 == 0:
                     self.stdout.write(f"Migrated {count} posts...")
 
-        self.stdout.write(self.style.SUCCESS(f"Successfully migrated {count} vlog posts to the database!"))
+        self.stdout.write(self.style.SUCCESS(f"Successfully migrated {count} vlog posts from local JSON!"))

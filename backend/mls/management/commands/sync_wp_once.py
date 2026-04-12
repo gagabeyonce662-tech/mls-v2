@@ -1,21 +1,28 @@
-import requests
+import json
+import os
 from django.core.management.base import BaseCommand
 from mls.models import Property
 from django.db import transaction
 
 class Command(BaseCommand):
-    help = 'One-time sync of Pre-Construction properties from WordPress to local database'
+    help = 'Migration of Pre-Construction properties using local JSON file to bypass API blocks'
 
     def handle(self, *args, **options):
-        url = "https://estate-4u.com/wp-json/wp/v2/properties?per_page=100"
-        self.stdout.write(f"Fetching data from {url}...")
+        # Look for the file in the frontend/data directory relative to the project root
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        json_path = os.path.join(project_root, 'frontend', 'data', 'pre-con-properties.json')
+        
+        if not os.path.exists(json_path):
+            self.stderr.write(f"JSON file not found at {json_path}")
+            return
+
+        self.stdout.write(f"Reading properties from {json_path}...")
         
         try:
-            response = requests.get(url, timeout=30)
-            response.raise_for_status()
-            wp_data = response.json()
+            with open(json_path, 'r', encoding='utf-8') as f:
+                wp_data = json.load(f)
         except Exception as e:
-            self.stderr.write(f"Failed to fetch data: {e}")
+            self.stderr.write(f"Failed to read JSON: {e}")
             return
 
         self.stdout.write(f"Found {len(wp_data)} properties. Starting migration...")
@@ -40,15 +47,15 @@ class Command(BaseCommand):
                 project_name = p.get('title', {}).get('rendered', '')
                 content = p.get('content', {}).get('rendered', '').strip()
                 
-                # We use a unique key for WP properties to avoid collisions with MLS
+                # Unique key for WP properties
                 listing_key = f"wp_precon_{p['id']}"
                 
-                # Compose public remarks to include developer and completion since we don't have dedicated fields
+                # Compose public remarks
                 custom_remarks = f"Project: {project_name}\nDeveloper: {developer}\nEstimated Completion: {completion}\n\n{content}"
 
                 defaults = {
                     "category_type": Property.PRE_CONN,
-                    "street_name": project_name, # Storing project name in street_name
+                    "street_name": project_name, 
                     "unparsed_address": address,
                     "city": "Pre-Construction",
                     "standard_status": "Pre-Construction",
@@ -56,8 +63,8 @@ class Command(BaseCommand):
                     "bedrooms_total": int(bedrooms) if bedrooms and bedrooms.isdigit() else 0,
                     "bathrooms_total_integer": int(bathrooms) if bathrooms and bathrooms.isdigit() else 0,
                     "building_area_total": float(size) if size and size.replace('.','').isdigit() else 0,
-                    "public_remarks": custom_remarks[:10000], # Django TextFields are large usually
-                    "origin_system_name": f"WP_MIGRATION_{developer}", # Tagging for reference
+                    "public_remarks": custom_remarks[:10000], 
+                    "origin_system_name": f"WP_MIGRATION_{developer}",
                 }
 
                 obj, created = Property.objects.update_or_create(
@@ -65,8 +72,7 @@ class Command(BaseCommand):
                     defaults=defaults
                 )
                 
-                # Handle images if available
-                # WP returns a lot of stuff, let's try to find the main image
+                # Handle main image
                 main_image = p.get('yoast_head_json', {}).get('og_image', [{}])[0].get('url', '')
                 if main_image:
                     from mls.models import Media
@@ -80,4 +86,4 @@ class Command(BaseCommand):
                 if count % 10 == 0:
                     self.stdout.write(f"Migrated {count} properties...")
 
-        self.stdout.write(self.style.SUCCESS(f"Successfully migrated {count} properties to the database!"))
+        self.stdout.write(self.style.SUCCESS(f"Successfully migrated {count} properties from local JSON!"))
