@@ -364,17 +364,6 @@ function App() {
             const isMatch = searchTerm && node.label.toLowerCase().includes(searchTerm.toLowerCase());
             const degree = node.neighbors?.length || 0;
             
-            const rawLabel = node.label;
-            let displayLabel = rawLabel;
-            
-            if (rawLabel.split(' ').length > 3 || rawLabel.length > 25) {
-                if (node.file_type === 'document' || node.file_type === 'code') {
-                    displayLabel = rawLabel.length > 20 ? rawLabel.slice(0, 17) + '...' : rawLabel;
-                }
-            }
-
-            const showLabel = isSelected || isMatch || globalScale > 2.5 || (globalScale > labelDensity && degree > 2);
-
             const fontSize = 12/globalScale;
             ctx.font = `${isSelected ? 'bold' : 'normal'} ${fontSize}px Inter, sans-serif`;
 
