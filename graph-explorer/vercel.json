@@ -2,8 +2,7 @@
   "version": 2,
   "functions": {
     "api/*.ts": {
-      "memory": 1024,
-      "maxDuration": 10
+      "includeFiles": "corpus/**"
     }
   },
   "cleanUrls": true
