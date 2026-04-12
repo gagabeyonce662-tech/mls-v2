@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 from datetime import timedelta
+import dj_database_url
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -22,12 +23,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-oaaa%9e+w*u8tv-u==dtu9(9rlp_akhahh!+5udiy%m3syaivx'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-oaaa%9e+w*u8tv-u==dtu9(9rlp_akhahh!+5udiy%m3syaivx')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['staging.vsell4u.ca', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['staging.vsell4u.ca', 'localhost', '127.0.0.1', '.vercel.app']
 
 
 # Application definition
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -85,33 +87,13 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# --- Neon (production) DB --- commented out for local dev
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "neondb",
-        "USER": "neondb_owner",
-        "PASSWORD": "npg_9JxAXdt5ZbNn",
-        "HOST": "ep-young-river-adbytfzk-pooler.c-2.us-east-1.aws.neon.tech",
-        "PORT": "5432",
-        "OPTIONS": {
-            "sslmode": "require",
-            "channel_binding": "require",
-        },
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_9JxAXdt5ZbNn@ep-young-river-adbytfzk-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require'),
+        conn_max_age=600,
+        ssl_require=True
+    )
 }
-
-# --- Local DB ---
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.postgresql",
-#         "NAME": "mls",
-#         "USER": "postgres",
-#         "PASSWORD": "postgresql",
-#         "HOST": "localhost",
-#         "PORT": "5432",
-#     }
-# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -160,6 +142,10 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")] 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Simplified static file serving.
+# https://warehouse.python.org/project/whitenoise/
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 
 # path inside MEDIA_ROOT where ckeditor uploads go
