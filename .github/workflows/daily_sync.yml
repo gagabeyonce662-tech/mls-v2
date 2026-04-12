@@ -33,3 +33,4 @@ jobs:
         run: |
           cd backend
           python manage.py sync_ddf_properties --threads 12
+          python manage.py migrate_wp_vlogs
