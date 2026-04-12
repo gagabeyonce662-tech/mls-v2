@@ -396,11 +396,34 @@ function App() {
             ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI, false);
             ctx.fillStyle = isDimmed ? '#ffffff11' : communityColor;
             ctx.fill();
+        }}
+        onRenderFramePost={(ctx, globalScale) => {
+            const nodes = data.nodes as Node[];
+            nodes.forEach(node => {
+                const isSelected = selectedNode?.id === node.id;
+                const isMatch = searchTerm && node.label.toLowerCase().includes(searchTerm.toLowerCase());
+                const degree = node.neighbors?.length || 0;
+                const isDimmed = (highlightCommunity !== null && node.community !== highlightCommunity) || 
+                                 (focusSet !== null && !focusSet.has(node.id));
 
-            if (showLabel) {
-                ctx.fillStyle = isDimmed ? '#ffffff22' : (isSelected ? '#fff' : 'rgba(255, 255, 255, 0.7)');
-                ctx.fillText(displayLabel, node.x + 8, node.y + 3);
-            }
+                const showLabel = isSelected || isMatch || globalScale > 2.5 || (globalScale > labelDensity && degree > 2);
+                
+                if (showLabel) {
+                    const rawLabel = node.label;
+                    let displayLabel = rawLabel;
+                    
+                    if (rawLabel.split(' ').length > 3 || rawLabel.length > 25) {
+                        if (node.file_type === 'document' || node.file_type === 'code') {
+                            displayLabel = rawLabel.length > 20 ? rawLabel.slice(0, 17) + '...' : rawLabel;
+                        }
+                    }
+
+                    const fontSize = 12/globalScale;
+                    ctx.font = `${isSelected ? 'bold' : 'normal'} ${fontSize}px Inter, sans-serif`;
+                    ctx.fillStyle = isDimmed ? '#ffffff22' : (isSelected ? '#fff' : 'rgba(255, 255, 255, 0.7)');
+                    ctx.fillText(displayLabel, (node.x || 0) + 8, (node.y || 0) + 3);
+                }
+            });
         }}
         linkVisibility={l => {
             if (focusSet && (!focusSet.has((l.source as any).id) || !focusSet.has((l.target as any).id))) return false;
