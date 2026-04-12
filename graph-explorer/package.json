@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "postinstall": "node sync-corpus.cjs",
     "dev": "vite",
-    "build": "node sync-corpus.cjs && tsc -b && vite build",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
