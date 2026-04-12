@@ -1,8 +1,9 @@
 {
   "version": 2,
   "functions": {
-    "api/code.ts": {
-      "runtime": "vercel-node@latest"
+    "api/*.ts": {
+      "memory": 1024,
+      "maxDuration": 10
     }
   },
   "cleanUrls": true
