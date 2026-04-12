@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "functions": {
+    "api/code.ts": {
+      "runtime": "vercel-node@latest"
+    }
+  },
+  "cleanUrls": true
+}
