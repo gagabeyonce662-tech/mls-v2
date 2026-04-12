@@ -231,7 +231,7 @@ class PropertyDetailView(APIView):
             if not property_data:
                 return Response({"error": "Property not found for the given PropertyKey."}, status=status.HTTP_404_NOT_FOUND)
             (property_data)
-            fetch_properties_by_property_data.delay(property_data)
+            # fetch_properties_by_property_data.delay(property_data)
             return Response(property_data, status=status.HTTP_200_OK)
 
         except Exception as e:

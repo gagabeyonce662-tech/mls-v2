@@ -6,10 +6,11 @@ import { VlogPost } from "./types";
  */
 export async function fetchVlogPosts(): Promise<VlogPost[]> {
   try {
-    const data = await fetchAPI<any[]>(`${API_BASE_URL}/api/vlog/`, {
+    const data = await fetchAPI<any>(`${API_BASE_URL}/api/vlog/`, {
       next: { revalidate: 3600 },
     });
-    return data;
+    // Handle both direct list and paginated object
+    return Array.isArray(data) ? data : (data.results || []);
   } catch (error) {
     console.error("Error fetching vlog posts:", error);
     return [];
