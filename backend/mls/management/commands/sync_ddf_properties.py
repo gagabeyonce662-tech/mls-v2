@@ -201,6 +201,9 @@ class Command(BaseCommand):
                 continue
 
             defaults = {
+                # === Category ===
+                "category_type": Property.DDF,
+                
                 # === Core Fields ===
                 "list_price": safe_decimal(data.get("ListPrice")),
                 "property_sub_type": safe_str(data.get("PropertySubType")),

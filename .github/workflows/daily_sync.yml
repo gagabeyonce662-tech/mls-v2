@@ -32,6 +32,8 @@ jobs:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
         run: |
           cd backend
+          python manage.py makemigrations
+          python manage.py migrate
           python manage.py sync_ddf_properties --threads 12
           python manage.py sync_wp_once
           python manage.py migrate_wp_vlogs

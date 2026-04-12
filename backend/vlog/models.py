@@ -53,6 +53,7 @@ class VlogPost(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     allow_comments = models.BooleanField(default=True)
+    is_manual = models.BooleanField(default=False, help_text="If true, automated sync will not overwrite this post")
 
     class Meta:
         ordering = ['-publish_date', '-created_at']

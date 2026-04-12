@@ -85,6 +85,12 @@ class Command(BaseCommand):
                     # or update the model to use a CharField for external URLs.
                 }
 
+                # Check if property already exists and is marked as manual
+                existing_post = VlogPost.objects.filter(slug=slug).first()
+                if existing_post and existing_post.is_manual:
+                    self.stdout.write(f"Skipping manual post: {title}")
+                    continue
+
                 obj, created = VlogPost.objects.update_or_create(
                     slug=slug,
                     defaults=defaults

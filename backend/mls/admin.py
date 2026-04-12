@@ -11,9 +11,12 @@ class MediaInline(admin.TabularInline):
     extra = 1
 
 class PropertyAdmin(admin.ModelAdmin):
-    list_display = ('listing_key','category_type','list_price', 'property_sub_type', 'city', 'state_or_province')
-    search_fields = ('listing_key', 'city', 'state_or_province')
+    list_display = ('listing_key','category_type','is_featured','list_price', 'property_sub_type', 'city', 'state_or_province')
+    list_filter = ('category_type', 'is_featured', 'city', 'state_or_province')
+    list_editable = ('is_featured',)
+    search_fields = ('listing_key', 'city', 'street_name', 'public_remarks')
     inlines = [RoomInline, MediaInline]
+    ordering = ('-is_featured', 'listing_key')
 
 class RoomAdmin(admin.ModelAdmin):
     list_display = ('room_type', 'room_length', 'room_width', 'room_level')

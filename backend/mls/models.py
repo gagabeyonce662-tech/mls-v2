@@ -52,16 +52,20 @@ class AccessToken(models.Model):
 class Property(models.Model):
     EXCLUSIVE = 'exclusive'
     PRE_CONN = 'pre_conn'
+    DDF = 'ddf'
     
     STATUS_CHOICES = [
         (EXCLUSIVE, 'Exclusive'),
         (PRE_CONN, 'Pre-Connected'),
+        (DDF, 'MLS Sync'),
     ]
     category_type  = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default=None,null=True,blank=True
     )
+    is_featured = models.BooleanField(default=False)
+    is_manual = models.BooleanField(default=False, help_text="If true, automated sync will not overwrite this listing")
     listing_key = models.CharField(max_length=2000, unique=True)
     property_sub_type = models.CharField(max_length=2000, null=True, blank=True)
     documents_available = models.TextField(null=True, blank=True)

@@ -1,6 +1,7 @@
 import json
 import os
 from django.core.management.base import BaseCommand
+from django.conf import settings
 from mls.models import Property
 from django.db import transaction
 
@@ -79,6 +80,12 @@ class Command(BaseCommand):
                     "public_remarks": custom_remarks[:10000], 
                     "origin_system_name": f"WP_MIGRATION_{developer}",
                 }
+
+                # Check if property already exists and is marked as manual
+                existing_prop = Property.objects.filter(listing_key=listing_key).first()
+                if existing_prop and existing_prop.is_manual:
+                    self.stdout.write(f"Skipping manual property: {project_name}")
+                    continue
 
                 obj, created = Property.objects.update_or_create(
                     listing_key=listing_key,
