@@ -47,6 +47,7 @@ class Command(BaseCommand):
                 custom_remarks = f"Project: {project_name}\nDeveloper: {developer}\nEstimated Completion: {completion}\n\n{content}"
 
                 defaults = {
+                    "category_type": Property.PRE_CONN,
                     "street_name": project_name, # Storing project name in street_name
                     "unparsed_address": address,
                     "city": "Pre-Construction",

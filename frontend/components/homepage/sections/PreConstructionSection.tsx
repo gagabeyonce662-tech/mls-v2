@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { PropertyGridSection } from "@/components/shared/PropertyGridSection";
 import { useQuickView } from "@/contexts/QuickViewContext";
-import { fetchAllWPPreconPropertiesAction } from "@/lib/actions/wp-precon";
+import { fetchPreConnProperties } from "@/lib/api/properties";
 import { Property } from "@/lib/api/types";
 
 export function PreConstructionSection() {
@@ -41,8 +41,8 @@ export function PreConstructionSection() {
     const fetchPrecons = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchAllWPPreconPropertiesAction();
-        if (mounted) setPreConProperties(data);
+        const data = await fetchPreConnProperties({ limit: 12 });
+        if (mounted) setPreConProperties(data.results || []);
       } catch (err) {
         console.error(err);
       } finally {

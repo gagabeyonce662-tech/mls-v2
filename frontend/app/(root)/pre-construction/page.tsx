@@ -9,7 +9,7 @@ import { PropertyGridLayout } from "@/components/listing/PropertyGridLayout";
 import { usePropertyInteractions } from "@/hooks/usePropertyInteractions";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { formatPrice } from "@/lib/propertyUtils";
-import { fetchAllWPPreconPropertiesAction } from "@/lib/actions/wp-precon";
+import { fetchPreConnProperties } from "@/lib/api/properties";
 import { Property } from "@/lib/api/types";
 import { Building2, SlidersHorizontal, HardHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -74,8 +74,8 @@ export default function PreConstructionPage() {
     const fetchPrecons = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchAllWPPreconPropertiesAction();
-        if (mounted) setProperties(data);
+        const data = await fetchPreConnProperties({ limit: 100 });
+        if (mounted) setProperties(data.results || []);
       } catch (err) {
         console.error(err);
       } finally {
