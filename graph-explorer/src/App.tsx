@@ -315,7 +315,7 @@ function App() {
                     <div className="code-loader">
                         <Loader2 size={24} className="spin" />
                     </div>
-                ) : codeSnippet ? (
+                ) : (codeSnippet && codeSnippet.snippet) ? (
                     <pre>
                         {codeSnippet.snippet.split('\n').map((line, i) => {
                             const lineNum = codeSnippet.startLine + i;

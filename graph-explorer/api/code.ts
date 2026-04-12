@@ -13,10 +13,13 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Missing file parameter' });
     }
 
+    // Normalize Windows backslashes to forward slashes for Linux/Vercel
+    const normalizedFile = file.replace(/\\/g, '/');
+
     try {
         // Resolve project root. In this self-contained mode, files are in ./corpus
         const projectRoot = resolve(process.cwd(), 'corpus');
-        const fullPath = normalize(join(projectRoot, file));
+        const fullPath = normalize(join(projectRoot, normalizedFile));
 
         // SECURITY 1: Prevent Directory Traversal
         if (!fullPath.startsWith(projectRoot)) {
