@@ -1,0 +1,14 @@
+{
+  "functions": {
+    "api/code.ts": {
+      "runtime": "vercel-node@latest"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    }
+  ],
+  "cleanUrls": true
+}
