@@ -362,7 +362,6 @@ function App() {
         nodeCanvasObject={(node: any, ctx, globalScale) => {
             const isSelected = selectedNode?.id === node.id;
             const isMatch = searchTerm && node.label.toLowerCase().includes(searchTerm.toLowerCase());
-            const degree = node.neighbors?.length || 0;
             
             const fontSize = 12/globalScale;
             ctx.font = `${isSelected ? 'bold' : 'normal'} ${fontSize}px Inter, sans-serif`;
