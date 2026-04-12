@@ -1,0 +1,17 @@
+{
+  "0": "Django API & Access Tokens",
+  "1": "Property & Inline Admin",
+  "2": "Vlog Management Admin",
+  "3": "Account & Auth Serializers",
+  "4": "DDF Sync Utilities",
+  "5": "User Managers & Logic",
+  "6": "Django App Module Configs",
+  "7": "CRM & GoHighLevel Services",
+  "8": "Models Initial Migrations",
+  "9": "Token Refresh Pipeline",
+  "10": "CLI Management Entry",
+  "11": "ASGI/WSGI Server Ops",
+  "12": "Celery Task Queue",
+  "13": "Django Settings Env",
+  "14": "Middleware & WSGI"
+}

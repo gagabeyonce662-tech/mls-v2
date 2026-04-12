@@ -1,0 +1,1 @@
+{"nodes": [{"id": "frontend_config_index_ts", "label": "index.ts", "file_type": "code", "source_file": "frontend\\config\\index.ts", "source_location": "L1"}], "edges": [{"source": "frontend_config_index_ts", "target": "branda_config", "relation": "imports_from", "confidence": "EXTRACTED", "source_file": "frontend\\config\\index.ts", "source_location": "L1", "weight": 1.0}]}
