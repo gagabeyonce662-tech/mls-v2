@@ -206,9 +206,13 @@ class Room(models.Model):
     def __str__(self):
         return f"{self.room_type} - {self.property.listing_key}"
 
+def property_media_path(instance, filename):
+    return f'properties/{instance.property.listing_key}/{filename}'
+
 class Media(models.Model):
     property = models.ForeignKey(Property, related_name='media', on_delete=models.CASCADE)
     media_url = models.URLField(max_length=2000)
+    media_file = models.ImageField(upload_to=property_media_path, blank=True, null=True)
     media_category = models.TextField(blank=True)
     is_preferred = models.BooleanField(default=False)
     order = models.IntegerField()

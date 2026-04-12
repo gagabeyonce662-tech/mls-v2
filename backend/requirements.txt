@@ -59,3 +59,5 @@ wcwidth==0.2.14
 websockets==16.0
 whitenoise==6.6.0
 dj-database-url==2.1.0
+cloudinary==1.42.1
+django-cloudinary-storage==0.3.0

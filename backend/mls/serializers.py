@@ -4,9 +4,16 @@ from mls.models import Property, Room, Media
 
 
 class MediaSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
     class Meta:
         model = Media
-        fields = ['media_url', 'media_category', 'is_preferred', 'order']
+        fields = ['url', 'media_url', 'media_file', 'media_category', 'is_preferred', 'order']
+
+    def get_url(self, obj):
+        if obj.media_file:
+            return obj.media_file.url
+        return obj.media_url
 
 
 class RoomSerializer(serializers.ModelSerializer):
@@ -35,7 +42,7 @@ class PropertySerializer(serializers.ModelSerializer):
         preferred = obj.media.filter(is_preferred=True).first()
         if preferred:
             return {
-                "media_url": preferred.media_url,
+                "media_url": preferred.media_file.url if preferred.media_file else preferred.media_url,
                 "media_category": preferred.media_category,
                 "is_preferred": True
             }
@@ -44,7 +51,7 @@ class PropertySerializer(serializers.ModelSerializer):
         first = obj.media.order_by('order').first()
         if first:
             return {
-                "media_url": first.media_url,
+                "media_url": first.media_file.url if first.media_file else first.media_url,
                 "media_category": first.media_category,
                 "is_preferred": False
             }

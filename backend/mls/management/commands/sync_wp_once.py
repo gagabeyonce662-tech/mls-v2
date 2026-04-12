@@ -79,6 +79,7 @@ class Command(BaseCommand):
                     "building_area_total": float(size) if size and size.replace('.','').isdigit() else 0,
                     "public_remarks": custom_remarks[:10000], 
                     "origin_system_name": f"WP_MIGRATION_{developer}",
+                    "is_manual": True,
                 }
 
                 # Check if property already exists and is marked as manual
@@ -96,11 +97,28 @@ class Command(BaseCommand):
                 main_image = p.get('yoast_head_json', {}).get('og_image', [{}])[0].get('url', '')
                 if main_image:
                     from mls.models import Media
-                    Media.objects.update_or_create(
+                    from django.core.files.base import ContentFile
+                    import requests
+                    from urllib.parse import urlparse
+
+                    media_obj, m_created = Media.objects.get_or_create(
                         property=obj,
                         media_url=main_image,
                         defaults={'order': 1, 'is_preferred': True, 'media_category': 'Main Image'}
                     )
+
+                    # NEW: Download image if it's new or file is missing
+                    if m_created or not media_obj.media_file:
+                        try:
+                            response = requests.get(main_image, timeout=15)
+                            if response.status_code == 200:
+                                path = urlparse(main_image).path
+                                ext = os.path.splitext(path)[1] or '.jpg'
+                                fname = f"main_{p['id']}{ext}"
+                                media_obj.media_file.save(fname, ContentFile(response.content), save=True)
+                                self.stdout.write(f"  - Downloaded property image: {fname}")
+                        except Exception as e:
+                            self.stderr.write(f"  - Failed to download property image {main_image}: {e}")
 
                 count += 1
                 if count % 10 == 0:

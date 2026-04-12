@@ -78,6 +78,7 @@ class Command(BaseCommand):
                     "allow_comments": p.get('comment_status') == 'open',
                     "category": default_cat,
                     "embed_url": embed_url,
+                    "is_manual": True,
                     # Since we are using ImageField, we can't easily download here, 
                     # but we can save the URL in the thumbnail field for now if the field allows it 
                     # (it doesn't, it's an ImageField).
@@ -95,6 +96,25 @@ class Command(BaseCommand):
                     slug=slug,
                     defaults=defaults
                 )
+
+                # NEW: Download thumbnail if it doesn't exist yet
+                if thumbnail_url and not obj.thumbnail:
+                    try:
+                        import requests
+                        from django.core.files.base import ContentFile
+                        from urllib.parse import urlparse
+
+                        response = requests.get(thumbnail_url, timeout=15)
+                        if response.status_code == 200:
+                            # Get extension from URL or default to .jpg
+                            path = urlparse(thumbnail_url).path
+                            ext = os.path.splitext(path)[1] or '.jpg'
+                            fname = f"{slug}{ext}"
+                            
+                            obj.thumbnail.save(fname, ContentFile(response.content), save=True)
+                            self.stdout.write(f"  - Downloaded thumbnail: {fname}")
+                    except Exception as e:
+                        self.stderr.write(f"  - Failed to download {thumbnail_url}: {e}")
                 
                 count += 1
                 if count % 10 == 0:
