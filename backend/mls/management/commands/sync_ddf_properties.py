@@ -93,11 +93,43 @@ class Command(BaseCommand):
             self.stdout.write("No properties returned.")
             return
 
+        # Track keys for cleanup
+        processed_keys = {p.get("ListingKey") for p in all_properties if p.get("ListingKey")}
+
         self.stdout.write(f"Starting bulk upsert of {len(all_properties):,} properties...")
         self.bulk_upsert(all_properties, batch_size=options['batch_size'])
 
+        # Run Cleanup
+        self.cleanup_orphaned_properties(processed_keys)
+
         elapsed = time.time() - start_time
         self.stdout.write(self.style.SUCCESS(f"COMPLETED in {elapsed:.1f} seconds ({len(all_properties)/elapsed:.1f} props/sec)"))
+
+    def cleanup_orphaned_properties(self, processed_keys):
+        """Deletes properties tagged as DDF that were NOT seen in this sync."""
+        if not processed_keys:
+            return
+
+        # Safety Check: Don't delete if we processed suspiciously few properties
+        current_ddf_count = Property.objects.filter(category_type=Property.DDF).count()
+        if len(processed_keys) < (current_ddf_count * 0.5) and current_ddf_count > 100:
+            self.stdout.write(self.style.ERROR(
+                f"ABORTING CLEANUP: Processed {len(processed_keys)} listings, which is < 50% of "
+                f"current database count ({current_ddf_count}). This might indicate an API failure."
+            ))
+            return
+
+        self.stdout.write(f"Cleaning up orphaned MLS properties...")
+        orphans = Property.objects.filter(category_type=Property.DDF).exclude(listing_key__in=processed_keys)
+        orphan_count = orphans.count()
+        
+        if orphan_count > 0:
+            # Delete related rooms and media first (though Django usually handles CASCADE)
+            # Property.objects.filter(...) delete() handles cascade automatically if models are set up correctly.
+            orphans.delete()
+            self.stdout.write(self.style.SUCCESS(f"Deleted {orphan_count} orphaned MLS listings."))
+        else:
+            self.stdout.write("No orphaned listings found.")
 
 
 
