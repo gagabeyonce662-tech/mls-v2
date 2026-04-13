@@ -32,6 +32,7 @@ jobs:
           CLIENT_ID: ${{ secrets.CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
         run: |
           cd backend
           python manage.py makemigrations
