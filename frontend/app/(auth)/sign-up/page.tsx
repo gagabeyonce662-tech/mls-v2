@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import { Loader2, Mail, Lock, User, Eye, EyeOff, Phone } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ const signUpSchema = z
   .object({
     name: z.string().min(2, "Name must be at least 2 characters"),
     email: z.string().email("Please enter a valid email address"),
+    phone: z.string().min(10, "Phone number must be at least 10 digits"),
     password: z.string().min(6, "Password must be at least 6 characters"),
     confirmPassword: z.string(),
   })
@@ -45,7 +46,12 @@ export default function SignUpPage() {
   const onSubmit = async (data: SignUpValues) => {
     setIsSubmitting(true);
     try {
-      await registerUser(data.name, data.email);
+      await registerUser({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        phone: data.phone,
+      });
       toast({
         title: "Account created!",
         description: "Welcome to Estate-4u. Your account is ready.",
@@ -111,6 +117,27 @@ export default function SignUpPage() {
           {errors.email && (
             <p className="text-sm font-medium text-red-500 mt-1">
               {errors.email.message}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone Number</Label>
+          <div className="relative group">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-ds-body group-focus-within:text-ds-primary transition-colors">
+              <Phone className="w-4 h-4" />
+            </div>
+            <Input
+              id="phone"
+              type="tel"
+              placeholder="(123) 456-7890"
+              className="pl-10 h-12 transition-all border-ds-card-border focus:ring-2 focus:ring-ds-primary/20 focus:border-ds-primary"
+              {...register("phone")}
+            />
+          </div>
+          {errors.phone && (
+            <p className="text-sm font-medium text-red-500 mt-1">
+              {errors.phone.message}
             </p>
           )}
         </div>

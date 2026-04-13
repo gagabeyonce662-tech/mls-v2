@@ -16,6 +16,9 @@ export async function fetchAPI<T>(
       ...options,
       headers: {
         "Content-Type": "application/json",
+        ...((typeof window !== "undefined" && localStorage.getItem("access_token"))
+          ? { Authorization: `Bearer ${localStorage.getItem("access_token")}` }
+          : {}),
         ...options?.headers,
       },
     });

@@ -38,7 +38,7 @@ export default function SignInPage() {
   const onSubmit = async (data: SignInValues) => {
     setIsSubmitting(true);
     try {
-      await login(data.email);
+      await login(data.email, data.password);
       toast({
         title: "Welcome back!",
         description: "You have successfully signed in.",

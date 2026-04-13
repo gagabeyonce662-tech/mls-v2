@@ -11,3 +11,4 @@ export * from "./api/vlogs";
 export * from "./api/admin";
 export * from "./api/testing";
 export * from "./api/wordpress";
+export * from "./api/auth";
