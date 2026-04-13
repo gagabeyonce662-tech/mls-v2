@@ -87,15 +87,19 @@ class Command(BaseCommand):
                 }
 
                 # Check if property already exists and is marked as manual
-                existing_post = VlogPost.objects.filter(slug=slug).first()
-                if existing_post and existing_post.is_manual:
-                    self.stdout.write(f"Skipping manual post: {title}")
-                    continue
-
-                obj, created = VlogPost.objects.update_or_create(
-                    slug=slug,
-                    defaults=defaults
-                )
+                obj = VlogPost.objects.filter(slug=slug).first()
+                if obj and obj.is_manual:
+                    # If it has a thumbnail already, skip it completely
+                    if obj.thumbnail:
+                        self.stdout.write(f"Skipping manual post (already has thumbnail): {title}")
+                        continue
+                    else:
+                        self.stdout.write(f"Processing manual post to fetch missing thumbnail: {title}")
+                else:
+                    obj, created = VlogPost.objects.update_or_create(
+                        slug=slug,
+                        defaults=defaults
+                    )
 
                 # NEW: Download thumbnail if it doesn't exist yet
                 if thumbnail_url and not obj.thumbnail:

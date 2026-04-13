@@ -83,15 +83,19 @@ class Command(BaseCommand):
                 }
 
                 # Check if property already exists and is marked as manual
-                existing_prop = Property.objects.filter(listing_key=listing_key).first()
-                if existing_prop and existing_prop.is_manual:
-                    self.stdout.write(f"Skipping manual property: {project_name}")
-                    continue
-
-                obj, created = Property.objects.update_or_create(
-                    listing_key=listing_key,
-                    defaults=defaults
-                )
+                obj = Property.objects.filter(listing_key=listing_key).first()
+                if obj and obj.is_manual:
+                    # Check if it already has media files
+                    if obj.media.filter(media_file__isnull=False).exclude(media_file="").exists():
+                        self.stdout.write(f"Skipping manual property (already has media): {project_name}")
+                        continue
+                    else:
+                        self.stdout.write(f"Processing manual property to fetch missing media: {project_name}")
+                else:
+                    obj, created = Property.objects.update_or_create(
+                        listing_key=listing_key,
+                        defaults=defaults
+                    )
                 
                 # Handle main image
                 main_image = p.get('yoast_head_json', {}).get('og_image', [{}])[0].get('url', '')
