@@ -41,6 +41,13 @@ const Marker = dynamic(() => import("react-leaflet").then((m) => m.Marker), {
 const Popup = dynamic(() => import("react-leaflet").then((m) => m.Popup), {
   ssr: false,
 });
+const CircleMarker = dynamic(
+  () => import("react-leaflet").then((m) => m.CircleMarker),
+  { ssr: false },
+);
+const Tooltip = dynamic(() => import("react-leaflet").then((m) => m.Tooltip), {
+  ssr: false,
+});
 
 export default function MapOnlyPage() {
   const API_BASE_URL = env.NEXT_PUBLIC_API_URL;
@@ -56,6 +63,10 @@ export default function MapOnlyPage() {
     setFilters,
     apiMarkers,
     setApiMarkers,
+    aggregateMarkers,
+    setAggregateMarkers,
+    mapDataMode,
+    setMapDataMode,
     loadingApi,
     setLoadingApi,
     apiError,
@@ -67,6 +78,7 @@ export default function MapOnlyPage() {
     applyFilters,
     handleSearchThisArea,
     fetchExclusivePropertiesForBBox,
+    LISTING_ZOOM_MIN,
   } = useMapSearch(API_BASE_URL);
 
   const { addToHistory } = useWatched();
@@ -99,6 +111,8 @@ export default function MapOnlyPage() {
     setLoadingApi(true);
     setApiError(null);
     setApiMarkers([]);
+    setAggregateMarkers([]);
+    setMapDataMode("listings");
     setSelectedPropertyId(null);
     try {
       const data = await fetchExclusivePropertiesForBBox(bbox);
@@ -204,6 +218,9 @@ export default function MapOnlyPage() {
       map.on("moveend", () => {
         if (!loadingApi && !drawing) setShowSearchThisArea(true);
       });
+      map.on("zoomend", () => {
+        if (!loadingApi && !drawing) setShowSearchThisArea(true);
+      });
       // Auto-load properties for the initial viewport — only once
       if (!initialSearchDone.current) {
         initialSearchDone.current = true;
@@ -215,6 +232,8 @@ export default function MapOnlyPage() {
   const clearAll = () => {
     clearRect();
     setApiMarkers([]);
+    setAggregateMarkers([]);
+    setMapDataMode("listings");
     setApiError(null);
     setLoadingApi(false);
     setSelectedPropertyId(null);
@@ -362,6 +381,27 @@ export default function MapOnlyPage() {
                 </Marker>
               ))}
 
+              {mapDataMode === "aggregates" &&
+                aggregateMarkers.map((cell) => (
+                  <CircleMarker
+                    key={cell.id}
+                    center={[cell.lat, cell.lng]}
+                    radius={Math.min(24, Math.max(10, Math.log2(cell.property_count + 1) * 4))}
+                    pathOptions={{
+                      color: "#1d4ed8",
+                      fillColor: "#2563eb",
+                      fillOpacity: 0.45,
+                      weight: 1.5,
+                    }}
+                  >
+                    <Tooltip direction="top" offset={[0, -2]} opacity={0.95}>
+                      <span className="font-semibold">
+                        {cell.property_count} properties
+                      </span>
+                    </Tooltip>
+                  </CircleMarker>
+                ))}
+
               {markerToShow && (
                 <Marker
                   position={[markerToShow.lat, markerToShow.lng]}
@@ -383,7 +423,7 @@ export default function MapOnlyPage() {
             </MapContainer>
 
             <MapSidebar
-              apiMarkers={apiMarkers}
+              apiMarkers={mapDataMode === "listings" ? apiMarkers : []}
               selectedPropertyId={selectedPropertyId}
               onViewOnMap={handleViewOnMap}
               onViewStreetView={handleViewStreetView}
@@ -391,6 +431,17 @@ export default function MapOnlyPage() {
             />
           </div>
         </div>
+
+        {mapDataMode === "aggregates" && (
+          <div className="absolute bottom-6 right-6 z-[520] rounded-xl border border-blue-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm">
+            <p className="text-sm font-semibold text-slate-800">
+              Area density mode
+            </p>
+            <p className="text-xs text-slate-600">
+              Zoom in to level {LISTING_ZOOM_MIN}+ for listing markers
+            </p>
+          </div>
+        )}
 
         {resultsOpen && searchResults.length > 0 && (
           <ResultsPortal

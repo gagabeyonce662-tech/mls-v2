@@ -9,6 +9,15 @@ export type PropertyMarker = {
   raw?: Property;
 };
 
+export type AggregateCellMarker = {
+  id: string;
+  h3_index: string;
+  resolution: number;
+  property_count: number;
+  lat: number;
+  lng: number;
+};
+
 export type NominatimResult = {
   place_id: number;
   display_name: string;

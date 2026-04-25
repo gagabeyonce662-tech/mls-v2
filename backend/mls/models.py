@@ -222,3 +222,26 @@ class Media(models.Model):
 
     def __str__(self):
         return f"{self.media_category[:50]} - {self.property.listing_key}"
+
+
+class MapAggregateCell(models.Model):
+    h3_index = models.CharField(max_length=32)
+    resolution = models.PositiveSmallIntegerField()
+    property_count = models.PositiveIntegerField(default=0)
+    center_lat = models.DecimalField(max_digits=10, decimal_places=6)
+    center_lng = models.DecimalField(max_digits=10, decimal_places=6)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["resolution", "h3_index"]),
+            models.Index(fields=["resolution", "updated_at"]),
+            models.Index(fields=["resolution", "center_lat", "center_lng"]),
+        ]
+        unique_together = ("resolution", "h3_index")
+
+    def __str__(self):
+        return (
+            f"H3({self.resolution}) {self.h3_index} "
+            f"=> {self.property_count} properties"
+        )

@@ -11,6 +11,7 @@ from datetime import datetime
 from datetime import datetime, timedelta
 import pytz
 from mls.models import Property, Room, Media  # Replace with your actual app name
+from mls.services.map_aggregates import rebuild_h3_aggregates
 logger = logging.getLogger(__name__)
 
 # Helper: Safe converters
@@ -101,6 +102,12 @@ class Command(BaseCommand):
 
         # Run Cleanup
         self.cleanup_orphaned_properties(processed_keys)
+
+        self.stdout.write("Rebuilding H3 map aggregates...")
+        aggregate_cells = rebuild_h3_aggregates()
+        self.stdout.write(
+            self.style.SUCCESS(f"Built {aggregate_cells:,} aggregate cells")
+        )
 
         elapsed = time.time() - start_time
         self.stdout.write(self.style.SUCCESS(f"COMPLETED in {elapsed:.1f} seconds ({len(all_properties)/elapsed:.1f} props/sec)"))

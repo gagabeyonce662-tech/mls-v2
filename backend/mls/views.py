@@ -15,8 +15,28 @@ from django.utils import timezone
 # Local imports
 from .models import AccessToken
 from .helpers import get_access_token, fetch_properties_by_property_data
-from mls.models import Property
+from mls.models import MapAggregateCell, Property
 from .serializers import PropertySerializer,PropertyDetailSerializer
+from mls.services.map_aggregates import get_resolution_for_zoom
+
+
+def _parse_bbox(params):
+    lat_min = params.get("latitude_min", params.get("lat_min"))
+    lat_max = params.get("latitude_max", params.get("lat_max"))
+    lng_min = params.get("longitude_min", params.get("lng_min"))
+    lng_max = params.get("longitude_max", params.get("lng_max"))
+
+    if None in (lat_min, lat_max, lng_min, lng_max):
+        raise ValueError(
+            "Bounding box params are required: latitude_min, latitude_max, longitude_min, longitude_max"
+        )
+
+    return {
+        "latitude_min": float(lat_min),
+        "latitude_max": float(lat_max),
+        "longitude_min": float(lng_min),
+        "longitude_max": float(lng_max),
+    }
 
 class FetchProperties(APIView):
     """
@@ -204,6 +224,72 @@ class PropertyFilterView(APIView):
             "previous": offset - limit if offset >= limit else None,
             "results": serializer.data
         })
+
+
+class MapAggregatesAPIView(APIView):
+    """
+    GET /api/mls/properties/map-aggregates/
+    Returns H3 aggregate cells for low/mid zoom map views.
+    """
+
+    def get(self, request):
+        try:
+            bbox = _parse_bbox(request.query_params)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            zoom = int(request.query_params.get("zoom", "10"))
+        except ValueError:
+            return Response(
+                {"error": "zoom must be an integer"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        resolution = get_resolution_for_zoom(zoom)
+        if resolution is None:
+            return Response(
+                {
+                    "mode": "listings",
+                    "resolution": None,
+                    "results": [],
+                    "message": "Zoom level should use listing markers endpoint.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        cells = (
+            MapAggregateCell.objects.filter(
+                resolution=resolution,
+                center_lat__gte=bbox["latitude_min"],
+                center_lat__lte=bbox["latitude_max"],
+                center_lng__gte=bbox["longitude_min"],
+                center_lng__lte=bbox["longitude_max"],
+            )
+            .order_by("-property_count")
+        )
+
+        results = [
+            {
+                "h3_index": cell.h3_index,
+                "resolution": cell.resolution,
+                "center_lat": float(cell.center_lat),
+                "center_lng": float(cell.center_lng),
+                "property_count": cell.property_count,
+                "updated_at": cell.updated_at,
+            }
+            for cell in cells
+        ]
+
+        return Response(
+            {
+                "mode": "aggregates",
+                "resolution": resolution,
+                "count": len(results),
+                "results": results,
+            }
+        )
+
 class PropertyDetailView(APIView):
     """
     Fetches a single property from DDF® API by PropertyKey.
