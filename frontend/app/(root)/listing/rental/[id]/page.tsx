@@ -218,7 +218,7 @@ export default async function RentalPropertyPage(
     <div className="min-h-screen bg-white">
       <Header />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-16">
+      <div className="root-content-offset max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
         <div className="mb-6">
           <nav className="flex" aria-label="Breadcrumb">

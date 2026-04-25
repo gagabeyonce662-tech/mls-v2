@@ -8,7 +8,7 @@ export default function NotFound() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 mt-16">
+      <div className="root-content-offset max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center">
           <h1 className={`${ds.h1} mb-4`}>Property Not Found</h1>
           <p className={`${ds.bodyRegular} text-ds-body mb-8`}>

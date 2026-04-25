@@ -35,7 +35,6 @@ jobs:
           CLOUDINARY_URL: ${{ secrets.CLOUDINARY_URL }}
         run: |
           cd backend
-          python manage.py makemigrations
           python manage.py migrate
           python manage.py sync_ddf_properties --threads 12
           python manage.py sync_wp_once

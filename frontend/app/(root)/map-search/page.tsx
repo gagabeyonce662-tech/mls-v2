@@ -275,7 +275,6 @@ export default function MapOnlyPage() {
 
       <main
         className="flex-1 relative flex flex-col"
-        style={{ paddingTop: "var(--navbar-height, 64px)" }}
       >
         <div className="flex-1 relative overflow-hidden">
           <div className="w-full h-full relative bg-ds-card">

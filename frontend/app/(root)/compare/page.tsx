@@ -174,7 +174,7 @@ function ComparePageContent() {
 
   if (isLoading && selectedIds.length > 0) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-20 lg:pt-28">
+      <div className="root-content-offset min-h-screen bg-gray-50">
         <Header />
         <LoadingState
           selectedCount={selectedIds.length}
@@ -187,7 +187,7 @@ function ComparePageContent() {
 
   if (isError) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-20 lg:pt-28">
+      <div className="root-content-offset min-h-screen bg-gray-50">
         <Header />
         <ErrorState
           error={error}
@@ -201,7 +201,7 @@ function ComparePageContent() {
 
   if (selectedIds.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-20 lg:pt-28">
+      <div className="root-content-offset min-h-screen bg-gray-50">
         <Header />
         <EmptyState />
         <Footer />
@@ -212,7 +212,7 @@ function ComparePageContent() {
   const errorProperties = comparisonProperties.filter((p) => p.error);
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20 lg:pt-28">
+    <div className="root-content-offset min-h-screen bg-gray-50">
       <Header />
 
       <div className="w-full px-2 sm:px-4 lg:px-6 2xl:px-8 py-8">

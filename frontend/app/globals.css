@@ -29,8 +29,17 @@ main {
   transition: margin-top 0.3s ease;
 }
 
+.root-content-offset {
+  margin-top: var(--header-height);
+  transition: margin-top 0.3s ease;
+}
+
 @media (max-width: 1023px) {
   main {
+    margin-top: var(--header-height-mobile);
+  }
+
+  .root-content-offset {
     margin-top: var(--header-height-mobile);
   }
 }

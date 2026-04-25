@@ -288,7 +288,7 @@ export default function RentalListingsPage() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      <div className="pt-20 pb-16">
+      <div className="root-content-offset pb-16 pt-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-8">

@@ -122,7 +122,7 @@ export default function ListingsPage() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      <div className="pt-32 pb-16">
+      <div className="root-content-offset pb-16 pt-8">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1
