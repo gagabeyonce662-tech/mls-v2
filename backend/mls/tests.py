@@ -1,8 +1,10 @@
-from django.test import TestCase
+import json
+
+from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from mls.models import Property
+from mls.models import Property, PropertyInquiry
 
 
 class MapAggregationAndFilterTests(TestCase):
@@ -186,3 +188,39 @@ class WatchedAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["favorites"], [])
         self.assertEqual(response.json()["history"], [])
+
+
+@override_settings(ALLOWED_HOSTS=["testserver", "localhost", "127.0.0.1"])
+class PropertyInquiryAPITests(TestCase):
+    def test_post_creates_property_inquiry(self):
+        payload = {
+            "first_name": "Pat",
+            "email": "pat@example.com",
+            "message": "Need a townhouse near transit under 950k thanks.",
+        }
+        response = self.client.post(
+            "/api/mls/inquiries/",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertIn("id", data)
+        obj = PropertyInquiry.objects.get(pk=data["id"])
+        self.assertEqual(obj.first_name, "Pat")
+        self.assertEqual(obj.email, "pat@example.com")
+        self.assertEqual(obj.status, "new")
+
+    def test_message_too_short_returns_400(self):
+        response = self.client.post(
+            "/api/mls/inquiries/",
+            data=json.dumps(
+                {
+                    "first_name": "Pat",
+                    "email": "pat@example.com",
+                    "message": "short",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)

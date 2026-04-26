@@ -18,6 +18,11 @@ import { DynamicHomepageSections } from "@/components/homepage/sections/DynamicH
 import LeadCaptureWidget from "@/components/homepage/LeadCaptureWidget";
 import { useHomepageCategories } from "@/hooks/useHomepageCategories";
 import { trackHomepageCategoryEvent } from "@/lib/analytics/homepageCategories";
+import {
+  HOMEPAGE_ROW_COUNT_EVENT,
+  HOMEPAGE_ROW_COUNT_PREF_KEY,
+  parseHomepageRowCountPreference,
+} from "@/lib/homepage/rowPreference";
 
 import dynamic from "next/dynamic";
 
@@ -40,6 +45,7 @@ const ConnectionsSection = dynamic(
 export default function HomePage() {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [isSticky, setIsSticky] = useState(false);
+  const [rowCountPreference, setRowCountPreference] = useState<number | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const isDynamicCategoriesEnabled = true;
   const { categories, hasError } = useHomepageCategories(isDynamicCategoriesEnabled);
@@ -70,6 +76,12 @@ export default function HomePage() {
       });
     });
   }, [isDynamicCategoriesEnabled, categories]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(HOMEPAGE_ROW_COUNT_PREF_KEY);
+    setRowCountPreference(parseHomepageRowCountPreference(raw));
+  }, []);
 
   return (
     <QuickViewProvider>
@@ -142,6 +154,46 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
+
+                <div className="w-full">
+                  <div className="mx-auto w-full max-w-md px-2">
+                    <div className="flex justify-center">
+                      <label className="flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm text-ds-body">
+                        <span className="font-medium">Results per row</span>
+                        <select
+                          value={rowCountPreference ? String(rowCountPreference) : "auto"}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === "auto") {
+                              window.localStorage.removeItem(HOMEPAGE_ROW_COUNT_PREF_KEY);
+                              setRowCountPreference(null);
+                              window.dispatchEvent(new Event(HOMEPAGE_ROW_COUNT_EVENT));
+                              return;
+                            }
+                            const parsed = Number(value);
+                            if (!Number.isFinite(parsed) || parsed <= 0) return;
+                            window.localStorage.setItem(
+                              HOMEPAGE_ROW_COUNT_PREF_KEY,
+                              String(parsed),
+                            );
+                            setRowCountPreference(parsed);
+                            window.dispatchEvent(new Event(HOMEPAGE_ROW_COUNT_EVENT));
+                          }}
+                          className="rounded-md border border-ds-card-border bg-white px-2 py-1 text-xs sm:text-sm"
+                        >
+                          <option value="auto">Auto</option>
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="6">6</option>
+                          <option value="8">8</option>
+                          <option value="12">12</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                </div>
                 <DynamicHomepageSections
                   categories={categories}
                   useFallback={!isDynamicCategoriesEnabled || hasError}

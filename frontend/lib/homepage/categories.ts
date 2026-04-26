@@ -129,8 +129,19 @@ export const toCatalogFallback = (): HomepageCategoryCatalog => ({
 const normalize = (value: string): string =>
   value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
+const PROPERTY_TYPE_ALIASES: Record<string, string> = {
+  "condo-apartment": "condo-apt",
+  "condo-apt": "condo-apt",
+  detached: "detached",
+  "semi-detached": "semi-detached",
+  semidetached: "semi-detached",
+  "freehold-townhouse": "freehold-townhouse",
+  townhouse: "freehold-townhouse",
+  "condo-townhouse": "condo-townhouse",
+};
+
 export const buildPropertyTypeCategoryKey = (propertyType: string): string =>
-  `property_type:${normalize(propertyType)}`;
+  `property_type:${PROPERTY_TYPE_ALIASES[normalize(propertyType)] || normalize(propertyType)}`;
 
 export function mergeHomepageCategories(
   backend: HomepageCategory[],
@@ -141,7 +152,7 @@ export function mergeHomepageCategories(
   const minCountThreshold =
     options?.minCountThreshold ?? HOMEPAGE_MIN_COUNT_THRESHOLD;
 
-  const merged = backend
+  const known = backend
     .map((category) => {
       const cfg = configMap.get(category.key);
       if (!cfg) return null;
@@ -168,8 +179,26 @@ export function mergeHomepageCategories(
       } satisfies HomepageCategory;
     })
     .filter((item): item is HomepageCategory => Boolean(item))
-    .sort((a, b) => a.order - b.order)
-    .slice(0, maxSections);
+    .sort((a, b) => a.order - b.order);
+
+  const unknownPropertyTypes = backend
+    .filter((category) => category.kind === "property_type")
+    .filter((category) => !configMap.has(category.key))
+    .filter((category) => {
+      const hasCount = Number.isFinite(category.count);
+      if (!hasCount) return true;
+      return category.count >= minCountThreshold;
+    })
+    .sort((a, b) => a.label.localeCompare(b.label))
+    .map((category, index) => ({
+      ...category,
+      enabled: true,
+      order: 1000 + index,
+      route: "/listing",
+      query: category.query,
+    }));
+
+  const merged = [...known, ...unknownPropertyTypes].slice(0, maxSections);
 
   if (merged.length === 0) {
     return toCatalogFallback().categories;

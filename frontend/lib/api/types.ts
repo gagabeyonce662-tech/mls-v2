@@ -201,6 +201,25 @@ export interface FeedbackSubmissionPayload {
   message: string;
 }
 
+export type PropertyInquiryIntent = "buy" | "sell" | "rent" | "explore";
+
+export interface PropertyInquiryPayload {
+  first_name: string;
+  last_name?: string;
+  email: string;
+  phone?: string;
+  intent?: PropertyInquiryIntent;
+  message: string;
+  preferred_locations?: string;
+  property_types?: string;
+  budget_min?: number | null;
+  budget_max?: number | null;
+  bedrooms_min?: number | null;
+  bathrooms_min?: number | null;
+  timeline?: string;
+  page_url?: string;
+}
+
 export interface School {
   name: string;
   operator: string;

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 
 const navigation = [
   { name: "Map Search", href: "/map-search" },
+  { name: "Find My Home", href: "/find-my-property" },
   { name: "Pre-Construction", href: "/Precon" },
   { name: "Home Valuation", href: "/valuation" },
   { name: "Blog", href: "/blog" },

@@ -2,6 +2,11 @@
 
 import { useState, useEffect } from "react";
 import type { Property } from "@/lib/api";
+import {
+  HOMEPAGE_ROW_COUNT_EVENT,
+  HOMEPAGE_ROW_COUNT_PREF_KEY,
+  parseHomepageRowCountPreference,
+} from "@/lib/homepage/rowPreference";
 
 /**
  * useOneRowListing Hook
@@ -25,6 +30,24 @@ export function useOneRowListing(
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [requestedCount, setRequestedCount] = useState(0);
+  const [preferredCount, setPreferredCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const sync = () => {
+      const raw = window.localStorage.getItem(HOMEPAGE_ROW_COUNT_PREF_KEY);
+      setPreferredCount(parseHomepageRowCountPreference(raw));
+    };
+
+    sync();
+    window.addEventListener(HOMEPAGE_ROW_COUNT_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(HOMEPAGE_ROW_COUNT_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
 
   // 1. Breakpoint Sensor
   useEffect(() => {
@@ -43,16 +66,23 @@ export function useOneRowListing(
       return 1;                     // mobile
     };
 
-    setRequestedCount(calculateRequired());
+    const applyPreference = (autoCount: number) => {
+      if (preferredCount && preferredCount > 0) {
+        return Math.min(autoCount, preferredCount);
+      }
+      return autoCount;
+    };
+
+    setRequestedCount(applyPreference(calculateRequired()));
 
     const handleResize = () => {
       const needed = calculateRequired();
-      setRequestedCount(needed);
+      setRequestedCount(applyPreference(needed));
     };
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [preferredCount]);
 
   // 2. Clear cache when dependencies change (e.g. search query or province)
   useEffect(() => {

@@ -7,6 +7,7 @@ from mls.models import (
     UserFeedback,
     UserFavorite,
     UserHistory,
+    PropertyInquiry,
 )
 
 
@@ -119,6 +120,54 @@ class UserFeedbackSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "status", "created_at"]
+
+
+class PropertyInquirySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyInquiry
+        fields = [
+            "id",
+            "user",
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "intent",
+            "message",
+            "preferred_locations",
+            "property_types",
+            "budget_min",
+            "budget_max",
+            "bedrooms_min",
+            "bathrooms_min",
+            "timeline",
+            "page_url",
+            "status",
+            "ghl_contact_id",
+            "ghl_synced_at",
+            "email_sent_at",
+            "last_error",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "user",
+            "status",
+            "ghl_contact_id",
+            "ghl_synced_at",
+            "email_sent_at",
+            "last_error",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate_message(self, value):
+        if not value or len(value.strip()) < 10:
+            raise serializers.ValidationError(
+                "Please enter at least 10 characters describing what you are looking for."
+            )
+        return value
 
 
 class WatchedMutationSerializer(serializers.Serializer):

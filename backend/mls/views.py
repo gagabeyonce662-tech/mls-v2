@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.db.models import Q, FloatField, Count
 from django.db.models.functions import Cast, Substr, Lower
 from django.core.paginator import Paginator
@@ -28,11 +28,14 @@ from .serializers import (
     PropertySerializer,
     PropertyDetailSerializer,
     UserFeedbackSerializer,
+    PropertyInquirySerializer,
     WatchedMutationSerializer,
     UserFavoriteSerializer,
     UserHistorySerializer,
 )
 from mls.services.map_aggregates import get_resolution_for_zoom
+from mls.services.inquiry_ghl import sync_inquiry_to_ghl
+from mls.services.inquiry_notifications import send_inquiry_email_to_realtor
 from mls.services.ai_listing_summary import (
     AISummaryGenerationError,
     generate_listing_summary,
@@ -263,6 +266,33 @@ class FeedbackAPIView(APIView):
             {
                 "id": feedback.id,
                 "message": "Feedback submitted successfully.",
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PropertyInquiryAPIView(APIView):
+    """
+    POST /api/mls/inquiries/
+    Create a property search / Find My Home inquiry for the realtor.
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PropertyInquirySerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        inquiry = serializer.save(
+            user=request.user if request.user.is_authenticated else None,
+        )
+        sync_inquiry_to_ghl(inquiry)
+        send_inquiry_email_to_realtor(inquiry)
+        return Response(
+            {
+                "id": inquiry.id,
+                "message": "Inquiry received.",
             },
             status=status.HTTP_201_CREATED,
         )

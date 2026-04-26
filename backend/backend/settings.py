@@ -229,6 +229,22 @@ GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 # GoHighLevel
 GHL_API_KEY = os.environ.get('GHL_API_KEY', '')
 GHL_LOCATION_ID = os.environ.get('GHL_LOCATION_ID', '')
+GHL_USER_ID = os.environ.get('GHL_USER_ID', '')
+
+# Email (realtor notifications, etc.)
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@vsell4u.ca')
+REALTOR_INBOX_EMAIL = os.environ.get('REALTOR_INBOX_EMAIL', '')
+# Base URL for links in outbound emails (e.g. Django admin change URL)
+PUBLIC_BACKEND_URL = os.environ.get('PUBLIC_BACKEND_URL', 'http://127.0.0.1:8000')
 
 # DRF
 REST_FRAMEWORK = {

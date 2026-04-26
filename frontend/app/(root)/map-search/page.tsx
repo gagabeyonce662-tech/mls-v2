@@ -20,6 +20,8 @@ import { useGeocoding } from "@/hooks/useGeocoding";
 import { useMapDrawing } from "@/hooks/useMapDrawing";
 import { getCustomIcon, getSelectedIcon } from "@/components/map/MapIcons";
 import { formatPrice } from "@/lib/helpers";
+import { getDetailUrl } from "@/lib/propertyUtils";
+import { openInNewTab } from "@/lib/navigation/openInNewTab";
 
 // Types
 import { AggregateCellMarker, PropertyMarker } from "@/components/map/types";
@@ -468,6 +470,15 @@ export default function MapOnlyPage() {
                           </span>
                         </div>
                       </div>
+                      {m.raw && (m.raw.listing_key || m.raw.PropertyKey) && (
+                        <button
+                          type="button"
+                          onClick={() => openInNewTab(getDetailUrl(m.raw!))}
+                          className="w-full mb-2 inline-flex items-center justify-center rounded-md border border-ds-primary text-ds-primary px-3 py-1.5 text-xs font-semibold hover:bg-ds-primary hover:text-white transition-colors"
+                        >
+                          Details
+                        </button>
+                      )}
                       <StreetViewButton lat={m.lat} lng={m.lng} />
                     </div>
                   </Popup>

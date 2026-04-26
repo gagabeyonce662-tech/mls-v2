@@ -4,6 +4,7 @@ from django.urls import path,include
 from .views import *
 
 urlpatterns = [
+    path('inquiries/', PropertyInquiryAPIView.as_view(), name='property-inquiries'),
     path('feedback/', FeedbackAPIView.as_view(), name='feedback'),
     path('watched/', WatchedOverviewAPIView.as_view(), name='watched-overview'),
     path('watched/favorites/toggle/', WatchedFavoriteToggleAPIView.as_view(), name='watched-favorite-toggle'),

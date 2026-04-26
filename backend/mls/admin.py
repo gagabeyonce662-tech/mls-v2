@@ -1,6 +1,6 @@
 # admin.py
 from django.contrib import admin
-from .models import Property, Room, Media, UserFeedback
+from .models import Property, Room, Media, UserFeedback, PropertyInquiry
 
 class RoomInline(admin.TabularInline):
     model = Room
@@ -31,6 +31,73 @@ class UserFeedbackAdmin(admin.ModelAdmin):
     list_filter = ("feedback_type", "status", "created_at")
     search_fields = ("name", "email", "message", "page_url")
     readonly_fields = ("created_at",)
+
+
+@admin.register(PropertyInquiry)
+class PropertyInquiryAdmin(admin.ModelAdmin):
+    list_display = (
+        "created_at",
+        "first_name",
+        "last_name",
+        "email",
+        "intent",
+        "status",
+        "ghl_synced_at",
+        "email_sent_at",
+    )
+    list_filter = ("status", "intent", "created_at")
+    list_editable = ("status",)
+    search_fields = (
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "message",
+        "preferred_locations",
+    )
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "ghl_contact_id",
+        "ghl_synced_at",
+        "email_sent_at",
+        "last_error",
+        "user",
+    )
+    fieldsets = (
+        ("Contact", {"fields": ("user", "first_name", "last_name", "email", "phone")}),
+        (
+            "Inquiry",
+            {
+                "fields": (
+                    "intent",
+                    "message",
+                    "preferred_locations",
+                    "property_types",
+                    "budget_min",
+                    "budget_max",
+                    "bedrooms_min",
+                    "bathrooms_min",
+                    "timeline",
+                    "page_url",
+                )
+            },
+        ),
+        ("Workflow", {"fields": ("status",)}),
+        (
+            "Delivery",
+            {
+                "fields": (
+                    "ghl_contact_id",
+                    "ghl_synced_at",
+                    "email_sent_at",
+                    "last_error",
+                )
+            },
+        ),
+        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    )
+
 
 admin.site.register(Property, PropertyAdmin)
 admin.site.register(Room, RoomAdmin)

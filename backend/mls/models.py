@@ -328,3 +328,69 @@ class UserFeedback(models.Model):
 
     def __str__(self):
         return f"{self.feedback_type} feedback ({self.created_at:%Y-%m-%d})"
+
+
+class PropertyInquiry(models.Model):
+    INTENT_CHOICES = [
+        ("buy", "Buy"),
+        ("sell", "Sell"),
+        ("rent", "Rent"),
+        ("explore", "Just Exploring"),
+    ]
+    STATUS_CHOICES = [
+        ("new", "New"),
+        ("contacted", "Contacted"),
+        ("closed", "Closed"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="property_inquiries",
+    )
+    first_name = models.CharField(max_length=120)
+    last_name = models.CharField(max_length=120, blank=True)
+    email = models.EmailField()
+    phone = models.CharField(max_length=30, blank=True)
+
+    intent = models.CharField(
+        max_length=20,
+        choices=INTENT_CHOICES,
+        default="buy",
+    )
+    message = models.TextField(help_text="Free-form description from the user")
+
+    preferred_locations = models.CharField(max_length=500, blank=True)
+    property_types = models.CharField(max_length=255, blank=True)
+    budget_min = models.PositiveIntegerField(null=True, blank=True)
+    budget_max = models.PositiveIntegerField(null=True, blank=True)
+    bedrooms_min = models.PositiveSmallIntegerField(null=True, blank=True)
+    bathrooms_min = models.PositiveSmallIntegerField(null=True, blank=True)
+    timeline = models.CharField(max_length=80, blank=True)
+
+    page_url = models.URLField(max_length=2000, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="new",
+    )
+
+    ghl_contact_id = models.CharField(max_length=255, blank=True)
+    ghl_synced_at = models.DateTimeField(null=True, blank=True)
+    email_sent_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "created_at"]),
+            models.Index(fields=["email"]),
+        ]
+
+    def __str__(self):
+        return f"Inquiry<{self.email}:{self.created_at:%Y-%m-%d}>"
