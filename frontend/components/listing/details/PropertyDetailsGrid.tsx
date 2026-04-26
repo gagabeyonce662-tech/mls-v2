@@ -26,7 +26,13 @@ export default function PropertyDetailsGrid({
     () => getPropertyDetailSections(property, { price, type, livingArea }),
     [property, price, type, livingArea],
   );
-  const rooms = useMemo(() => (property.rooms || property.Rooms || []) as Array<Record<string, unknown>>, [property]);
+  const rooms = useMemo(
+    () =>
+      (property.rooms || property.Rooms || []) as unknown as Array<
+        Record<string, unknown>
+      >,
+    [property],
+  );
   const visibleRooms = (showAllRooms ? rooms : rooms.slice(0, 5)).map((room) => {
     const name = String(room.room_type || room.RoomType || "").trim();
     const dims = getFormattedRoomDimensions(room).trim();

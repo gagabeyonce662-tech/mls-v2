@@ -38,7 +38,9 @@ export async function fetchAPI<T>(
       }
 
       const errorMessage =
-        typeof errorData === "object" ? JSON.stringify(errorData) : errorData;
+        typeof errorData === "object"
+          ? JSON.stringify(errorData)
+          : String(errorData ?? "");
 
       // Only log as error if it's not a common "not found" scenario which the caller might handle
       if (
