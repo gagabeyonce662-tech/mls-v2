@@ -2,6 +2,7 @@ import requests
 import hashlib
 import os
 import json
+import logging
 from io import BytesIO
 import pandas as pd
 from datetime import timedelta
@@ -21,7 +22,13 @@ from .helpers import get_access_token, fetch_properties_by_property_data
 from mls.models import MapAggregateCell, Property
 from .serializers import PropertySerializer,PropertyDetailSerializer
 from mls.services.map_aggregates import get_resolution_for_zoom
-from mls.services.ai_listing_summary import generate_listing_summary
+from mls.services.ai_listing_summary import (
+    AISummaryGenerationError,
+    generate_listing_summary,
+    is_summary_complete,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_bbox(params):
@@ -304,6 +311,7 @@ class ListingAISummaryAPIView(APIView):
     def post(self, request):
         listing_key = str(request.data.get("listing_key", "")).strip()
         property_payload = request.data.get("property", {}) or {}
+        logger.info("AI summary request received for listing_key=%s", listing_key)
 
         if not listing_key:
             return Response(
@@ -350,7 +358,9 @@ class ListingAISummaryAPIView(APIView):
         if (
             prop.ai_summary_markdown
             and prop.ai_summary_payload_hash == payload_hash
+            and is_summary_complete(prop.ai_summary_markdown)
         ):
+            logger.info("AI summary cache hit for listing_key=%s", listing_key)
             return Response(
                 {
                     "summary": prop.ai_summary_markdown,
@@ -358,6 +368,11 @@ class ListingAISummaryAPIView(APIView):
                     "updated_at": prop.ai_summary_updated_at,
                 },
                 status=status.HTTP_200_OK,
+            )
+        elif prop.ai_summary_markdown and not is_summary_complete(prop.ai_summary_markdown):
+            logger.info(
+                "AI summary cache bypassed (incomplete summary) for listing_key=%s",
+                listing_key,
             )
 
         gemini_api_key = os.environ.get("GEMINI_API_KEY", "").strip()
@@ -369,9 +384,23 @@ class ListingAISummaryAPIView(APIView):
 
         try:
             summary = generate_listing_summary(property_payload, gemini_api_key)
-        except Exception as exc:
+        except AISummaryGenerationError as exc:
+            logger.error(
+                "AI summary generation failed for listing_key=%s: %s",
+                listing_key,
+                str(exc),
+            )
             return Response(
                 {"error": f"Failed to generate summary: {str(exc)}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except Exception:
+            logger.exception(
+                "Unexpected AI summary error for listing_key=%s",
+                listing_key,
+            )
+            return Response(
+                {"error": "Failed to generate summary due to an internal error."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -385,6 +414,7 @@ class ListingAISummaryAPIView(APIView):
                 "ai_summary_updated_at",
             ]
         )
+        logger.info("AI summary saved for listing_key=%s", listing_key)
 
         return Response(
             {

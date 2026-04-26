@@ -13,10 +13,15 @@ import os
 from pathlib import Path
 from datetime import timedelta
 import dj_database_url
+from dotenv import load_dotenv
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load env values from backend/.env.local, then repo root .env.local.
+load_dotenv(BASE_DIR / ".env.local")
+load_dotenv(BASE_DIR.parent / ".env.local")
 
 
 # Quick-start development settings - unsuitable for production

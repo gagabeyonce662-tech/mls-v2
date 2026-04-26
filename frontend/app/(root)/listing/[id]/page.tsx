@@ -18,6 +18,7 @@ import PropertyStats from "@/components/listing/details/PropertyStats";
 import PropertyHistory from "@/components/listing/details/PropertyHistory";
 import PropertyDetailsGrid from "@/components/listing/details/PropertyDetailsGrid";
 import PropertySidebar from "@/components/listing/details/PropertySidebar";
+import ListingAISummary from "@/components/listing/details/ListingAISummary";
 import SimilarProperties from "@/components/listing/SimilarProperties";
 import { PropertyViewerTracker } from "@/components/listing/PropertyViewerTracker";
 import { MortgageCalculator } from "@/components/ui/MortgageCalculator";
@@ -232,6 +233,8 @@ export default async function ListingPage(props: ListingPageProps) {
                 <OverviewExcerpt text={description} maxChars={400} />
               </div>
             </section>
+
+            <ListingAISummary property={property} />
 
             <PropertyHistory history={history} />
 

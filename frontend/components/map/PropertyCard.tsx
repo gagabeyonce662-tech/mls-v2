@@ -1,8 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 import { PropertyMarker } from "./types";
 import { formatPrice } from "@/lib/helpers";
@@ -42,9 +40,6 @@ export default function PropertyCard({
   };
 
   const raw = property.raw || {};
-  const [isSummarizing, setIsSummarizing] = useState(false);
-  const [summaryMarkdown, setSummaryMarkdown] = useState<string>("");
-  const [summaryError, setSummaryError] = useState<string>("");
 
   const getPropertyPhoto = () => {
     const raw = property.raw;
@@ -86,52 +81,6 @@ export default function PropertyCard({
   const photo = getPropertyPhoto();
   const detailUrl =
     raw.listing_key || raw.PropertyKey ? getDetailUrl(raw as any) : null;
-
-  const summaryPayload = {
-    listing_key: raw.listing_key || raw.PropertyKey || property.id,
-    address: details.address,
-    city: details.city,
-    city_region: details.cityRegion,
-    list_price: property.price ?? raw.list_price ?? raw.ListPrice,
-    bedrooms_total: details.bedrooms,
-    bathrooms_total_integer: details.bathrooms,
-    building_area_total: details.squareFeet,
-    property_sub_type: details.propertyType,
-    year_built: details.yearBuilt,
-    standard_status: details.status,
-    public_remarks: raw.public_remarks || raw.PublicRemarks || "",
-    parking_total: raw.parking_total || raw.ParkingTotal || null,
-    lot_size_area: raw.lot_size_area || raw.LotSizeArea || null,
-    appliances: raw.appliances || raw.Appliances || "",
-  };
-
-  const handleGenerateSummary = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    setSummaryError("");
-    setIsSummarizing(true);
-    try {
-      const res = await fetch("/api/ai/listing-summary", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          property: summaryPayload,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to generate summary");
-      }
-
-      setSummaryMarkdown(data.summary || "No summary generated.");
-    } catch (err: any) {
-      setSummaryError(err?.message || "Could not generate summary right now.");
-    } finally {
-      setIsSummarizing(false);
-    }
-  };
 
   return (
     <motion.div
@@ -238,30 +187,6 @@ export default function PropertyCard({
             Street View
           </button>
         </div>
-
-        <div className="pt-1">
-          <button
-            onClick={handleGenerateSummary}
-            disabled={isSummarizing}
-            className="w-full px-3 py-2 bg-blue-50 text-blue-700 text-xs font-bold rounded-xl border border-blue-200 hover:bg-blue-100 transition-all disabled:opacity-60"
-          >
-            {isSummarizing ? "Generating AI Summary..." : "AI Summary"}
-          </button>
-        </div>
-
-        {(summaryMarkdown || summaryError) && (
-          <div className="rounded-xl border border-ds-card-border bg-gray-50 p-3 text-xs leading-relaxed">
-            {summaryError ? (
-              <p className="text-red-600 font-medium">{summaryError}</p>
-            ) : (
-              <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-headings:my-1">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {summaryMarkdown}
-                </ReactMarkdown>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Footer Meta */}
         <div className="flex justify-between items-center text-[10px] text-ds-body pt-1 font-medium">
