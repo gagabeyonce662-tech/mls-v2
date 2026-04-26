@@ -34,14 +34,13 @@ export default function PreConstructionPage() {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
 
-    // Use a negative top margin for the root to trigger when the sentinel 
-    // reaches the bottom of the sticky header.
+    // Trigger sticky state as the sentinel crosses beneath the header.
     const observer = new IntersectionObserver(
       ([entry]) => setIsSticky(!entry.isIntersecting),
-      { 
+      {
         threshold: [0],
-        rootMargin: "-64px 0px 0px 0px" 
-      }
+        rootMargin: "-56px 0px 0px 0px",
+      },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();

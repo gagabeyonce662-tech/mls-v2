@@ -23,24 +23,14 @@ body {
   color: #4b5563;
 }
 
-main {
-  /* Dynamic spacing that respects the intelligent header */
-  margin-top: var(--header-height);
-  transition: margin-top 0.3s ease;
-}
-
 .root-content-offset {
-  margin-top: var(--header-height);
-  transition: margin-top 0.3s ease;
+  padding-top: var(--header-height);
+  transition: padding-top 0.3s ease;
 }
 
 @media (max-width: 1023px) {
-  main {
-    margin-top: var(--header-height-mobile);
-  }
-
   .root-content-offset {
-    margin-top: var(--header-height-mobile);
+    padding-top: var(--header-height-mobile);
   }
 }
 
@@ -78,8 +68,8 @@ h6 {
 
 /* CSS Variables (Custom Design) */
 :root {
-  --header-height: 104px;
-  --header-height-mobile: 64px;
+  --header-height: 120px;
+  --header-height-mobile: 96px;
   --font-inter: "Inter", system-ui, -apple-system, sans-serif;
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;

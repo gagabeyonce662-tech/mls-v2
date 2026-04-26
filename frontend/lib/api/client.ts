@@ -26,11 +26,15 @@ export async function fetchAPI<T>(
     // console.log(`API Request: ${url} - Status: ${response.status}`);
 
     if (!response.ok) {
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch {
-        errorData = await response.text();
+      // Read body exactly once to avoid "body stream already read" errors.
+      const rawErrorBody = await response.text();
+      let errorData: unknown = rawErrorBody;
+      if (rawErrorBody) {
+        try {
+          errorData = JSON.parse(rawErrorBody);
+        } catch {
+          errorData = rawErrorBody;
+        }
       }
 
       const errorMessage =

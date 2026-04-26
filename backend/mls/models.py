@@ -189,6 +189,9 @@ class Property(models.Model):
     water_source = models.TextField(null=True, blank=True)
     sewer = models.TextField(null=True, blank=True)
     electric = models.TextField(null=True, blank=True)
+    ai_summary_markdown = models.TextField(null=True, blank=True)
+    ai_summary_payload_hash = models.CharField(max_length=64, null=True, blank=True)
+    ai_summary_updated_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"Property {self.listing_key} - {self.city}"

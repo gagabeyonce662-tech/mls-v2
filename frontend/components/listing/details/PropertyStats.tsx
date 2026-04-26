@@ -23,7 +23,10 @@ export default function PropertyStats({
     { label: "Living Area", value: sqft, icon: Maximize },
     { label: "Property Type", value: type, icon: HomeIcon },
     { label: "Year Built", value: year, icon: Calendar },
-  ];
+  ].filter((stat) => {
+    const value = String(stat.value ?? "").trim().toLowerCase();
+    return value && value !== "n/a" && value !== "null";
+  });
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">

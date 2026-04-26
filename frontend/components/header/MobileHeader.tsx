@@ -45,12 +45,12 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
     scrollThreshold: 20,
     cssVarName: "--header-height-mobile",
     heightFull: "96px",
-    heightScrolled: "64px",
+    heightScrolled: "56px",
   });
 
   return (
     <header
-      className={`lg:hidden fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`xl:hidden fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         applyLightMode
           ? "bg-white/95 backdrop-blur-md shadow-md"
           : "bg-transparent shadow-none"

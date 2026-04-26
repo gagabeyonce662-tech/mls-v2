@@ -1,4 +1,7 @@
 import requests
+import hashlib
+import os
+import json
 from io import BytesIO
 import pandas as pd
 from datetime import timedelta
@@ -18,6 +21,7 @@ from .helpers import get_access_token, fetch_properties_by_property_data
 from mls.models import MapAggregateCell, Property
 from .serializers import PropertySerializer,PropertyDetailSerializer
 from mls.services.map_aggregates import get_resolution_for_zoom
+from mls.services.ai_listing_summary import generate_listing_summary
 
 
 def _parse_bbox(params):
@@ -288,6 +292,107 @@ class MapAggregatesAPIView(APIView):
                 "count": len(results),
                 "results": results,
             }
+        )
+
+
+class ListingAISummaryAPIView(APIView):
+    """
+    POST /api/mls/properties/ai-summary/
+    Generates or returns cached AI markdown summary and persists in Property table.
+    """
+
+    def post(self, request):
+        listing_key = str(request.data.get("listing_key", "")).strip()
+        property_payload = request.data.get("property", {}) or {}
+
+        if not listing_key:
+            return Response(
+                {"error": "listing_key is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        prop = Property.objects.filter(listing_key=listing_key).first()
+        if not prop:
+            return Response(
+                {"error": "Property not found for listing_key"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not isinstance(property_payload, dict):
+            return Response(
+                {"error": "property must be an object"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not property_payload:
+            property_payload = {
+                "listing_key": prop.listing_key,
+                "address": prop.unparsed_address,
+                "city": prop.city,
+                "city_region": prop.city_region,
+                "list_price": prop.list_price,
+                "bedrooms_total": prop.bedrooms_total,
+                "bathrooms_total_integer": prop.bathrooms_total_integer,
+                "building_area_total": prop.building_area_total,
+                "property_sub_type": prop.property_sub_type,
+                "year_built": prop.year_built,
+                "standard_status": prop.standard_status,
+                "public_remarks": prop.public_remarks,
+                "parking_total": prop.parking_total,
+                "lot_size_area": prop.lot_size_area,
+                "appliances": prop.appliances,
+            }
+
+        payload_hash = hashlib.sha256(
+            json.dumps(property_payload, sort_keys=True, default=str).encode("utf-8")
+        ).hexdigest()
+
+        if (
+            prop.ai_summary_markdown
+            and prop.ai_summary_payload_hash == payload_hash
+        ):
+            return Response(
+                {
+                    "summary": prop.ai_summary_markdown,
+                    "cached": True,
+                    "updated_at": prop.ai_summary_updated_at,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        gemini_api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+        if not gemini_api_key:
+            return Response(
+                {"error": "GEMINI_API_KEY is not configured on backend"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        try:
+            summary = generate_listing_summary(property_payload, gemini_api_key)
+        except Exception as exc:
+            return Response(
+                {"error": f"Failed to generate summary: {str(exc)}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        prop.ai_summary_markdown = summary
+        prop.ai_summary_payload_hash = payload_hash
+        prop.ai_summary_updated_at = timezone.now()
+        prop.save(
+            update_fields=[
+                "ai_summary_markdown",
+                "ai_summary_payload_hash",
+                "ai_summary_updated_at",
+            ]
+        )
+
+        return Response(
+            {
+                "summary": summary,
+                "cached": False,
+                "updated_at": prop.ai_summary_updated_at,
+            },
+            status=status.HTTP_200_OK,
         )
 
 class PropertyDetailView(APIView):

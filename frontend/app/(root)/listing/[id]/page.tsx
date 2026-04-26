@@ -21,6 +21,11 @@ import PropertySidebar from "@/components/listing/details/PropertySidebar";
 import SimilarProperties from "@/components/listing/SimilarProperties";
 import { PropertyViewerTracker } from "@/components/listing/PropertyViewerTracker";
 import { MortgageCalculator } from "@/components/ui/MortgageCalculator";
+import {
+  getLotSizeSummary,
+  getParkingSummary,
+  getTaxAnnualAmount,
+} from "@/lib/propertyUtils";
 
 interface ListingPageProps {
   params: Promise<{
@@ -100,9 +105,9 @@ export default async function ListingPage(props: ListingPageProps) {
   };
 
   const getBedCount = () =>
-    property.bedrooms_total || property.BedroomsTotal || "N/A";
+    property.bedrooms_total || property.BedroomsTotal || null;
   const getBathCount = () =>
-    property.bathrooms_total_integer || property.BathroomsTotalInteger || "N/A";
+    property.bathrooms_total_integer || property.BathroomsTotalInteger || null;
   const getCity = () => property.city || property.City || "N/A";
   const getAddress = () =>
     property.unparsed_address ||
@@ -125,7 +130,7 @@ export default async function ListingPage(props: ListingPageProps) {
     if (property.LivingAreaMinimum && property.LivingAreaMaximum) {
       return `${property.LivingAreaMinimum} - ${property.LivingAreaMaximum} sq ft`;
     }
-    return "N/A";
+    return "";
   };
 
   const history = [
@@ -143,19 +148,30 @@ export default async function ListingPage(props: ListingPageProps) {
     },
   ];
 
+  const beds = getBedCount();
+  const baths = getBathCount();
+  const livingArea = getLivingArea();
+  const builtYear = property.year_built || property.YearBuilt;
+
   const description =
     property.public_remarks ||
     property.PublicRemarks ||
     property.PrivateRemarks ||
     property.Description ||
-    `This ${getPropertyType()} is located in ${getCity()}, ${property.StateOrProvince || "Ontario"}. Built in ${property.year_built || property.YearBuilt || "N/A"}, this property features ${getBedCount()} bedrooms and ${getBathCount()} bathrooms${getLivingArea() !== "N/A" ? ` with ${getLivingArea()} of living space` : ""}.`;
+    `This ${getPropertyType()} is located in ${getCity()}, ${property.StateOrProvince || "Ontario"}${builtYear ? `. Built in ${builtYear}` : ""}${beds || baths ? `, this property features ${beds ? `${beds} bedrooms` : ""}${beds && baths ? " and " : ""}${baths ? `${baths} bathrooms` : ""}` : ""}${livingArea ? ` with ${livingArea} of living space` : ""}.`;
+
+  const quickFacts = [
+    { label: "Lot Size", value: getLotSizeSummary(property) },
+    { label: "Parking", value: getParkingSummary(property) },
+    { label: "Annual Taxes", value: getTaxAnnualAmount(property) },
+  ].filter((item) => item.value);
 
   return (
     <div className="min-h-screen bg-ds-background">
       <Header />
       <PropertyViewerTracker property={property} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-16 animate-in fade-in duration-700">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-700">
         <PropertyHeader
           propertyType={getPropertyType()}
           city={getCity()}
@@ -182,12 +198,33 @@ export default async function ListingPage(props: ListingPageProps) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           <div className="lg:col-span-2 space-y-12">
             <PropertyStats
-              beds={getBedCount()}
-              baths={getBathCount()}
-              sqft={getLivingArea()}
+              beds={beds || ""}
+              baths={baths || ""}
+              sqft={livingArea}
               type={getPropertyType()}
-              year={property.year_built || property.YearBuilt || "N/A"}
+              year={builtYear || ""}
             />
+
+            {quickFacts.length > 0 && (
+              <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
+                <h2 className={`${ds.h3} mb-4`}>Quick Facts</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {quickFacts.map((fact) => (
+                    <div
+                      key={fact.label}
+                      className="rounded-xl border border-ds-card-border bg-ds-card/40 p-4"
+                    >
+                      <p className="text-xs uppercase tracking-wide text-ds-body mb-1">
+                        {fact.label}
+                      </p>
+                      <p className="text-sm font-semibold text-ds-heading">
+                        {fact.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section>
               <h2 className={`${ds.h3} mb-4`}>About this home</h2>
@@ -228,7 +265,7 @@ export default async function ListingPage(props: ListingPageProps) {
               property={property}
               price={getPrice()}
               type={getPropertyType()}
-              livingArea={getLivingArea()}
+              livingArea={livingArea}
             />
           </div>
 

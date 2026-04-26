@@ -185,6 +185,23 @@ export interface NearestSchoolsResponse {
   search_radius_m: number;
 }
 
+export interface MapAggregateCell {
+  h3_index: string;
+  resolution: number;
+  center_lat: number;
+  center_lng: number;
+  property_count: number;
+  updated_at?: string;
+}
+
+export interface MapAggregatesResponse {
+  mode: "aggregates" | "listings";
+  resolution: number | null;
+  count?: number;
+  results: MapAggregateCell[];
+  message?: string;
+}
+
 export interface VlogCategory {
   id: number;
   name: string;

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import { useHeaderState } from "@/hooks/useHeaderState";
 import { motion } from "framer-motion";
 import {
@@ -32,6 +33,8 @@ interface DesktopHeaderProps {
 }
 
 export function DesktopHeader({ navigation }: DesktopHeaderProps) {
+  const [showMainNav, setShowMainNav] = useState(true);
+  const lastScrollY = useRef(0);
   const { selectedProvince, setSelectedProvince, getAllProvinces } =
     useProvince();
   const { user, logout } = useUserAuth();
@@ -39,16 +42,30 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
   const { scrolled, applyLightMode } = useHeaderState({
     scrollThreshold: 50,
     cssVarName: "--header-height",
-    heightFull: "104px",
+    heightFull: "120px",
     heightScrolled: "56px",
   });
+
+  useEffect(() => {
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      const scrollingUp = currentY < lastScrollY.current;
+      const nearTop = currentY <= 10;
+
+      setShowMainNav(nearTop || scrollingUp);
+      lastScrollY.current = currentY;
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className={`hidden lg:block fixed top-0 left-0 right-0 z-50 transition-colors duration-500 ${applyLightMode
+      className={`hidden xl:block fixed top-0 left-0 right-0 z-50 transition-colors duration-500 ${applyLightMode
           ? "bg-white/95 backdrop-blur-md shadow-lg"
           : "bg-transparent shadow-none"
         }`}
@@ -121,8 +138,14 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
       </motion.div>
 
       {/* 🧭 Main Navigation Tier */}
-      <div
-        className={`transition-all duration-500 ease-out ${scrolled ? "bg-transparent h-14" : "bg-transparent h-20"}`}
+      <motion.div
+        initial={false}
+        animate={{
+          height: showMainNav ? (scrolled ? 56 : 80) : 0,
+          opacity: showMainNav ? 1 : 0,
+        }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="bg-transparent overflow-hidden"
       >
         <div className="w-full px-4 lg:px-6 flex items-center justify-between h-full">
           {/* 🏠 Logo */}
@@ -135,23 +158,23 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
                 alt="Estate-4u"
                 width={208}
                 height={56}
-                className={`h-full w-full object-contain object-left transition-all duration-300 ${!applyLightMode ? "brightness-0 invert" : ""}`}
+                className="h-full w-full object-contain object-left transition-all duration-300"
                 priority
               />
             </div>
           </Link>
 
           {/* 🧭 Navigation Links */}
-          <nav className="flex-1 flex items-center justify-center gap-x-8 xl:gap-x-12 2xl:gap-x-16 3xl:gap-x-24 px-8">
+          <nav className="flex-1 min-w-0 flex items-center justify-center gap-x-5 xl:gap-x-7 2xl:gap-x-10 3xl:gap-x-14 px-4 xl:px-6">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`text-sm font-bold transition-all duration-200 font-inter relative group uppercase tracking-widest ${applyLightMode ? "text-ds-heading hover:text-ds-primary" : "text-white hover:text-white/80"}`}
+                className="text-sm font-bold transition-all duration-200 font-inter relative group uppercase tracking-wide whitespace-nowrap text-ds-heading hover:text-ds-primary"
               >
                 {item.name}
                 <span
-                  className={`absolute -bottom-1 left-0 w-0 h-0.5 transition-all duration-300 group-hover:w-full rounded-full ${applyLightMode ? "bg-ds-primary" : "bg-white"}`}
+                  className="absolute -bottom-1 left-0 w-0 h-0.5 transition-all duration-300 group-hover:w-full rounded-full bg-ds-primary"
                 />
               </Link>
             ))}
@@ -210,14 +233,14 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
                 <Link href="/sign-in">
                   <Button
                     variant="ghost"
-                    className={`text-sm font-bold h-9 px-4 transition-all ${applyLightMode ? "text-ds-heading hover:bg-ds-card" : "text-white hover:bg-white/10"}`}
+                    className="text-sm font-bold h-9 px-3 xl:px-4 transition-all whitespace-nowrap text-ds-heading hover:bg-ds-card"
                   >
                     Sign In
                   </Button>
                 </Link>
                 <Link href="/sign-up">
                   <Button
-                    className={`text-sm font-bold h-9 px-6 shadow-md hover:shadow-lg transition-all ${applyLightMode ? "bg-ds-primary text-white hover:bg-ds-primary/90" : "bg-white text-ds-primary hover:bg-white/90"}`}
+                    className="text-sm font-bold h-9 px-4 xl:px-5 shadow-md hover:shadow-lg transition-all whitespace-nowrap bg-ds-primary text-white hover:bg-ds-primary/90"
                   >
                     Register
                   </Button>
@@ -226,7 +249,7 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
     </motion.header>
   );
 }

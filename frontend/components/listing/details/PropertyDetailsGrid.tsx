@@ -1,8 +1,15 @@
-import React from "react";
+"use client";
+
+import React, { useMemo, useState } from "react";
 import { ds } from "@/lib/design-system-utils";
+import type { Property } from "@/lib/api";
+import {
+  getFormattedRoomDimensions,
+  getPropertyDetailSections,
+} from "@/lib/propertyUtils";
 
 interface PropertyDetailsGridProps {
-  property: any;
+  property: Property;
   price: string;
   type: string;
   livingArea: string;
@@ -14,54 +21,18 @@ export default function PropertyDetailsGrid({
   type,
   livingArea,
 }: PropertyDetailsGridProps) {
-  const sections = [
-    {
-      title: "Financial Information",
-      items: [
-        { label: "List Price", value: price },
-        {
-          label: "Status",
-          value: property.standard_status || property.StandardStatus || "N/A",
-        },
-        {
-          label: "MLS Number",
-          value:
-            property.listing_key ||
-            property.ListingKey ||
-            property.PropertyKey ||
-            "N/A",
-        },
-      ],
-    },
-    {
-      title: "Building Facts",
-      items: [
-        { label: "Property Type", value: type },
-        {
-          label: "Year Built",
-          value: property.year_built || property.YearBuilt || "N/A",
-        },
-        { label: "Building Area", value: livingArea },
-      ],
-    },
-    {
-      title: "Listing Details",
-      items: [
-        {
-          label: "Postal Code",
-          value: property.postal_code || property.PostalCode || "N/A",
-        },
-        {
-          label: "Photos Count",
-          value: property.photos_count || property.Photos?.length || "N/A",
-        },
-        {
-          label: "Rooms Total",
-          value: property.rooms?.length || property.Rooms?.length || "N/A",
-        },
-      ],
-    },
-  ];
+  const [showAllRooms, setShowAllRooms] = useState(false);
+  const sections = useMemo(
+    () => getPropertyDetailSections(property, { price, type, livingArea }),
+    [property, price, type, livingArea],
+  );
+  const rooms = useMemo(() => (property.rooms || property.Rooms || []) as Array<Record<string, unknown>>, [property]);
+  const visibleRooms = (showAllRooms ? rooms : rooms.slice(0, 5)).map((room) => {
+    const name = String(room.room_type || room.RoomType || "").trim();
+    const dims = getFormattedRoomDimensions(room).trim();
+    return { name, dims };
+  }).filter((room) => room.name || room.dims);
+  const hasMoreRooms = rooms.length > 5;
 
   return (
     <div className="space-y-6">
@@ -94,7 +65,7 @@ export default function PropertyDetailsGrid({
         ))}
 
         {/* Room Details if available */}
-        {(property.rooms?.length > 0 || property.Rooms?.length > 0) && (
+        {rooms.length > 0 && (
           <div className="border border-ds-card-border rounded-xl overflow-hidden shadow-sm">
             <div className="bg-ds-card px-4 py-3 border-b border-ds-card-border">
               <h3 className="text-sm font-bold text-ds-heading">
@@ -102,22 +73,31 @@ export default function PropertyDetailsGrid({
               </h3>
             </div>
             <div className="p-4 max-h-48 overflow-y-auto space-y-3">
-              {(property.rooms || property.Rooms)
-                .slice(0, 5)
-                .map((room: any, i: number) => (
+              {visibleRooms.map((room, i) => (
                   <div
                     key={i}
                     className="flex justify-between items-center text-sm"
                   >
-                    <span className="text-ds-body">
-                      {room.room_type || room.RoomType}
-                    </span>
-                    <span className="font-semibold text-ds-heading">
-                      {room.room_dimensions || room.RoomDimensions || "N/A"}
-                    </span>
+                    {room.name && <span className="text-ds-body">{room.name}</span>}
+                    {room.dims && (
+                      <span className="font-semibold text-ds-heading">
+                        {room.dims}
+                      </span>
+                    )}
                   </div>
                 ))}
             </div>
+            {hasMoreRooms && (
+              <div className="px-4 pb-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAllRooms((prev) => !prev)}
+                  className="text-sm font-medium text-ds-primary hover:underline"
+                >
+                  {showAllRooms ? "Show fewer rooms" : `Show all rooms (${rooms.length})`}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

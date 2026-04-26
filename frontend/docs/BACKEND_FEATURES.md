@@ -33,10 +33,11 @@ Based on codebase analysis of `frontend/lib/api.ts` and application logic, here 
 - **Upload:** Supports bulk upload of pre-construction properties via CSV/Excel file.
 - **Auth:** Protected by `Authorization: Bearer {token}` (though no public login endpoint exists).
 
-### Property Comparison (`/api/mls/properties/comapare/`)
+### Property Comparison (`/api/mls/properties/compare/`)
 
 - **Compare:** granular comparison of multiple property keys.
 - **Returns:** Side-by-side data for selected listings.
+- **Backward Compatibility:** legacy typo route `/api/mls/properties/comapare/` may still be available.
 
 ## 2. Search & Discovery
 
@@ -46,6 +47,16 @@ Based on codebase analysis of `frontend/lib/api.ts` and application logic, here 
   - `latitude_min`, `latitude_max`
   - `longitude_min`, `longitude_max`
 - **Keyword Search:** fuzzy search on address or remarks.
+
+### Map Aggregates (`/api/mls/properties/map-aggregates/`)
+
+- **Zoom-based Density Mode:** returns H3 aggregate cells for low/mid zoom map views.
+- **Params:**
+  - Bounding box: `latitude_min`, `latitude_max`, `longitude_min`, `longitude_max`
+  - Zoom: `zoom` (integer)
+- **Response shape:** `mode`, `resolution`, `count`, `results[]`
+  - Each result includes: `h3_index`, `center_lat`, `center_lng`, `property_count`, `updated_at`
+- **Behavior:** at higher zoom levels, UI should switch to listing marker mode.
 
 ## 3. Content Management
 
