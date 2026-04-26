@@ -5,6 +5,11 @@ from .views import *
 
 urlpatterns = [
     path('feedback/', FeedbackAPIView.as_view(), name='feedback'),
+    path('watched/', WatchedOverviewAPIView.as_view(), name='watched-overview'),
+    path('watched/favorites/toggle/', WatchedFavoriteToggleAPIView.as_view(), name='watched-favorite-toggle'),
+    path('watched/history/add/', WatchedHistoryAddAPIView.as_view(), name='watched-history-add'),
+    path('watched/favorites/clear/', WatchedClearFavoritesAPIView.as_view(), name='watched-favorites-clear'),
+    path('watched/history/clear/', WatchedClearHistoryAPIView.as_view(), name='watched-history-clear'),
     path('properties/map-aggregates/', MapAggregatesAPIView.as_view(), name='map-aggregates'),
     path('properties/property-types/', PropertyTypesAPIView.as_view(), name='property-types'),
     path('properties/exclusive-properties/', ExclusivePropertiesAPIView.as_view(), name='exclusive_properties'),

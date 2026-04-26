@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from datetime import timedelta
 from django.utils import timezone
 from .helpers import regenerate_access_token_with_refresh_token
@@ -248,6 +249,59 @@ class MapAggregateCell(models.Model):
             f"H3({self.resolution}) {self.h3_index} "
             f"=> {self.property_count} properties"
         )
+
+
+class UserFavorite(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="watched_favorites",
+    )
+    property_key = models.CharField(max_length=255)
+    property_snapshot_json = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "property_key"],
+                name="unique_user_favorite_property_key",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "-created_at"]),
+            models.Index(fields=["property_key"]),
+        ]
+
+    def __str__(self):
+        return f"Favorite<{self.user_id}:{self.property_key}>"
+
+
+class UserHistory(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="watched_history",
+    )
+    property_key = models.CharField(max_length=255)
+    property_snapshot_json = models.JSONField(default=dict, blank=True)
+    viewed_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "property_key"],
+                name="unique_user_history_property_key",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "-viewed_at"]),
+            models.Index(fields=["property_key"]),
+        ]
+        ordering = ["-viewed_at"]
+
+    def __str__(self):
+        return f"History<{self.user_id}:{self.property_key}>"
 
 
 class UserFeedback(models.Model):

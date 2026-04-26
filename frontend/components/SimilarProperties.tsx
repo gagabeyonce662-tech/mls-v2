@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-
-import { useRouter } from "next/navigation";
 import { Bed, Bath, Maximize } from "lucide-react";
 import { ds } from "@/lib/design-system-utils";
 import Link from "next/link";
 import { getDetailUrl } from "@/lib/propertyUtils";
+import { openInNewTab } from "@/lib/navigation/openInNewTab";
 
 interface SimilarPropertiesProps {
   currentPropertyId: string;
@@ -42,7 +41,6 @@ export default function SimilarProperties({
   listPrice,
   bedrooms,
 }: SimilarPropertiesProps) {
-  const router = useRouter();
   const [similarProperties, setSimilarProperties] = useState<SimilarProperty[]>(
     [],
   );
@@ -155,7 +153,7 @@ export default function SimilarProperties({
 
   // Handle property click
   const handlePropertyClick = (property: any) => {
-    router.push(getDetailUrl(property));
+    openInNewTab(getDetailUrl(property));
   };
 
   return (

@@ -21,6 +21,7 @@ export default function BlogClient({
 }: BlogClientProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [failedImageIds, setFailedImageIds] = useState<Set<number>>(new Set());
 
   // Filter posts based on category and search query
   const filteredPosts = useMemo(() => {
@@ -62,12 +63,19 @@ export default function BlogClient({
   };
 
   const getImageUrl = (post: VlogPost) => {
-    if (post.thumbnail) {
+    const resolvedThumbnail = post.thumbnail || post.thumbnail_url;
+
+    if (failedImageIds.has(post.id)) {
+      return fallbackImage;
+    }
+
+    if (resolvedThumbnail) {
       // Handle relative URLs from Django backend
-      if (post.thumbnail.startsWith("/")) {
-        return `${env.NEXT_PUBLIC_API_URL}${post.thumbnail}`;
+      if (resolvedThumbnail.startsWith("/")) {
+        const baseUrl = env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+        return `${baseUrl}${resolvedThumbnail}`;
       }
-      return post.thumbnail;
+      return resolvedThumbnail;
     }
     return fallbackImage;
   };
@@ -194,7 +202,15 @@ export default function BlogClient({
                       alt={post.title}
                       width={600}
                       height={400}
+                      unoptimized
                       className="w-full h-full object-cover"
+                      onError={() =>
+                        setFailedImageIds((prev) => {
+                          const next = new Set(prev);
+                          next.add(post.id);
+                          return next;
+                        })
+                      }
                     />
                     {post.category && (
                       <div className="absolute top-4 left-4">

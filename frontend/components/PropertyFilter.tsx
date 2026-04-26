@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   SlidersHorizontal,
@@ -17,7 +18,6 @@ import {
 } from "lucide-react";
 import { colors } from "@/config/design-system";
 import {
-  fetchExclusiveProperties,
   fetchPropertyTypes,
   type ExclusivePropertyFilterParams,
   type PropertyTypeOption,
@@ -30,6 +30,7 @@ import { FilterInput } from "@/components/shared/FilterInput";
 import { useSearch } from "@/contexts/SearchContext";
 import { useFilterState } from "@/hooks/useFilterState";
 import { cn } from "@/lib/utils";
+import { filtersToSearchParams } from "@/lib/searchParams";
 import {
   Select,
   SelectContent,
@@ -55,10 +56,9 @@ export default function PropertyFilter({
   initialCity,
   isSticky = false,
 }: PropertyFilterProps) {
-  const { applyFilters, viewMode, toggleViewMode } = useSearch();
-  const { state, setters, clearFilters, calculateActiveFilters } =
-    useFilterState();
-  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
+  const router = useRouter();
+  const { viewMode, toggleViewMode } = useSearch();
+  const { state, setters, clearFilters } = useFilterState();
   const [availablePropertyTypes, setAvailablePropertyTypes] = useState<
     PropertyTypeOption[]
   >([]);
@@ -116,91 +116,81 @@ export default function PropertyFilter({
     setIsLoading,
   } = setters;
 
+  const buildFilters = (): ExclusivePropertyFilterParams => {
+    const filters: ExclusivePropertyFilterParams = {};
+
+    if (propertyType.length > 0) {
+      const apiPropertyTypes = propertyType
+        .map(
+          (type) =>
+            availablePropertyTypes.find((opt) => toTypeKey(opt.value) === type)
+              ?.value || type,
+        )
+        .filter(Boolean)
+        .filter((value, index, self) => self.indexOf(value) === index);
+      if (apiPropertyTypes.length > 0) {
+        filters.property_sub_type = apiPropertyTypes.join(",");
+      }
+    }
+
+    if (searchQuery.trim()) filters.city = searchQuery.trim();
+
+    if (priceRange.min) {
+      const minValue = parseInt(priceRange.min.replace(/[^0-9]/g, ""));
+      if (!isNaN(minValue) && minValue > 0) filters.price_min = minValue;
+    }
+    if (priceRange.max) {
+      const maxValue = parseInt(priceRange.max.replace(/[^0-9]/g, ""));
+      if (!isNaN(maxValue) && maxValue > 0) filters.price_max = maxValue;
+    }
+
+    if (bedrooms !== "all" && bedrooms !== "") {
+      const bedroomNum = parseInt(bedrooms.replace("+", ""));
+      if (!isNaN(bedroomNum) && bedroomNum > 0) filters.bedrooms = bedroomNum;
+    }
+
+    if (bathrooms !== "all" && bathrooms !== "") {
+      const bathroomNum = parseInt(bathrooms.replace("+", ""));
+      if (!isNaN(bathroomNum) && bathroomNum > 0) filters.bathrooms = bathroomNum;
+    }
+
+    if (notifyFor === "for-sale") filters.standard_status = "Active";
+    else if (notifyFor === "sold") filters.standard_status = "Sold";
+
+    if (hasPhotos !== null) filters.has_photos = hasPhotos;
+
+    if (squareFootage.min) {
+      const sqftMin = parseInt(squareFootage.min.replace(/[^0-9]/g, ""));
+      if (!isNaN(sqftMin) && sqftMin > 0) filters.building_area_min = sqftMin;
+    }
+    if (squareFootage.max) {
+      const sqftMax = parseInt(squareFootage.max.replace(/[^0-9]/g, ""));
+      if (!isNaN(sqftMax) && sqftMax > 0) filters.building_area_max = sqftMax;
+    }
+
+    const limitValue = parseInt(limit);
+    if (!isNaN(limitValue) && limitValue > 0) {
+      filters.limit = limitValue;
+    }
+
+    return filters;
+  };
+
   const fetchFilteredProperties = async () => {
     try {
       setIsLoading(true);
-      const filters: ExclusivePropertyFilterParams = {};
-
-      if (propertyType.length > 0) {
-        const apiPropertyTypes = propertyType
-          .map((type) =>
-            availablePropertyTypes.find((opt) => toTypeKey(opt.value) === type)
-              ?.value || type,
-          )
-          .filter(Boolean)
-          .filter((value, index, self) => self.indexOf(value) === index);
-        if (apiPropertyTypes.length > 0) {
-          filters.property_sub_type = apiPropertyTypes.join(",");
-        }
-      }
-
-      if (searchQuery.trim()) filters.city = searchQuery.trim();
-
-      if (priceRange.min) {
-        const minValue = parseInt(priceRange.min.replace(/[^0-9]/g, ""));
-        if (!isNaN(minValue) && minValue > 0) filters.price_min = minValue;
-      }
-      if (priceRange.max) {
-        const maxValue = parseInt(priceRange.max.replace(/[^0-9]/g, ""));
-        if (!isNaN(maxValue) && maxValue > 0) filters.price_max = maxValue;
-      }
-
-      if (bedrooms !== "all" && bedrooms !== "") {
-        const bedroomNum = parseInt(bedrooms.replace("+", ""));
-        if (!isNaN(bedroomNum) && bedroomNum > 0) filters.bedrooms = bedroomNum;
-      }
-
-      if (bathrooms !== "all" && bathrooms !== "") {
-        const bathroomNum = parseInt(bathrooms.replace("+", ""));
-        if (!isNaN(bathroomNum) && bathroomNum > 0)
-          filters.bathrooms = bathroomNum;
-      }
-
-      if (notifyFor === "for-sale") filters.standard_status = "Active";
-      else if (notifyFor === "sold") filters.standard_status = "Sold";
-
-      if (hasPhotos !== null) filters.has_photos = hasPhotos;
-
-      if (squareFootage.min) {
-        const sqftMin = parseInt(squareFootage.min.replace(/[^0-9]/g, ""));
-        if (!isNaN(sqftMin) && sqftMin > 0) filters.building_area_min = sqftMin;
-      }
-      if (squareFootage.max) {
-        const sqftMax = parseInt(squareFootage.max.replace(/[^0-9]/g, ""));
-        if (!isNaN(sqftMax) && sqftMax > 0) filters.building_area_max = sqftMax;
-      }
+      const filters = buildFilters();
 
       if (onApplyFilters) {
         onApplyFilters(filters);
-        setIsLoading(false);
         return;
       }
 
-      const response = await fetchExclusiveProperties(filters);
-      const limitValue = parseInt(limit);
-      let results = response.results || [];
-      if (!isNaN(limitValue) && limitValue > 0) {
-        results = results.slice(0, limitValue);
-      }
-
-      // Generate description
-      const filterDescriptions = [];
-      if (propertyType.length > 0)
-        filterDescriptions.push(propertyType.join(", "));
-      if (searchQuery.trim())
-        filterDescriptions.push(`City: ${searchQuery.trim()}`);
-      if (priceRange.min || priceRange.max)
-        filterDescriptions.push("Price Filtered");
-
-      const query =
-        filterDescriptions.length > 0
-          ? `Filtered Results (${filterDescriptions.join(", ")})`
-          : "All Properties";
-
-      applyFilters(results, query);
-      setActiveFiltersCount(calculateActiveFilters());
+      const params = filtersToSearchParams(filters).toString();
+      const target = params ? `/search-results?${params}` : "/search-results";
+      router.push(target);
     } catch (error) {
-      console.error("Error fetching properties:", error);
+      console.error("Error applying filters:", error);
     } finally {
       setIsLoading(false);
     }
@@ -208,12 +198,11 @@ export default function PropertyFilter({
 
   const handleClear = () => {
     clearFilters();
-    setActiveFiltersCount(0);
     if (onApplyFilters) {
       onApplyFilters({});
-    } else {
-      applyFilters([], "");
+      return;
     }
+    router.push("/search-results");
   };
 
   if (variant === "horizontal") {

@@ -4,7 +4,30 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { fetchVlogPosts } from "@/lib/api/vlogs";
 import { VlogPost } from "@/lib/api/types";
+import { env } from "@/lib/env";
 import Link from "next/link";
+
+const FALLBACK_THUMBNAIL =
+  "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400&q=80";
+
+function shouldBypassOptimization(src: string): boolean {
+  return (
+    src.startsWith("http://localhost:") ||
+    src.startsWith("https://localhost:") ||
+    src.startsWith("http://127.0.0.1:") ||
+    src.startsWith("https://127.0.0.1:")
+  );
+}
+
+function getThumbnailSrc(article: VlogPost): string {
+  const resolved = article.thumbnail || article.thumbnail_url;
+  if (!resolved) return FALLBACK_THUMBNAIL;
+  if (resolved.startsWith("/")) {
+    const baseUrl = env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+    return `${baseUrl}${resolved}`;
+  }
+  return resolved;
+}
 
 export default function LatestArticles() {
   const [articles, setArticles] = useState<VlogPost[]>([]);
@@ -45,7 +68,9 @@ export default function LatestArticles() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-8">
-          {articles.map((article) => (
+          {articles.map((article) => {
+            const thumbnailSrc = getThumbnailSrc(article);
+            return (
             <Link 
               href={`/blog/${article.slug}`} 
               key={article.slug} 
@@ -53,10 +78,11 @@ export default function LatestArticles() {
             >
               <div className="relative h-56 rounded-xl overflow-hidden mb-4">
                 <Image
-                  src={article.thumbnail || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400&q=80"}
+                  src={thumbnailSrc}
                   alt={article.title}
                   width={400}
                   height={224}
+                  unoptimized={shouldBypassOptimization(thumbnailSrc)}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                 />
                 <div className="absolute top-4 left-4">
@@ -80,7 +106,8 @@ export default function LatestArticles() {
                 </span>
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

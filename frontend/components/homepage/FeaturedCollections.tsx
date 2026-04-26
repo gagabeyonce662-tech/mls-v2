@@ -5,9 +5,15 @@ import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 
 import { colors } from "@/config/design-system";
+import type { HomepageCategory } from "@/lib/api/types";
+import { trackHomepageCategoryEvent } from "@/lib/analytics/homepageCategories";
 
-export default function FeaturedCollections() {
-  const collections = [
+interface FeaturedCollectionsProps {
+  categories?: HomepageCategory[];
+}
+
+export default function FeaturedCollections({ categories = [] }: FeaturedCollectionsProps) {
+  const marketingCollections = [
     {
       id: 1,
       title: "Selling Your Home",
@@ -29,14 +35,23 @@ export default function FeaturedCollections() {
       image:
         "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400&q=80",
     },
-    {
-      id: 4,
-      title: "View Properties",
-      href: "/listing",
-      image:
-        "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80",
-    },
   ];
+
+  const categoryCollections = categories.slice(0, 2).map((item, index) => ({
+    id: `cat-${item.key}`,
+    title: item.label,
+    href:
+      item.query && Object.keys(item.query).length > 0
+        ? `${item.route}?${new URLSearchParams(item.query).toString()}`
+        : item.route,
+    image:
+      index % 2 === 0
+        ? "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80"
+        : "https://images.unsplash.com/photo-1600607687644-c7171b42498f?w=400&q=80",
+    key: item.key,
+  }));
+
+  const collections = [...marketingCollections, ...categoryCollections].slice(0, 4);
 
   return (
     <div className="py-2 bg-white w-full overflow-hidden">
@@ -46,6 +61,15 @@ export default function FeaturedCollections() {
             <div key={collection.id} className="w-full">
               <Link
                 href={collection.href}
+                onClick={() => {
+                  if ("key" in collection) {
+                    trackHomepageCategoryEvent("homepage_category_click", {
+                      key: collection.key,
+                      label: collection.title,
+                      route: collection.href,
+                    });
+                  }
+                }}
                 className="group relative h-16 sm:h-20 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg cursor-pointer transform transition-all duration-500 ease-out hover:-translate-y-1 block ring-1 ring-black/5"
               >
                 <Image

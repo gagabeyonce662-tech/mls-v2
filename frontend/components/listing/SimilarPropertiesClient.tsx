@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { PropertyCard } from "@/components/listing/PropertyCard";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { useCompare } from "@/contexts/CompareContext";
@@ -13,6 +12,7 @@ import {
   getPrice,
   getDetailUrl,
 } from "@/lib/propertyUtils";
+import { openInNewTab } from "@/lib/navigation/openInNewTab";
 import { PropertyQuickViewModal } from "./PropertyQuickViewModal";
 
 interface SimilarPropertiesClientProps {
@@ -22,7 +22,6 @@ interface SimilarPropertiesClientProps {
 export default function SimilarPropertiesClient({
   properties,
 }: SimilarPropertiesClientProps) {
-  const router = useRouter();
   const [showQuickView, setShowQuickView] = useState(false);
   const [quickViewProperty, setQuickViewProperty] = useState<any>(null);
 
@@ -56,7 +55,7 @@ export default function SimilarPropertiesClient({
       return;
     }
 
-    router.push(getDetailUrl(property));
+    openInNewTab(getDetailUrl(property));
   };
 
   const handleImageLoad = (key: string) => {

@@ -1,6 +1,13 @@
 # api/serializers.py
 from rest_framework import serializers
-from mls.models import Property, Room, Media, UserFeedback
+from mls.models import (
+    Property,
+    Room,
+    Media,
+    UserFeedback,
+    UserFavorite,
+    UserHistory,
+)
 
 
 class MediaSerializer(serializers.ModelSerializer):
@@ -112,3 +119,20 @@ class UserFeedbackSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "status", "created_at"]
+
+
+class WatchedMutationSerializer(serializers.Serializer):
+    property_key = serializers.CharField(max_length=255)
+    property_snapshot_json = serializers.JSONField(required=False, default=dict)
+
+
+class UserFavoriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserFavorite
+        fields = ["property_key", "property_snapshot_json", "created_at"]
+
+
+class UserHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserHistory
+        fields = ["property_key", "property_snapshot_json", "viewed_at"]

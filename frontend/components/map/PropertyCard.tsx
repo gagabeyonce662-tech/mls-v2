@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PropertyMarker } from "./types";
 import { formatPrice } from "@/lib/helpers";
 import { getDetailUrl } from "@/lib/propertyUtils";
+import { openInNewTab } from "@/lib/navigation/openInNewTab";
 import StreetViewButton from "./StreetViewButton";
 import {
   Bed,
@@ -90,7 +91,13 @@ export default function PropertyCard({
           ? "border-ds-primary shadow-xl ring-2 ring-ds-primary/10"
           : "border-ds-card-border shadow-md hover:shadow-xl"
       }`}
-      onClick={onViewOnMap}
+      onClick={() => {
+        if (detailUrl) {
+          openInNewTab(detailUrl);
+          return;
+        }
+        onViewOnMap();
+      }}
     >
       {/* Image Section */}
       <div className="relative h-44 w-full overflow-hidden">
@@ -197,6 +204,8 @@ export default function PropertyCard({
             <Link
               href={detailUrl}
               onClick={(e) => e.stopPropagation()}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-ds-primary hover:underline flex items-center gap-1"
             >
               Details <ExternalLink className="w-2.5 h-2.5" />

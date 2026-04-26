@@ -1,11 +1,20 @@
 from django.contrib import admin
 from .models import VlogPost, VlogCategory
 from django.utils.html import format_html
-from ckeditor_uploader.widgets import CKEditorUploadingWidget
 from django import forms
 
 class VlogPostAdminForm(forms.ModelForm):
-    content = forms.CharField(widget=CKEditorUploadingWidget())
+    content = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                "rows": 24,
+                "style": "font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;",
+            }
+        ),
+        help_text=(
+            "Write content in Markdown. Supports headings, lists, links, tables, and emphasis."
+        ),
+    )
 
     class Meta:
         model = VlogPost

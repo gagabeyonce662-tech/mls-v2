@@ -1,8 +1,5 @@
-import { useState, useCallback } from "react";
-import {
-  fetchFilteredProperties,
-  fetchAPI,
-} from "@/lib/api";
+import { useState, useRef } from "react";
+import { fetchFilteredProperties } from "@/lib/api";
 import { AggregateCellMarker, PropertyMarker } from "@/components/map/types";
 import { Property } from "@/lib/api/types";
 import {
@@ -46,19 +43,70 @@ export const useMapSearch = (API_BASE_URL: string) => {
     null,
   );
   const [showSearchThisArea, setShowSearchThisArea] = useState(false);
+  const activeRequestController = useRef<AbortController | null>(null);
+  const requestSequenceRef = useRef(0);
+  /** Skip redundant map fetches when bbox+zoom+filters unchanged (belt-and-suspenders with server cache). */
+  const lastMapFetchSignatureRef = useRef<string | null>(null);
+  const lastMapFetchAtRef = useRef(0);
+  const CLIENT_MAP_FETCH_DEDUPE_MS = 60_000;
 
-  async function fetchExclusivePropertiesForBBox(bbox: {
-    latitude_min: number;
-    latitude_max: number;
-    longitude_min: number;
-    longitude_max: number;
-  }) {
-    const params = new URLSearchParams();
-    Object.entries(bbox).forEach(([k, v]) => params.append(k, String(v)));
-    params.append("limit", "100"); // Increase default for map view
-    const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/?${params.toString()}`;
+  const buildMapFilterParams = () => {
+    const params: Record<string, string | boolean> = {};
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === "") return;
+      if (typeof value === "boolean" && !value) return;
+      if (key === "garage" || key === "sold_days" || key === "modified_since") return;
+      params[key] = typeof value === "string" ? value.trim() : (value as boolean);
+    });
+    return params;
+  };
 
-    return await fetchAPI<any>(url, { cache: "no-store" });
+  const beginLatestRequest = () => {
+    requestSequenceRef.current += 1;
+    const requestId = requestSequenceRef.current;
+    if (activeRequestController.current) {
+      activeRequestController.current.abort();
+    }
+    const controller = new AbortController();
+    activeRequestController.current = controller;
+    return { requestId, controller };
+  };
+
+  const isLatestRequest = (requestId: number) =>
+    requestSequenceRef.current === requestId;
+
+  const resetMapFetchDedupe = () => {
+    lastMapFetchSignatureRef.current = null;
+    lastMapFetchAtRef.current = 0;
+  };
+
+  /**
+   * Map bbox listings: same universe as aggregate cells (local Property + filter API),
+   * not the exclusive-only endpoint — keeps cluster counts consistent with pins.
+   */
+  async function fetchExclusivePropertiesForBBox(
+    bbox: {
+      latitude_min: number;
+      latitude_max: number;
+      longitude_min: number;
+      longitude_max: number;
+    },
+    filtersForMap?: Record<string, string | boolean>,
+    signal?: AbortSignal,
+  ) {
+    const effectiveFilters = filtersForMap ?? buildMapFilterParams();
+    return await fetchFilteredProperties(
+      {
+        lat_min: bbox.latitude_min,
+        lat_max: bbox.latitude_max,
+        lng_min: bbox.longitude_min,
+        lng_max: bbox.longitude_max,
+        limit: 100,
+        offset: 0,
+        ...effectiveFilters,
+      },
+      signal ? { signal } : undefined,
+    );
   }
 
   const applyFilters = async (L: any, mapRef: React.MutableRefObject<any>) => {
@@ -69,6 +117,7 @@ export const useMapSearch = (API_BASE_URL: string) => {
     setMapDataMode("listings");
     setSelectedPropertyId(null);
     setShowSearchThisArea(false);
+    resetMapFetchDedupe();
 
     try {
       const data = await fetchFilteredProperties(filters);
@@ -118,14 +167,43 @@ export const useMapSearch = (API_BASE_URL: string) => {
       longitude_max: bounds.getEast(),
     };
     const zoom = mapRef.current.getZoom?.() ?? LISTING_ZOOM_MIN;
+    const mapFilters = buildMapFilterParams();
+    const fetchSignature = JSON.stringify({
+      z: zoom,
+      b: [
+        Math.round(bbox.latitude_min * 1e5) / 1e5,
+        Math.round(bbox.latitude_max * 1e5) / 1e5,
+        Math.round(bbox.longitude_min * 1e5) / 1e5,
+        Math.round(bbox.longitude_max * 1e5) / 1e5,
+      ],
+      f: mapFilters,
+    });
+    const now = Date.now();
+    if (
+      lastMapFetchSignatureRef.current === fetchSignature &&
+      now - lastMapFetchAtRef.current < CLIENT_MAP_FETCH_DEDUPE_MS
+    ) {
+      setShowSearchThisArea(false);
+      return;
+    }
+
+    const { requestId, controller } = beginLatestRequest();
 
     setLoadingApi(true);
     setShowSearchThisArea(false);
     setApiError(null);
+    let completedOk = false;
     try {
       if (shouldUseAggregateMode(zoom)) {
         try {
-          const data = await fetchMapAggregatesForBBox(API_BASE_URL, bbox, zoom);
+          const data = await fetchMapAggregatesForBBox(
+            API_BASE_URL,
+            bbox,
+            zoom,
+            mapFilters,
+            controller.signal,
+          );
+          if (!isLatestRequest(requestId)) return;
           const aggregates = (data.results ?? [])
             .map((cell: any, idx: number) => ({
               id: String(cell.h3_index || idx),
@@ -144,12 +222,18 @@ export const useMapSearch = (API_BASE_URL: string) => {
           setAggregateMarkers(aggregates);
           setApiMarkers([]);
         } catch (aggregateErr: any) {
+          if (aggregateErr?.name === "AbortError") return;
           // Graceful fallback: if aggregate endpoint fails, still show listing markers.
           console.warn(
             "Map aggregate fetch failed; falling back to listing markers:",
             aggregateErr,
           );
-          const data = await fetchExclusivePropertiesForBBox(bbox);
+          const data = await fetchExclusivePropertiesForBBox(
+            bbox,
+            mapFilters,
+            controller.signal,
+          );
+          if (!isLatestRequest(requestId)) return;
           const markers = (data.results ?? [])
             .map((p: any, idx: number) => ({
               id: String(p.listing_key || idx),
@@ -169,7 +253,12 @@ export const useMapSearch = (API_BASE_URL: string) => {
           );
         }
       } else {
-        const data = await fetchExclusivePropertiesForBBox(bbox);
+        const data = await fetchExclusivePropertiesForBBox(
+          bbox,
+          mapFilters,
+          controller.signal,
+        );
+        if (!isLatestRequest(requestId)) return;
         const markers = (data.results ?? [])
           .map((p: any, idx: number) => ({
             id: String(p.listing_key || idx),
@@ -185,10 +274,19 @@ export const useMapSearch = (API_BASE_URL: string) => {
         setApiMarkers(markers);
         setAggregateMarkers([]);
       }
-    } catch (err) {
+      completedOk = true;
+    } catch (err: any) {
+      if (err?.name === "AbortError") return;
       console.error(err);
+      setApiError(err?.message || "Failed to load map data");
     } finally {
-      setLoadingApi(false);
+      if (isLatestRequest(requestId)) {
+        setLoadingApi(false);
+        if (completedOk) {
+          lastMapFetchSignatureRef.current = fetchSignature;
+          lastMapFetchAtRef.current = Date.now();
+        }
+      }
     }
   };
 
@@ -211,6 +309,7 @@ export const useMapSearch = (API_BASE_URL: string) => {
     setShowSearchThisArea,
     applyFilters,
     handleSearchThisArea,
+    resetMapFetchDedupe,
     fetchExclusivePropertiesForBBox,
     fetchMapAggregatesForBBox: (bbox: any, zoom: number) =>
       fetchMapAggregatesForBBox(API_BASE_URL, bbox, zoom),

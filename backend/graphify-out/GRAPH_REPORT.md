@@ -1,12 +1,12 @@
 # Graph Report - S:\mls-v2\backend  (2026-04-26)
 
 ## Corpus Check
-- 57 files · ~14,473 words
+- 63 files · ~45,627 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 243 nodes · 553 edges · 41 communities detected
-- Extraction: 45% EXTRACTED · 55% INFERRED · 0% AMBIGUOUS · INFERRED: 303 edges (avg confidence: 0.55)
+- 308 nodes · 824 edges · 43 communities detected
+- Extraction: 40% EXTRACTED · 60% INFERRED · 0% AMBIGUOUS · INFERRED: 498 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -51,59 +51,61 @@
 - [[_COMMUNITY_Community 38|Community 38]]
 - [[_COMMUNITY_Community 39|Community 39]]
 - [[_COMMUNITY_Community 40|Community 40]]
+- [[_COMMUNITY_Community 41|Community 41]]
+- [[_COMMUNITY_Community 42|Community 42]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `Property` - 54 edges
-2. `PropertySerializer` - 44 edges
-3. `AccessToken` - 38 edges
-4. `PropertyDetailSerializer` - 38 edges
-5. `MapAggregateCell` - 26 edges
-6. `Media` - 21 edges
-7. `Room` - 20 edges
-8. `VlogPost` - 14 edges
-9. `UserProfileSerializer` - 11 edges
-10. `Command` - 11 edges
+1. `Property` - 75 edges
+2. `PropertySerializer` - 63 edges
+3. `PropertyDetailSerializer` - 57 edges
+4. `AccessToken` - 56 edges
+5. `MapAggregateCell` - 44 edges
+6. `UserFeedbackSerializer` - 36 edges
+7. `AISummaryGenerationError` - 34 edges
+8. `Media` - 23 edges
+9. `Room` - 22 edges
+10. `VlogPost` - 17 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `Meta` --uses--> `Property`  [INFERRED]
+  S:\mls-v2\backend\vlog\serializers.py → S:\mls-v2\backend\mls\models.py
 - `Meta` --uses--> `VlogPost`  [INFERRED]
   S:\mls-v2\backend\vlog\serializers.py → S:\mls-v2\backend\vlog\models.py
 - `Meta` --uses--> `VlogCategory`  [INFERRED]
   S:\mls-v2\backend\vlog\serializers.py → S:\mls-v2\backend\vlog\models.py
-- `get_access_token()` --calls--> `get_valid_token()`  [INFERRED]
-  S:\mls-v2\backend\mls\helpers.py → S:\mls-v2\backend\mls\models.py
-- `This function makes a request to CREA's authentication server and returns     t` --uses--> `AccessToken`  [INFERRED]
-  backend\mls\helpers.py → S:\mls-v2\backend\mls\models.py
-- `Uses the refresh token to request a new access token and refresh token.` --uses--> `AccessToken`  [INFERRED]
-  backend\mls\helpers.py → S:\mls-v2\backend\mls\models.py
+- `RoomInline` --uses--> `Property`  [INFERRED]
+  S:\mls-v2\backend\mls\admin.py → S:\mls-v2\backend\mls\models.py
+- `MediaInline` --uses--> `Property`  [INFERRED]
+  S:\mls-v2\backend\mls\admin.py → S:\mls-v2\backend\mls\models.py
 
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.13
-Nodes (37): AccessToken, MapAggregateCell, PropertyDetailSerializer, PropertySerializer, DDFAPIClient, ExclusivePropertiesAPIView, FetchProperties, LeasePropertiesAPIView (+29 more)
+Cohesion: 0.15
+Nodes (60): AISummaryGenerationError, APIView, AccessToken, MapAggregateCell, Property, PropertyDetailSerializer, PropertySerializer, UserFeedbackSerializer (+52 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.11
-Nodes (15): BaseCommand, get_resolution_for_zoom(), _iter_active_property_coordinates(), rebuild_h3_aggregates(), Command, bulk_upsert(), Command, safe_bool() (+7 more)
+Cohesion: 0.07
+Nodes (22): Meta, VlogCategoryAdmin, VlogPostAdmin, VlogPostAdminForm, BaseCommand, clean_markdown_content(), Command, normalize_text() (+14 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.19
-Nodes (15): APIView, GoogleAuthSerializer, LoginSerializer, RegisterSerializer, UserProfileSerializer, create_ghl_contact(), _headers(), Creates a new contact in GoHighLevel.     Returns the contact ID on success, No (+7 more)
+Cohesion: 0.09
+Nodes (17): build_summary_prompt(), _extract_google_error(), generate_listing_summary(), _generate_with_model(), is_summary_complete(), Exception, fetch_properties(), fetch_properties_by_property_data() (+9 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.14
-Nodes (11): Meta, VlogCategoryAdmin, VlogPostAdmin, VlogPostAdminForm, Meta, VlogCategory, VlogPost, VlogCategorySerializer (+3 more)
+Cohesion: 0.16
+Nodes (21): MediaAdmin, MediaInline, PropertyAdmin, RoomAdmin, RoomInline, UserFeedbackAdmin, This function makes a request to CREA's authentication server and returns     t, Uses the refresh token to request a new access token and refresh token. (+13 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.22
-Nodes (17): MediaAdmin, MediaInline, PropertyAdmin, RoomAdmin, RoomInline, This function makes a request to CREA's authentication server and returns     t, Uses the refresh token to request a new access token and refresh token., This function checks if a valid access token exists in the database.     If not (+9 more)
+Cohesion: 0.18
+Nodes (14): GoogleAuthSerializer, LoginSerializer, RegisterSerializer, UserProfileSerializer, create_ghl_contact(), _headers(), Creates a new contact in GoHighLevel.     Returns the contact ID on success, No, Updates an existing contact in GoHighLevel.     Accepts keyword args matching G (+6 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.24
-Nodes (8): fetch_properties(), fetch_properties_by_property_data(), get_access_token(), regenerate_access_token(), regenerate_access_token_with_refresh_token(), get_valid_token(), refresh_access_token(), regenerate_token()
+Cohesion: 0.15
+Nodes (11): get_resolution_for_zoom(), _iter_active_property_coordinates(), rebuild_h3_aggregates(), bulk_upsert(), Command, safe_bool(), safe_datetime(), safe_decimal() (+3 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.2
+Cohesion: 0.22
 Nodes (5): AbstractBaseUser, BaseUserManager, UserManager, User, PermissionsMixin
 
 ### Community 7 - "Community 7"
@@ -180,15 +182,15 @@ Nodes (1): Migration
 
 ### Community 25 - "Community 25"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Migration
 
 ### Community 26 - "Community 26"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Migration
 
 ### Community 27 - "Community 27"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Migration
 
 ### Community 28 - "Community 28"
 Cohesion: 1.0
@@ -204,27 +206,27 @@ Nodes (0):
 
 ### Community 31 - "Community 31"
 Cohesion: 1.0
-Nodes (1): Returns the valid access token if still valid. Otherwise, returns None.
+Nodes (0): 
 
 ### Community 32 - "Community 32"
 Cohesion: 1.0
-Nodes (1): Regenerates both access token and refresh token and saves them to the database.
+Nodes (0): 
 
 ### Community 33 - "Community 33"
 Cohesion: 1.0
-Nodes (1): Uses the refresh token to obtain a new access token and refresh token pair.
+Nodes (0): 
 
 ### Community 34 - "Community 34"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Returns the valid access token if still valid. Otherwise, returns None.
 
 ### Community 35 - "Community 35"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Regenerates both access token and refresh token and saves them to the database.
 
 ### Community 36 - "Community 36"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Uses the refresh token to obtain a new access token and refresh token pair.
 
 ### Community 37 - "Community 37"
 Cohesion: 1.0
@@ -242,8 +244,16 @@ Nodes (0):
 Cohesion: 1.0
 Nodes (0): 
 
+### Community 41 - "Community 41"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 42 - "Community 42"
+Cohesion: 1.0
+Nodes (0): 
+
 ## Knowledge Gaps
-- **20 isolated node(s):** `Run administrative tasks.`, `Creates a new contact in GoHighLevel.     Returns the contact ID on success, No`, `Updates an existing contact in GoHighLevel.     Accepts keyword args matching G`, `ASGI config for backend project.  It exposes the ASGI callable as a module-lev`, `Django settings for backend project.  Generated by 'django-admin startproject'` (+15 more)
+- **23 isolated node(s):** `Run administrative tasks.`, `Creates a new contact in GoHighLevel.     Returns the contact ID on success, No`, `Updates an existing contact in GoHighLevel.     Accepts keyword args matching G`, `ASGI config for backend project.  It exposes the ASGI callable as a module-lev`, `Django settings for backend project.  Generated by 'django-admin startproject'` (+18 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **Thin community `Community 11`** (2 nodes): `ASGI config for backend project.  It exposes the ASGI callable as a module-lev`, `asgi.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
@@ -271,55 +281,59 @@ Nodes (0):
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 23`** (2 nodes): `Migration`, `0013_mapaggregatecell.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 24`** (2 nodes): `Migration`, `0002_vlogpost_is_manual.py`
+- **Thin community `Community 24`** (2 nodes): `Migration`, `0014_property_ai_summary_fields.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 25`** (1 nodes): `check_db_counts.py`
+- **Thin community `Community 25`** (2 nodes): `Migration`, `0015_rename_mls_mapaggr_resolut_52c0de_idx_mls_mapaggr_resolut_46a66b_idx_and_more.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 26`** (1 nodes): `check_images.py`
+- **Thin community `Community 26`** (2 nodes): `Migration`, `0016_userfeedback.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 27`** (1 nodes): `test_cloudinary.py`
+- **Thin community `Community 27`** (2 nodes): `Migration`, `0002_vlogpost_is_manual.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 28`** (1 nodes): `__init__.py`
+- **Thin community `Community 28`** (1 nodes): `check_db_counts.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 29`** (1 nodes): `__init__.py`
+- **Thin community `Community 29`** (1 nodes): `check_images.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 30`** (1 nodes): `urls.py`
+- **Thin community `Community 30`** (1 nodes): `test_cloudinary.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 31`** (1 nodes): `Returns the valid access token if still valid. Otherwise, returns None.`
+- **Thin community `Community 31`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 32`** (1 nodes): `Regenerates both access token and refresh token and saves them to the database.`
+- **Thin community `Community 32`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 33`** (1 nodes): `Uses the refresh token to obtain a new access token and refresh token pair.`
+- **Thin community `Community 33`** (1 nodes): `urls.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 34`** (1 nodes): `tests.py`
+- **Thin community `Community 34`** (1 nodes): `Returns the valid access token if still valid. Otherwise, returns None.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 35`** (1 nodes): `__init__.py`
+- **Thin community `Community 35`** (1 nodes): `Regenerates both access token and refresh token and saves them to the database.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 36`** (1 nodes): `__init__.py`
+- **Thin community `Community 36`** (1 nodes): `Uses the refresh token to obtain a new access token and refresh token pair.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 37`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 38`** (1 nodes): `tests.py`
+- **Thin community `Community 38`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 39`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 40`** (1 nodes): `__init__.py`
+- **Thin community `Community 40`** (1 nodes): `tests.py`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 41`** (1 nodes): `__init__.py`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 42`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Property` connect `Community 4` to `Community 0`, `Community 1`, `Community 5`?**
-  _High betweenness centrality (0.142) - this node is a cross-community bridge._
-- **Why does `Meta` connect `Community 4` to `Community 2`, `Community 3`?**
-  _High betweenness centrality (0.105) - this node is a cross-community bridge._
-- **Why does `VlogPost` connect `Community 3` to `Community 1`, `Community 2`, `Community 4`?**
-  _High betweenness centrality (0.069) - this node is a cross-community bridge._
-- **Are the 52 inferred relationships involving `Property` (e.g. with `RoomInline` and `MediaInline`) actually correct?**
-  _`Property` has 52 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 42 inferred relationships involving `PropertySerializer` (e.g. with `Property` and `Room`) actually correct?**
-  _`PropertySerializer` has 42 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 36 inferred relationships involving `AccessToken` (e.g. with `This function makes a request to CREA's authentication server and returns     t` and `Uses the refresh token to request a new access token and refresh token.`) actually correct?**
-  _`AccessToken` has 36 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 37 inferred relationships involving `PropertyDetailSerializer` (e.g. with `Property` and `Room`) actually correct?**
-  _`PropertyDetailSerializer` has 37 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `Property` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 5`?**
+  _High betweenness centrality (0.150) - this node is a cross-community bridge._
+- **Why does `Meta` connect `Community 3` to `Community 0`, `Community 1`, `Community 4`?**
+  _High betweenness centrality (0.089) - this node is a cross-community bridge._
+- **Why does `PropertySerializer` connect `Community 0` to `Community 2`, `Community 3`?**
+  _High betweenness centrality (0.076) - this node is a cross-community bridge._
+- **Are the 73 inferred relationships involving `Property` (e.g. with `RoomInline` and `MediaInline`) actually correct?**
+  _`Property` has 73 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 61 inferred relationships involving `PropertySerializer` (e.g. with `Property` and `Room`) actually correct?**
+  _`PropertySerializer` has 61 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 56 inferred relationships involving `PropertyDetailSerializer` (e.g. with `Property` and `Room`) actually correct?**
+  _`PropertyDetailSerializer` has 56 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 54 inferred relationships involving `AccessToken` (e.g. with `This function makes a request to CREA's authentication server and returns     t` and `Uses the refresh token to request a new access token and refresh token.`) actually correct?**
+  _`AccessToken` has 54 INFERRED edges - model-reasoned connections that need verification._

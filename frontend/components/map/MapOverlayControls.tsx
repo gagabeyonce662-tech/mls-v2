@@ -1,13 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Pencil,
-  X,
-  Trash2,
-  Loader2,
-  SlidersHorizontal,
-  ChevronRight,
-} from "lucide-react";
+import { Pencil, X, Trash2, Loader2, SlidersHorizontal, ChevronRight } from "lucide-react";
 import SearchBox from "./SearchBox";
 import FilterBar from "./FilterBar";
 
@@ -21,7 +14,10 @@ interface MapOverlayControlsProps {
   setFilters: (f: any) => void;
   applyFilters: () => void;
   drawing: boolean;
-  onToggleDrawing: () => void;
+  drawingMode: "rectangle" | "polygon" | null;
+  onStartRectangleDrawing: () => void;
+  onStartPolygonDrawing: () => void;
+  onCancelDrawing: () => void;
   onClearAll: () => void;
   loading: boolean;
 }
@@ -36,7 +32,10 @@ export const MapOverlayControls = ({
   setFilters,
   applyFilters,
   drawing,
-  onToggleDrawing,
+  drawingMode,
+  onStartRectangleDrawing,
+  onStartPolygonDrawing,
+  onCancelDrawing,
   onClearAll,
   loading,
 }: MapOverlayControlsProps) => {
@@ -122,7 +121,11 @@ export const MapOverlayControls = ({
               <div className="p-4 border-t border-ds-card-border flex gap-2 bg-white safe-bottom">
                 <button
                   onClick={() => {
-                    onToggleDrawing();
+                    if (drawing) {
+                      onCancelDrawing();
+                    } else {
+                      onStartRectangleDrawing();
+                    }
                     setMobileFiltersOpen(false);
                   }}
                   className={`flex-1 p-3 rounded-xl border flex items-center justify-center gap-2 text-sm font-semibold transition-all ${drawing
@@ -138,10 +141,22 @@ export const MapOverlayControls = ({
                   ) : (
                     <>
                       <Pencil className="w-4 h-4" />
-                      <span>Draw</span>
+                      <span>Draw Rectangle</span>
                     </>
                   )}
                 </button>
+                {!drawing && (
+                  <button
+                    onClick={() => {
+                      onStartPolygonDrawing();
+                      setMobileFiltersOpen(false);
+                    }}
+                    className="flex-1 p-3 bg-ds-card text-ds-heading border border-ds-card-border rounded-xl flex items-center justify-center gap-2 text-sm font-semibold"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    <span>Draw Polygon</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     onClearAll();
@@ -236,28 +251,49 @@ export const MapOverlayControls = ({
               </div>
 
               <div className="p-3 border-t border-ds-card-border flex flex-col gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={onToggleDrawing}
-                  className={`w-full p-3 rounded-xl border flex items-center justify-center gap-2 transition-all text-sm font-semibold ${drawing
-                    ? "bg-red-500 text-white border-red-600"
-                    : "bg-ds-card text-ds-heading border-ds-card-border hover:bg-white hover:border-ds-primary hover:text-ds-primary"
-                    }`}
-                  title={drawing ? "Cancel Drawing" : "Draw Area on Map"}
-                >
-                  {drawing ? (
-                    <>
-                      <X className="w-4 h-4" />
-                      <span>Cancel Drawing</span>
-                    </>
-                  ) : (
-                    <>
+                {drawing ? (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={onCancelDrawing}
+                    className="w-full p-3 rounded-xl border flex items-center justify-center gap-2 transition-all text-sm font-semibold bg-red-500 text-white border-red-600"
+                    title="Cancel Drawing"
+                  >
+                    <X className="w-4 h-4" />
+                    <span>
+                      Cancel {drawingMode === "polygon" ? "Polygon" : "Rectangle"} Drawing
+                    </span>
+                  </motion.button>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={onStartRectangleDrawing}
+                      className="p-3 rounded-xl border flex items-center justify-center gap-2 transition-all text-sm font-semibold bg-ds-card text-ds-heading border-ds-card-border hover:bg-white hover:border-ds-primary hover:text-ds-primary"
+                      title="Draw Rectangle"
+                    >
                       <Pencil className="w-4 h-4" />
-                      <span>Draw Area</span>
-                    </>
-                  )}
-                </motion.button>
+                      <span>Rectangle</span>
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={onStartPolygonDrawing}
+                      className="p-3 rounded-xl border flex items-center justify-center gap-2 transition-all text-sm font-semibold bg-ds-card text-ds-heading border-ds-card-border hover:bg-white hover:border-ds-primary hover:text-ds-primary"
+                      title="Draw Polygon"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      <span>Polygon</span>
+                    </motion.button>
+                  </div>
+                )}
+
+                {drawing && drawingMode === "polygon" && (
+                  <div className="rounded-lg border border-ds-card-border bg-ds-card px-3 py-2 text-xs text-ds-body">
+                    Click map to add points. Double-click or right-click to finish polygon.
+                  </div>
+                )}
 
                 <motion.button
                   whileHover={{ scale: 1.02 }}

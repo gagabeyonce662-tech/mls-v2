@@ -169,6 +169,30 @@ export interface PropertyTypeOption {
   count?: number;
 }
 
+export type HomepageCategoryKind =
+  | "newly_listed"
+  | "exclusive"
+  | "rental"
+  | "precon"
+  | "property_type";
+
+export interface HomepageCategory {
+  key: string;
+  kind: HomepageCategoryKind;
+  label: string;
+  count: number;
+  enabled: boolean;
+  route: string;
+  query?: Record<string, string>;
+  source: "backend" | "fallback";
+  order: number;
+}
+
+export interface HomepageCategoryCatalog {
+  categories: HomepageCategory[];
+  fetchedAt: string;
+}
+
 export interface FeedbackSubmissionPayload {
   page_url?: string;
   name?: string;
@@ -230,7 +254,9 @@ export interface VlogPost {
   excerpt: string;
   content: string;
   embed_url?: string;
+  video_url?: string;
   video_file?: string;
+  thumbnail_url?: string;
   thumbnail?: string;
   author?: number;
   category: VlogCategory | null;

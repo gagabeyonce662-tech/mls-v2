@@ -131,6 +131,27 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 # CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 
+CACHE_URL = os.environ.get("CACHE_URL", os.environ.get("REDIS_URL", "")).strip()
+if CACHE_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": CACHE_URL,
+            "TIMEOUT": int(os.environ.get("DJANGO_CACHE_TIMEOUT", "300")),
+            "KEY_PREFIX": os.environ.get("DJANGO_CACHE_KEY_PREFIX", "mls-v2"),
+        }
+    }
+else:
+    # Safe local fallback when Redis is not configured.
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "mls-v2-local-cache",
+            "TIMEOUT": int(os.environ.get("DJANGO_CACHE_TIMEOUT", "300")),
+            "KEY_PREFIX": os.environ.get("DJANGO_CACHE_KEY_PREFIX", "mls-v2"),
+        }
+    }
+
 
 LANGUAGE_CODE = 'en-us'
 

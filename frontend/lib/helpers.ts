@@ -34,12 +34,17 @@ export async function fetchExclusivePropertiesForBBox(bbox: {
   longitude_max: number;
 }) {
   const params = new URLSearchParams();
-  Object.entries(bbox).forEach(([k, v]) => params.append(k, String(v)));
-  const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/?${params.toString()}`;
+  params.append("lat_min", String(bbox.latitude_min));
+  params.append("lat_max", String(bbox.latitude_max));
+  params.append("lng_min", String(bbox.longitude_min));
+  params.append("lng_max", String(bbox.longitude_max));
+  params.append("limit", "100");
+  params.append("offset", "0");
+  const url = `${API_BASE_URL}/api/mls/properties/filter/?${params.toString()}`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    throw new Error(`Exclusive API error ${res.status}: ${txt}`);
+    throw new Error(`Filter API error ${res.status}: ${txt}`);
   }
   return res.json();
 }

@@ -42,8 +42,8 @@ import {
 } from "@/lib/propertyUtils";
 import { useWatched } from "@/contexts/WatchedContext";
 import { useCompare } from "@/contexts/CompareContext";
-import { useRouter } from "next/navigation";
 import { useProperty } from "@/hooks/react-query";
+import { openInNewTab } from "@/lib/navigation/openInNewTab";
 
 interface PropertyQuickViewModalProps {
   show: boolean;
@@ -56,7 +56,6 @@ export const PropertyQuickViewModal = ({
   property,
   onClose,
 }: PropertyQuickViewModalProps) => {
-  const router = useRouter();
   const { toggleFavorite, isFavorite, addToHistory } = useWatched();
   const { addToCompare, isPropertySelected } = useCompare();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -129,7 +128,7 @@ export const PropertyQuickViewModal = ({
   const handleFullDetails = () => {
     addToHistory(property);
     onClose();
-    router.push(getDetailUrl(property));
+    openInNewTab(getDetailUrl(property));
   };
 
   const handleAddToCompare = () => {

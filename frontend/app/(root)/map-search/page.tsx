@@ -22,9 +22,11 @@ import { getCustomIcon, getSelectedIcon } from "@/components/map/MapIcons";
 import { formatPrice } from "@/lib/helpers";
 
 // Types
-import { PropertyMarker } from "@/components/map/types";
+import { AggregateCellMarker, PropertyMarker } from "@/components/map/types";
+import { getDrillTargetZoom } from "@/hooks/useMapAggregates";
 import { Property } from "@/lib/api/types";
 import { useWatched } from "@/contexts/WatchedContext";
+import { isPointInPolygon, type LatLngPoint } from "@/lib/map/polygon";
 
 // Dynamic leaflet imports
 const MapContainer = dynamic(
@@ -56,6 +58,9 @@ export default function MapOnlyPage() {
   const mapRef = useRef<any | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const initialSearchDone = useRef(false);
+  const [selectedAggregateId, setSelectedAggregateId] = useState<string | null>(
+    null,
+  );
 
   // Custom Hooks
   const {
@@ -77,6 +82,7 @@ export default function MapOnlyPage() {
     setShowSearchThisArea,
     applyFilters,
     handleSearchThisArea,
+    resetMapFetchDedupe,
     fetchExclusivePropertiesForBBox,
     LISTING_ZOOM_MIN,
   } = useMapSearch(API_BASE_URL);
@@ -107,7 +113,20 @@ export default function MapOnlyPage() {
   });
 
   // Special handler for drawing finish
-  const onFinishDrawing = async (bbox: any) => {
+  const onFinishDrawing = async ({
+    mode,
+    bbox,
+    polygon,
+  }: {
+    mode: "rectangle" | "polygon";
+    bbox: {
+      latitude_min: number;
+      latitude_max: number;
+      longitude_min: number;
+      longitude_max: number;
+    };
+    polygon?: LatLngPoint[];
+  }) => {
     setLoadingApi(true);
     setApiError(null);
     setApiMarkers([]);
@@ -116,7 +135,17 @@ export default function MapOnlyPage() {
     setSelectedPropertyId(null);
     try {
       const data = await fetchExclusivePropertiesForBBox(bbox);
-      const results = data?.results ?? [];
+      let results = data?.results ?? [];
+      if (mode === "polygon" && polygon && polygon.length >= 4) {
+        results = results.filter((p: Property) => {
+          const latRaw = p.latitude ?? p.Latitude ?? p.lat ?? p.coords?.lat;
+          const lonRaw = p.longitude ?? p.Longitude ?? p.lon ?? p.coords?.lng;
+          const lat = latRaw !== undefined ? Number(latRaw) : NaN;
+          const lng = lonRaw !== undefined ? Number(lonRaw) : NaN;
+          if (Number.isNaN(lat) || Number.isNaN(lng)) return false;
+          return isPointInPolygon({ lat, lng }, polygon);
+        });
+      }
       const markers: PropertyMarker[] = results
         .map((p: Property, idx: number) => {
           const latRaw = p.latitude ?? p.Latitude ?? p.lat ?? p.coords?.lat;
@@ -156,10 +185,16 @@ export default function MapOnlyPage() {
     }
   };
 
-  const { drawing, enableDrawing, disableDrawing, clearRect } = useMapDrawing(
-    mapRef,
-    onFinishDrawing,
-  );
+  const {
+    drawing,
+    drawingMode,
+    hasActiveShape,
+    polygonPointCount,
+    enableDrawing,
+    disableDrawing,
+    finishPolygonDrawing,
+    clearShape,
+  } = useMapDrawing(mapRef, onFinishDrawing);
 
   // Lifecycles
   useEffect(() => {
@@ -183,6 +218,12 @@ export default function MapOnlyPage() {
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
   }, [setResultsOpen]);
+
+  useEffect(() => {
+    if (mapDataMode === "listings") {
+      setSelectedAggregateId(null);
+    }
+  }, [mapDataMode]);
 
   useEffect(() => {
     function updateRect() {
@@ -215,11 +256,13 @@ export default function MapOnlyPage() {
     mapRef.current = map;
     try {
       map.scrollWheelZoom.enable();
+      // Pan/zoom alone does NOT call the backend — only reveals "Properties in this area".
+      // Data loads on initial handleSearchThisArea, that button click, or aggregate drill moveend.
       map.on("moveend", () => {
-        if (!loadingApi && !drawing) setShowSearchThisArea(true);
+        if (!loadingApi && !drawing && !hasActiveShape) setShowSearchThisArea(true);
       });
       map.on("zoomend", () => {
-        if (!loadingApi && !drawing) setShowSearchThisArea(true);
+        if (!loadingApi && !drawing && !hasActiveShape) setShowSearchThisArea(true);
       });
       // Auto-load properties for the initial viewport — only once
       if (!initialSearchDone.current) {
@@ -230,14 +273,16 @@ export default function MapOnlyPage() {
   };
 
   const clearAll = () => {
-    clearRect();
+    clearShape();
     setApiMarkers([]);
     setAggregateMarkers([]);
     setMapDataMode("listings");
     setApiError(null);
     setLoadingApi(false);
     setSelectedPropertyId(null);
+    setSelectedAggregateId(null);
     setShowSearchThisArea(false);
+    resetMapFetchDedupe();
   };
 
   const handleViewOnMap = (property: PropertyMarker) => {
@@ -288,6 +333,33 @@ export default function MapOnlyPage() {
       }
     : null;
 
+  const onAggregateCellClick = (cell: AggregateCellMarker) => {
+    if (!mapRef.current || mapDataMode !== "aggregates") return;
+    const map = mapRef.current;
+    const currentZoom = map.getZoom?.() ?? 0;
+    const targetZoom = getDrillTargetZoom(currentZoom);
+    if (targetZoom === null) {
+      return;
+    }
+    setSelectedAggregateId(cell.id);
+    setSelectedPropertyId(null);
+    setLoadingApi(true);
+    setShowSearchThisArea(false);
+    const onMoveEnd = () => {
+      void handleSearchThisArea(mapRef);
+    };
+    map.once("moveend", onMoveEnd);
+    try {
+      map.flyTo([cell.lat, cell.lng], targetZoom, {
+        animate: true,
+        duration: 1.0,
+      });
+    } catch {
+      map.off("moveend", onMoveEnd);
+      setLoadingApi(false);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-white">
       <Header />
@@ -307,7 +379,10 @@ export default function MapOnlyPage() {
               setFilters={setFilters}
               applyFilters={() => applyFilters(L, mapRef)}
               drawing={drawing}
-              onToggleDrawing={drawing ? disableDrawing : enableDrawing}
+              drawingMode={drawingMode}
+              onStartRectangleDrawing={() => enableDrawing("rectangle")}
+              onStartPolygonDrawing={() => enableDrawing("polygon")}
+              onCancelDrawing={disableDrawing}
               onClearAll={clearAll}
               loading={loadingApi}
             />
@@ -316,15 +391,33 @@ export default function MapOnlyPage() {
               loading={loadingApi}
               onClick={() => handleSearchThisArea(mapRef)}
             />
+            {drawing && drawingMode === "polygon" && (
+              <div className="absolute top-32 lg:top-20 left-0 right-0 lg:right-[380px] xl:left-[380px] z-[45] lg:z-[1001] flex justify-center pointer-events-none">
+                <button
+                  type="button"
+                  onClick={() => void finishPolygonDrawing()}
+                  disabled={loadingApi || polygonPointCount < 3}
+                  className="pointer-events-auto bg-white text-ds-primary shadow-2xl border border-ds-card-border hover:bg-gray-50 rounded-full px-4 py-1.5 lg:px-6 lg:py-2 flex items-center gap-2 h-auto disabled:opacity-60 disabled:cursor-not-allowed font-bold text-xs lg:text-sm"
+                >
+                  Finish Polygon
+                  <span className="text-[10px] lg:text-xs font-medium text-ds-body">
+                    ({polygonPointCount}/3+ points)
+                  </span>
+                </button>
+              </div>
+            )}
             <MapContainer
               center={[43.65, -79.385]}
-              zoom={13}
+              zoom={9}
               className="w-full h-full z-0"
               zoomControl={false}
             >
               <MapController
                 onMapReady={handleMapReady}
-                onMapClick={() => setSelectedPropertyId(null)}
+                onMapClick={() => {
+                  setSelectedPropertyId(null);
+                  setSelectedAggregateId(null);
+                }}
               />
               <TileLayer
                 attribution="&copy; CARTO"
@@ -388,14 +481,27 @@ export default function MapOnlyPage() {
                     center={[cell.lat, cell.lng]}
                     radius={Math.min(24, Math.max(10, Math.log2(cell.property_count + 1) * 4))}
                     pathOptions={{
-                      color: "#1d4ed8",
-                      fillColor: "#2563eb",
-                      fillOpacity: 0.45,
-                      weight: 1.5,
+                      color:
+                        selectedAggregateId === cell.id ? "#0f172a" : "#1d4ed8",
+                      fillColor:
+                        selectedAggregateId === cell.id ? "#1e40af" : "#2563eb",
+                      fillOpacity:
+                        selectedAggregateId === cell.id ? 0.65 : 0.45,
+                      weight: selectedAggregateId === cell.id ? 2.5 : 1.5,
+                    }}
+                    eventHandlers={{
+                      click: () => onAggregateCellClick(cell),
                     }}
                   >
-                    <Tooltip direction="top" offset={[0, -2]} opacity={0.95}>
-                      <span className="font-semibold">
+                    <Tooltip
+                      permanent
+                      interactive={false}
+                      direction="center"
+                      offset={[0, 0]}
+                      opacity={1}
+                      className="map-aggregate-count-tooltip pointer-events-none"
+                    >
+                      <span className="font-semibold text-[11px] text-slate-900">
                         {cell.property_count} properties
                       </span>
                     </Tooltip>

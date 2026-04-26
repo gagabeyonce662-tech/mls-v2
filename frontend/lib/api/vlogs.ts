@@ -1,16 +1,27 @@
 import { API_BASE_URL, fetchAPI } from "./client";
 import { VlogPost } from "./types";
 
+const VLOG_REVALIDATE_SECONDS = 24 * 60 * 60;
+
+function normalizeVlogPost(post: any): VlogPost {
+  return {
+    ...post,
+    thumbnail: post?.thumbnail || post?.thumbnail_url || undefined,
+    video_file: post?.video_file || post?.video_url || undefined,
+  };
+}
+
 /**
  * Fetch all vlog posts from internal Django API
  */
 export async function fetchVlogPosts(): Promise<VlogPost[]> {
   try {
     const data = await fetchAPI<any>(`${API_BASE_URL}/api/vlog/`, {
-      next: { revalidate: 3600 },
+      next: { revalidate: VLOG_REVALIDATE_SECONDS },
     });
     // Handle both direct list and paginated object
-    return Array.isArray(data) ? data : (data.results || []);
+    const posts = Array.isArray(data) ? data : (data.results || []);
+    return posts.map(normalizeVlogPost);
   } catch (error) {
     console.error("Error fetching vlog posts:", error);
     return [];
@@ -24,9 +35,10 @@ export async function fetchVlogPostBySlug(
   slug: string,
 ): Promise<VlogPost | null> {
   try {
-    return await fetchAPI<VlogPost>(`${API_BASE_URL}/api/vlog/${slug}/`, {
-      next: { revalidate: 3600 },
+    const post = await fetchAPI<any>(`${API_BASE_URL}/api/vlog/${slug}/`, {
+      next: { revalidate: VLOG_REVALIDATE_SECONDS },
     });
+    return normalizeVlogPost(post);
   } catch (error) {
     console.error(`Error fetching vlog post ${slug}:`, error);
     return null;

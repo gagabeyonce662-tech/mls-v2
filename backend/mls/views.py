@@ -3,24 +3,35 @@ import hashlib
 import os
 import json
 import logging
+import time
 from io import BytesIO
 import pandas as pd
 from datetime import timedelta
+import h3
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q, FloatField, Count
 from django.db.models.functions import Cast, Substr, Lower
 from django.core.paginator import Paginator
+from django.core.cache import cache
 from django.utils import timezone
 
 # Local imports
 from .models import AccessToken
 from .helpers import get_access_token, fetch_properties_by_property_data
-from mls.models import MapAggregateCell, Property
-from .serializers import PropertySerializer, PropertyDetailSerializer, UserFeedbackSerializer
+from mls.models import MapAggregateCell, Property, UserFavorite, UserHistory
+from .serializers import (
+    PropertySerializer,
+    PropertyDetailSerializer,
+    UserFeedbackSerializer,
+    WatchedMutationSerializer,
+    UserFavoriteSerializer,
+    UserHistorySerializer,
+)
 from mls.services.map_aggregates import get_resolution_for_zoom
 from mls.services.ai_listing_summary import (
     AISummaryGenerationError,
@@ -29,6 +40,31 @@ from mls.services.ai_listing_summary import (
 )
 
 logger = logging.getLogger(__name__)
+# Shared TTL for map bbox responses (aggregates + property filter). Override via env; default 15m fits ~24h listing refresh cadence.
+MAP_VIEW_CACHE_TTL_SECONDS = int(
+    os.environ.get("MAP_VIEW_CACHE_TTL_SECONDS", "900")
+)
+LISTING_CACHE_TTL_SECONDS = int(
+    os.environ.get("LISTING_CACHE_TTL_SECONDS", "86400")
+)
+NEAREST_SCHOOL_CACHE_TTL_SECONDS = int(
+    os.environ.get("NEAREST_SCHOOL_CACHE_TTL_SECONDS", "86400")
+)
+MAP_FILTER_KEYS = {
+    "price_min",
+    "price_max",
+    "bedrooms",
+    "bathrooms",
+    "city",
+    "province",
+    "postal_code",
+    "property_type",
+    "status",
+    "keywords",
+    "search",
+    "has_lease",
+    "has_photos",
+}
 
 
 def _parse_bbox(params):
@@ -48,6 +84,139 @@ def _parse_bbox(params):
         "longitude_min": float(lng_min),
         "longitude_max": float(lng_max),
     }
+
+
+def _has_map_filters(params):
+    return any(
+        params.get(k) not in (None, "", "null", "undefined")
+        for k in MAP_FILTER_KEYS
+    )
+
+
+def _build_map_aggregate_cache_key(params) -> str:
+    key_payload = {
+        "lat_min": params.get("latitude_min", params.get("lat_min")),
+        "lat_max": params.get("latitude_max", params.get("lat_max")),
+        "lng_min": params.get("longitude_min", params.get("lng_min")),
+        "lng_max": params.get("longitude_max", params.get("lng_max")),
+        "zoom": params.get("zoom", ""),
+        "filters": {
+            key: params.get(key)
+            for key in sorted(MAP_FILTER_KEYS)
+            if params.get(key) not in (None, "", "null", "undefined")
+        },
+    }
+    digest = hashlib.md5(
+        json.dumps(key_payload, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+    return f"map-aggregates:{digest}"
+
+
+def _build_property_filter_cache_key(request) -> str:
+    """Stable cache key for GET /properties/filter/ (map + search share this view)."""
+    items: list[tuple[str, str]] = []
+    for key in sorted(request.GET.keys()):
+        for value in request.GET.getlist(key):
+            items.append((key, value))
+    digest = hashlib.md5(
+        json.dumps(items, default=str).encode("utf-8")
+    ).hexdigest()
+    return f"property-filter:{digest}"
+
+
+def _build_query_params_cache_key(prefix: str, params) -> str:
+    items: list[tuple[str, str]] = []
+    for key in sorted(params.keys()):
+        for value in params.getlist(key):
+            items.append((key, value))
+    digest = hashlib.md5(
+        json.dumps(items, default=str).encode("utf-8")
+    ).hexdigest()
+    return f"{prefix}:{digest}"
+
+
+def _apply_map_filters_to_queryset(qs, params):
+    if params.get("price_min"):
+        qs = qs.filter(list_price__gte=float(params.get("price_min")))
+    if params.get("price_max"):
+        qs = qs.filter(list_price__lte=float(params.get("price_max")))
+    if params.get("bedrooms"):
+        qs = qs.filter(bedrooms_total__gte=int(params.get("bedrooms")))
+    if params.get("bathrooms"):
+        qs = qs.filter(bathrooms_total_integer__gte=int(params.get("bathrooms")))
+    if params.get("city"):
+        cities = [c.strip() for c in params.get("city", "").split(",") if c.strip()]
+        if cities:
+            qs = qs.filter(city__in=cities)
+    if params.get("province"):
+        provinces = [
+            p.strip().upper()
+            for p in params.get("province", "").split(",")
+            if p.strip()
+        ]
+        if provinces:
+            qs = qs.filter(state_or_province__in=provinces)
+    if params.get("postal_code"):
+        codes = [
+            c.strip().upper()
+            for c in params.get("postal_code", "").split(",")
+            if c.strip()
+        ]
+        if codes:
+            qs = qs.filter(postal_code__in=codes)
+    if params.get("property_type"):
+        types = [
+            t.strip() for t in params.get("property_type", "").split(",") if t.strip()
+        ]
+        if types:
+            qs = qs.filter(property_sub_type__in=types)
+    if params.get("status"):
+        qs = qs.filter(standard_status=params.get("status").strip())
+    if params.get("has_lease") in ("true", "1", "True"):
+        qs = qs.filter(lease_amount__gt=0)
+    if params.get("has_photos") in ("true", "1", "True"):
+        qs = qs.filter(photos_count__gt=0)
+    if params.get("keywords"):
+        keywords = [
+            kw.strip() for kw in params.get("keywords", "").split(",") if kw.strip()
+        ]
+        if keywords:
+            kw_q = Q()
+            for kw in keywords:
+                kw_q |= Q(public_remarks__icontains=kw)
+            qs = qs.filter(kw_q)
+    if params.get("search"):
+        search_term = params.get("search", "").strip()
+        if search_term:
+            search_q = Q()
+            text_fields = [
+                "unparsed_address",
+                "public_remarks",
+                "city",
+                "postal_code",
+                "listing_id",
+                "listing_key",
+                "street_name",
+                "street_number",
+                "unit_number",
+                "subdivision_name",
+                "directions",
+                "property_sub_type",
+                "common_interest",
+                "list_aor",
+                "zoning",
+                "zoning_description",
+                "parcel_number",
+                "anchors_co_tenants",
+                "water_body_name",
+            ]
+            for field in text_fields:
+                search_q |= Q(**{f"{field}__icontains": search_term})
+            if len(search_term) >= 3:
+                search_q |= Q(postal_code__iexact=search_term.replace(" ", ""))
+            search_q |= Q(public_remarks__icontains=search_term)
+            qs = qs.filter(search_q)
+    return qs
 
 class FetchProperties(APIView):
     """
@@ -97,7 +266,91 @@ class FeedbackAPIView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
-        
+
+
+class WatchedOverviewAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        favorites = UserFavorite.objects.filter(user=request.user).order_by("-created_at")
+        history = UserHistory.objects.filter(user=request.user).order_by("-viewed_at")
+        return Response(
+            {
+                "favorites": UserFavoriteSerializer(favorites, many=True).data,
+                "history": UserHistorySerializer(history, many=True).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class WatchedFavoriteToggleAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = WatchedMutationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        property_key = serializer.validated_data["property_key"]
+        snapshot = serializer.validated_data.get("property_snapshot_json", {}) or {}
+
+        favorite, created = UserFavorite.objects.get_or_create(
+            user=request.user,
+            property_key=property_key,
+            defaults={"property_snapshot_json": snapshot},
+        )
+
+        if created:
+            return Response({"is_favorite": True}, status=status.HTTP_200_OK)
+
+        favorite.delete()
+        return Response({"is_favorite": False}, status=status.HTTP_200_OK)
+
+
+class WatchedHistoryAddAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    HISTORY_CAP = 50
+
+    def post(self, request):
+        serializer = WatchedMutationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        property_key = serializer.validated_data["property_key"]
+        snapshot = serializer.validated_data.get("property_snapshot_json", {}) or {}
+
+        UserHistory.objects.update_or_create(
+            user=request.user,
+            property_key=property_key,
+            defaults={
+                "property_snapshot_json": snapshot,
+                "viewed_at": timezone.now(),
+            },
+        )
+
+        stale_ids = list(
+            UserHistory.objects.filter(user=request.user)
+            .order_by("-viewed_at")
+            .values_list("id", flat=True)[self.HISTORY_CAP :]
+        )
+        if stale_ids:
+            UserHistory.objects.filter(id__in=stale_ids).delete()
+
+        return Response({"added": True}, status=status.HTTP_200_OK)
+
+
+class WatchedClearFavoritesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        deleted, _ = UserFavorite.objects.filter(user=request.user).delete()
+        return Response({"deleted": deleted}, status=status.HTTP_200_OK)
+
+
+class WatchedClearHistoryAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        deleted, _ = UserHistory.objects.filter(user=request.user).delete()
+        return Response({"deleted": deleted}, status=status.HTTP_200_OK)
+
+
 class DDFAPIClient:
     def make_api_call(self, endpoint, params=None):
         """
@@ -122,6 +375,11 @@ class PropertyFilterView(APIView):
     """
 
     def get(self, request):
+        filter_cache_key = _build_property_filter_cache_key(request)
+        cached_payload = cache.get(filter_cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload)
+
         limit = min(int(request.GET.get('limit', 6)), 100)
         offset = int(request.GET.get('offset', 0))
 
@@ -231,7 +489,7 @@ class PropertyFilterView(APIView):
                 # Search in remarks keywords
                 search_q |= Q(public_remarks__icontains=search_term)
 
-                q = qs.filter(search_q)
+                qs = qs.filter(search_q)
         if request.GET.get('keywords'):
             keywords = [k.strip().lower() for k in request.GET['keywords'].split(',') if k.strip()]
             if keywords:
@@ -250,12 +508,14 @@ class PropertyFilterView(APIView):
 
         serializer = PropertySerializer(page.object_list, many=True, context={'request': request})
 
-        return Response({
+        payload = {
             "count": paginator.count,
             "next": offset + limit if page.has_next() else None,
             "previous": offset - limit if offset >= limit else None,
-            "results": serializer.data
-        })
+            "results": serializer.data,
+        }
+        cache.set(filter_cache_key, payload, MAP_VIEW_CACHE_TTL_SECONDS)
+        return Response(payload)
 
 
 class PropertyTypesAPIView(APIView):
@@ -269,6 +529,11 @@ class PropertyTypesAPIView(APIView):
 
     def get(self, request):
         params = request.query_params
+        cache_key = _build_query_params_cache_key("property-types", params)
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload, status=status.HTTP_200_OK)
+
         listing_type = str(params.get("listing_type", "all")).strip().lower()
 
         qs = Property.objects.all()
@@ -308,7 +573,9 @@ class PropertyTypesAPIView(APIView):
             for row in type_rows
         ]
 
-        return Response({"results": results}, status=status.HTTP_200_OK)
+        payload = {"results": results}
+        cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class MapAggregatesAPIView(APIView):
@@ -318,10 +585,17 @@ class MapAggregatesAPIView(APIView):
     """
 
     def get(self, request):
+        started_at = time.perf_counter()
         try:
             bbox = _parse_bbox(request.query_params)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if bbox["latitude_min"] >= bbox["latitude_max"] or bbox["longitude_min"] >= bbox["longitude_max"]:
+            return Response(
+                {"error": "Invalid bounding box ranges"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             zoom = int(request.query_params.get("zoom", "10"))
@@ -331,6 +605,15 @@ class MapAggregatesAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        cache_key = _build_map_aggregate_cache_key(request.query_params)
+        cached_payload = cache.get(cache_key)
+        if cached_payload:
+            cached_payload["meta"] = {
+                **cached_payload.get("meta", {}),
+                "cached": True,
+            }
+            return Response(cached_payload)
+
         resolution = get_resolution_for_zoom(zoom)
         if resolution is None:
             return Response(
@@ -339,41 +622,103 @@ class MapAggregatesAPIView(APIView):
                     "resolution": None,
                     "results": [],
                     "message": "Zoom level should use listing markers endpoint.",
+                    "meta": {
+                        "cached": False,
+                        "duration_ms": round((time.perf_counter() - started_at) * 1000, 2),
+                    },
                 },
                 status=status.HTTP_200_OK,
             )
 
-        cells = (
-            MapAggregateCell.objects.filter(
-                resolution=resolution,
-                center_lat__gte=bbox["latitude_min"],
-                center_lat__lte=bbox["latitude_max"],
-                center_lng__gte=bbox["longitude_min"],
-                center_lng__lte=bbox["longitude_max"],
+        has_map_filters = _has_map_filters(request.query_params)
+        if has_map_filters:
+            filtered_qs = Property.objects.filter(
+                latitude__isnull=False,
+                longitude__isnull=False,
+            ).exclude(standard_status__iexact="Sold")
+            filtered_qs = _apply_map_filters_to_queryset(filtered_qs, request.query_params)
+            filtered_qs = filtered_qs.annotate(
+                lat_float=Cast("latitude", FloatField()),
+                lng_float=Cast("longitude", FloatField()),
+            ).filter(
+                lat_float__gte=bbox["latitude_min"],
+                lat_float__lte=bbox["latitude_max"],
+                lng_float__gte=bbox["longitude_min"],
+                lng_float__lte=bbox["longitude_max"],
             )
-            .order_by("-property_count")
-        )
+            cell_buckets: dict[str, dict] = {}
 
-        results = [
-            {
-                "h3_index": cell.h3_index,
-                "resolution": cell.resolution,
-                "center_lat": float(cell.center_lat),
-                "center_lng": float(cell.center_lng),
-                "property_count": cell.property_count,
-                "updated_at": cell.updated_at,
-            }
-            for cell in cells
-        ]
+            def _bucket() -> dict:
+                return {"count": 0, "sum_lat": 0.0, "sum_lng": 0.0}
 
-        return Response(
-            {
-                "mode": "aggregates",
-                "resolution": resolution,
-                "count": len(results),
-                "results": results,
-            }
-        )
+            for lat, lng in filtered_qs.values_list("lat_float", "lng_float").iterator(
+                chunk_size=5000
+            ):
+                if lat is None or lng is None:
+                    continue
+                flat, flng = float(lat), float(lng)
+                index = h3.latlng_to_cell(flat, flng, resolution)
+                bucket = cell_buckets.setdefault(index, _bucket())
+                bucket["count"] += 1
+                bucket["sum_lat"] += flat
+                bucket["sum_lng"] += flng
+
+            results = []
+            for h3_index, bucket in sorted(
+                cell_buckets.items(),
+                key=lambda item: item[1]["count"],
+                reverse=True,
+            ):
+                property_count = bucket["count"]
+                center_lat = bucket["sum_lat"] / property_count
+                center_lng = bucket["sum_lng"] / property_count
+                results.append(
+                    {
+                        "h3_index": h3_index,
+                        "resolution": resolution,
+                        "center_lat": float(center_lat),
+                        "center_lng": float(center_lng),
+                        "property_count": property_count,
+                        "updated_at": timezone.now(),
+                    }
+                )
+        else:
+            cells = (
+                MapAggregateCell.objects.filter(
+                    resolution=resolution,
+                    center_lat__gte=bbox["latitude_min"],
+                    center_lat__lte=bbox["latitude_max"],
+                    center_lng__gte=bbox["longitude_min"],
+                    center_lng__lte=bbox["longitude_max"],
+                )
+                .order_by("-property_count")
+            )
+
+            results = [
+                {
+                    "h3_index": cell.h3_index,
+                    "resolution": cell.resolution,
+                    "center_lat": float(cell.center_lat),
+                    "center_lng": float(cell.center_lng),
+                    "property_count": cell.property_count,
+                    "updated_at": cell.updated_at,
+                }
+                for cell in cells
+            ]
+
+        payload = {
+            "mode": "aggregates",
+            "resolution": resolution,
+            "count": len(results),
+            "results": results,
+            "meta": {
+                "cached": False,
+                "filters_applied": has_map_filters,
+                "duration_ms": round((time.perf_counter() - started_at) * 1000, 2),
+            },
+        }
+        cache.set(cache_key, payload, MAP_VIEW_CACHE_TTL_SECONDS)
+        return Response(payload)
 
 
 class ListingAISummaryAPIView(APIView):
@@ -609,7 +954,7 @@ class ExclusivePropertiesAPIView(APIView):
                 # Search in remarks keywords
                 search_q |= Q(public_remarks__icontains=search_term)
 
-                qs = q.filter(search_q)
+                q = q.filter(search_q)
         # === ALL REALTOR.CA FILTERS ===
         if params.get('price_min'):
             q = q.filter(list_price__gte=float(params['price_min']))
@@ -686,19 +1031,28 @@ class ExclusivePropertiesAPIView(APIView):
         return final_qs, limit, offset, updated_count
 
     def get(self, request):
+        cache_key = _build_query_params_cache_key(
+            "exclusive-properties", request.query_params
+        )
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload)
+
         qs, limit, offset, updated = self.get_queryset(request.query_params)
         paginator = Paginator(qs, limit)
         page = paginator.get_page((offset // limit) + 1)
 
         serializer = PropertySerializer(page.object_list, many=True, context={'request': request})
 
-        return Response({
+        payload = {
             "count": paginator.count,
             "next": offset + limit if page.has_next() else None,
             "previous": offset - limit if offset >= limit else None,
             "updated_to_exclusive": updated,
             "results": serializer.data
-        })
+        }
+        cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
+        return Response(payload)
     
 
 
@@ -756,6 +1110,13 @@ class PreConnPropertiesAPIView(APIView):
     """
 
     def get(self, request):
+        cache_key = _build_query_params_cache_key(
+            "pre-conn-properties", request.query_params
+        )
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload)
+
         limit = min(int(request.query_params.get('limit', 6)), 100)
         offset = int(request.query_params.get('offset', 0))
 
@@ -802,7 +1163,7 @@ class PreConnPropertiesAPIView(APIView):
                 # Search in remarks keywords
                 search_q |= Q(public_remarks__icontains=search_term)
 
-                q = qs.filter(search_q)
+                qs = qs.filter(search_q)
 
         if params.get('price_min'):
             qs = qs.filter(list_price__gte=float(params['price_min']))
@@ -879,12 +1240,14 @@ class PreConnPropertiesAPIView(APIView):
 
         serializer = PropertySerializer(page.object_list, many=True, context={'request': request})
 
-        return Response({
+        payload = {
             "count": paginator.count,
             "next": offset + limit if page.has_next() else None,
             "previous": offset - limit if offset >= limit else None,
             "results": serializer.data
-        })
+        }
+        cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
+        return Response(payload)
     
 
 class LeasePropertiesAPIView(APIView):
@@ -898,6 +1261,13 @@ class LeasePropertiesAPIView(APIView):
     """
 
     def get(self, request):
+        cache_key = _build_query_params_cache_key(
+            "lease-properties", request.query_params
+        )
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload)
+
         limit = min(int(request.query_params.get('limit', 6)), 100)
         offset = int(request.query_params.get('offset', 0))
 
@@ -948,7 +1318,7 @@ class LeasePropertiesAPIView(APIView):
                 # Search in remarks keywords
                 search_q |= Q(public_remarks__icontains=search_term)
 
-                q = qs.filter(search_q)
+                qs = qs.filter(search_q)
         if params.get('price_min'):
             qs = qs.filter(list_price__gte=float(params['price_min']))
         if params.get('price_max'):
@@ -1029,12 +1399,14 @@ class LeasePropertiesAPIView(APIView):
 
         serializer = PropertySerializer(page.object_list, many=True, context={'request': request})
 
-        return Response({
+        payload = {
             "count": paginator.count,
             "next": offset + limit if page.has_next() else None,
             "previous": offset - limit if offset >= limit else None,
             "results": serializer.data
-        })
+        }
+        cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
+        return Response(payload)
     
 
 
@@ -1182,21 +1554,32 @@ class NearestSchoolAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        cache_key = f"nearest-school:{round(lat, 3)}:{round(lon, 3)}:{radius}"
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload, status=status.HTTP_200_OK)
+
         # Step 1: Query Overpass for schools near the point
-        overpass_query = f"""
-        [out:json][timeout:25];
-        (
-          way(around:{radius},{lat},{lon})["amenity"="school"];
-          way(around:{radius},{lat},{lon})["landuse"="education"];
-        );
-        out geom;
-        """
+        # overpass-api.de requires a non-stock User-Agent (otherwise 406 Not Acceptable).
+        overpass_query = (
+            f"[out:json][timeout:25];"
+            f"("
+            f'way(around:{radius},{lat},{lon})["amenity"="school"];'
+            f'way(around:{radius},{lat},{lon})["landuse"="education"];'
+            f");"
+            f"out geom;"
+        )
+        overpass_headers = {
+            "User-Agent": "mls-v2-backend/1.0 (nearest-schools; +https://vsell4u.ca)",
+            "Accept": "application/json",
+        }
 
         try:
-            response = requests.get(
+            response = requests.post(
                 OVERPASS_URL,
-                params={'data': overpass_query},
-                timeout=30
+                data={"data": overpass_query},
+                headers=overpass_headers,
+                timeout=30,
             )
             response.raise_for_status()  # Raise an exception for HTTP errors
         except requests.exceptions.RequestException as e:
@@ -1254,12 +1637,14 @@ class NearestSchoolAPIView(APIView):
         # Sort by distance
         schools.sort(key=lambda x: x['distance_meters'])
 
-        return Response({
+        payload = {
             "user_location": {"lat": lat, "lon": lon},
             "nearest_schools": schools[:10],  # Return top 10 closest
             "total_found": len(schools),
             "search_radius_m": radius
-        }, status=status.HTTP_200_OK)
+        }
+        cache.set(cache_key, payload, NEAREST_SCHOOL_CACHE_TTL_SECONDS)
+        return Response(payload, status=status.HTTP_200_OK)
 
     def haversine(self, lat1, lon1, lat2, lon2):
         """
@@ -1282,6 +1667,13 @@ class NearestSchoolAPIView(APIView):
 
 class NewlyListedPropertiesAPIView(APIView):
     def get(self, request):
+        cache_key = _build_query_params_cache_key(
+            "newly-listed-properties", request.query_params
+        )
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload)
+
         limit = min(int(request.query_params.get('limit', 6)), 100)
         offset = int(request.query_params.get('offset', 0))
 
@@ -1330,7 +1722,7 @@ class NewlyListedPropertiesAPIView(APIView):
                 # Search in remarks keywords
                 search_q |= Q(public_remarks__icontains=search_term)
 
-                q = qs.filter(search_q)
+                qs = qs.filter(search_q)
         if params.get('price_min'):
             qs = qs.filter(list_price__gte=float(params['price_min']))
         if params.get('price_max'):
@@ -1411,10 +1803,12 @@ class NewlyListedPropertiesAPIView(APIView):
 
         serializer = PropertySerializer(page.object_list, many=True, context={'request': request})
 
-        return Response({
+        payload = {
             "count": paginator.count,
             "next": offset + limit if page.has_next() else None,
             "previous": offset - limit if offset >= limit else None,
             "results": serializer.data
-        })
+        }
+        cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
+        return Response(payload)
     

@@ -23,6 +23,7 @@ interface PropertyGridSectionProps {
   limit?: number;
   /** Enforces that only one row of properties is displayed regardless of screen width */
   oneRowOnly?: boolean;
+  onViewAllClick?: () => void;
 }
 
 export function PropertyGridSection({
@@ -40,6 +41,7 @@ export function PropertyGridSection({
   variant = "featured",
   limit = 8,
   oneRowOnly = false,
+  onViewAllClick,
 }: PropertyGridSectionProps) {
   const displayProperties = properties.slice(0, limit);
   const showLoadingSkeletons = isLoading;
@@ -94,6 +96,7 @@ export function PropertyGridSection({
           {!showLoadingSkeletons && properties.length > 0 && (
             <Link
               href={viewAllHref}
+              onClick={onViewAllClick}
               className="hidden sm:inline-flex items-center justify-center h-10 px-5 rounded-lg text-sm font-medium shadow-lg transition-all hover:scale-105"
               style={{
                 backgroundColor: colors.primary,
@@ -163,6 +166,7 @@ export function PropertyGridSection({
           <div className="mt-8 text-center sm:hidden">
             <Link
               href={viewAllHref}
+              onClick={onViewAllClick}
               className="inline-flex items-center justify-center h-10 px-5 rounded-lg text-sm font-medium shadow-lg transition-all"
               style={{
                 backgroundColor: colors.primary,

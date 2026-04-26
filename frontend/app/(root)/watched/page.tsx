@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { Heart, Search, Clock, Trash2, Home, ArrowRight } from "lucide-react";
-import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Container from "@/components/Container";
@@ -12,9 +11,10 @@ import { useCompare } from "@/contexts/CompareContext";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { PropertyCard } from "@/components/listing/PropertyCard";
 import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
+import { getDetailUrl } from "@/lib/propertyUtils";
+import { openInNewTab } from "@/lib/navigation/openInNewTab";
 
 export default function WatchedPage() {
-  const router = useRouter();
   const [showQuickView, setShowQuickView] = useState(false);
   const [quickViewProperty, setQuickViewProperty] = useState<any>(null);
 
@@ -65,7 +65,7 @@ export default function WatchedPage() {
       return;
     }
 
-    router.push(`/listing/${key}`);
+    openInNewTab(getDetailUrl(property));
   };
 
   const formatPrice = (price: any) => {
@@ -206,7 +206,7 @@ export default function WatchedPage() {
                   : "Properties you view will appear here automatically so you can find them again easily."}
               </p>
               <button
-                onClick={() => router.push("/listing")}
+                onClick={() => openInNewTab("/listing")}
                 className="group flex items-center gap-2 px-8 py-3.5 bg-ds-primary text-white font-bold rounded-2xl hover:brightness-110 transition-all shadow-xl shadow-ds-primary/20"
                 style={{ backgroundColor: colors.primary }}
               >

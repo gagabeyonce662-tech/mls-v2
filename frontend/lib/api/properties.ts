@@ -8,9 +8,74 @@ import {
   PreConnPropertyFilterParams,
   NearestSchoolsResponse,
   PropertyTypeOption,
+  HomepageCategory,
+  HomepageCategoryCatalog,
 } from "./types";
 import { PropertyResponseSchema } from "./propertySchema";
 import { fetchWPPreconPropertyAction } from "../actions/wp-precon";
+import {
+  buildPropertyTypeCategoryKey,
+  mergeHomepageCategories,
+} from "@/lib/homepage/categories";
+
+const CLIENT_CACHE_PREFIX = "mls:api-cache:";
+const CLIENT_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const MAP_FILTER_CACHE_TTL_MS = 60 * 1000; // 60 seconds for interactive map requests
+const clientMemoryCache = new Map<
+  string,
+  { timestamp: number; data: unknown }
+>();
+const mapFilterMemoryCache = new Map<string, { timestamp: number; data: unknown }>();
+
+function getClientCachedResponse<T>(cacheKey: string): T | null {
+  const now = Date.now();
+  const inMemory = clientMemoryCache.get(cacheKey);
+  if (inMemory && now - inMemory.timestamp < CLIENT_CACHE_TTL_MS) {
+    return inMemory.data as T;
+  }
+
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(`${CLIENT_CACHE_PREFIX}${cacheKey}`);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as { timestamp?: number; data?: T };
+    if (
+      !parsed ||
+      typeof parsed.timestamp !== "number" ||
+      now - parsed.timestamp >= CLIENT_CACHE_TTL_MS
+    ) {
+      window.localStorage.removeItem(`${CLIENT_CACHE_PREFIX}${cacheKey}`);
+      return null;
+    }
+
+    clientMemoryCache.set(cacheKey, {
+      timestamp: parsed.timestamp,
+      data: parsed.data,
+    });
+
+    return (parsed.data ?? null) as T | null;
+  } catch {
+    return null;
+  }
+}
+
+function setClientCachedResponse<T>(cacheKey: string, data: T): void {
+  const entry = { timestamp: Date.now(), data };
+  clientMemoryCache.set(cacheKey, entry);
+
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(
+      `${CLIENT_CACHE_PREFIX}${cacheKey}`,
+      JSON.stringify(entry),
+    );
+  } catch {
+    // Ignore storage quota / serialization errors and continue without persistence.
+  }
+}
 
 /**
  * Maps static WP JSON Pre-Construction data to our standard Property schema
@@ -185,9 +250,25 @@ export async function fetchExclusiveProperties(
     }
 
     const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
-    // console.log("Fetching exclusive properties from:", url);
+    const cacheKey = `exclusive:${queryParams.toString()}`;
+    const cached = getClientCachedResponse<{
+      results: any[];
+      count: number;
+      next: number | null;
+      previous: number | null;
+      updated_to_exclusive: number;
+    }>(cacheKey);
+    if (cached) return cached;
 
-    return await fetchAPI(url, { cache: "no-store" });
+    const response = await fetchAPI<{
+      results: any[];
+      count: number;
+      next: number | null;
+      previous: number | null;
+      updated_to_exclusive: number;
+    }>(url, { cache: "no-store" });
+    setClientCachedResponse(cacheKey, response);
+    return response;
   } catch (error) {
     console.error("Error fetching exclusive properties:", error);
     return {
@@ -236,8 +317,23 @@ export async function fetchLeaseProperties(
     }
 
     const url = `${API_BASE_URL}/api/mls/properties/lease-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
+    const cacheKey = `lease:${queryParams.toString()}`;
+    const cached = getClientCachedResponse<{
+      results: any[];
+      count: number;
+      next: number | null;
+      previous: number | null;
+    }>(cacheKey);
+    if (cached) return cached;
 
-    return await fetchAPI(url, { cache: "no-store" });
+    const response = await fetchAPI<{
+      results: any[];
+      count: number;
+      next: number | null;
+      previous: number | null;
+    }>(url, { cache: "no-store" });
+    setClientCachedResponse(cacheKey, response);
+    return response;
   } catch (error) {
     console.error("Error fetching lease properties:", error);
     return {
@@ -254,6 +350,7 @@ export async function fetchLeaseProperties(
  */
 export async function fetchFilteredProperties(
   filters: Record<string, any>,
+  requestOptions?: RequestInit,
 ): Promise<any> {
   const params = new URLSearchParams();
 
@@ -269,10 +366,32 @@ export async function fetchFilteredProperties(
   });
 
   const url = `${API_BASE_URL}/api/mls/properties/filter/?${params.toString()}`;
+  const hasMapBounds =
+    params.has("lat_min") &&
+    params.has("lat_max") &&
+    params.has("lng_min") &&
+    params.has("lng_max");
+  const mapCacheKey = `map-filter:${params.toString()}`;
+  if (hasMapBounds) {
+    const cached = mapFilterMemoryCache.get(mapCacheKey);
+    if (cached && Date.now() - cached.timestamp < MAP_FILTER_CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
   // console.log("FILTER URL →", url);
 
   try {
-    return await fetchAPI(url, { cache: "no-store" });
+    const response = await fetchAPI(url, {
+      cache: "no-store",
+      ...requestOptions,
+    });
+    if (hasMapBounds) {
+      mapFilterMemoryCache.set(mapCacheKey, {
+        timestamp: Date.now(),
+        data: response,
+      });
+    }
+    return response;
   } catch (error) {
     console.error("Filter API error:", error);
     return { results: [], count: 0 };
@@ -313,6 +432,91 @@ export async function fetchPropertyTypes(params?: {
   } catch (error) {
     console.error("Error fetching property types:", error);
     return DEFAULT_PROPERTY_TYPES;
+  }
+}
+
+export async function fetchHomepageCategoryCatalog(): Promise<HomepageCategoryCatalog> {
+  try {
+    const [
+      exclusiveResponse,
+      rentalResponse,
+      preconResponse,
+      newlyListedResponse,
+      propertyTypes,
+    ] = await Promise.all([
+      fetchExclusiveProperties({ limit: 1, offset: 0 }),
+      fetchLeaseProperties({ limit: 1, offset: 0 }),
+      fetchPreConnProperties({ limit: 1, offset: 0 }),
+      fetchNewlyListedProperties({ limit: 1, offset: 0 }),
+      fetchPropertyTypes({ listing_type: "exclusive" }),
+    ]);
+
+    const baseCategories: HomepageCategory[] = [
+      {
+        key: "newly_listed",
+        kind: "newly_listed",
+        label: "Newly Listed Properties",
+        count: newlyListedResponse.count || 0,
+        enabled: true,
+        route: "/new-listings",
+        source: "backend",
+        order: 10,
+      },
+      {
+        key: "exclusive",
+        kind: "exclusive",
+        label: "Exclusive Properties",
+        count: exclusiveResponse.count || 0,
+        enabled: true,
+        route: "/listing",
+        source: "backend",
+        order: 20,
+      },
+      {
+        key: "rental",
+        kind: "rental",
+        label: "Rental Properties",
+        count: rentalResponse.count || 0,
+        enabled: true,
+        route: "/listing/rental",
+        source: "backend",
+        order: 30,
+      },
+      {
+        key: "precon",
+        kind: "precon",
+        label: "Pre-Construction Properties",
+        count: preconResponse.count || 0,
+        enabled: true,
+        route: "/pre-construction",
+        source: "backend",
+        order: 40,
+      },
+    ];
+
+    const typeCategories: HomepageCategory[] = propertyTypes.map((item) => ({
+      key: buildPropertyTypeCategoryKey(item.value),
+      kind: "property_type",
+      label: item.label,
+      count: typeof item.count === "number" ? item.count : Number.NaN,
+      enabled: true,
+      route: "/listing",
+      query: { property_type: item.value },
+      source: "backend",
+      order: 100,
+    }));
+
+    const categories = mergeHomepageCategories([...baseCategories, ...typeCategories]);
+    return {
+      categories,
+      fetchedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("Error fetching homepage category catalog:", error);
+    return {
+      categories: mergeHomepageCategories([]),
+      fetchedAt: new Date().toISOString(),
+    };
   }
 }
 
@@ -513,7 +717,23 @@ export async function fetchPreConnProperties(
     }
 
     const url = `${API_BASE_URL}/api/mls/properties/pre-conn-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
-    return await fetchAPI(url, { cache: "no-store" });
+    const cacheKey = `precon:${queryParams.toString()}`;
+    const cached = getClientCachedResponse<{
+      results: any[];
+      count: number;
+      next: number | null;
+      previous: number | null;
+    }>(cacheKey);
+    if (cached) return cached;
+
+    const response = await fetchAPI<{
+      results: any[];
+      count: number;
+      next: number | null;
+      previous: number | null;
+    }>(url, { cache: "no-store" });
+    setClientCachedResponse(cacheKey, response);
+    return response;
   } catch (error) {
     console.error("Error fetching pre-construction properties:", error);
     return { results: [], count: 0, next: null, previous: null };
@@ -573,7 +793,23 @@ export async function fetchNewlyListedProperties(
   }
 
   const url = `${API_BASE_URL}/api/mls/properties/newly-listed-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
-  return await fetchAPI(url, { cache: "no-store" });
+  const cacheKey = `newly-listed:${queryParams.toString()}`;
+  const cached = getClientCachedResponse<{
+    results: any[];
+    count: number;
+    next: number | null;
+    previous: number | null;
+  }>(cacheKey);
+  if (cached) return cached;
+
+  const response = await fetchAPI<{
+    results: any[];
+    count: number;
+    next: number | null;
+    previous: number | null;
+  }>(url, { cache: "no-store" });
+  setClientCachedResponse(cacheKey, response);
+  return response;
 }
 
 /**

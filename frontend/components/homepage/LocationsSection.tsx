@@ -1,9 +1,10 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useSearch } from "@/contexts/SearchContext";
 import { Search } from "lucide-react";
+import { openInNewTab } from "@/lib/navigation/openInNewTab";
 
 interface Location {
   id: number;
@@ -69,7 +70,7 @@ export default function LocationsSection() {
   const halfWidthRef = useRef(0); // half the track width (= one set of cards)
   const pausedRef = useRef(false);
 
-  const animate = useCallback((time: number) => {
+  const animate = (time: number) => {
     if (!trackRef.current) return;
 
     if (lastTimeRef.current !== null && !pausedRef.current) {
@@ -88,7 +89,7 @@ export default function LocationsSection() {
     lastTimeRef.current = time;
     trackRef.current.style.transform = `translateX(${positionRef.current + dragDelta.current}px)`;
     animStartRef.current = requestAnimationFrame(animate);
-  }, []);
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -107,7 +108,7 @@ export default function LocationsSection() {
       if (animStartRef.current !== null)
         cancelAnimationFrame(animStartRef.current);
     };
-  }, [animate]);
+  }, []);
 
   // ─── Pointer (mouse + touch) drag handlers ────────────────────────────────
 
@@ -148,13 +149,9 @@ export default function LocationsSection() {
   };
 
   const handleLocationClick = async (locationName: string) => {
-    // Scroll to search area first for better UX
-    const searchTop = document.getElementById("search-results-top");
-    if (searchTop) searchTop.scrollIntoView({ behavior: "smooth" });
-
-    // We only need to update the query - the SearchResultsSection row
-    // on the homepage will pick this up and fetch its own results.
     setSearchQuery(locationName);
+    const target = `/listing?city=${encodeURIComponent(locationName)}`;
+    openInNewTab(target);
   };
 
   const marqueeLocations = [

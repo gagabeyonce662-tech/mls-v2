@@ -22,11 +22,12 @@ export default function MapController({
   useEffect(() => {
     if (!map) return;
     onMapReady(map);
-    map.on("click", (e: any) => {
+    const handleMapClick = (e: any) => {
       onMapClick(e.latlng.lat, e.latlng.lng);
-    });
+    };
+    map.on("click", handleMapClick);
     return () => {
-      map.off("click");
+      map.off("click", handleMapClick);
     };
   }, [map, onMapReady, onMapClick]);
 

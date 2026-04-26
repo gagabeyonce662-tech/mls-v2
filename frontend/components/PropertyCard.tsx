@@ -55,6 +55,8 @@ export default function PropertyCard({
           setClicked(true);
           addToHistory(property);
         }}
+        target="_blank"
+        rel="noopener noreferrer"
         className="block h-full"
       >
         {/* Click overlay */}
@@ -191,6 +193,8 @@ export default function PropertyCard({
         <Link
           href={getDetailUrl(property)}
           onClick={(e) => e.stopPropagation()}
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex items-center justify-center gap-1 py-2 text-[10px] font-medium text-gray-400 hover:text-purple-500 border-l border-gray-200/70 transition-colors hover:bg-gray-50"
         >
           <ImageIcon className="w-3 h-3 shrink-0" />
@@ -200,6 +204,8 @@ export default function PropertyCard({
         <Link
           href={getDetailUrl(property)}
           onClick={(e) => e.stopPropagation()}
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex items-center justify-center gap-1 py-2 text-[10px] font-medium text-gray-400 hover:text-purple-500 border-l border-gray-200/70 transition-colors hover:bg-gray-50"
         >
           <Video className="w-3 h-3 shrink-0" />

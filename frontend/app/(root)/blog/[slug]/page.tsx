@@ -12,10 +12,14 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Image from "next/image";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { colors } from "@/config/design-system";
 import { fetchVlogPostBySlug, fetchVlogPosts } from "@/lib/api";
 import { env } from "@/lib/env";
+
+export const revalidate = 24 * 60 * 60;
 
 export async function generateStaticParams() {
   try {
@@ -53,12 +57,17 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
   const fallbackImage =
     "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80";
 
-  const getImageUrl = (imageUrl: string | undefined) => {
-    if (!imageUrl) return fallbackImage;
-    if (imageUrl.startsWith("/")) {
-      return `${env.NEXT_PUBLIC_API_URL}${imageUrl}`;
+  const getImageUrl = (
+    imageUrl?: string | null,
+    thumbnailUrl?: string | null,
+  ) => {
+    const resolvedUrl = imageUrl || thumbnailUrl || "";
+    if (!resolvedUrl) return fallbackImage;
+    if (resolvedUrl.startsWith("/")) {
+      const baseUrl = env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+      return `${baseUrl}${resolvedUrl}`;
     }
-    return imageUrl;
+    return resolvedUrl;
   };
 
   const formatDate = (dateString: string) => {
@@ -90,69 +99,72 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen flex flex-col bg-white">
       <Header />
 
-      {/* Breadcrumb */}
-      <div className="bg-gray-50 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Link
-            href="/blog"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm">Back to Blogs</span>
-          </Link>
+      <main className="flex-1">
+        {/* Breadcrumb */}
+        <div className="bg-gray-50 border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <Link
+              href="/blog"
+              className="inline-flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm">Back to Blogs</span>
+            </Link>
+          </div>
         </div>
-      </div>
 
-      {/* Hero Image */}
-      <div
-        className="relative h-[400px] bg-cover bg-center"
-        style={{ backgroundImage: `url('${getImageUrl(post.thumbnail)}')` }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/30" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-end pb-12">
-          <div className="max-w-4xl">
-            {post.category && (
-              <span
-                className="inline-block px-3 py-1.5 rounded-md text-sm font-semibold mb-4"
-                style={{ backgroundColor: colors.icon, color: colors.cards }}
-              >
-                {post.category.name}
-              </span>
-            )}
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
-              {post.title}
-            </h1>
-            <div className="flex items-center gap-6 text-white/90 text-sm">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4" />
-                <span>{post.author || "Editorial Team"}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                <span>{formatDate(post.publish_date || post.created_at)}</span>
-              </div>
-              {post.status && (
+        {/* Hero Image */}
+        <div
+          className="relative h-[400px] bg-cover bg-center"
+        style={{
+          backgroundImage: `url('${getImageUrl(post.thumbnail, post.thumbnail_url)}')`,
+        }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/30" />
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-end pb-12">
+            <div className="max-w-4xl">
+              {post.category && (
                 <span
-                  className={`px-2 py-1 rounded text-xs font-semibold ${
-                    post.status === "published"
-                      ? "bg-green-500 text-white"
-                      : "bg-yellow-500 text-black"
-                  }`}
+                  className="inline-block px-3 py-1.5 rounded-md text-sm font-semibold mb-4"
+                  style={{ backgroundColor: colors.icon, color: colors.cards }}
                 >
-                  {post.status.toUpperCase()}
+                  {post.category.name}
                 </span>
               )}
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
+                {post.title}
+              </h1>
+              <div className="flex items-center gap-6 text-white/90 text-sm">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  <span>{post.author || "Editorial Team"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  <span>{formatDate(post.publish_date || post.created_at)}</span>
+                </div>
+                {post.status && (
+                  <span
+                    className={`px-2 py-1 rounded text-xs font-semibold ${
+                      post.status === "published"
+                        ? "bg-green-500 text-white"
+                        : "bg-yellow-500 text-black"
+                    }`}
+                  >
+                    {post.status.toUpperCase()}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Article Content */}
           <div className="lg:col-span-2">
             {/* Share Buttons */}
@@ -177,10 +189,11 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
             </div>
 
             {/* Article Body */}
-            <div
-              className="prose prose-lg max-w-none prose-headings:font-bold prose-headings:text-gray-900 prose-p:text-gray-700 prose-p:leading-relaxed prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-gray-900 prose-ul:text-gray-700 prose-li:text-gray-700"
-              dangerouslySetInnerHTML={{ __html: post.content }}
-            />
+            <div className="prose prose-lg max-w-none prose-headings:font-bold prose-headings:text-gray-900 prose-p:text-gray-700 prose-p:leading-relaxed prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-gray-900 prose-ul:text-gray-700 prose-li:text-gray-700">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {post.content || ""}
+              </ReactMarkdown>
+            </div>
 
             {/* Video Section - Handle both embed_url and video_file */}
             {(post.embed_url || post.video_file) && (
@@ -215,7 +228,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
                     <video
                       controls
                       className="w-full h-auto rounded-lg"
-                      poster={getImageUrl(post.thumbnail)}
+                      poster={getImageUrl(post.thumbnail, post.thumbnail_url)}
                     >
                       <source
                         src={
@@ -325,10 +338,14 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
                       <div className="flex gap-4">
                         <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden">
                           <Image
-                            src={getImageUrl(relatedPost.thumbnail)}
+                            src={getImageUrl(
+                              relatedPost.thumbnail,
+                              relatedPost.thumbnail_url,
+                            )}
                             alt={relatedPost.title}
                             width={96}
                             height={96}
+                            unoptimized
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                           />
                         </div>
@@ -383,8 +400,9 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
               </div>
             </div>
           </div>
+          </div>
         </div>
-      </div>
+      </main>
 
       <Footer />
     </div>

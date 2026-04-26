@@ -1,0 +1,56 @@
+import { strict as assert } from "node:assert";
+import { describe, it } from "node:test";
+import { mergeHomepageCategories } from "./categories";
+import type { HomepageCategory } from "@/lib/api/types";
+
+describe("mergeHomepageCategories", () => {
+  it("keeps core categories with deterministic order", () => {
+    const input: HomepageCategory[] = [
+      {
+        key: "rental",
+        kind: "rental",
+        label: "Rental",
+        count: 10,
+        enabled: true,
+        route: "/listing/rental",
+        source: "backend",
+        order: 300,
+      },
+      {
+        key: "exclusive",
+        kind: "exclusive",
+        label: "Exclusive",
+        count: 10,
+        enabled: true,
+        route: "/listing",
+        source: "backend",
+        order: 200,
+      },
+    ];
+
+    const merged = mergeHomepageCategories(input, { minCountThreshold: 5 });
+    assert.equal(merged[0]?.key, "exclusive");
+    assert.equal(merged[1]?.key, "rental");
+  });
+
+  it("filters unknown categories from backend", () => {
+    const input: HomepageCategory[] = [
+      {
+        key: "property_type:unknown-future-type",
+        kind: "property_type",
+        label: "Unknown",
+        count: 100,
+        enabled: true,
+        route: "/listing",
+        source: "backend",
+        order: 1,
+      },
+    ];
+
+    const merged = mergeHomepageCategories(input);
+    assert.equal(
+      merged.some((item) => item.key === "property_type:unknown-future-type"),
+      false,
+    );
+  });
+});

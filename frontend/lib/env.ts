@@ -20,6 +20,9 @@ const envSchema = z.object({
   NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().optional(),
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
   NEXT_PUBLIC_API_TOKEN: z.string().optional(),
+  NEXT_PUBLIC_ENABLE_DYNAMIC_HOMEPAGE_CATEGORIES: z
+    .enum(["true", "false"])
+    .optional(),
 });
 
 // Next.js client-side requires explicit destructuring of process.env keys at build time.
@@ -40,6 +43,8 @@ const _env = envSchema.safeParse({
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
     (isDev ? "dev-maps-key" : undefined),
   NEXT_PUBLIC_API_TOKEN: process.env.NEXT_PUBLIC_API_TOKEN,
+  NEXT_PUBLIC_ENABLE_DYNAMIC_HOMEPAGE_CATEGORIES:
+    process.env.NEXT_PUBLIC_ENABLE_DYNAMIC_HOMEPAGE_CATEGORIES || "false",
 });
 
 if (!_env.success) {

@@ -14,12 +14,10 @@ import FeaturedCollections from "@/components/homepage/FeaturedCollections";
 import PropertyFilter from "@/components/PropertyFilter";
 import MobileFilterDrawer from "@/components/homepage/MobileFilterDrawer";
 
-import { SearchResultsSection } from "@/components/homepage/sections/SearchResultsSection";
-import { NewlyListedSection } from "@/components/homepage/sections/NewlyListedSection";
-import { ExclusivePropertiesSection } from "@/components/homepage/sections/ExclusivePropertiesSection";
-import { RentalPropertiesSection } from "@/components/homepage/sections/RentalPropertiesSection";
-import { PreConstructionSection } from "@/components/homepage/sections/PreConstructionSection";
+import { DynamicHomepageSections } from "@/components/homepage/sections/DynamicHomepageSections";
 import LeadCaptureWidget from "@/components/homepage/LeadCaptureWidget";
+import { useHomepageCategories } from "@/hooks/useHomepageCategories";
+import { trackHomepageCategoryEvent } from "@/lib/analytics/homepageCategories";
 
 import dynamic from "next/dynamic";
 
@@ -43,6 +41,8 @@ export default function HomePage() {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [isSticky, setIsSticky] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const isDynamicCategoriesEnabled = true;
+  const { categories, hasError } = useHomepageCategories(isDynamicCategoriesEnabled);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -60,6 +60,17 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (!isDynamicCategoriesEnabled || categories.length === 0) return;
+    categories.forEach((category) => {
+      trackHomepageCategoryEvent("homepage_category_impression", {
+        key: category.key,
+        label: category.label,
+        route: category.route,
+      });
+    });
+  }, [isDynamicCategoriesEnabled, categories]);
+
   return (
     <QuickViewProvider>
       <div
@@ -76,7 +87,9 @@ export default function HomePage() {
 
           {/* Quick Navigation */}
           <div className="mt-2 w-full">
-            <FeaturedCollections />
+            <FeaturedCollections
+              categories={isDynamicCategoriesEnabled ? categories : []}
+            />
           </div>
 
           {/* Content Section */}
@@ -104,11 +117,35 @@ export default function HomePage() {
                 id="search-results-top"
                 className="space-y-4 overflow-x-hidden"
               >
-                <SearchResultsSection />
-                <NewlyListedSection />
-                <ExclusivePropertiesSection />
-                <RentalPropertiesSection />
-                <PreConstructionSection />
+                {process.env.NODE_ENV !== "production" && (
+                  <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                    <div className="font-bold mb-2">
+                      Homepage Category Debug (dev only)
+                    </div>
+                    <div className="space-y-1">
+                      {categories.map((category) => (
+                        <div key={category.key} className="flex items-center gap-2">
+                          <span className="font-semibold">{category.key}</span>
+                          <span>-</span>
+                          <span>{category.label}</span>
+                          <span>-</span>
+                          <span>
+                            count:{" "}
+                            {Number.isFinite(category.count)
+                              ? category.count
+                              : "missing"}
+                          </span>
+                          <span>-</span>
+                          <span>kind: {category.kind}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <DynamicHomepageSections
+                  categories={categories}
+                  useFallback={!isDynamicCategoriesEnabled || hasError}
+                />
               </div>
             </div>
           </section>
