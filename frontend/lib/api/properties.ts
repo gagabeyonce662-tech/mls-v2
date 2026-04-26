@@ -7,6 +7,7 @@ import {
   LeasePropertyFilterParams,
   PreConnPropertyFilterParams,
   NearestSchoolsResponse,
+  PropertyTypeOption,
 } from "./types";
 import { PropertyResponseSchema } from "./propertySchema";
 import { fetchWPPreconPropertyAction } from "../actions/wp-precon";
@@ -173,10 +174,11 @@ export async function fetchExclusiveProperties(
         if (key === "limit" || key === "offset") return;
 
         if (value !== undefined && value !== null && value !== "") {
+          const queryKey = key === "property_sub_type" ? "property_type" : key;
           if (typeof value === "boolean") {
-            queryParams.append(key, value ? "true" : "false");
+            queryParams.append(queryKey, value ? "true" : "false");
           } else {
-            queryParams.append(key, value.toString());
+            queryParams.append(queryKey, value.toString());
           }
         }
       });
@@ -223,10 +225,11 @@ export async function fetchLeaseProperties(
         if (key === "limit" || key === "offset") return;
 
         if (value !== undefined && value !== null && value !== "") {
+          const queryKey = key === "property_sub_type" ? "property_type" : key;
           if (typeof value === "boolean") {
-            queryParams.append(key, value ? "true" : "false");
+            queryParams.append(queryKey, value ? "true" : "false");
           } else {
-            queryParams.append(key, value.toString());
+            queryParams.append(queryKey, value.toString());
           }
         }
       });
@@ -257,10 +260,11 @@ export async function fetchFilteredProperties(
   Object.entries(filters).forEach(([key, value]) => {
     if (value === "" || value === null || value === undefined) return;
 
+    const queryKey = key === "property_sub_type" ? "property_type" : key;
     if (typeof value === "boolean") {
-      if (value) params.append(key, "true");
+      if (value) params.append(queryKey, "true");
     } else {
-      params.append(key, String(value));
+      params.append(queryKey, String(value));
     }
   });
 
@@ -272,6 +276,43 @@ export async function fetchFilteredProperties(
   } catch (error) {
     console.error("Filter API error:", error);
     return { results: [], count: 0 };
+  }
+}
+
+const DEFAULT_PROPERTY_TYPES: PropertyTypeOption[] = [
+  { value: "Detached", label: "Detached" },
+  { value: "Semi-Detached", label: "Semi-Detached" },
+  { value: "Condo Apt", label: "Condo Apt" },
+  { value: "Freehold Townhouse", label: "Freehold Townhouse" },
+  { value: "Condo Townhouse", label: "Condo Townhouse" },
+];
+
+/**
+ * Fetch available property types for filters.
+ */
+export async function fetchPropertyTypes(params?: {
+  province?: string;
+  listing_type?: "all" | "exclusive" | "lease" | "precon";
+}): Promise<PropertyTypeOption[]> {
+  try {
+    const query = new URLSearchParams();
+    if (params?.province) query.append("province", params.province);
+    if (params?.listing_type) query.append("listing_type", params.listing_type);
+
+    const url = `${API_BASE_URL}/api/mls/properties/property-types/${query.toString() ? `?${query.toString()}` : ""}`;
+    const data = await fetchAPI<{ results?: PropertyTypeOption[] }>(url, {
+      cache: "no-store",
+    });
+    const results = Array.isArray(data?.results) ? data.results : [];
+
+    if (results.length === 0) return DEFAULT_PROPERTY_TYPES;
+
+    return results.filter(
+      (item) => !!item && typeof item.value === "string" && item.value.trim() !== "",
+    );
+  } catch (error) {
+    console.error("Error fetching property types:", error);
+    return DEFAULT_PROPERTY_TYPES;
   }
 }
 
@@ -461,10 +502,11 @@ export async function fetchPreConnProperties(
       Object.entries(filters).forEach(([key, value]) => {
         if (key === "limit" || key === "offset") return;
         if (value !== undefined && value !== null && value !== "") {
+          const queryKey = key === "property_sub_type" ? "property_type" : key;
           if (typeof value === "boolean") {
-            queryParams.append(key, value ? "true" : "false");
+            queryParams.append(queryKey, value ? "true" : "false");
           } else {
-            queryParams.append(key, value.toString());
+            queryParams.append(queryKey, value.toString());
           }
         }
       });
@@ -520,10 +562,11 @@ export async function fetchNewlyListedProperties(
       if (key === "limit" || key === "offset" || key === "days_threshold")
         return;
       if (value !== undefined && value !== null && value !== "") {
+        const queryKey = key === "property_sub_type" ? "property_type" : key;
         if (typeof value === "boolean") {
-          queryParams.append(key, value ? "true" : "false");
+          queryParams.append(queryKey, value ? "true" : "false");
         } else {
-          queryParams.append(key, value.toString());
+          queryParams.append(queryKey, value.toString());
         }
       }
     });
@@ -567,28 +610,75 @@ export async function fetchSimilarProperties(
 
     if (!city) return [];
 
-    const filters: any = {
-      city,
-      limit: limit + 1, // Fetch one extra to account for the current property
+    const currentId = property.listing_key || property.ListingKey;
+    const fetchCandidates = async (
+      filters: Record<string, any>,
+    ): Promise<Property[]> => {
+      const data = await fetchFilteredProperties({
+        ...filters,
+        limit: limit + 12, // fetch enough headroom for de-dup + self filtering
+      });
+      const results = (data.results || []).map(mapPropertyFromAPI);
+      return results.filter(
+        (p: Property) => (p.listing_key || p.ListingKey) !== currentId,
+      );
     };
 
-    if (propertyType) {
-      filters.property_type = propertyType;
-    }
+    const mergeUnique = (acc: Property[], incoming: Property[]) => {
+      const seen = new Set(
+        acc.map((p) => String(p.listing_key || p.ListingKey || "")),
+      );
+      for (const item of incoming) {
+        const key = String(item.listing_key || item.ListingKey || "");
+        if (!key || seen.has(key)) continue;
+        acc.push(item);
+        seen.add(key);
+        if (acc.length >= limit) break;
+      }
+      return acc;
+    };
 
+    // Fallback chain:
+    // 1) strict: city + type + ±20%
+    // 2) relaxed price: city + type + ±35%
+    // 3) relaxed type: city + ±35%
+    // 4) broad city-only
+    const strictFilters: Record<string, any> = { city };
+    if (propertyType) strictFilters.property_type = propertyType;
     if (price) {
-      filters.price_min = price * 0.8;
-      filters.price_max = price * 1.2;
+      strictFilters.price_min = price * 0.8;
+      strictFilters.price_max = price * 1.2;
     }
 
-    const data = await fetchFilteredProperties(filters);
-    const results = (data.results || []).map(mapPropertyFromAPI);
+    const relaxedPriceFilters: Record<string, any> = { city };
+    if (propertyType) relaxedPriceFilters.property_type = propertyType;
+    if (price) {
+      relaxedPriceFilters.price_min = price * 0.65;
+      relaxedPriceFilters.price_max = price * 1.35;
+    }
 
-    // Filter out the current property
-    const currentId = property.listing_key || property.ListingKey;
-    return results
-      .filter((p: Property) => (p.listing_key || p.ListingKey) !== currentId)
-      .slice(0, limit);
+    const relaxedTypeFilters: Record<string, any> = { city };
+    if (price) {
+      relaxedTypeFilters.price_min = price * 0.65;
+      relaxedTypeFilters.price_max = price * 1.35;
+    }
+
+    const cityOnlyFilters: Record<string, any> = { city };
+
+    const buckets = await Promise.all([
+      fetchCandidates(strictFilters),
+      fetchCandidates(relaxedPriceFilters),
+      fetchCandidates(relaxedTypeFilters),
+      fetchCandidates(cityOnlyFilters),
+    ]);
+
+    let finalResults: Property[] = [];
+    for (const bucket of buckets) {
+      finalResults = mergeUnique(finalResults, bucket);
+      if (finalResults.length >= limit) break;
+    }
+
+    return finalResults.slice(0, limit);
   } catch (error) {
     console.error("Error fetching similar properties:", error);
     return [];

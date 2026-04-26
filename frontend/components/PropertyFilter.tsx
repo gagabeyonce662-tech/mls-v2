@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Search,
   SlidersHorizontal,
@@ -18,7 +18,9 @@ import {
 import { colors } from "@/config/design-system";
 import {
   fetchExclusiveProperties,
+  fetchPropertyTypes,
   type ExclusivePropertyFilterParams,
+  type PropertyTypeOption,
 } from "@/lib/api";
 
 import { FilterSection } from "@/components/ui/FilterSection";
@@ -43,23 +45,9 @@ interface PropertyFilterProps {
   isSticky?: boolean;
 }
 
-const propertyTypeMapping: { [key: string]: string } = {
-  detached: "detached",
-  "semi-detached": "semi-detached",
-  "condo-apt": "Condo",
-  "freehold-townhouse": "Townhouse",
-  "condo-townhouse": "Townhouse",
-  "Single-Family": "Single-Family",
-  "Detached-Townhouse": "Detached-Townhouse",
-};
-
-const availablePropertyTypes = [
-  "Detached",
-  "Semi-Detached",
-  "Condo Apt",
-  "Freehold Townhouse",
-  "Condo Townhouse",
-];
+const toTypeKey = (value: string) => value.toLowerCase().replace(/\s+/g, "-");
+const formatTypeLabel = (type: PropertyTypeOption) =>
+  typeof type.count === "number" ? `${type.label} (${type.count})` : type.label;
 
 export default function PropertyFilter({
   variant = "sidebar",
@@ -71,11 +59,28 @@ export default function PropertyFilter({
   const { state, setters, clearFilters, calculateActiveFilters } =
     useFilterState();
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
+  const [availablePropertyTypes, setAvailablePropertyTypes] = useState<
+    PropertyTypeOption[]
+  >([]);
 
   // Sync initial city from URL into the filter input
   useState(() => {
     if (initialCity) setters.setSearchQuery(initialCity);
   });
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadPropertyTypes = async () => {
+      const types = await fetchPropertyTypes({ listing_type: "exclusive" });
+      if (mounted) setAvailablePropertyTypes(types);
+    };
+
+    loadPropertyTypes();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const {
     searchQuery,
@@ -118,7 +123,10 @@ export default function PropertyFilter({
 
       if (propertyType.length > 0) {
         const apiPropertyTypes = propertyType
-          .map((type) => propertyTypeMapping[type] || type)
+          .map((type) =>
+            availablePropertyTypes.find((opt) => toTypeKey(opt.value) === type)
+              ?.value || type,
+          )
           .filter(Boolean)
           .filter((value, index, self) => self.indexOf(value) === index);
         if (apiPropertyTypes.length > 0) {
@@ -308,11 +316,11 @@ export default function PropertyFilter({
                 </SelectItem>
                 {availablePropertyTypes.map((type) => (
                   <SelectItem
-                    key={type}
-                    value={type.toLowerCase().replace(" ", "-")}
+                    key={type.value}
+                    value={toTypeKey(type.value)}
                     className="cursor-pointer"
                   >
-                    {type}
+                    {formatTypeLabel(type)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -487,13 +495,13 @@ export default function PropertyFilter({
         <div className="grid grid-cols-1 gap-2.5">
           {availablePropertyTypes.map((type) => (
             <StyledCheckbox
-              key={type}
-              label={type}
+              key={type.value}
+              label={formatTypeLabel(type)}
               checked={propertyType.includes(
-                type.toLowerCase().replace(" ", "-"),
+                toTypeKey(type.value),
               )}
               onChange={() => {
-                const val = type.toLowerCase().replace(" ", "-");
+                const val = toTypeKey(type.value);
                 const isChecked = propertyType.includes(val);
                 setPropertyType(
                   isChecked

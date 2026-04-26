@@ -9,7 +9,7 @@ import Footer from "@/components/Footer";
 import PropertyGalleryGrid from "@/components/listing/PropertyGalleryGrid";
 import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
 import { ds } from "@/lib/design-system-utils";
-import { fetchPropertyByKey } from "@/lib/api";
+import { fetchNearestSchools, fetchPropertyByKey } from "@/lib/api";
 import { notFound } from "next/navigation";
 
 // Modular Detail Components
@@ -19,6 +19,7 @@ import PropertyHistory from "@/components/listing/details/PropertyHistory";
 import PropertyDetailsGrid from "@/components/listing/details/PropertyDetailsGrid";
 import PropertySidebar from "@/components/listing/details/PropertySidebar";
 import ListingAISummary from "@/components/listing/details/ListingAISummary";
+import NearestSchoolsSection from "../../../../components/listing/details/NearestSchoolsSection";
 import SimilarProperties from "@/components/listing/SimilarProperties";
 import { PropertyViewerTracker } from "@/components/listing/PropertyViewerTracker";
 import { MortgageCalculator } from "@/components/ui/MortgageCalculator";
@@ -167,6 +168,42 @@ export default async function ListingPage(props: ListingPageProps) {
     { label: "Annual Taxes", value: getTaxAnnualAmount(property) },
   ].filter((item) => item.value);
 
+  const parseCoordinate = (value: unknown): number | null => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const parsed = parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  };
+
+  const latitude = parseCoordinate(property.latitude);
+  const longitude = parseCoordinate(property.longitude);
+  const hasValidCoordinates =
+    latitude !== null &&
+    longitude !== null &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180;
+
+  const schoolRadiusMeters = 5000;
+  let nearestSchoolsData: Awaited<ReturnType<typeof fetchNearestSchools>> = null;
+  let schoolFetchFailed = false;
+
+  if (hasValidCoordinates) {
+    try {
+      nearestSchoolsData = await fetchNearestSchools(
+        latitude,
+        longitude,
+        schoolRadiusMeters,
+      );
+    } catch (error) {
+      console.error("Failed to fetch nearest schools:", error);
+      schoolFetchFailed = true;
+    }
+  }
+
   return (
     <div className="min-h-screen bg-ds-background">
       <Header />
@@ -226,6 +263,15 @@ export default async function ListingPage(props: ListingPageProps) {
                 </div>
               </section>
             )}
+
+            <NearestSchoolsSection
+              schools={nearestSchoolsData?.nearest_schools || []}
+              radiusMeters={
+                nearestSchoolsData?.search_radius_m || schoolRadiusMeters
+              }
+              hasCoordinates={hasValidCoordinates}
+              isUnavailable={schoolFetchFailed || (!nearestSchoolsData && hasValidCoordinates)}
+            />
 
             <section>
               <h2 className={`${ds.h3} mb-4`}>About this home</h2>

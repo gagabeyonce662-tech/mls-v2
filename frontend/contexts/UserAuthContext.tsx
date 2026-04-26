@@ -1,7 +1,14 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { apiLogin, apiRegister, apiGetProfile, apiRefreshToken } from "@/lib/api/auth";
+import {
+  apiLogin,
+  apiRegister,
+  apiGetProfile,
+  apiRefreshToken,
+  apiGoogleAuth,
+  apiGoogleAuthCode,
+} from "@/lib/api/auth";
 
 interface User {
   id: string;
@@ -15,6 +22,8 @@ interface UserAuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  googleLogin: (idToken: string) => Promise<void>;
+  googleLoginWithCode: (code: string) => Promise<void>;
   register: (data: { name: string; email: string; password: string; phone: string }) => Promise<void>;
   logout: () => void;
 }
@@ -115,9 +124,49 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const googleLogin = async (idToken: string) => {
+    setIsLoading(true);
+    try {
+      const data = await apiGoogleAuth(idToken);
+      localStorage.setItem("access_token", data.access);
+      localStorage.setItem("refresh_token", data.refresh);
+      setUser(data.user);
+      localStorage.setItem("user_session", JSON.stringify(data.user));
+    } catch (error) {
+      console.error("Google login failed", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const googleLoginWithCode = async (code: string) => {
+    setIsLoading(true);
+    try {
+      const data = await apiGoogleAuthCode(code);
+      localStorage.setItem("access_token", data.access);
+      localStorage.setItem("refresh_token", data.refresh);
+      setUser(data.user);
+      localStorage.setItem("user_session", JSON.stringify(data.user));
+    } catch (error) {
+      console.error("Google OAuth code login failed", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <UserAuthContext.Provider
-      value={{ user, isLoading, login, register, logout }}
+      value={{
+        user,
+        isLoading,
+        login,
+        googleLogin,
+        googleLoginWithCode,
+        register,
+        logout,
+      }}
     >
       {children}
     </UserAuthContext.Provider>

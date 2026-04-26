@@ -248,3 +248,29 @@ class MapAggregateCell(models.Model):
             f"H3({self.resolution}) {self.h3_index} "
             f"=> {self.property_count} properties"
         )
+
+
+class UserFeedback(models.Model):
+    FEEDBACK_TYPES = [
+        ("general", "General"),
+        ("bug", "Bug Report"),
+        ("feature", "Feature Request"),
+    ]
+
+    page_url = models.URLField(max_length=2000, blank=True, null=True)
+    name = models.CharField(max_length=200, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+    feedback_type = models.CharField(
+        max_length=20,
+        choices=FEEDBACK_TYPES,
+        default="general",
+    )
+    message = models.TextField()
+    status = models.CharField(max_length=20, default="new")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.feedback_type} feedback ({self.created_at:%Y-%m-%d})"

@@ -203,6 +203,7 @@ AUTH_USER_MODEL = 'accounts.User'
 
 # Google OAuth
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '909407398208-ftdd1k2p9lr6rk2t7ivop3bbfp8q6b7o.apps.googleusercontent.com')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 
 # GoHighLevel
 GHL_API_KEY = os.environ.get('GHL_API_KEY', '')

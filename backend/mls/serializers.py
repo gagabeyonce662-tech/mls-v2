@@ -1,6 +1,6 @@
 # api/serializers.py
 from rest_framework import serializers
-from mls.models import Property, Room, Media
+from mls.models import Property, Room, Media, UserFeedback
 
 
 class MediaSerializer(serializers.ModelSerializer):
@@ -96,3 +96,19 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Property
         fields = '__all__' 
+
+
+class UserFeedbackSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserFeedback
+        fields = [
+            "id",
+            "page_url",
+            "name",
+            "email",
+            "feedback_type",
+            "message",
+            "status",
+            "created_at",
+        ]
+        read_only_fields = ["id", "status", "created_at"]

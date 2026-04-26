@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.db.models import Q, FloatField
+from django.db.models import Q, FloatField, Count
 from django.db.models.functions import Cast, Substr, Lower
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -20,7 +20,7 @@ from django.utils import timezone
 from .models import AccessToken
 from .helpers import get_access_token, fetch_properties_by_property_data
 from mls.models import MapAggregateCell, Property
-from .serializers import PropertySerializer,PropertyDetailSerializer
+from .serializers import PropertySerializer, PropertyDetailSerializer, UserFeedbackSerializer
 from mls.services.map_aggregates import get_resolution_for_zoom
 from mls.services.ai_listing_summary import (
     AISummaryGenerationError,
@@ -76,6 +76,27 @@ class FetchProperties(APIView):
 
         except requests.exceptions.RequestException as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class FeedbackAPIView(APIView):
+    """
+    POST /api/mls/feedback/
+    Create user feedback submissions.
+    """
+
+    def post(self, request):
+        serializer = UserFeedbackSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        feedback = serializer.save()
+        return Response(
+            {
+                "id": feedback.id,
+                "message": "Feedback submitted successfully.",
+            },
+            status=status.HTTP_201_CREATED,
+        )
         
 class DDFAPIClient:
     def make_api_call(self, endpoint, params=None):
@@ -235,6 +256,59 @@ class PropertyFilterView(APIView):
             "previous": offset - limit if offset >= limit else None,
             "results": serializer.data
         })
+
+
+class PropertyTypesAPIView(APIView):
+    """
+    GET /api/mls/properties/property-types/
+    Returns available property_sub_type values with counts.
+    Optional query params:
+      - province (comma-separated province codes, e.g. ON,QC)
+      - listing_type: all | exclusive | lease | precon
+    """
+
+    def get(self, request):
+        params = request.query_params
+        listing_type = str(params.get("listing_type", "all")).strip().lower()
+
+        qs = Property.objects.all()
+
+        if params.get("province"):
+            provinces = [
+                p.strip().upper()
+                for p in params.get("province", "").split(",")
+                if p.strip()
+            ]
+            if provinces:
+                qs = qs.filter(state_or_province__in=provinces)
+
+        if listing_type == "lease":
+            qs = qs.filter(lease_amount__gt=0).exclude(lease_amount__isnull=True)
+        elif listing_type == "precon":
+            qs = qs.filter(category_type=Property.PRE_CONN)
+        elif listing_type == "exclusive":
+            qs = qs.annotate(intro=Lower(Substr("public_remarks", 1, 400))).filter(
+                Q(intro__contains="exclusive") | Q(category_type=Property.EXCLUSIVE)
+            )
+
+        type_rows = (
+            qs.exclude(property_sub_type__isnull=True)
+            .exclude(property_sub_type__exact="")
+            .values("property_sub_type")
+            .annotate(count=Count("id"))
+            .order_by("-count", "property_sub_type")
+        )
+
+        results = [
+            {
+                "value": row["property_sub_type"],
+                "label": row["property_sub_type"],
+                "count": row["count"],
+            }
+            for row in type_rows
+        ]
+
+        return Response({"results": results}, status=status.HTTP_200_OK)
 
 
 class MapAggregatesAPIView(APIView):

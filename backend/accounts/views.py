@@ -1,4 +1,5 @@
 import logging
+import requests
 from django.contrib.auth import get_user_model, authenticate
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -83,7 +84,45 @@ class GoogleAuthView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        raw_token = serializer.validated_data['id_token']
+        raw_token = (serializer.validated_data.get('id_token') or '').strip()
+        auth_code = (serializer.validated_data.get('code') or '').strip()
+
+        # OAuth code flow: exchange auth code for id_token on backend
+        if auth_code and not raw_token:
+            client_secret = (getattr(settings, "GOOGLE_CLIENT_SECRET", "") or "").strip()
+            if not client_secret:
+                return Response(
+                    {'detail': 'GOOGLE_CLIENT_SECRET is not configured.'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            try:
+                token_response = requests.post(
+                    "https://oauth2.googleapis.com/token",
+                    data={
+                        "code": auth_code,
+                        "client_id": settings.GOOGLE_CLIENT_ID,
+                        "client_secret": client_secret,
+                        "redirect_uri": "postmessage",
+                        "grant_type": "authorization_code",
+                    },
+                    timeout=10,
+                )
+                token_response.raise_for_status()
+                token_data = token_response.json()
+                raw_token = token_data.get("id_token", "").strip()
+                if not raw_token:
+                    logger.warning("Google code exchange succeeded without id_token.")
+                    return Response(
+                        {'detail': 'Failed to obtain id_token from Google.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            except requests.RequestException as e:
+                logger.warning(f"Google code exchange failed: {e}")
+                return Response(
+                    {'detail': 'Google OAuth code exchange failed.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         try:
             id_info = google_id_token.verify_oauth2_token(

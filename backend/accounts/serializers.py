@@ -35,7 +35,15 @@ class LoginSerializer(serializers.Serializer):
 
 
 class GoogleAuthSerializer(serializers.Serializer):
-    id_token = serializers.CharField()
+    id_token = serializers.CharField(required=False, allow_blank=True)
+    code = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        id_token = (attrs.get("id_token") or "").strip()
+        code = (attrs.get("code") or "").strip()
+        if not id_token and not code:
+            raise serializers.ValidationError("Either id_token or code is required.")
+        return attrs
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

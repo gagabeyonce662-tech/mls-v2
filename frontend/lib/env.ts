@@ -17,6 +17,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_ADMIN_PASSPHRASE: z
     .string()
     .min(1, "Admin passphrase cannot be empty"),
+  NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().optional(),
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
   NEXT_PUBLIC_API_TOKEN: z.string().optional(),
 });
@@ -34,6 +35,7 @@ const _env = envSchema.safeParse({
   NEXT_PUBLIC_ADMIN_PASSPHRASE:
     process.env.NEXT_PUBLIC_ADMIN_PASSPHRASE ||
     (isDev ? "dev-admin-passphrase" : undefined),
+  NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
     (isDev ? "dev-maps-key" : undefined),

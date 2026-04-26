@@ -34,6 +34,17 @@ export async function apiGoogleAuth(idToken: string) {
 }
 
 /**
+ * Authenticate with Google OAuth authorization code
+ */
+export async function apiGoogleAuthCode(code: string) {
+  const url = `${API_BASE_URL}/api/auth/google/`;
+  return fetchAPI<any>(url, {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
+
+/**
  * Refresh JWT access token
  */
 export async function apiRefreshToken(refresh: string) {

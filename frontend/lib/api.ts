@@ -7,6 +7,7 @@
 export * from "./api/types";
 export * from "./api/client";
 export * from "./api/properties";
+export * from "./api/feedback";
 export * from "./api/vlogs";
 export * from "./api/admin";
 export * from "./api/testing";

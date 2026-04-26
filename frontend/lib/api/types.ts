@@ -127,6 +127,7 @@ export interface BaseFilterParams {
   province?: string;
   postal_code?: string;
   property_sub_type?: string;
+  property_type?: string;
   building_area_min?: number;
   building_area_max?: number;
   lot_size_min?: number;
@@ -160,6 +161,20 @@ export interface LeasePropertyFilterParams extends BaseFilterParams {
 
 export interface PreConnPropertyFilterParams extends BaseFilterParams {
   // Currently identical to base but kept for domain clarity
+}
+
+export interface PropertyTypeOption {
+  value: string;
+  label: string;
+  count?: number;
+}
+
+export interface FeedbackSubmissionPayload {
+  page_url?: string;
+  name?: string;
+  email?: string;
+  feedback_type: "general" | "bug" | "feature";
+  message: string;
 }
 
 export interface School {

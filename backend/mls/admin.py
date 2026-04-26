@@ -1,6 +1,6 @@
 # admin.py
 from django.contrib import admin
-from .models import Property, Room, Media
+from .models import Property, Room, Media, UserFeedback
 
 class RoomInline(admin.TabularInline):
     model = Room
@@ -26,6 +26,13 @@ class MediaAdmin(admin.ModelAdmin):
     list_display = ('media_url', 'media_category', 'order', 'is_preferred')
     search_fields = ('media_category',)
 
+class UserFeedbackAdmin(admin.ModelAdmin):
+    list_display = ("feedback_type", "status", "email", "created_at")
+    list_filter = ("feedback_type", "status", "created_at")
+    search_fields = ("name", "email", "message", "page_url")
+    readonly_fields = ("created_at",)
+
 admin.site.register(Property, PropertyAdmin)
 admin.site.register(Room, RoomAdmin)
 admin.site.register(Media, MediaAdmin)
+admin.site.register(UserFeedback, UserFeedbackAdmin)

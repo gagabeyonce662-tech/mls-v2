@@ -75,6 +75,8 @@ export const metadata: Metadata = {
 };
 
 import { TooltipProvider } from "@/components/ui/tooltip";
+import FeedbackWidget from "@/components/FeedbackWidget";
+import { Toaster } from "@/components/ui/toaster";
 
 export default function RootLayout({
   children,
@@ -89,7 +91,11 @@ export default function RootLayout({
             <CompareProvider>
               <WatchedProvider>
                 <SearchProvider>
-                  <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
+                  <TooltipProvider delayDuration={0}>
+                    {children}
+                    <FeedbackWidget />
+                    <Toaster />
+                  </TooltipProvider>
                 </SearchProvider>
               </WatchedProvider>
             </CompareProvider>
