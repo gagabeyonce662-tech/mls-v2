@@ -68,11 +68,11 @@ export default function HomePage() {
           </section>
 
           {/* Quick Navigation */}
-          <div className="mt-2 w-full">
+          {/* <div className="mt-2 w-full">
             <FeaturedCollections
               categories={isDynamicCategoriesEnabled ? categories : []}
             />
-          </div>
+          </div> */}
 
           {/* Content Section */}
           <section
