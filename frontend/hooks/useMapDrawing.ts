@@ -1,7 +1,6 @@
 // hooks/useMapDrawing.ts
 import { useRef, useState } from "react";
 import { colors } from "@/config/design-system";
-import L from "leaflet";
 
 type LatLngPoint = { lat: number; lng: number };
 type DrawingMode = "rectangle" | "polygon";
@@ -18,6 +17,7 @@ type DrawingCompletePayload = {
 
 export const useMapDrawing = (
   mapRef: React.MutableRefObject<any>,
+  leaflet: any,
   onFinishDrawing: (payload: DrawingCompletePayload) => Promise<void>,
 ) => {
   const [drawing, setDrawing] = useState(false);
@@ -87,14 +87,15 @@ export const useMapDrawing = (
   const onMapMouseMove = (e: any) => {
     if (drawingModeRef.current !== "rectangle") return;
     if (!drawStartRef.current || !mapRef.current) return;
+    if (!leaflet) return;
 
     const start = drawStartRef.current;
-    const bounds = L.latLngBounds(
+    const bounds = leaflet.latLngBounds(
       [start.lat, start.lng],
       [e.latlng.lat, e.latlng.lng],
     );
     if (!rectLayerRef.current) {
-      rectLayerRef.current = L.rectangle(bounds, {
+      rectLayerRef.current = leaflet.rectangle(bounds, {
         color: colors.primary,
         weight: 2,
         fillOpacity: 0.1,
@@ -160,6 +161,7 @@ export const useMapDrawing = (
 
   const redrawPolygonLayer = () => {
     if (!mapRef.current) return;
+    if (!leaflet) return;
     if (polygonLayerRef.current) {
       try {
         polygonLayerRef.current.remove();
@@ -167,7 +169,7 @@ export const useMapDrawing = (
       polygonLayerRef.current = null;
     }
     if (polygonPointsRef.current.length >= 2) {
-      polygonLayerRef.current = L.polygon(
+      polygonLayerRef.current = leaflet.polygon(
         polygonPointsRef.current.map((p) => [p.lat, p.lng]),
         {
           color: colors.primary,
@@ -192,10 +194,11 @@ export const useMapDrawing = (
   const onPolygonMouseMove = (e: any) => {
     if (drawingModeRef.current !== "polygon" || !mapRef.current) return;
     if (polygonPointsRef.current.length === 0) return;
+    if (!leaflet) return;
     const points = polygonPointsRef.current.map((p) => [p.lat, p.lng]);
     const preview = [...points, [e.latlng.lat, e.latlng.lng]];
     if (!polygonPreviewLineRef.current) {
-      polygonPreviewLineRef.current = L.polyline(preview, {
+      polygonPreviewLineRef.current = leaflet.polyline(preview, {
         color: colors.primary,
         weight: 2,
         opacity: 0.7,

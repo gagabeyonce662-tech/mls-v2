@@ -1,6 +1,6 @@
-import L from "leaflet";
+import type * as Leaflet from "leaflet";
 
-export const getCustomIcon = (leaflet: typeof L) =>
+export const getCustomIcon = (leaflet: typeof Leaflet) =>
   leaflet.icon({
     iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
     iconRetinaUrl:
@@ -10,7 +10,7 @@ export const getCustomIcon = (leaflet: typeof L) =>
     iconAnchor: [12, 41],
   });
 
-export const getSelectedIcon = (leaflet: typeof L) =>
+export const getSelectedIcon = (leaflet: typeof Leaflet) =>
   leaflet.icon({
     iconUrl:
       "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",

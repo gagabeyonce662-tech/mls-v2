@@ -196,7 +196,7 @@ export default function MapOnlyPage() {
     disableDrawing,
     finishPolygonDrawing,
     clearShape,
-  } = useMapDrawing(mapRef, onFinishDrawing);
+  } = useMapDrawing(mapRef, L, onFinishDrawing);
 
   // Lifecycles
   useEffect(() => {
