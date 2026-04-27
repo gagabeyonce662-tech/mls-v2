@@ -9,11 +9,8 @@ import {
   User,
   MapPin,
   ChevronDown,
-  HomeIcon,
   LogOut,
   LayoutDashboard,
-  Phone,
-  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -44,7 +41,7 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
   const { scrolled, applyLightMode } = useHeaderState({
     scrollThreshold: 20,
     cssVarName: "--header-height-mobile",
-    heightFull: "96px",
+    heightFull: "64px",
     heightScrolled: "56px",
   });
 
@@ -52,41 +49,29 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
     <header
       className={`xl:hidden fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         applyLightMode
-          ? "bg-white/95 backdrop-blur-md shadow-md"
-          : "bg-transparent shadow-none"
+          ? "bg-white/95 backdrop-blur-md shadow-md border-b border-ds-card-border/70"
+          : "bg-gradient-to-b from-black/55 via-black/30 to-transparent shadow-none"
       }`}
     >
-      {/* 🔝 Top Utility Tier (Mobile) */}
-      <div
-        className={`bg-[#0C1536] text-white/90 border-b border-white/10 overflow-hidden transition-all duration-300 ${scrolled ? "h-0 opacity-0" : "h-8 opacity-100"}`}
-      >
-        <div className="flex justify-between items-center h-8 px-4 text-[11px] font-medium tracking-wide">
-          <a
-            href="tel:+14168214200"
-            className="flex items-center space-x-1.5 opacity-90"
-          >
-            <Phone className="w-3 h-3 text-[#4C7DFF]" />
-            <span>(416) 821-4200</span>
-          </a>
-          <a
-            href="mailto:info@estate-4u.com"
-            className="flex items-center space-x-1.5 opacity-90"
-          >
-            <Mail className="w-3 h-3 text-[#4C7DFF]" />
-            <span>Email Us</span>
-          </a>
-        </div>
-      </div>
-
       {/* 🧭 Main Navigation Tier (Mobile) */}
       <div
-        className={`transition-all duration-300 ${scrolled ? "bg-transparent h-14" : "bg-transparent h-16"}`}
+        className={`transition-all duration-300 ${
+          scrolled ? "h-14" : "h-16"
+        } ${applyLightMode ? "bg-ds-card/60" : "bg-transparent"}`}
       >
         <div className="flex items-center justify-between px-4 h-full">
           {/* Hamburger Menu */}
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`rounded-full transition-all ${
+                  applyLightMode
+                    ? "bg-white border border-ds-card-border shadow-sm hover:bg-ds-card"
+                    : "bg-black/25 border border-white/20 hover:bg-black/35"
+                }`}
+              >
                 <Menu
                   className={`w-6 h-6 transition-colors ${applyLightMode ? "text-ds-heading" : "text-white"}`}
                 />
@@ -273,7 +258,11 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`rounded-full transition-all ${applyLightMode ? "hover:bg-ds-card" : "hover:bg-white/10"}`}
+                  className={`rounded-full transition-all ${
+                    applyLightMode
+                      ? "bg-white border border-ds-card-border shadow-sm hover:bg-ds-card"
+                      : "bg-black/25 border border-white/20 hover:bg-black/35"
+                  }`}
                 >
                   <User
                     className={`w-5 h-5 drop-shadow-sm ${applyLightMode ? "text-ds-primary" : "text-white"}`}

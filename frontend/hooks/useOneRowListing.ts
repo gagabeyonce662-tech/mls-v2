@@ -63,7 +63,7 @@ export function useOneRowListing(
       if (width >= 1024) return 4;  // lg + xl (1024–1535px)
       if (width >= 768) return 3;  // md
       if (width >= 640) return 2;  // sm
-      return 1;                     // mobile
+      return 2;                     // mobile
     };
 
     const applyPreference = (autoCount: number) => {

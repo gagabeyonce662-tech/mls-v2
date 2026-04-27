@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { colors } from "@/config/design-system";
 
@@ -18,11 +18,6 @@ import { DynamicHomepageSections } from "@/components/homepage/sections/DynamicH
 import LeadCaptureWidget from "@/components/homepage/LeadCaptureWidget";
 import { useHomepageCategories } from "@/hooks/useHomepageCategories";
 import { trackHomepageCategoryEvent } from "@/lib/analytics/homepageCategories";
-import {
-  HOMEPAGE_ROW_COUNT_EVENT,
-  HOMEPAGE_ROW_COUNT_PREF_KEY,
-  parseHomepageRowCountPreference,
-} from "@/lib/homepage/rowPreference";
 
 import dynamic from "next/dynamic";
 
@@ -44,27 +39,8 @@ const ConnectionsSection = dynamic(
 
 export default function HomePage() {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  const [isSticky, setIsSticky] = useState(false);
-  const [rowCountPreference, setRowCountPreference] = useState<number | null>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
   const isDynamicCategoriesEnabled = true;
   const { categories, hasError } = useHomepageCategories(isDynamicCategoriesEnabled);
-
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-    
-    // Trigger sticky state as the sentinel crosses beneath the header.
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsSticky(!entry.isIntersecting),
-      {
-        threshold: [0],
-        rootMargin: "-56px 0px 0px 0px",
-      },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     if (!isDynamicCategoriesEnabled || categories.length === 0) return;
@@ -76,12 +52,6 @@ export default function HomePage() {
       });
     });
   }, [isDynamicCategoriesEnabled, categories]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem(HOMEPAGE_ROW_COUNT_PREF_KEY);
-    setRowCountPreference(parseHomepageRowCountPreference(raw));
-  }, []);
 
   return (
     <QuickViewProvider>
@@ -110,18 +80,14 @@ export default function HomePage() {
             aria-label="Properties and Search Filters"
           >
             <div className="w-full">
-              {/* Sentinel to detect when filter becomes sticky */}
-              <div ref={sentinelRef} className="h-0" />
-
-              {/* Search & Filters — sticky under navbar */}
+              {/* Search & Filters */}
               <div
-                className="sticky z-40 -mx-4 lg:-mx-6 px-4 lg:px-6 pb-2 pt-2 transition-all duration-300 origin-top"
+                className="-mx-4 lg:-mx-6 px-4 lg:px-6 pb-2 pt-2 transition-all duration-300 origin-top"
                 style={{
-                  top: "var(--header-height, 56px)",
                   backgroundColor: colors.cards,
                 }}
               >
-                <PropertyFilter variant="horizontal" isSticky={isSticky} />
+                <PropertyFilter variant="horizontal" />
               </div>
 
               {/* Listing Grids */}
@@ -155,45 +121,6 @@ export default function HomePage() {
                   </div>
                 )}
 
-                <div className="w-full">
-                  <div className="mx-auto w-full max-w-md px-2">
-                    <div className="flex justify-center">
-                      <label className="flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm text-ds-body">
-                        <span className="font-medium">Results per row</span>
-                        <select
-                          value={rowCountPreference ? String(rowCountPreference) : "auto"}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === "auto") {
-                              window.localStorage.removeItem(HOMEPAGE_ROW_COUNT_PREF_KEY);
-                              setRowCountPreference(null);
-                              window.dispatchEvent(new Event(HOMEPAGE_ROW_COUNT_EVENT));
-                              return;
-                            }
-                            const parsed = Number(value);
-                            if (!Number.isFinite(parsed) || parsed <= 0) return;
-                            window.localStorage.setItem(
-                              HOMEPAGE_ROW_COUNT_PREF_KEY,
-                              String(parsed),
-                            );
-                            setRowCountPreference(parsed);
-                            window.dispatchEvent(new Event(HOMEPAGE_ROW_COUNT_EVENT));
-                          }}
-                          className="rounded-md border border-ds-card-border bg-white px-2 py-1 text-xs sm:text-sm"
-                        >
-                          <option value="auto">Auto</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                          <option value="3">3</option>
-                          <option value="4">4</option>
-                          <option value="6">6</option>
-                          <option value="8">8</option>
-                          <option value="12">12</option>
-                        </select>
-                      </label>
-                    </div>
-                  </div>
-                </div>
                 <DynamicHomepageSections
                   categories={categories}
                   useFallback={!isDynamicCategoriesEnabled || hasError}
@@ -215,11 +142,11 @@ export default function HomePage() {
             <ConnectionsSection />
           </section>
 
-          <section className="section-gap" aria-label="Mortgage Tools">
+          {/* <section className="section-gap" aria-label="Mortgage Tools">
             <Container>
               <MortgageSection />
             </Container>
-          </section>
+          </section> */}
 
           <section className="section-gap" aria-label="Client Success Stories">
             <ClientReviews />

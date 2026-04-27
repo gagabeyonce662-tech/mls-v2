@@ -1,5 +1,6 @@
 "use client";
 
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   MapPin,
   Navigation,
@@ -8,10 +9,11 @@ import {
   Check,
   Heart,
 } from "lucide-react";
-import { ds } from "@/lib/design-system-utils";
 import Link from "next/link";
 import { useCompare } from "@/contexts/CompareContext";
 import { useWatched } from "@/contexts/WatchedContext";
+import { useUserAuth } from "@/contexts/UserAuthContext";
+import { submitPropertyInquiry, type PropertyInquiryIntent } from "@/lib/api";
 
 interface PropertySidebarProps {
   property: any;
@@ -22,6 +24,7 @@ export default function PropertySidebar({
   property,
   city,
 }: PropertySidebarProps) {
+  const { user, isLoading: authLoading } = useUserAuth();
   const lat = property.latitude;
   const lon = property.longitude;
   const {
@@ -35,9 +38,87 @@ export default function PropertySidebar({
   const propertyKey = getPropertyKey(property);
   const isSelected = isPropertySelected(propertyKey);
   const isSaved = isFavorite(propertyKey);
+  const [isInquiryOpen, setIsInquiryOpen] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
+  const [inquiryState, setInquiryState] = useState<"idle" | "success" | "error">(
+    "idle",
+  );
+
+  const inferredIntent = useMemo<PropertyInquiryIntent>(() => {
+    const leaseAmount = Number(property?.lease_amount ?? 0);
+    return leaseAmount > 0 ? "rent" : "buy";
+  }, [property?.lease_amount]);
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    if (!firstName) {
+      const namePart = (user.name || "").trim().split(/\s+/)[0] || "";
+      if (namePart) setFirstName(namePart);
+    }
+    if (!email && user.email) setEmail(user.email);
+    if (!phone && user.phone) setPhone(user.phone);
+  }, [authLoading, user, firstName, email, phone]);
+
+  useEffect(() => {
+    if (message.trim()) return;
+    const address =
+      property?.unparsed_address ||
+      property?.address ||
+      [property?.street_number, property?.street_name].filter(Boolean).join(" ");
+    const listPrice = property?.list_price || property?.ListPrice;
+    const listingKey = property?.listing_key || property?.ListingKey || propertyKey;
+    const locationLabel = [city || property?.city, property?.state_or_province || property?.StateOrProvince]
+      .filter(Boolean)
+      .join(", ");
+    const details = [
+      address ? `Address: ${address}` : null,
+      locationLabel ? `Location: ${locationLabel}` : null,
+      listPrice ? `Price: ${listPrice}` : null,
+      listingKey ? `Listing: ${listingKey}` : null,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+    setMessage(
+      `Hi, I'm interested in this property and would like more details and viewing availability.${details ? `\n\n${details}` : ""}`,
+    );
+  }, [message, property, propertyKey, city]);
+
+  const canSubmitInquiry =
+    firstName.trim().length > 0 && email.trim().length > 2 && message.trim().length >= 10;
+
+  const handleInquirySubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!canSubmitInquiry || isSubmittingInquiry) return;
+
+    setIsSubmittingInquiry(true);
+    setInquiryState("idle");
+    try {
+      const payload = {
+        first_name: firstName.trim(),
+        email: email.trim(),
+        message: message.trim(),
+        intent: inferredIntent,
+        phone: phone.trim() || undefined,
+        preferred_locations: city || property?.city || undefined,
+        property_types: property?.property_sub_type || property?.PropertySubType || undefined,
+        page_url: typeof window !== "undefined" ? window.location.href : undefined,
+      };
+      await submitPropertyInquiry(payload);
+      setInquiryState("success");
+    } catch (error) {
+      console.error("Property inquiry submit failed", error);
+      setInquiryState("error");
+    } finally {
+      setIsSubmittingInquiry(false);
+    }
+  };
 
   return (
-    <div className="space-y-6 sticky top-24">
+    <div className="space-y-6">
       {/* Map Section */}
       <div className="bg-ds-card border border-ds-card-border rounded-xl p-4 shadow-sm">
         <h3 className="text-sm font-bold text-ds-heading mb-4">Location</h3>
@@ -100,13 +181,77 @@ export default function PropertySidebar({
 
       {/* Inquiry Form Placeholder */}
       <div className="bg-ds-primary text-white rounded-xl p-6 shadow-xl shadow-ds-primary/10">
-        <h3 className="text-lg font-bold mb-2">Interested?</h3>
+        <h3 className="text-lg font-bold mb-2 text-white ">Interested?</h3>
         <p className="text-sm text-white/80 mb-6">
           Get in touch with an expert about this property.
         </p>
-        <button className="w-full py-3 bg-white text-ds-primary font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-          Request Information
-        </button>
+        {!isInquiryOpen ? (
+          <button
+            onClick={() => setIsInquiryOpen(true)}
+            className="w-full py-3 bg-white text-ds-primary font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            Request Information
+          </button>
+        ) : (
+          <form onSubmit={handleInquirySubmit} className="space-y-3">
+            <input
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="First name"
+              required
+              className="w-full rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-white/70"
+            />
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              placeholder="Email"
+              required
+              className="w-full rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-white/70"
+            />
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Phone (optional)"
+              className="w-full rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-white/70"
+            />
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={4}
+              required
+              className="w-full rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-white/70 resize-y"
+            />
+
+            {inquiryState === "success" ? (
+              <p className="text-xs text-green-100">
+                Thanks! Your request has been sent to our realtor team.
+              </p>
+            ) : null}
+            {inquiryState === "error" ? (
+              <p className="text-xs text-red-100">
+                We couldn't send your request. Please try again.
+              </p>
+            ) : null}
+
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={!canSubmitInquiry || isSubmittingInquiry}
+                className="flex-1 py-2.5 bg-white text-ds-primary font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isSubmittingInquiry ? "Sending..." : "Send Request"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsInquiryOpen(false)}
+                className="px-3 py-2.5 border border-white/60 text-white rounded-lg text-sm hover:bg-white/10 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
       {/* Share / Save Actions */}
@@ -115,11 +260,10 @@ export default function PropertySidebar({
           onClick={() =>
             isSelected ? removeFromCompare(propertyKey) : addToCompare(property)
           }
-          className={`flex-1 flex flex-col items-center justify-center py-3 text-[10px] font-bold border rounded-xl transition-all ${
-            isSelected
+          className={`flex-1 flex flex-col items-center justify-center py-3 text-[10px] font-bold border rounded-xl transition-all ${isSelected
               ? "bg-blue-50 border-blue-200 text-blue-700 shadow-inner"
               : "bg-white border-ds-card-border text-ds-body hover:bg-gray-50 shadow-sm"
-          }`}
+            }`}
         >
           {isSelected ? (
             <Check className="w-4 h-4 mb-1" />
@@ -130,11 +274,10 @@ export default function PropertySidebar({
         </button>
         <button
           onClick={() => toggleFavorite(property)}
-          className={`flex-1 flex flex-col items-center justify-center py-3 text-[10px] font-bold border rounded-xl transition-all ${
-            isSaved
+          className={`flex-1 flex flex-col items-center justify-center py-3 text-[10px] font-bold border rounded-xl transition-all ${isSaved
               ? "bg-red-50 border-red-200 text-red-600 shadow-inner"
               : "bg-white border-ds-card-border text-ds-body hover:bg-gray-50 shadow-sm"
-          }`}
+            }`}
         >
           <Heart className={`w-4 h-4 mb-1 ${isSaved ? "fill-current" : ""}`} />
           {isSaved ? "Saved" : "Save"}

@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import { colors } from "@/config/design-system";
 import {
   useInfiniteExclusiveProperties,
+  useExclusiveProperties,
   usePrefetchProperty,
 } from "@/hooks/react-query";
 import { useUserAuth } from "@/contexts/UserAuthContext";
@@ -53,6 +54,7 @@ export default function ListingsPage() {
     });
 
   const currentCity = filterParams.city || "";
+  const activeSearchTerm = filterParams.search || filterParams.city || "";
 
   // Use TanStack Query for infinite scroll
   const {
@@ -72,6 +74,41 @@ export default function ListingsPage() {
       enabled: true,
     },
   );
+
+  const hasStrictFilters = Boolean(
+    filterParams.property_sub_type ||
+      filterParams.price_min ||
+      filterParams.price_max ||
+      filterParams.bedrooms ||
+      filterParams.bathrooms ||
+      filterParams.building_area_min ||
+      filterParams.building_area_max ||
+      filterParams.has_photos,
+  );
+
+  const fallbackFilters = activeSearchTerm
+    ? ({
+        search: activeSearchTerm,
+        standard_status: filterParams.standard_status,
+        limit: 12,
+      } as ExclusivePropertyFilterParams)
+    : undefined;
+
+  const shouldRunFallback =
+    !isLoading &&
+    !!fallbackFilters &&
+    hasStrictFilters &&
+    (data?.pages?.length ?? 0) > 0 &&
+    allProperties.length === 0;
+
+  const { data: fallbackData, isLoading: isFallbackLoading } =
+    useExclusiveProperties(fallbackFilters, {
+      enabled: shouldRunFallback,
+    });
+
+  const fallbackProperties = fallbackData?.results || [];
+  const isUsingFallback = shouldRunFallback && fallbackProperties.length > 0;
+  const displayedProperties = isUsingFallback ? fallbackProperties : allProperties;
 
   // Extract all properties from pages
   const allProperties = data?.pages.flatMap((page) => page.results) || [];
@@ -134,11 +171,17 @@ export default function ListingsPage() {
                 : "All Exclusive Properties"}
             </h1>
             <p style={{ color: colors.body }}>
-              {isLoading
+              {isLoading || (shouldRunFallback && isFallbackLoading)
                 ? "Loading..."
-                : `${allProperties.length} properties found`}
-              {hasNextPage && !isLoading && " • Scroll to load more"}
+                : `${displayedProperties.length} properties found`}
+              {hasNextPage && !isLoading && !isUsingFallback && " • Scroll to load more"}
             </p>
+            {isUsingFallback && (
+              <p className="mt-2 text-sm text-amber-700">
+                No exact matches for the selected filters. Showing closest results for
+                "{activeSearchTerm}".
+              </p>
+            )}
           </div>
 
           <div className="mb-4">
@@ -170,17 +213,20 @@ export default function ListingsPage() {
             </div>
           ) : viewMode === "grid" ? (
             <PropertyGridLayout
-              properties={allProperties}
-              isLoading={isLoading}
+              properties={displayedProperties}
+              isLoading={isLoading || (shouldRunFallback && isFallbackLoading)}
               isFetchingNextPage={isFetchingNextPage}
-              hasNextPage={hasNextPage}
+              hasNextPage={isUsingFallback ? false : hasNextPage}
               fetchNextPage={fetchNextPage}
               isLoggedIn={isLoggedIn}
               interactions={interactions}
               currentCity={currentCity}
             />
           ) : (
-            <ListingMapView properties={allProperties} isLoading={isLoading} />
+            <ListingMapView
+              properties={displayedProperties}
+              isLoading={isLoading || (shouldRunFallback && isFallbackLoading)}
+            />
           )}
         </div>
       </div>

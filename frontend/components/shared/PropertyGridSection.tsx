@@ -63,10 +63,9 @@ export function PropertyGridSection({
     if (!oneRowOnly) return "block";
 
     // Synced exactly with useOneRowListing.ts & tailwind.config.ts breakpoints:
-    if (index === 0) return "block";            // always visible (1 col)
-    if (index === 1) return "hidden sm:block";  // 640px+  → 2 cols
-    if (index === 2) return "hidden md:block";  // 768px+  → 3 cols
-    if (index === 3) return "hidden lg:block";  // 1024px+ → 4 cols
+    if (index < 2) return "block";             // mobile + sm → 2 cols
+    if (index === 2) return "hidden md:block"; // 768px+  → 3 cols
+    if (index === 3) return "hidden lg:block"; // 1024px+ → 4 cols
     if (index < 6) return "hidden 2xl:block"; // 1536px+ → 6 cols
     if (index < 8) return "hidden 3xl:block"; // 1800px+ → 8 cols
     return "hidden 4xl:block";                  // 2200px+ → 12 cols
@@ -125,7 +124,7 @@ export function PropertyGridSection({
         )}
 
         {/* Responsive Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 4xl:grid-cols-12 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 4xl:grid-cols-12 gap-4 sm:gap-6">
           {showLoadingSkeletons
             ? [...Array(limit)].map((_, i) => (
               <PropertyCardSkeleton key={`skeleton-${i}`} index={i} />

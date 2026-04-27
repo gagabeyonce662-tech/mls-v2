@@ -49,12 +49,28 @@ interface PropertyFilterProps {
 const toTypeKey = (value: string) => value.toLowerCase().replace(/\s+/g, "-");
 const formatTypeLabel = (type: PropertyTypeOption) =>
   typeof type.count === "number" ? `${type.label} (${type.count})` : type.label;
+const looksLikeAddressOrPostal = (query: string) => {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return false;
+
+  // House/unit numbers and street suffixes often indicate address intent.
+  const hasStreetToken =
+    /\b(st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|ct|court|way|cir|circle|hwy|highway)\b/.test(
+      normalized,
+    );
+  const hasLeadingNumber = /^\d+[a-zA-Z\-]?\s/.test(normalized);
+  const hasPostalLikePattern =
+    /\b[a-z]\d[a-z][\s-]?\d[a-z]\d\b/i.test(normalized) ||
+    /\b\d{5}(?:-\d{4})?\b/.test(normalized);
+
+  return hasStreetToken || hasLeadingNumber || hasPostalLikePattern;
+};
 
 export default function PropertyFilter({
   variant = "sidebar",
   onApplyFilters,
   initialCity,
-  isSticky = false,
+  isSticky: _isSticky = false,
 }: PropertyFilterProps) {
   const router = useRouter();
   const { viewMode, toggleViewMode } = useSearch();
@@ -133,7 +149,16 @@ export default function PropertyFilter({
       }
     }
 
-    if (searchQuery.trim()) filters.city = searchQuery.trim();
+    const normalizedQuery = searchQuery.trim();
+    if (normalizedQuery) {
+      if (looksLikeAddressOrPostal(normalizedQuery)) {
+        // Address/postal terms perform better through broad search than strict city.
+        filters.search = normalizedQuery;
+      } else {
+        filters.city = normalizedQuery;
+        filters.search = normalizedQuery;
+      }
+    }
 
     if (priceRange.min) {
       const minValue = parseInt(priceRange.min.replace(/[^0-9]/g, ""));
@@ -216,30 +241,21 @@ export default function PropertyFilter({
 
     return (
       <div
-        className={cn(
-          "w-full bg-white border transition-all duration-500 hover:shadow-lg origin-top",
-          isSticky
-            ? "rounded-b-2xl shadow-lg p-2.5 sm:p-3 mb-0 border-t-0"
-            : "rounded-2xl shadow-md p-4 sm:p-6 mb-6",
-        )}
+        className="w-full bg-white border transition-all duration-500 hover:shadow-lg origin-top rounded-2xl shadow-md p-4 sm:p-6 mb-6"
         style={{ borderColor: "#E5E5E5" }}
       >
         {/* Intent Tabs */}
         <div
-          className={cn(
-            "flex items-center gap-6 border-b border-gray-100 transition-all duration-500",
-            isSticky ? "mb-2 pb-0 opacity-0 h-0 overflow-hidden" : "mb-5 pb-1 opacity-100",
-          )}
+          className="flex items-center gap-6 border-b border-gray-100 transition-all duration-500 mb-5 pb-1 opacity-100"
         >
           {intents.map((intent) => (
             <button
               key={intent.id}
               onClick={() => setNotifyFor(intent.id)}
-              className={`pb-3 text-sm sm:text-base font-semibold transition-all relative ${
-                currentIntent === intent.id
+              className={`pb-3 text-sm sm:text-base font-semibold transition-all relative ${currentIntent === intent.id
                   ? "text-ds-primary"
                   : "text-gray-400 hover:text-gray-700"
-              }`}
+                }`}
             >
               {intent.label}
               {currentIntent === intent.id && (
@@ -251,10 +267,7 @@ export default function PropertyFilter({
 
         {/* Search Bar & Actions */}
         <div
-          className={cn(
-            "flex flex-col md:flex-row items-stretch md:items-center transition-all duration-500",
-            isSticky ? "gap-2" : "gap-3",
-          )}
+          className="flex flex-col md:flex-row items-stretch md:items-center transition-all duration-500 gap-3"
         >
           <div className="flex-1 w-full relative min-w-[200px]">
             <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
@@ -271,7 +284,7 @@ export default function PropertyFilter({
               }
               className={cn(
                 "w-full pl-11 pr-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-ds-primary/20 focus:border-ds-primary focus:bg-white transition-all",
-                isSticky ? "py-2.5 text-sm" : "py-3.5 text-sm sm:text-base",
+                "py-3.5 text-sm sm:text-base",
               )}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -294,7 +307,7 @@ export default function PropertyFilter({
               <SelectTrigger
                 className={cn(
                   "w-[150px] h-auto bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none",
-                  isSticky ? "py-2.5" : "py-3.5",
+                  "py-3.5",
                 )}
               >
                 <SelectValue placeholder="Property Type" />
@@ -324,7 +337,7 @@ export default function PropertyFilter({
               <SelectTrigger
                 className={cn(
                   "w-[130px] h-auto bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none",
-                  isSticky ? "py-2.5" : "py-3.5",
+                  "py-3.5",
                 )}
               >
                 <SelectValue placeholder="Max Price" />
@@ -358,7 +371,7 @@ export default function PropertyFilter({
               <SelectTrigger
                 className={cn(
                   "w-[110px] h-auto bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none",
-                  isSticky ? "py-2.5" : "py-3.5",
+                  "py-3.5",
                 )}
               >
                 <SelectValue placeholder="Beds" />
@@ -389,7 +402,7 @@ export default function PropertyFilter({
               <SelectTrigger
                 className={cn(
                   "w-[110px] h-auto bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 focus:ring-2 focus:ring-ds-primary/20 hover:bg-white transition-all shadow-none",
-                  isSticky ? "py-2.5" : "py-3.5",
+                  "py-3.5",
                 )}
               >
                 <SelectValue placeholder="Baths" />
@@ -417,7 +430,7 @@ export default function PropertyFilter({
               disabled={isLoading}
               className={cn(
                 "flex-1 md:flex-none px-8 rounded-xl text-white font-semibold transition-all hover:opacity-90 disabled:opacity-50 hover:shadow-md flex items-center justify-center gap-2",
-                isSticky ? "py-2.5 text-sm" : "py-3.5",
+                "py-3.5",
               )}
               style={{ backgroundColor: "#1E3A8A" }}
             >
@@ -434,7 +447,7 @@ export default function PropertyFilter({
               onClick={handleClear}
               className={cn(
                 "border border-gray-200 bg-white rounded-xl hover:bg-gray-50 transition-all text-gray-500 hover:text-gray-800",
-                isSticky ? "p-2.5" : "p-3.5",
+                "p-3.5",
               )}
               title="Reset Search"
             >
@@ -444,7 +457,7 @@ export default function PropertyFilter({
               onClick={toggleViewMode}
               className={cn(
                 "border border-gray-200 bg-white rounded-xl hover:bg-gray-50 transition-all text-gray-500 hover:text-gray-800 hidden lg:flex items-center",
-                isSticky ? "p-2.5" : "p-3.5",
+                "p-3.5",
               )}
               title={
                 viewMode === "grid"

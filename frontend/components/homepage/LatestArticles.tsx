@@ -29,9 +29,20 @@ function getThumbnailSrc(article: VlogPost): string {
   return resolved;
 }
 
+function getArticleTagLabel(article: VlogPost): string | null {
+  const categoryName = article.category?.name?.trim();
+  if (categoryName) return categoryName;
+
+  const firstTag = article.tags?.[0]?.trim();
+  if (firstTag) return firstTag;
+
+  return null;
+}
+
 export default function LatestArticles() {
   const [articles, setArticles] = useState<VlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [failedImageIds, setFailedImageIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const load = async () => {
@@ -69,7 +80,10 @@ export default function LatestArticles() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-8">
           {articles.map((article) => {
-            const thumbnailSrc = getThumbnailSrc(article);
+            const thumbnailSrc = failedImageIds.has(article.id)
+              ? FALLBACK_THUMBNAIL
+              : getThumbnailSrc(article);
+            const articleTagLabel = getArticleTagLabel(article);
             return (
             <Link 
               href={`/blog/${article.slug}`} 
@@ -82,14 +96,23 @@ export default function LatestArticles() {
                   alt={article.title}
                   width={400}
                   height={224}
-                  unoptimized={shouldBypassOptimization(thumbnailSrc)}
+                  unoptimized
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  onError={() =>
+                    setFailedImageIds((prev) => {
+                      const next = new Set(prev);
+                      next.add(article.id);
+                      return next;
+                    })
+                  }
                 />
-                <div className="absolute top-4 left-4">
-                  <span className="bg-yellow-400 text-gray-900 px-3 py-1 rounded text-xs font-bold">
-                    {article.category?.name || "ARTICLE"}
-                  </span>
-                </div>
+                {articleTagLabel && (
+                  <div className="absolute top-4 left-4">
+                    <span className="bg-yellow-400 text-gray-900 px-3 py-1 rounded text-xs font-bold">
+                      {articleTagLabel}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <p className="text-ds-small-regular text-ds-body font-inter">

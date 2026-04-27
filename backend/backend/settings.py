@@ -31,9 +31,12 @@ load_dotenv(BASE_DIR.parent / ".env.local")
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-oaaa%9e+w*u8tv-u==dtu9(9rlp_akhahh!+5udiy%m3syaivx')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+IS_VERCEL = os.environ.get("VERCEL") == "1" or bool(os.environ.get("VERCEL_ENV"))
 
-ALLOWED_HOSTS = ['staging.vsell4u.ca', 'localhost', '127.0.0.1', '.vercel.app']
+LOCAL_NETWORK_IP = os.environ.get("LOCAL_NETWORK_IP", "192.168.1.29")
+
+ALLOWED_HOSTS = ['staging.vsell4u.ca', 'localhost', '127.0.0.1', '.vercel.app', LOCAL_NETWORK_IP]
 
 
 # Application definition
@@ -183,8 +186,13 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Simplified static file serving.
-# https://warehouse.python.org/project/whitenoise/
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# On Vercel serverless, collectstatic output is often unavailable at runtime.
+# Using non-manifest storage avoids hard failures (500) on admin/template static lookups.
+if IS_VERCEL:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+    WHITENOISE_USE_FINDERS = True
+else:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 
 # path inside MEDIA_ROOT where ckeditor uploads go
@@ -203,6 +211,7 @@ CKEDITOR_CONFIGS = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    f"http://{LOCAL_NETWORK_IP}:3000",
     "https://staging.vsell4u.ca",
     "http://staging.vsell4u.ca",
     "https://mls-frontend-v2.vercel.app"
@@ -210,6 +219,7 @@ CORS_ALLOWED_ORIGINS = [
 CSRF_TRUSTED_ORIGINS  = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    f"http://{LOCAL_NETWORK_IP}:3000",
     "https://staging.vsell4u.ca",
     "http://staging.vsell4u.ca",
     "https://mls-frontend-v2.vercel.app"

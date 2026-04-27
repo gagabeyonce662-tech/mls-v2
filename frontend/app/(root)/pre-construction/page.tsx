@@ -27,24 +27,6 @@ export default function PreConstructionPage() {
   const [showAll, setShowAll] = React.useState(false);
   const [initialLimit, setInitialLimit] = React.useState(8);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [isSticky, setIsSticky] = React.useState(false);
-  const sentinelRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-
-    // Trigger sticky state as the sentinel crosses beneath the header.
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsSticky(!entry.isIntersecting),
-      {
-        threshold: [0],
-        rootMargin: "-56px 0px 0px 0px",
-      },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, []);
 
   // Calculate 2 rows worth of items based on viewport
   React.useEffect(() => {
@@ -160,18 +142,14 @@ export default function PreConstructionPage() {
           </div>
         </div>
 
-        {/* Sentinel to detect when search bar becomes sticky */}
-        <div ref={sentinelRef} className="h-0" />
-
-        {/* Search & Filters — sticky under navbar */}
+        {/* Search & Filters */}
         <div
-          className="sticky z-40 -mx-4 lg:-mx-6 px-4 lg:px-6 pb-2 pt-2 transition-all duration-300 origin-top"
+          className="-mx-4 lg:-mx-6 px-4 lg:px-6 pb-2 pt-2 transition-all duration-300 origin-top"
           style={{
-            top: "var(--header-height, 56px)",
             backgroundColor: colors.cards,
           }}
         >
-          <PropertyFilter variant="horizontal" isSticky={isSticky} />
+          <PropertyFilter variant="horizontal" />
         </div>
 
         <PropertyGridLayout
