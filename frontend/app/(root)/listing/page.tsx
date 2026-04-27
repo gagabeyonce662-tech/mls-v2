@@ -94,6 +94,9 @@ export default function ListingsPage() {
       } as ExclusivePropertyFilterParams)
     : undefined;
 
+  // Extract all properties from pages
+  const allProperties = data?.pages.flatMap((page) => page.results) || [];
+
   const shouldRunFallback =
     !isLoading &&
     !!fallbackFilters &&
@@ -109,9 +112,6 @@ export default function ListingsPage() {
   const fallbackProperties = fallbackData?.results || [];
   const isUsingFallback = shouldRunFallback && fallbackProperties.length > 0;
   const displayedProperties = isUsingFallback ? fallbackProperties : allProperties;
-
-  // Extract all properties from pages
-  const allProperties = data?.pages.flatMap((page) => page.results) || [];
 
   const handleApplyFilters = useCallback(
     (newFilters: ExclusivePropertyFilterParams) => {
