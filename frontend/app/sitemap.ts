@@ -1,6 +1,4 @@
 import { MetadataRoute } from "next";
-
-export const dynamic = "force-dynamic";
 export const revalidate = 3600; // Revalidate every hour
 
 import {

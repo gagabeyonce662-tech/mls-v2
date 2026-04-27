@@ -19,7 +19,7 @@ import { colors } from "@/config/design-system";
 import { fetchVlogPostBySlug, fetchVlogPosts } from "@/lib/api";
 import { env } from "@/lib/env";
 
-export const revalidate = 24 * 60 * 60;
+export const revalidate = 86400;
 
 export async function generateStaticParams() {
   try {
