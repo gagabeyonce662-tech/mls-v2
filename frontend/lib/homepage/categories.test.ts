@@ -53,4 +53,25 @@ describe("mergeHomepageCategories", () => {
       false,
     );
   });
+
+  it("preserves optional query semantics for core categories", () => {
+    const input: HomepageCategory[] = [
+      {
+        key: "exclusive",
+        kind: "exclusive",
+        label: "Exclusive",
+        count: 5,
+        enabled: true,
+        route: "/listing",
+        source: "backend",
+        order: 50,
+      },
+    ];
+
+    const merged = mergeHomepageCategories(input);
+    const exclusive = merged.find((item) => item.key === "exclusive");
+
+    assert.ok(exclusive);
+    assert.equal("query" in exclusive, false);
+  });
 });

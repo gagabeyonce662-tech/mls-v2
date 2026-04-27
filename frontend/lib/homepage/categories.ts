@@ -143,6 +143,10 @@ const PROPERTY_TYPE_ALIASES: Record<string, string> = {
 export const buildPropertyTypeCategoryKey = (propertyType: string): string =>
   `property_type:${PROPERTY_TYPE_ALIASES[normalize(propertyType)] || normalize(propertyType)}`;
 
+const isHomepageCategory = (
+  item: HomepageCategory | null,
+): item is HomepageCategory => item !== null;
+
 export function mergeHomepageCategories(
   backend: HomepageCategory[],
   options?: { maxSections?: number; minCountThreshold?: number },
@@ -153,7 +157,7 @@ export function mergeHomepageCategories(
     options?.minCountThreshold ?? HOMEPAGE_MIN_COUNT_THRESHOLD;
 
   const known = backend
-    .map((category) => {
+    .map<HomepageCategory | null>((category) => {
       const cfg = configMap.get(category.key);
       if (!cfg) return null;
       if (!cfg.enabled) return null;
@@ -173,12 +177,12 @@ export function mergeHomepageCategories(
         label: cfg.label,
         kind: cfg.kind,
         route: cfg.route,
-        query: cfg.query,
         enabled: true,
         order: cfg.order,
-      } satisfies HomepageCategory;
+        ...(cfg.query ? { query: cfg.query } : {}),
+      };
     })
-    .filter((item): item is HomepageCategory => Boolean(item))
+    .filter(isHomepageCategory)
     .sort((a, b) => a.order - b.order);
 
   const unknownPropertyTypes = backend
