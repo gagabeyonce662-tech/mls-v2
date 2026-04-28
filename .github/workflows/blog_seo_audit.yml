@@ -1,9 +1,6 @@
 name: Blog SEO Audit
 
 on:
-  schedule:
-    # Runs daily at 01:30 UTC
-    - cron: "30 1 * * *"
   workflow_dispatch:
 
 jobs:
