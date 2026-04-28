@@ -8,12 +8,14 @@ import {
   Columns,
   Check,
   Heart,
+  Share2,
 } from "lucide-react";
 import Link from "next/link";
 import { useCompare } from "@/contexts/CompareContext";
 import { useWatched } from "@/contexts/WatchedContext";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { submitPropertyInquiry, type PropertyInquiryIntent } from "@/lib/api";
+import { getDetailUrl } from "@/lib/propertyUtils";
 
 interface PropertySidebarProps {
   property: any;
@@ -46,6 +48,9 @@ export default function PropertySidebar({
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
   const [inquiryState, setInquiryState] = useState<"idle" | "success" | "error">(
     "idle",
+  );
+  const [shareStatus, setShareStatus] = useState<"" | "copied" | "shared" | "failed">(
+    "",
   );
 
   const inferredIntent = useMemo<PropertyInquiryIntent>(() => {
@@ -116,6 +121,56 @@ export default function PropertySidebar({
       setIsSubmittingInquiry(false);
     }
   };
+
+  const handleShare = async () => {
+    const detailUrl = getDetailUrl(property);
+    const shareUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}${detailUrl}`
+        : detailUrl;
+    const address = property?.unparsed_address || property?.address || city || "Listing";
+    const shareTitle = `${address} | Estate-4u`;
+    const shareText = `Check out this property on Estate-4u.`;
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+        setShareStatus("shared");
+        return;
+      }
+
+      if (
+        typeof navigator !== "undefined" &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.writeText === "function"
+      ) {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareStatus("copied");
+        return;
+      }
+
+      if (typeof window !== "undefined") {
+        window.prompt("Copy this link:", shareUrl);
+        setShareStatus("copied");
+        return;
+      }
+
+      setShareStatus("failed");
+    } catch (error) {
+      console.error("Share failed", error);
+      setShareStatus("failed");
+    }
+  };
+
+  useEffect(() => {
+    if (!shareStatus) return;
+    const timer = window.setTimeout(() => setShareStatus(""), 2500);
+    return () => window.clearTimeout(timer);
+  }, [shareStatus]);
 
   return (
     <div className="space-y-6">
@@ -282,11 +337,24 @@ export default function PropertySidebar({
           <Heart className={`w-4 h-4 mb-1 ${isSaved ? "fill-current" : ""}`} />
           {isSaved ? "Saved" : "Save"}
         </button>
-        <button className="flex-1 flex flex-col items-center justify-center py-3 text-[10px] font-bold bg-white border border-ds-card-border rounded-xl text-ds-body hover:bg-gray-50 shadow-sm transition-all">
-          <div className="w-4 h-4 mb-1" />
+        <button
+          onClick={handleShare}
+          aria-label="Share listing"
+          className="flex-1 flex flex-col items-center justify-center py-3 text-[10px] font-bold bg-white border border-ds-card-border rounded-xl text-ds-body hover:bg-gray-50 shadow-sm transition-all"
+        >
+          <Share2 className="w-4 h-4 mb-1" />
           Share
         </button>
       </div>
+      {shareStatus ? (
+        <p className="text-[11px] text-ds-body">
+          {shareStatus === "shared"
+            ? "Shared successfully."
+            : shareStatus === "copied"
+              ? "Link copied to clipboard."
+              : "Could not share right now."}
+        </p>
+      ) : null}
     </div>
   );
 }
