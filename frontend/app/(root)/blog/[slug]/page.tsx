@@ -25,6 +25,28 @@ export const revalidate = 60;
 const SITE_URL = "https://estate-4u.com";
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80";
+const DEBUG_ENDPOINT = "http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f";
+
+function sendDebugLog(payload: {
+  runId: string;
+  hypothesisId: string;
+  location: string;
+  message: string;
+  data: Record<string, unknown>;
+}) {
+  fetch(DEBUG_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "84631e",
+    },
+    body: JSON.stringify({
+      sessionId: "84631e",
+      ...payload,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+}
 
 function resolveImageUrl(imageUrl?: string | null, thumbnailUrl?: string | null) {
   const resolvedUrl = imageUrl || thumbnailUrl || "";
@@ -124,6 +146,23 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
   if (!post) {
     notFound();
   }
+
+  // #region agent log
+  sendDebugLog({
+    runId: "pre-fix",
+    hypothesisId: "H4",
+    location: "frontend/app/(root)/blog/[slug]/page.tsx:BlogPostPage",
+    message: "Rendering blog post tags branch values",
+    data: {
+      slug: post.slug,
+      id: post.id,
+      tagsType: Array.isArray(post.tags) ? "array" : typeof post.tags,
+      tagsLength: (post as any)?.tags?.length ?? null,
+      willRenderTagsSection: Boolean((post as any)?.tags && (post as any)?.tags.length > 0),
+      hasMapFn: Boolean((post as any)?.tags && typeof (post as any).tags.map === "function"),
+    },
+  });
+  // #endregion
 
   // Fetch related posts for sidebar
   const allPosts = await fetchVlogPosts();
