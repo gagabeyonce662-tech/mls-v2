@@ -11,8 +11,8 @@ class VlogCategory(models.Model):
     slug = models.SlugField(max_length=120, unique=True, blank=True)
 
     class Meta:
-        verbose_name = "Category"
-        verbose_name_plural = "Categories"
+        verbose_name = "Blog Category"
+        verbose_name_plural = "Blog Categories"
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -56,6 +56,8 @@ class VlogPost(models.Model):
     is_manual = models.BooleanField(default=False, help_text="If true, automated sync will not overwrite this post")
 
     class Meta:
+        verbose_name = "Blog Post"
+        verbose_name_plural = "Blog Posts"
         ordering = ['-publish_date', '-created_at']
         indexes = [
             models.Index(fields=['slug']),
