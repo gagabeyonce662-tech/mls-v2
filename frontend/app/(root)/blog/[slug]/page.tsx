@@ -7,6 +7,7 @@ import {
   Twitter,
   Linkedin,
 } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
@@ -20,6 +21,19 @@ import { fetchVlogPostBySlug, fetchVlogPosts } from "@/lib/api";
 import { env } from "@/lib/env";
 
 export const revalidate = 60;
+const SITE_URL = "https://estate-4u.com";
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80";
+
+function resolveImageUrl(imageUrl?: string | null, thumbnailUrl?: string | null) {
+  const resolvedUrl = imageUrl || thumbnailUrl || "";
+  if (!resolvedUrl) return FALLBACK_IMAGE;
+  if (resolvedUrl.startsWith("/")) {
+    const baseUrl = env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+    return `${baseUrl}${resolvedUrl}`;
+  }
+  return resolvedUrl;
+}
 
 export async function generateStaticParams() {
   try {
@@ -40,6 +54,52 @@ interface BlogPostPageProps {
   }>;
 }
 
+export async function generateMetadata(
+  props: BlogPostPageProps,
+): Promise<Metadata> {
+  const params = await props.params;
+  const post = await fetchVlogPostBySlug(params.slug);
+
+  if (!post) {
+    return {
+      title: "Blog Post Not Found",
+      description: "The requested blog post could not be found.",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const image = resolveImageUrl(post.thumbnail, post.thumbnail_url);
+  const canonicalUrl = `${SITE_URL}/blog/${post.slug}`;
+  const description =
+    post.excerpt?.trim() ||
+    (post.content ? post.content.replace(/[#*_`>\-\n]/g, " ").slice(0, 155) : "") ||
+    "Read the latest real estate insights from Estate-4u.";
+
+  return {
+    title: post.title,
+    description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      type: "article",
+      url: canonicalUrl,
+      title: post.title,
+      description,
+      siteName: "Estate-4u",
+      images: [{ url: image, width: 1200, height: 630, alt: post.title }],
+      publishedTime: post.publish_date || post.created_at,
+      modifiedTime: post.updated_at,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description,
+      images: [image],
+    },
+  };
+}
+
 export default async function BlogPostPage(props: BlogPostPageProps) {
   const params = await props.params;
   const post = await fetchVlogPostBySlug(params.slug);
@@ -54,20 +114,38 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
     .filter((p) => p.id !== post.id && p.category?.name === post.category?.name)
     .slice(0, 3);
 
-  const fallbackImage =
-    "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80";
-
-  const getImageUrl = (
-    imageUrl?: string | null,
-    thumbnailUrl?: string | null,
-  ) => {
-    const resolvedUrl = imageUrl || thumbnailUrl || "";
-    if (!resolvedUrl) return fallbackImage;
-    if (resolvedUrl.startsWith("/")) {
-      const baseUrl = env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
-      return `${baseUrl}${resolvedUrl}`;
-    }
-    return resolvedUrl;
+  const imageUrl = resolveImageUrl(post.thumbnail, post.thumbnail_url);
+  const postUrl = `${SITE_URL}/blog/${post.slug}`;
+  const seoDescription =
+    post.excerpt?.trim() ||
+    (post.content ? post.content.replace(/[#*_`>\-\n]/g, " ").slice(0, 155) : "") ||
+    "Read the latest real estate insights from Estate-4u.";
+  const blogPostingJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: seoDescription,
+    image: [imageUrl],
+    datePublished: post.publish_date || post.created_at,
+    dateModified: post.updated_at || post.publish_date || post.created_at,
+    author: {
+      "@type": "Person",
+      name: post.author || "Estate-4u Editorial Team",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Estate-4u",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png",
+      },
+    },
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": postUrl,
+    },
+    articleSection: post.category?.name || "Real Estate",
+    keywords: Array.isArray(post.tags) ? post.tags.join(", ") : "",
   };
 
   const formatDate = (dateString: string) => {
@@ -100,6 +178,10 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingJsonLd) }}
+      />
       <Header />
 
       <main className="flex-1">
@@ -120,7 +202,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
         <div
           className="relative h-[400px] bg-cover bg-center"
         style={{
-          backgroundImage: `url('${getImageUrl(post.thumbnail, post.thumbnail_url)}')`,
+          backgroundImage: `url('${imageUrl}')`,
         }}
         >
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/30" />
@@ -228,7 +310,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
                     <video
                       controls
                       className="w-full h-auto rounded-lg"
-                      poster={getImageUrl(post.thumbnail, post.thumbnail_url)}
+                      poster={imageUrl}
                     >
                       <source
                         src={
@@ -338,7 +420,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
                       <div className="flex gap-4">
                         <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden">
                           <Image
-                            src={getImageUrl(
+                            src={resolveImageUrl(
                               relatedPost.thumbnail,
                               relatedPost.thumbnail_url,
                             )}
