@@ -57,11 +57,15 @@ class VlogPost(models.Model):
     seo_title = models.CharField(max_length=255, blank=True, help_text="Optional SEO title override")
     seo_description = models.TextField(blank=True, help_text="Optional meta description override")
     seo_keywords = models.CharField(max_length=500, blank=True, help_text="Comma-separated SEO keywords")
+    focus_keyword = models.CharField(max_length=255, blank=True, help_text="Primary target keyword for this post")
     seo_canonical_url = models.URLField(blank=True, help_text="Optional canonical URL override")
     seo_noindex = models.BooleanField(default=False, help_text="When enabled, search engines are asked not to index this post")
     og_title = models.CharField(max_length=255, blank=True, help_text="Optional Open Graph title override")
     og_description = models.TextField(blank=True, help_text="Optional Open Graph description override")
     og_image = models.ImageField(upload_to=thumbnail_upload_path, blank=True, null=True, help_text="Optional Open Graph image override")
+    twitter_title = models.CharField(max_length=255, blank=True, help_text="Optional Twitter title override")
+    twitter_description = models.TextField(blank=True, help_text="Optional Twitter description override")
+    twitter_image = models.ImageField(upload_to=thumbnail_upload_path, blank=True, null=True, help_text="Optional Twitter image override")
 
     class Meta:
         verbose_name = "Blog Post"

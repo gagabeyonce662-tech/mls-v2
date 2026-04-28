@@ -10,6 +10,7 @@ class VlogPostAdminForm(forms.ModelForm):
     video_file = forms.FileField(required=False, widget=forms.FileInput())
     thumbnail = forms.ImageField(required=False, widget=forms.FileInput())
     og_image = forms.ImageField(required=False, widget=forms.FileInput())
+    twitter_image = forms.ImageField(required=False, widget=forms.FileInput())
 
     content = forms.CharField(
         widget=forms.Textarea(
@@ -53,11 +54,15 @@ class VlogPostAdmin(admin.ModelAdmin):
                 'seo_title',
                 'seo_description',
                 'seo_keywords',
+                'focus_keyword',
                 'seo_canonical_url',
                 'seo_noindex',
                 'og_title',
                 'og_description',
                 'og_image',
+                'twitter_title',
+                'twitter_description',
+                'twitter_image',
             )
         }),
         ('Timestamps', {

@@ -82,6 +82,9 @@ export async function generateMetadata(
   const seoTitle = post.seo_title?.trim() || post.title;
   const ogTitle = post.og_title?.trim() || seoTitle;
   const ogDescription = post.og_description?.trim() || description;
+  const twitterTitle = post.twitter_title?.trim() || ogTitle;
+  const twitterDescription = post.twitter_description?.trim() || ogDescription;
+  const twitterImage = resolveImageUrl(post.twitter_image_url, image);
   const noIndex = Boolean(post.seo_noindex);
 
   return {
@@ -106,9 +109,9 @@ export async function generateMetadata(
     },
     twitter: {
       card: "summary_large_image",
-      title: ogTitle,
-      description: ogDescription,
-      images: [image],
+      title: twitterTitle,
+      description: twitterDescription,
+      images: [twitterImage],
     },
   };
 }
@@ -133,6 +136,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
   const seoHeadline = post.seo_title?.trim() || post.title;
   const keywordString =
     post.seo_keywords?.trim() ||
+    post.focus_keyword?.trim() ||
     (Array.isArray(post.tags) ? post.tags.join(", ") : post.tags || "");
   const blogPostingJsonLd = {
     "@context": "https://schema.org",

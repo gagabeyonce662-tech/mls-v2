@@ -288,9 +288,13 @@ export interface VlogPost {
   seo_title?: string;
   seo_description?: string;
   seo_keywords?: string;
+  focus_keyword?: string;
   seo_canonical_url?: string;
   seo_noindex?: boolean;
   og_title?: string;
   og_description?: string;
   og_image_url?: string;
+  twitter_title?: string;
+  twitter_description?: string;
+  twitter_image_url?: string;
 }
