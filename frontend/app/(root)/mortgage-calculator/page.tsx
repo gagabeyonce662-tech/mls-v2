@@ -191,7 +191,7 @@ export default function MortgageCalculatorPage() {
                             <div className="bg-ds-primary rounded-3xl p-8 text-white flex flex-col justify-between shadow-xl">
                                 <div>
                                     <h3 className="text-xl font-semibold mb-8 opacity-80 flex items-center gap-2">
-                                        <Calculator className="w-5 h-5" />
+                                        <Calculator className="w-5 h-5 text-white" style={{ fill: "white" }} />
                                         Monthly Payment
                                     </h3>
                                     <div className="space-y-1">

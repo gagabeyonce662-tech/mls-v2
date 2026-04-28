@@ -36,7 +36,7 @@ export default function WatchedPage() {
   const isLoggedIn = !!user;
 
   const [activeTab, setActiveTab] = useState<"favorites" | "history">(
-    "favorites",
+    "history",
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [clickedProperty, setClickedProperty] = useState<string | null>(null);
@@ -103,6 +103,24 @@ export default function WatchedPage() {
             <div className="flex gap-8">
               <button
                 onClick={() => {
+                  setActiveTab("history");
+                  setSearchTerm("");
+                }}
+                className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "history"
+                    ? "text-ds-primary"
+                    : "text-ds-body hover:text-ds-heading"
+                  }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Browsing History ({historyList.length})
+                </div>
+                {activeTab === "history" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-ds-primary rounded-t-full" />
+                )}
+              </button>
+              <button
+                onClick={() => {
                   setActiveTab("favorites");
                   setSearchTerm("");
                 }}
@@ -118,24 +136,6 @@ export default function WatchedPage() {
                   Saved Homes ({favoritesList.length})
                 </div>
                 {activeTab === "favorites" && (
-                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-ds-primary rounded-t-full" />
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab("history");
-                  setSearchTerm("");
-                }}
-                className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "history"
-                    ? "text-ds-primary"
-                    : "text-ds-body hover:text-ds-heading"
-                  }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  Browsing History ({historyList.length})
-                </div>
-                {activeTab === "history" && (
                   <div className="absolute bottom-0 left-0 right-0 h-1 bg-ds-primary rounded-t-full" />
                 )}
               </button>

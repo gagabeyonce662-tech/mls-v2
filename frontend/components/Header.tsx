@@ -8,10 +8,8 @@ export default function Header() {
     { name: "Map Search", href: "/map-search" },
     { name: "Trends", href: "/trends" },
     { name: "Home Valuation", href: "/valuation" },
-    { name: "Agents", href: "/agents" },
-    { name: "Tools", href: "/tools" },
     { name: "Watched", href: "/watched" },
-    { name: "Pre-Construction", href: "/pre-construction" },
+    { name: "Our Properties", href: "/pre-construction" },
     { name: "Blog", href: "/blog" },
   ];
 
