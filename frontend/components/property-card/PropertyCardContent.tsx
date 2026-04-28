@@ -12,6 +12,7 @@ import {
   getAddress,
   getSqft,
   getYearBuilt,
+  getParkingSpaces,
 } from "@/lib/propertyUtils";
 import type { Property } from "@/lib/api";
 
@@ -29,6 +30,7 @@ export function PropertyCardContent({ property }: PropertyCardContentProps) {
   const address = getAddress(property);
   const sqft = getSqft(property);
   const yearBuilt = getYearBuilt(property);
+  const parkingSpaces = getParkingSpaces(property);
 
   return (
     <div className="p-4">
@@ -91,6 +93,11 @@ export function PropertyCardContent({ property }: PropertyCardContentProps) {
           <div className="flex items-center gap-1">
             <Ruler className="w-3.5 h-3.5" />
             <span>{sqft.toLocaleString("en-US")} sqft</span>
+          </div>
+        )}
+        {parkingSpaces !== null && parkingSpaces > 0 && (
+          <div className="flex items-center gap-1">
+            <span>{parkingSpaces} Parking</span>
           </div>
         )}
         {yearBuilt && (
