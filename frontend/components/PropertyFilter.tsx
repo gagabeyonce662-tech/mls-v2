@@ -213,7 +213,11 @@ export default function PropertyFilter({
 
       const params = filtersToSearchParams(filters).toString();
       const target = params ? `/search-results?${params}` : "/search-results";
-      router.push(target);
+      if (typeof window !== "undefined") {
+        window.location.assign(target);
+      } else {
+        router.push(target);
+      }
     } catch (error) {
       console.error("Error applying filters:", error);
     } finally {
@@ -227,7 +231,11 @@ export default function PropertyFilter({
       onApplyFilters({});
       return;
     }
-    router.push("/search-results");
+    if (typeof window !== "undefined") {
+      window.location.assign("/search-results");
+    } else {
+      router.push("/search-results");
+    }
   };
 
   if (variant === "horizontal") {

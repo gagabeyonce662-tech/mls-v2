@@ -35,7 +35,12 @@ export default function HeroSection() {
       } else if (searchType === "Sell") {
         params.set("standard_status", "Sold");
       }
-      router.push(`/search-results?${params.toString()}`);
+      const target = `/search-results?${params.toString()}`;
+      if (typeof window !== "undefined") {
+        window.location.assign(target);
+      } else {
+        router.push(target);
+      }
     } catch (error) {
       console.error("Error searching properties:", error);
       setError("Search failed. Please try again.");
