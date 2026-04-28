@@ -174,10 +174,19 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
   const postUrl = post.seo_canonical_url?.trim() || `${SITE_URL}/blog/${post.slug}`;
   const seoDescription = post.seo_description?.trim() || buildFallbackDescription(post.excerpt, post.content);
   const seoHeadline = post.seo_title?.trim() || post.title;
+  const rawTags = post.tags as unknown;
+  const safeTags: string[] = Array.isArray(rawTags)
+    ? rawTags.map((tag) => String(tag).trim()).filter(Boolean)
+    : typeof rawTags === "string"
+      ? rawTags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+      : [];
   const keywordString =
     post.seo_keywords?.trim() ||
     post.focus_keyword?.trim() ||
-    (Array.isArray(post.tags) ? post.tags.join(", ") : post.tags || "");
+    (safeTags.length > 0 ? safeTags.join(", ") : "");
   const blogPostingJsonLd = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
@@ -422,13 +431,13 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
             )}
 
             {/* Tags Section */}
-            {post.tags && post.tags.length > 0 && (
+            {safeTags.length > 0 && (
               <div className="mt-8">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
                   Tags
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {post.tags.map((tag, index) => (
+                  {safeTags.map((tag, index) => (
                     <span
                       key={index}
                       className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-full transition-colors"

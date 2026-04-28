@@ -84,9 +84,45 @@ export async function generateMetadata({
 
 export default async function ListingPage(props: ListingPageProps) {
   const params = await props.params;
+  // #region agent log
+  fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "db96a5",
+    },
+    body: JSON.stringify({
+      sessionId: "db96a5",
+      runId: "pre-fix",
+      hypothesisId: "H5",
+      location: "frontend/app/(root)/listing/[id]/page.tsx:87",
+      message: "Listing page requested",
+      data: { id: params.id },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
   const property = await fetchPropertyByKey(params.id);
 
   if (!property) {
+    // #region agent log
+    fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "db96a5",
+      },
+      body: JSON.stringify({
+        sessionId: "db96a5",
+        runId: "pre-fix",
+        hypothesisId: "H5",
+        location: "frontend/app/(root)/listing/[id]/page.tsx:92",
+        message: "Listing page notFound due to null property",
+        data: { id: params.id },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     notFound();
   }
 

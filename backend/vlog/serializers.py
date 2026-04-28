@@ -8,6 +8,7 @@ class VlogCategorySerializer(serializers.ModelSerializer):
 
 class VlogPostSerializer(serializers.ModelSerializer):
     category = VlogCategorySerializer(read_only=True)
+    tags = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
     video_url = serializers.SerializerMethodField()
     og_image_url = serializers.SerializerMethodField()
@@ -35,6 +36,14 @@ class VlogPostSerializer(serializers.ModelSerializer):
             except:
                 pass
         return None
+
+    def get_tags(self, obj):
+        raw_tags = getattr(obj, 'tags', '') or ''
+        if isinstance(raw_tags, list):
+            return [str(tag).strip() for tag in raw_tags if str(tag).strip()]
+        if isinstance(raw_tags, str):
+            return [tag.strip() for tag in raw_tags.split(',') if tag.strip()]
+        return []
 
     def get_video_url(self, obj):
         if hasattr(obj, 'video_file') and obj.video_file:

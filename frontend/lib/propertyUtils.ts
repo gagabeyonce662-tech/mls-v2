@@ -317,7 +317,34 @@ export const isRental = (property: Property): boolean => {
  */
 export const getDetailUrl = (property: Property): string => {
   const key = getPropertyKey(property);
-  return isRental(property) ? `/listing/rental/${key}` : `/listing/${key}`;
+  const rental = isRental(property);
+  const url = rental ? `/listing/rental/${key}` : `/listing/${key}`;
+  // #region agent log
+  fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "db96a5",
+    },
+    body: JSON.stringify({
+      sessionId: "db96a5",
+      runId: "pre-fix",
+      hypothesisId: "H2",
+      location: "frontend/lib/propertyUtils.ts:321",
+      message: "Detail URL computed",
+      data: {
+        key,
+        url,
+        rental,
+        status: property.standard_status ?? property.StandardStatus ?? null,
+        propertyType: property.PropertyType ?? null,
+        categoryType: property.category_type ?? null,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+  return url;
 };
 
 const toValue = (value: unknown): string | null => {

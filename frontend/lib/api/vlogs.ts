@@ -27,6 +27,15 @@ function sendDebugLog(payload: {
 }
 
 function normalizeVlogPost(post: any): VlogPost {
+  const normalizedTags = Array.isArray(post?.tags)
+    ? post.tags
+    : typeof post?.tags === "string"
+      ? post.tags
+          .split(",")
+          .map((tag: string) => tag.trim())
+          .filter(Boolean)
+      : [];
+
   // #region agent log
   sendDebugLog({
     runId: "pre-fix",
@@ -41,11 +50,13 @@ function normalizeVlogPost(post: any): VlogPost {
         Array.isArray(post?.tags) || typeof post?.tags === "string"
           ? String(post?.tags).slice(0, 120)
           : null,
+      normalizedTagsCount: normalizedTags.length,
     },
   });
   // #endregion
   return {
     ...post,
+    tags: normalizedTags,
     thumbnail: post?.thumbnail || post?.thumbnail_url || undefined,
     video_file: post?.video_file || post?.video_url || undefined,
   };

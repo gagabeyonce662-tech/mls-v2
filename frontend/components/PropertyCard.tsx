@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Heart, Loader2, Eye, Plus, Check, ImageIcon, Video } from "lucide-react";
+import { Heart, Loader2, Eye, Plus, Check, ArrowUpRight } from "lucide-react";
 import { colors, propertyCard } from "@/config/design-system";
 import type { Property } from "@/lib/api";
 import { getPropertyKey, getDetailUrl } from "@/lib/propertyUtils";
@@ -39,6 +39,29 @@ export default function PropertyCard({
 
   const saved = isFavorite(propertyKey);
   const isCompared = isPropertySelected(propertyKey);
+  const detailUrl = getDetailUrl(property);
+
+  const handleToggleFavorite = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleFavorite(property);
+  };
+
+  const handleToggleCompare = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isCompared) {
+      removeFromCompare(propertyKey);
+    } else {
+      addToCompare(property);
+    }
+  };
+
+  const handleQuickView = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onQuickView?.(property);
+  };
 
   return (
     <div
@@ -50,10 +73,33 @@ export default function PropertyCard({
       onMouseEnter={() => propertyKey && prefetch(propertyKey)}
     >
       <Link
-        href={getDetailUrl(property)}
+        href={detailUrl}
         onClick={() => {
           setClicked(true);
           addToHistory(property);
+          // #region agent log
+          fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Debug-Session-Id": "db96a5",
+            },
+            body: JSON.stringify({
+              sessionId: "db96a5",
+              runId: "pre-fix",
+              hypothesisId: "H1",
+              location: "frontend/components/PropertyCard.tsx:55",
+              message: "Property card navigation click payload",
+              data: {
+                listingKey: property.listing_key ?? property.ListingKey ?? null,
+                propertyKey: property.PropertyKey ?? null,
+                generatedKey: propertyKey,
+                detailUrl,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {});
+          // #endregion
         }}
         target="_blank"
         rel="noopener noreferrer"
@@ -84,11 +130,8 @@ export default function PropertyCard({
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              toggleFavorite(property);
-            }}
+            onClick={handleToggleFavorite}
+            aria-label={saved ? "Remove from favorites" : "Add to favorites"}
             className={`absolute top-3 left-3 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all backdrop-blur-md shadow-lg active:scale-95 ${
               saved
                 ? "bg-red-500 text-white"
@@ -107,12 +150,9 @@ export default function PropertyCard({
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onQuickView?.(property);
-            }}
-            className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-lg active:scale-95 text-ds-heading opacity-0 group-hover:opacity-100"
+            onClick={handleQuickView}
+            aria-label="Open quick view"
+            className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all bg-white/90 hover:bg-white shadow-lg active:scale-95 text-ds-heading opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-1"
           >
             <Eye className="w-5 h-5" />
           </button>
@@ -124,19 +164,12 @@ export default function PropertyCard({
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (isCompared) {
-                removeFromCompare(propertyKey);
-              } else {
-                addToCompare(property);
-              }
-            }}
+            onClick={handleToggleCompare}
+            aria-label={isCompared ? "Remove from compare" : "Add to compare"}
             className={`absolute top-[56px] right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 ${
               isCompared
                 ? "bg-ds-primary text-white opacity-100"
-                : "bg-white/90 hover:bg-white text-ds-heading opacity-0 group-hover:opacity-100"
+                : "bg-white/90 hover:bg-white text-ds-heading opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-1"
             }`}
             style={isCompared ? { backgroundColor: colors.primary } : {}}
           >
@@ -153,33 +186,21 @@ export default function PropertyCard({
       </Tooltip>
 
       {/* ── Action Footer ── */}
-      <div className="grid grid-cols-4 border-t border-gray-200/70 relative z-10">
+      <div className="grid grid-cols-3 border-t border-gray-200/70 relative z-10 bg-white">
         <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleFavorite(property);
-          }}
-          className={`flex items-center justify-center gap-1 py-2 text-[10px] font-medium transition-colors hover:bg-gray-50 ${
-            saved ? "text-purple-600" : "text-gray-400 hover:text-purple-500"
+          onClick={handleToggleFavorite}
+          className={`flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-medium transition-colors hover:bg-gray-50 ${
+            saved ? "text-purple-600" : "text-gray-500 hover:text-purple-500"
           }`}
         >
           <Heart className={`w-3 h-3 shrink-0 ${saved ? "fill-current" : ""}`} />
-          <span className="truncate">Favourite</span>
+          <span className="truncate">{saved ? "Saved" : "Save"}</span>
         </button>
 
         <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (isCompared) {
-              removeFromCompare(propertyKey);
-            } else {
-              addToCompare(property);
-            }
-          }}
-          className={`flex items-center justify-center gap-1 py-2 text-[10px] font-medium border-l border-gray-200/70 transition-colors hover:bg-gray-50 ${
-            isCompared ? "text-purple-600" : "text-gray-400 hover:text-purple-500"
+          onClick={handleToggleCompare}
+          className={`flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-medium border-l border-gray-200/70 transition-colors hover:bg-gray-50 ${
+            isCompared ? "text-purple-600" : "text-gray-500 hover:text-purple-500"
           }`}
         >
           {isCompared ? (
@@ -191,25 +212,14 @@ export default function PropertyCard({
         </button>
 
         <Link
-          href={getDetailUrl(property)}
+          href={detailUrl}
           onClick={(e) => e.stopPropagation()}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1 py-2 text-[10px] font-medium text-gray-400 hover:text-purple-500 border-l border-gray-200/70 transition-colors hover:bg-gray-50"
+          className="flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-medium text-gray-500 hover:text-purple-500 border-l border-gray-200/70 transition-colors hover:bg-gray-50"
         >
-          <ImageIcon className="w-3 h-3 shrink-0" />
-          <span className="truncate">Images</span>
-        </Link>
-
-        <Link
-          href={getDetailUrl(property)}
-          onClick={(e) => e.stopPropagation()}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1 py-2 text-[10px] font-medium text-gray-400 hover:text-purple-500 border-l border-gray-200/70 transition-colors hover:bg-gray-50"
-        >
-          <Video className="w-3 h-3 shrink-0" />
-          <span className="truncate">Videos</span>
+          <ArrowUpRight className="w-3 h-3 shrink-0" />
+          <span className="truncate">View Details</span>
         </Link>
       </div>
     </div>

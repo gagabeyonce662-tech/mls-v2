@@ -557,6 +557,24 @@ export async function fetchPropertyByKey(
   propertyKey: string,
 ): Promise<Property | null> {
   try {
+    // #region agent log
+    fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "db96a5",
+      },
+      body: JSON.stringify({
+        sessionId: "db96a5",
+        runId: "pre-fix",
+        hypothesisId: "H3",
+        location: "frontend/lib/api/properties.ts:560",
+        message: "fetchPropertyByKey entry",
+        data: { propertyKey },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     if (propertyKey.startsWith("precon_") || propertyKey.startsWith("property-")) {
       if (propertyKey.startsWith("precon_")) {
         const idStr = propertyKey.replace("precon_", "");
@@ -573,6 +591,28 @@ export async function fetchPropertyByKey(
         next: { revalidate: 300 }, // Cache for 5 minutes
       },
     );
+    // #region agent log
+    fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "db96a5",
+      },
+      body: JSON.stringify({
+        sessionId: "db96a5",
+        runId: "pre-fix",
+        hypothesisId: "H3",
+        location: "frontend/lib/api/properties.ts:577",
+        message: "fetchPropertyByKey response received",
+        data: {
+          propertyKey,
+          apiListingKey: data?.listing_key ?? null,
+          hasData: Boolean(data),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
 
     return {
       ...mapPropertyFromAPI(data),
@@ -581,6 +621,27 @@ export async function fetchPropertyByKey(
     };
   } catch (error: any) {
     const errorMsg = error.message || "";
+    // #region agent log
+    fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "db96a5",
+      },
+      body: JSON.stringify({
+        sessionId: "db96a5",
+        runId: "pre-fix",
+        hypothesisId: "H4",
+        location: "frontend/lib/api/properties.ts:587",
+        message: "fetchPropertyByKey error",
+        data: {
+          propertyKey,
+          errorMsg,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     // Check if it's a "Not Found" error (either status 404 or OData 404 wrapped in 400)
     if (
       errorMsg.includes(":404:") ||
