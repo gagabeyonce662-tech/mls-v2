@@ -99,7 +99,11 @@ export const formatPrice = (price: number): string =>
 /* ──────────────────────────── Classification ──────────────────────────── */
 
 export const getPropertyType = (property: Property): string =>
-  property.category_type || property.PropertySubType || "Property";
+  property.property_sub_type ||
+  property.PropertySubType ||
+  property.PropertyType ||
+  property.category_type ||
+  "Property";
 
 export const getStatus = (property: Property): string =>
   property.standard_status || property.StandardStatus || "For Sale";
