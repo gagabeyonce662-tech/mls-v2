@@ -9,6 +9,7 @@ class VlogPostAdminForm(forms.ModelForm):
     # storage URLs for existing files (can fail if storage env is misconfigured).
     video_file = forms.FileField(required=False, widget=forms.FileInput())
     thumbnail = forms.ImageField(required=False, widget=forms.FileInput())
+    og_image = forms.ImageField(required=False, widget=forms.FileInput())
 
     content = forms.CharField(
         widget=forms.Textarea(
@@ -43,6 +44,21 @@ class VlogPostAdmin(admin.ModelAdmin):
         }),
         ('Publication', {
             'fields': ('status', 'publish_date', 'author', 'allow_comments')
+        }),
+        ('SEO', {
+            'description': (
+                "WordPress-style SEO overrides. Leave empty to auto-fallback to title/excerpt/content."
+            ),
+            'fields': (
+                'seo_title',
+                'seo_description',
+                'seo_keywords',
+                'seo_canonical_url',
+                'seo_noindex',
+                'og_title',
+                'og_description',
+                'og_image',
+            )
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at')

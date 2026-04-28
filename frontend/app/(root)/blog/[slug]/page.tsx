@@ -35,6 +35,14 @@ function resolveImageUrl(imageUrl?: string | null, thumbnailUrl?: string | null)
   return resolvedUrl;
 }
 
+function buildFallbackDescription(excerpt?: string, content?: string) {
+  return (
+    excerpt?.trim() ||
+    (content ? content.replace(/[#*_`>\-\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 155) : "") ||
+    "Read the latest real estate insights from Estate-4u."
+  );
+}
+
 export async function generateStaticParams() {
   try {
     // Fetch all blog posts and generate params for their slugs
@@ -68,24 +76,29 @@ export async function generateMetadata(
     };
   }
 
-  const image = resolveImageUrl(post.thumbnail, post.thumbnail_url);
-  const canonicalUrl = `${SITE_URL}/blog/${post.slug}`;
-  const description =
-    post.excerpt?.trim() ||
-    (post.content ? post.content.replace(/[#*_`>\-\n]/g, " ").slice(0, 155) : "") ||
-    "Read the latest real estate insights from Estate-4u.";
+  const image = resolveImageUrl(post.og_image_url, post.thumbnail || post.thumbnail_url);
+  const canonicalUrl = post.seo_canonical_url?.trim() || `${SITE_URL}/blog/${post.slug}`;
+  const description = post.seo_description?.trim() || buildFallbackDescription(post.excerpt, post.content);
+  const seoTitle = post.seo_title?.trim() || post.title;
+  const ogTitle = post.og_title?.trim() || seoTitle;
+  const ogDescription = post.og_description?.trim() || description;
+  const noIndex = Boolean(post.seo_noindex);
 
   return {
-    title: post.title,
+    title: seoTitle,
     description,
     alternates: {
       canonical: canonicalUrl,
     },
+    robots: {
+      index: !noIndex,
+      follow: !noIndex,
+    },
     openGraph: {
       type: "article",
       url: canonicalUrl,
-      title: post.title,
-      description,
+      title: ogTitle,
+      description: ogDescription,
       siteName: "Estate-4u",
       images: [{ url: image, width: 1200, height: 630, alt: post.title }],
       publishedTime: post.publish_date || post.created_at,
@@ -93,8 +106,8 @@ export async function generateMetadata(
     },
     twitter: {
       card: "summary_large_image",
-      title: post.title,
-      description,
+      title: ogTitle,
+      description: ogDescription,
       images: [image],
     },
   };
@@ -114,16 +127,17 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
     .filter((p) => p.id !== post.id && p.category?.name === post.category?.name)
     .slice(0, 3);
 
-  const imageUrl = resolveImageUrl(post.thumbnail, post.thumbnail_url);
-  const postUrl = `${SITE_URL}/blog/${post.slug}`;
-  const seoDescription =
-    post.excerpt?.trim() ||
-    (post.content ? post.content.replace(/[#*_`>\-\n]/g, " ").slice(0, 155) : "") ||
-    "Read the latest real estate insights from Estate-4u.";
+  const imageUrl = resolveImageUrl(post.og_image_url, post.thumbnail || post.thumbnail_url);
+  const postUrl = post.seo_canonical_url?.trim() || `${SITE_URL}/blog/${post.slug}`;
+  const seoDescription = post.seo_description?.trim() || buildFallbackDescription(post.excerpt, post.content);
+  const seoHeadline = post.seo_title?.trim() || post.title;
+  const keywordString =
+    post.seo_keywords?.trim() ||
+    (Array.isArray(post.tags) ? post.tags.join(", ") : post.tags || "");
   const blogPostingJsonLd = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
-    headline: post.title,
+    headline: seoHeadline,
     description: seoDescription,
     image: [imageUrl],
     datePublished: post.publish_date || post.created_at,
@@ -145,7 +159,7 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
       "@id": postUrl,
     },
     articleSection: post.category?.name || "Real Estate",
-    keywords: Array.isArray(post.tags) ? post.tags.join(", ") : "",
+    keywords: keywordString,
   };
 
   const formatDate = (dateString: string) => {

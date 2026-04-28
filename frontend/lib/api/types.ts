@@ -285,4 +285,12 @@ export interface VlogPost {
   created_at: string;
   updated_at: string;
   allow_comments: boolean;
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: string;
+  seo_canonical_url?: string;
+  seo_noindex?: boolean;
+  og_title?: string;
+  og_description?: string;
+  og_image_url?: string;
 }
