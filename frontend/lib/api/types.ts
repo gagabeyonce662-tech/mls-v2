@@ -297,4 +297,5 @@ export interface VlogPost {
   twitter_title?: string;
   twitter_description?: string;
   twitter_image_url?: string;
+  faq_items?: Array<{ question: string; answer: string }>;
 }

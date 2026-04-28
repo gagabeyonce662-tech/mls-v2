@@ -66,6 +66,7 @@ class VlogPost(models.Model):
     twitter_title = models.CharField(max_length=255, blank=True, help_text="Optional Twitter title override")
     twitter_description = models.TextField(blank=True, help_text="Optional Twitter description override")
     twitter_image = models.ImageField(upload_to=thumbnail_upload_path, blank=True, null=True, help_text="Optional Twitter image override")
+    faq_items = models.JSONField(default=list, blank=True, help_text="Optional FAQ entries as [{'question': '...', 'answer': '...'}]")
 
     class Meta:
         verbose_name = "Blog Post"

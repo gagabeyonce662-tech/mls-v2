@@ -25,6 +25,7 @@ class VlogPostSerializer(serializers.ModelSerializer):
             'seo_canonical_url', 'seo_noindex',
             'og_title', 'og_description', 'og_image_url',
             'twitter_title', 'twitter_description', 'twitter_image_url',
+            'faq_items',
         ]
 
     def get_thumbnail_url(self, obj):

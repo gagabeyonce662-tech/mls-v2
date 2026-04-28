@@ -165,6 +165,36 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
     articleSection: post.category?.name || "Real Estate",
     keywords: keywordString,
   };
+  const faqItems = Array.isArray(post.faq_items)
+    ? post.faq_items
+        .filter(
+          (item) =>
+            item &&
+            typeof item.question === "string" &&
+            item.question.trim() &&
+            typeof item.answer === "string" &&
+            item.answer.trim(),
+        )
+        .map((item) => ({
+          question: item.question.trim(),
+          answer: item.answer.trim(),
+        }))
+    : [];
+  const faqPageJsonLd =
+    faqItems.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqItems.map((item) => ({
+            "@type": "Question",
+            name: item.question,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: item.answer,
+            },
+          })),
+        }
+      : null;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -200,6 +230,12 @@ export default async function BlogPostPage(props: BlogPostPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingJsonLd) }}
       />
+      {faqPageJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageJsonLd) }}
+        />
+      )}
       <Header />
 
       <main className="flex-1">
