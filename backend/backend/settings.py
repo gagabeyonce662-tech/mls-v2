@@ -175,9 +175,18 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
 
-# If CLOUDINARY_URL is provided, use it as default storage
-if os.environ.get('CLOUDINARY_URL') or os.environ.get('CLOUDINARY_API_KEY'):
-    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+# Enable Cloudinary storage only when configuration is complete.
+# This avoids runtime failures when only partial credentials are present.
+_cloudinary_url = (os.environ.get("CLOUDINARY_URL") or "").strip()
+_cloudinary_complete = all(
+    [
+        (os.environ.get("CLOUDINARY_CLOUD_NAME") or "").strip(),
+        (os.environ.get("CLOUDINARY_API_KEY") or "").strip(),
+        (os.environ.get("CLOUDINARY_API_SECRET") or "").strip(),
+    ]
+)
+if _cloudinary_url or _cloudinary_complete:
+    DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")  

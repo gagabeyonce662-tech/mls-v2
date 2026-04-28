@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import VlogPost, VlogCategory
 from django.utils.html import format_html
 from django import forms
+from django.conf import settings
 
 class VlogPostAdminForm(forms.ModelForm):
     content = forms.CharField(
@@ -45,7 +46,13 @@ class VlogPostAdmin(admin.ModelAdmin):
 
     def thumbnail_tag(self, obj):
         if obj.thumbnail:
-            return format_html('<img src="{}" width="150" style="object-fit:cover;"/>', obj.thumbnail.url)
+            try:
+                return format_html('<img src="{}" width="150" style="object-fit:cover;"/>', obj.thumbnail.url)
+            except Exception:
+                # Keep admin list page usable even if remote media storage is misconfigured.
+                if settings.DEBUG:
+                    raise
+                return "(Thumbnail unavailable)"
         return "(No thumbnail)"
     thumbnail_tag.short_description = "Thumbnail"
 
