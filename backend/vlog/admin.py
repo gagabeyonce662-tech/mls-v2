@@ -5,6 +5,11 @@ from django import forms
 from django.conf import settings
 
 class VlogPostAdminForm(forms.ModelForm):
+    # Use plain FileInput so admin rendering does not require resolving remote
+    # storage URLs for existing files (can fail if storage env is misconfigured).
+    video_file = forms.FileField(required=False, widget=forms.FileInput())
+    thumbnail = forms.ImageField(required=False, widget=forms.FileInput())
+
     content = forms.CharField(
         widget=forms.Textarea(
             attrs={
