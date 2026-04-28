@@ -17,6 +17,12 @@ class PropertyAdmin(admin.ModelAdmin):
     search_fields = ('listing_key', 'city', 'street_name', 'public_remarks')
     inlines = [RoomInline, MediaInline]
     ordering = ('-is_featured', 'listing_key')
+    actions = ('delete_selected_properties',)
+
+    @admin.action(description="Delete selected properties", permissions=["delete"])
+    def delete_selected_properties(self, request, queryset):
+        deleted_count, _ = queryset.delete()
+        self.message_user(request, f"Deleted {deleted_count} property records.")
 
 class RoomAdmin(admin.ModelAdmin):
     list_display = ('room_type', 'room_length', 'room_width', 'room_level')
