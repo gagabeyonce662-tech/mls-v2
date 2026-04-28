@@ -1,7 +1,8 @@
 import { API_BASE_URL, fetchAPI } from "./client";
 import { VlogPost } from "./types";
 
-const VLOG_REVALIDATE_SECONDS = 24 * 60 * 60;
+// Keep blog content fresh after admin edits while still allowing light caching.
+const VLOG_REVALIDATE_SECONDS = 60;
 
 function normalizeVlogPost(post: any): VlogPost {
   return {
@@ -16,8 +17,11 @@ function normalizeVlogPost(post: any): VlogPost {
  */
 export async function fetchVlogPosts(): Promise<VlogPost[]> {
   try {
+    const isServer = typeof window === "undefined";
     const data = await fetchAPI<any>(`${API_BASE_URL}/api/vlog/`, {
-      next: { revalidate: VLOG_REVALIDATE_SECONDS },
+      ...(isServer
+        ? { next: { revalidate: VLOG_REVALIDATE_SECONDS } }
+        : { cache: "no-store" }),
     });
     // Handle both direct list and paginated object
     const posts = Array.isArray(data) ? data : (data.results || []);
@@ -35,8 +39,11 @@ export async function fetchVlogPostBySlug(
   slug: string,
 ): Promise<VlogPost | null> {
   try {
+    const isServer = typeof window === "undefined";
     const post = await fetchAPI<any>(`${API_BASE_URL}/api/vlog/${slug}/`, {
-      next: { revalidate: VLOG_REVALIDATE_SECONDS },
+      ...(isServer
+        ? { next: { revalidate: VLOG_REVALIDATE_SECONDS } }
+        : { cache: "no-store" }),
     });
     return normalizeVlogPost(post);
   } catch (error) {
