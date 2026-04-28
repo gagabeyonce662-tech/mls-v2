@@ -32,6 +32,8 @@ import {
   VlogPost,
   fetchNewlyListedProperties,
   ExclusivePropertiesResponse,
+  fetchFilteredProperties,
+  PaginatedPropertyResult,
 } from "../lib/api";
 
 // Query keys for organized cache management
@@ -42,6 +44,10 @@ export const queryKeys = {
       ["properties", "filters", filters] as const,
     city: (city?: string) => ["properties", "city", city] as const,
     ontario: ["properties", "ontario"] as const,
+    filtered: (filters?: Record<string, any>) =>
+      ["properties", "filtered", filters] as const,
+    filteredInfinite: (filters?: Record<string, any>) =>
+      ["properties", "filtered", "infinite", filters] as const,
   },
   exclusive: {
     all: ["properties", "exclusive"] as const,
@@ -173,6 +179,35 @@ export const useAllExclusiveProperties = (
     queryFn: fetchAllExclusiveProperties,
     ...baseQueryOptions,
     ...options,
+  });
+};
+
+export const useInfiniteFilteredProperties = (
+  filters?: Record<string, any>,
+  options?: Partial<
+    UseInfiniteQueryOptions<
+      PaginatedPropertyResult,
+      Error
+    >
+  >,
+) => {
+  const limit = Number(filters?.limit) > 0 ? Number(filters?.limit) : 12;
+
+  return useInfiniteQuery({
+    queryKey: queryKeys.properties.filteredInfinite(filters),
+    queryFn: ({ pageParam = 0 }) =>
+      fetchFilteredProperties({
+        ...filters,
+        limit,
+        offset: pageParam as number,
+      }),
+    getNextPageParam: (lastPage, allPages) => {
+      const loadedItems = allPages.flatMap((page) => page.results).length;
+      return loadedItems < lastPage.count ? loadedItems : undefined;
+    },
+    initialPageParam: 0,
+    ...baseQueryOptions,
+    ...(options as any),
   });
 };
 

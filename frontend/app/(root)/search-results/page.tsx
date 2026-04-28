@@ -11,7 +11,7 @@ import { MapToggleButton } from "@/components/listing/MapToggleButton";
 import { CompareModal } from "@/components/listing/CompareModal";
 import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
 import { usePropertyInteractions } from "@/hooks/usePropertyInteractions";
-import { useInfiniteExclusiveProperties } from "@/hooks/react-query";
+import { useInfiniteFilteredProperties } from "@/hooks/react-query";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { useSearch } from "@/contexts/SearchContext";
 import { colors } from "@/config/design-system";
@@ -46,7 +46,7 @@ export default function SearchResultsPage() {
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useInfiniteExclusiveProperties(
+  } = useInfiniteFilteredProperties(
     {
       ...filterParams,
       limit: filterParams.limit || 12,

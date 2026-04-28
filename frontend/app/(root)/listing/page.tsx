@@ -1,15 +1,11 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
-import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import React, { useState, useCallback } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { colors } from "@/config/design-system";
 import {
-  useInfiniteExclusiveProperties,
-  useExclusiveProperties,
-  usePrefetchProperty,
+  useInfiniteFilteredProperties,
 } from "@/hooks/react-query";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 
@@ -36,7 +32,6 @@ export default function ListingsPage() {
     selectedProperty,
     showCompareModal,
     handleViewFromModal,
-    handleCompareSelect,
     closeCompareModal,
     closeQuickView,
   } = interactions;
@@ -65,7 +60,7 @@ export default function ListingsPage() {
     hasNextPage,
     isFetchingNextPage,
     refetch,
-  } = useInfiniteExclusiveProperties(
+  } = useInfiniteFilteredProperties(
     {
       ...filterParams,
       limit: 12,
@@ -75,46 +70,12 @@ export default function ListingsPage() {
     },
   );
 
-  const hasStrictFilters = Boolean(
-    filterParams.property_sub_type ||
-      filterParams.price_min ||
-      filterParams.price_max ||
-      filterParams.bedrooms ||
-      filterParams.bathrooms ||
-      filterParams.building_area_min ||
-      filterParams.building_area_max ||
-      filterParams.has_photos,
-  );
-
-  const fallbackFilters = activeSearchTerm
-    ? ({
-        search: activeSearchTerm,
-        standard_status: filterParams.standard_status,
-        limit: 12,
-      } as ExclusivePropertyFilterParams)
-    : undefined;
-
   // Extract all properties from pages
   const allProperties = data?.pages.flatMap((page) => page.results) || [];
-
-  const shouldRunFallback =
-    !isLoading &&
-    !!fallbackFilters &&
-    hasStrictFilters &&
-    (data?.pages?.length ?? 0) > 0 &&
-    allProperties.length === 0;
-
-  const { data: fallbackData, isLoading: isFallbackLoading } =
-    useExclusiveProperties(fallbackFilters, {
-      enabled: shouldRunFallback,
-    });
-
-  const fallbackProperties = fallbackData?.results || [];
-  const isUsingFallback = shouldRunFallback && fallbackProperties.length > 0;
-  const displayedProperties = isUsingFallback ? fallbackProperties : allProperties;
+  const displayedProperties = allProperties;
   const primaryPageMeta = data?.pages?.[0];
   const fallbackMessage =
-    primaryPageMeta?.fallback_applied || isUsingFallback
+    primaryPageMeta?.fallback_applied
       ? primaryPageMeta?.fallback_stage === "nearby_suggestions" &&
         Array.isArray(primaryPageMeta?.suggested_locations) &&
         primaryPageMeta.suggested_locations.length > 0
@@ -130,40 +91,6 @@ export default function ListingsPage() {
     [],
   );
 
-  const renderSkeletons = () => {
-    return Array.from({ length: 8 }).map((_, index) => (
-      <div
-        key={`skeleton-${index}`}
-        className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse min-h-[300px]"
-      >
-        <div
-          className="h-48 w-full"
-          style={{ backgroundColor: colors.boarder }}
-        />
-        <div className="p-4 space-y-3">
-          <div
-            className="h-4 w-3/4 rounded"
-            style={{ backgroundColor: colors.boarder }}
-          />
-          <div
-            className="h-6 w-1/2 rounded"
-            style={{ backgroundColor: colors.boarder }}
-          />
-          <div className="flex gap-4 mt-3">
-            <div
-              className="h-3 w-12 rounded"
-              style={{ backgroundColor: colors.boarder }}
-            />
-            <div
-              className="h-3 w-12 rounded"
-              style={{ backgroundColor: colors.boarder }}
-            />
-          </div>
-        </div>
-      </div>
-    ));
-  };
-
   return (
     <div className="min-h-screen bg-white">
       <Header />
@@ -176,14 +103,14 @@ export default function ListingsPage() {
               style={{ color: colors.heading }}
             >
               {currentCity
-                ? `Exclusive Properties in ${currentCity}`
-                : "All Exclusive Properties"}
+                ? `Properties in ${currentCity}`
+                : "All Properties"}
             </h1>
             <p style={{ color: colors.body }}>
-              {isLoading || (shouldRunFallback && isFallbackLoading)
+              {isLoading
                 ? "Loading..."
                 : `${displayedProperties.length} properties found`}
-              {hasNextPage && !isLoading && !isUsingFallback && " • Scroll to load more"}
+              {hasNextPage && !isLoading && " • Scroll to load more"}
             </p>
             {fallbackMessage && (
               <p className="mt-2 text-sm text-amber-700">{fallbackMessage}</p>
@@ -220,9 +147,9 @@ export default function ListingsPage() {
           ) : viewMode === "grid" ? (
             <PropertyGridLayout
               properties={displayedProperties}
-              isLoading={isLoading || (shouldRunFallback && isFallbackLoading)}
+              isLoading={isLoading}
               isFetchingNextPage={isFetchingNextPage}
-              hasNextPage={isUsingFallback ? false : hasNextPage}
+              hasNextPage={hasNextPage}
               fetchNextPage={fetchNextPage}
               isLoggedIn={isLoggedIn}
               interactions={interactions}
@@ -231,7 +158,7 @@ export default function ListingsPage() {
           ) : (
             <ListingMapView
               properties={displayedProperties}
-              isLoading={isLoading || (shouldRunFallback && isFallbackLoading)}
+              isLoading={isLoading}
             />
           )}
         </div>
