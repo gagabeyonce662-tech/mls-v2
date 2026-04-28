@@ -4,13 +4,11 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Search, ChevronDown } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { colors } from "@/config/design-system";
-import { type Property, searchProperties } from "@/lib/api";
-
-import { useSearch } from "@/contexts/SearchContext";
 
 export default function HeroSection() {
-  const { startSearch, updateSearchResults, clearSearch } = useSearch();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState("Buy");
   const [isLoading, setIsLoading] = useState(false);
@@ -19,31 +17,28 @@ export default function HeroSection() {
   const handleSearch = async () => {
     if (isLoading) return;
 
-    setIsLoading(true);
     setError("");
-    startSearch();
 
     try {
       const query = searchQuery.trim();
 
       if (!query) {
-        updateSearchResults([], "");
+        setError("Please enter a city, postal code, or address.");
         return;
       }
 
-      const properties = await searchProperties(query);
-
-      updateSearchResults(properties, query);
-
-      if (properties.length === 0) {
-        setError(
-          `No properties found matching "${query}". Try a different search term.`,
-        );
+      setIsLoading(true);
+      const params = new URLSearchParams();
+      params.set("search", query);
+      if (searchType === "Rent") {
+        params.set("has_lease", "true");
+      } else if (searchType === "Sell") {
+        params.set("standard_status", "Sold");
       }
+      router.push(`/search-results?${params.toString()}`);
     } catch (error) {
       console.error("Error searching properties:", error);
       setError("Search failed. Please try again.");
-      updateSearchResults([], "");
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +54,6 @@ export default function HeroSection() {
   const handleClearSearch = () => {
     setSearchQuery("");
     setError("");
-    clearSearch();
   };
 
   return (
