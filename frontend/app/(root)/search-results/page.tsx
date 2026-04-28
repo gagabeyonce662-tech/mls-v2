@@ -58,6 +58,15 @@ export default function SearchResultsPage() {
 
   const allProperties = data?.pages.flatMap((page) => page.results) || [];
   const headingCity = filterParams.city?.trim();
+  const primaryPageMeta = data?.pages?.[0];
+  const fallbackMessage =
+    primaryPageMeta?.fallback_applied
+      ? primaryPageMeta?.fallback_stage === "nearby_suggestions" &&
+        Array.isArray(primaryPageMeta?.suggested_locations) &&
+        primaryPageMeta.suggested_locations.length > 0
+        ? `No exact matches. Showing nearby results in ${primaryPageMeta.suggested_locations.slice(0, 3).join(", ")}.`
+        : "No exact matches. Showing closest available results."
+      : null;
 
   return (
     <div className="min-h-screen bg-white">
@@ -78,6 +87,9 @@ export default function SearchResultsPage() {
               {isLoading ? "Loading..." : `${allProperties.length} properties found`}
               {hasNextPage && !isLoading && " • Scroll to load more"}
             </p>
+            {fallbackMessage && (
+              <p className="mt-2 text-sm text-amber-700">{fallbackMessage}</p>
+            )}
           </div>
 
           <div className="mb-4">

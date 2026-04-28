@@ -84,6 +84,58 @@ class MapAggregationAndFilterTests(TestCase):
         self.assertIn(self.p1.listing_key, keys)
         self.assertNotIn(self.p2.listing_key, keys)
 
+    def test_property_filter_postal_search_normalizes_spaces(self):
+        self.p1.postal_code = "N2E 4L5"
+        self.p1.save(update_fields=["postal_code"])
+        response = self.client.get(
+            "/api/mls/properties/filter/",
+            {"search": "N2E4L5", "limit": 20, "offset": 0},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        keys = {row["listing_key"] for row in payload["results"]}
+        self.assertIn(self.p1.listing_key, keys)
+
+    def test_exclusive_search_typo_city_returns_fallback_match(self):
+        self.p1.city = "Kitchener"
+        self.p1.category_type = Property.EXCLUSIVE
+        self.p1.save(update_fields=["city", "category_type"])
+        response = self.client.get(
+            "/api/mls/properties/exclusive-properties/",
+            {"search": "kitchner", "limit": 20, "offset": 0},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        keys = {row["listing_key"] for row in payload["results"]}
+        self.assertIn(self.p1.listing_key, keys)
+        self.assertIn("fallback_applied", payload)
+
+    def test_exclusive_fallback_keeps_same_listing_type(self):
+        Property.objects.create(
+            listing_key="lease-only-1",
+            city="Kitchener",
+            state_or_province="ON",
+            unparsed_address="20 Queen St",
+            public_remarks="Commercial lease in central district",
+            latitude=43.4516,
+            longitude=-80.4925,
+            list_price=600000,
+            lease_amount=3500,
+            bedrooms_total=0,
+            bathrooms_total_integer=1,
+            standard_status="Active",
+        )
+        response = self.client.get(
+            "/api/mls/properties/exclusive-properties/",
+            {"search": "zzzx-not-a-real-place", "limit": 20, "offset": 0},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload.get("fallback_applied"))
+        self.assertGreater(len(payload["results"]), 0)
+        for row in payload["results"]:
+            self.assertNotEqual(row.get("listing_key"), "lease-only-1")
+
 
 class WatchedAPITests(TestCase):
     def setUp(self):

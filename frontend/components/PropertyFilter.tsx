@@ -152,10 +152,10 @@ export default function PropertyFilter({
     const normalizedQuery = searchQuery.trim();
     if (normalizedQuery) {
       if (looksLikeAddressOrPostal(normalizedQuery)) {
-        // Address/postal terms perform better through broad search than strict city.
+        // Address/postal terms perform better through broad search.
         filters.search = normalizedQuery;
       } else {
-        filters.city = normalizedQuery;
+        // Keep city intent in broad search; backend handles fuzzy city fallback.
         filters.search = normalizedQuery;
       }
     }

@@ -27,6 +27,23 @@ const clientMemoryCache = new Map<
 >();
 const mapFilterMemoryCache = new Map<string, { timestamp: number; data: unknown }>();
 
+export interface ListingFallbackMeta {
+  fallback_applied?: boolean;
+  fallback_stage?: string | null;
+  suggested_locations?: string[];
+}
+
+export interface PaginatedPropertyResult extends ListingFallbackMeta {
+  results: any[];
+  count: number;
+  next: number | null;
+  previous: number | null;
+}
+
+export interface ExclusivePropertiesResponse extends PaginatedPropertyResult {
+  updated_to_exclusive: number;
+}
+
 function getClientCachedResponse<T>(cacheKey: string): T | null {
   const now = Date.now();
   const inMemory = clientMemoryCache.get(cacheKey);
@@ -218,13 +235,7 @@ export async function fetchProperties(
  */
 export async function fetchExclusiveProperties(
   filters?: ExclusivePropertyFilterParams,
-): Promise<{
-  results: any[];
-  count: number;
-  next: number | null;
-  previous: number | null;
-  updated_to_exclusive: number;
-}> {
+): Promise<ExclusivePropertiesResponse> {
   try {
     const queryParams = new URLSearchParams();
 
@@ -251,22 +262,10 @@ export async function fetchExclusiveProperties(
 
     const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
     const cacheKey = `exclusive:${queryParams.toString()}`;
-    const cached = getClientCachedResponse<{
-      results: any[];
-      count: number;
-      next: number | null;
-      previous: number | null;
-      updated_to_exclusive: number;
-    }>(cacheKey);
+    const cached = getClientCachedResponse<ExclusivePropertiesResponse>(cacheKey);
     if (cached) return cached;
 
-    const response = await fetchAPI<{
-      results: any[];
-      count: number;
-      next: number | null;
-      previous: number | null;
-      updated_to_exclusive: number;
-    }>(url, { cache: "no-store" });
+    const response = await fetchAPI<ExclusivePropertiesResponse>(url, { cache: "no-store" });
     setClientCachedResponse(cacheKey, response);
     return response;
   } catch (error) {
@@ -277,6 +276,9 @@ export async function fetchExclusiveProperties(
       next: null,
       previous: null,
       updated_to_exclusive: 0,
+      fallback_applied: false,
+      fallback_stage: null,
+      suggested_locations: [],
     };
   }
 }

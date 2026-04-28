@@ -112,6 +112,15 @@ export default function ListingsPage() {
   const fallbackProperties = fallbackData?.results || [];
   const isUsingFallback = shouldRunFallback && fallbackProperties.length > 0;
   const displayedProperties = isUsingFallback ? fallbackProperties : allProperties;
+  const primaryPageMeta = data?.pages?.[0];
+  const fallbackMessage =
+    primaryPageMeta?.fallback_applied || isUsingFallback
+      ? primaryPageMeta?.fallback_stage === "nearby_suggestions" &&
+        Array.isArray(primaryPageMeta?.suggested_locations) &&
+        primaryPageMeta.suggested_locations.length > 0
+        ? `No exact matches. Showing nearby results in ${primaryPageMeta.suggested_locations.slice(0, 3).join(", ")}.`
+        : `No exact matches. Showing closest results${activeSearchTerm ? ` for "${activeSearchTerm}"` : ""}.`
+      : null;
 
   const handleApplyFilters = useCallback(
     (newFilters: ExclusivePropertyFilterParams) => {
@@ -176,11 +185,8 @@ export default function ListingsPage() {
                 : `${displayedProperties.length} properties found`}
               {hasNextPage && !isLoading && !isUsingFallback && " • Scroll to load more"}
             </p>
-            {isUsingFallback && (
-              <p className="mt-2 text-sm text-amber-700">
-                No exact matches for the selected filters. Showing closest results for
-                "{activeSearchTerm}".
-              </p>
+            {fallbackMessage && (
+              <p className="mt-2 text-sm text-amber-700">{fallbackMessage}</p>
             )}
           </div>
 

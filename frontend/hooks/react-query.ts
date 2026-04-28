@@ -31,6 +31,7 @@ import {
   PreConnPropertyFilterParams,
   VlogPost,
   fetchNewlyListedProperties,
+  ExclusivePropertiesResponse,
 } from "../lib/api";
 
 // Query keys for organized cache management
@@ -122,13 +123,7 @@ export const useExclusiveProperties = (
   filters?: ExclusivePropertyFilterParams,
   options?: Partial<
     UseQueryOptions<
-      {
-        results: any[];
-        count: number;
-        next: number | null;
-        previous: number | null;
-        updated_to_exclusive: number;
-      },
+      ExclusivePropertiesResponse,
       Error
     >
   >,
@@ -145,13 +140,7 @@ export const useInfiniteExclusiveProperties = (
   filters?: Omit<ExclusivePropertyFilterParams, "offset">,
   options?: Partial<
     UseInfiniteQueryOptions<
-      {
-        results: any[];
-        count: number;
-        next: number | null;
-        previous: number | null;
-        updated_to_exclusive: number;
-      },
+      ExclusivePropertiesResponse,
       Error
     >
   >,

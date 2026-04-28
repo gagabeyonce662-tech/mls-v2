@@ -4,6 +4,8 @@ import os
 import json
 import logging
 import time
+import re
+from difflib import get_close_matches
 from io import BytesIO
 import pandas as pd
 from datetime import timedelta
@@ -14,8 +16,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from django.db.models import Q, FloatField, Count
-from django.db.models.functions import Cast, Substr, Lower
+from django.db.models import Q, FloatField, Count, Value
+from django.db.models.functions import Cast, Substr, Lower, Replace, Upper
 from django.core.paginator import Paginator
 from django.core.cache import cache
 from django.utils import timezone
@@ -68,6 +70,218 @@ MAP_FILTER_KEYS = {
     "has_lease",
     "has_photos",
 }
+SEARCH_TEXT_FIELDS = [
+    "unparsed_address",
+    "public_remarks",
+    "city",
+    "postal_code",
+    "listing_id",
+    "listing_key",
+    "street_name",
+    "street_number",
+    "unit_number",
+    "subdivision_name",
+    "directions",
+    "property_sub_type",
+    "common_interest",
+    "list_aor",
+    "zoning",
+    "zoning_description",
+    "parcel_number",
+    "anchors_co_tenants",
+    "water_body_name",
+]
+
+
+def _normalize_text(value: str) -> str:
+    return re.sub(r"\s+", " ", (value or "").strip().lower())
+
+
+def _normalize_postal(value: str) -> str:
+    return re.sub(r"\s+", "", (value or "").strip().upper())
+
+
+def _split_csv(value: str) -> list[str]:
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _build_search_q(search_term: str) -> Q:
+    search_q = Q()
+    for field in SEARCH_TEXT_FIELDS:
+        search_q |= Q(**{f"{field}__icontains": search_term})
+    compact = _normalize_postal(search_term)
+    if len(compact) >= 3:
+        search_q |= Q(postal_code__iexact=compact)
+        search_q |= Q(postal_code__iexact=f"{compact[:3]} {compact[3:]}")
+    return search_q
+
+
+def _candidate_cities(base_qs, hint: str, limit: int = 8) -> list[str]:
+    normalized_hint = _normalize_text(hint)
+    if not normalized_hint:
+        return []
+    all_cities = [
+        row["city"]
+        for row in base_qs.exclude(city__isnull=True)
+        .exclude(city__exact="")
+        .values("city")
+        .distinct()[:600]
+        if row.get("city")
+    ]
+    if not all_cities:
+        return []
+    norm_to_city: dict[str, str] = {}
+    for city in all_cities:
+        key = _normalize_text(city)
+        if key and key not in norm_to_city:
+            norm_to_city[key] = city
+    fuzzy_hits = get_close_matches(normalized_hint, list(norm_to_city.keys()), n=limit, cutoff=0.5)
+    contains_hits = [
+        key
+        for key in norm_to_city.keys()
+        if normalized_hint in key or key in normalized_hint
+    ][:limit]
+    ordered_keys: list[str] = []
+    for key in contains_hits + fuzzy_hits:
+        if key not in ordered_keys:
+            ordered_keys.append(key)
+    return [norm_to_city[key] for key in ordered_keys][:limit]
+
+
+def _apply_location_filters(qs, params, *, relaxed_city: bool = False, city_candidates: list[str] | None = None):
+    if params.get("city"):
+        cities = _split_csv(params.get("city", ""))
+        if cities:
+            city_q = Q()
+            for city in cities:
+                if relaxed_city:
+                    city_q |= Q(city__icontains=city)
+                else:
+                    city_q |= Q(city__iexact=city)
+            qs = qs.filter(city_q)
+    if city_candidates:
+        qs = qs.filter(city__in=city_candidates)
+    if params.get("province"):
+        provinces = [p.upper() for p in _split_csv(params.get("province", ""))]
+        if provinces:
+            qs = qs.filter(state_or_province__in=provinces)
+    if params.get("postal_code"):
+        codes = [_normalize_postal(c) for c in _split_csv(params.get("postal_code", ""))]
+        if codes:
+            qs = qs.annotate(
+                postal_compact=Upper(Replace("postal_code", Value(" "), Value("")))
+            ).filter(postal_compact__in=codes)
+    return qs
+
+
+def _apply_common_filters(
+    qs,
+    params,
+    *,
+    include_search: bool = True,
+    include_location: bool = True,
+    relaxed_city: bool = False,
+    city_candidates: list[str] | None = None,
+):
+    if include_search and params.get("search"):
+        search_term = params.get("search", "").strip()
+        if search_term:
+            qs = qs.filter(_build_search_q(search_term))
+    if params.get("price_min"):
+        qs = qs.filter(list_price__gte=float(params.get("price_min")))
+    if params.get("price_max"):
+        qs = qs.filter(list_price__lte=float(params.get("price_max")))
+    if params.get("bedrooms"):
+        qs = qs.filter(bedrooms_total__gte=int(params.get("bedrooms")))
+    if params.get("bathrooms"):
+        qs = qs.filter(bathrooms_total_integer__gte=int(params.get("bathrooms")))
+    if params.get("property_type"):
+        types = _split_csv(params.get("property_type", ""))
+        if types:
+            qs = qs.filter(property_sub_type__in=types)
+    if include_location:
+        qs = _apply_location_filters(
+            qs,
+            params,
+            relaxed_city=relaxed_city,
+            city_candidates=city_candidates,
+        )
+    if all(k in params for k in ["latitude_min", "latitude_max", "longitude_min", "longitude_max"]):
+        qs = qs.annotate(
+            lat_float=Cast("latitude", FloatField()),
+            lng_float=Cast("longitude", FloatField())
+        ).filter(
+            lat_float__gte=float(params.get("latitude_min")),
+            lat_float__lte=float(params.get("latitude_max")),
+            lng_float__gte=float(params.get("longitude_min")),
+            lng_float__lte=float(params.get("longitude_max")),
+        )
+    if params.get("building_area_min"):
+        qs = qs.filter(building_area_total__gte=float(params.get("building_area_min")))
+    if params.get("lot_size_min"):
+        qs = qs.filter(lot_size_area__gte=float(params.get("lot_size_min")))
+    if params.get("year_built_min"):
+        qs = qs.filter(year_built__gte=int(params.get("year_built_min")))
+    if params.get("keywords"):
+        kw_q = Q()
+        for kw in _split_csv(params.get("keywords", "")):
+            kw_q |= Q(public_remarks__icontains=kw)
+        qs = qs.filter(kw_q)
+    if params.get("has_photos") in ("true", "1", "True"):
+        qs = qs.filter(photos_count__gt=0)
+    if params.get("new_listings_days"):
+        days = int(params.get("new_listings_days"))
+        cutoff = timezone.now() - timedelta(days=days)
+        qs = qs.filter(modification_timestamp__gte=cutoff)
+    if params.get("standard_status"):
+        qs = qs.filter(standard_status=params.get("standard_status"))
+    return qs
+
+
+def _apply_fallback_pipeline(base_qs, params, order_by: tuple[str, ...]):
+    strict = _apply_common_filters(base_qs, params, include_search=True, include_location=True, relaxed_city=False)
+    strict = strict.order_by(*order_by)
+    if strict.exists():
+        return strict, {
+            "fallback_applied": False,
+            "fallback_stage": None,
+            "suggested_locations": [],
+        }
+
+    relaxed = _apply_common_filters(base_qs, params, include_search=True, include_location=True, relaxed_city=True)
+    relaxed = relaxed.order_by(*order_by)
+    if relaxed.exists():
+        return relaxed, {
+            "fallback_applied": True,
+            "fallback_stage": "relaxed_location",
+            "suggested_locations": [],
+        }
+
+    location_hint = params.get("search") or params.get("city") or params.get("postal_code") or ""
+    suggestions = _candidate_cities(base_qs, location_hint)
+    if suggestions:
+        nearby = _apply_common_filters(
+            base_qs,
+            params,
+            include_search=False,
+            include_location=False,
+            city_candidates=suggestions,
+        ).order_by(*order_by)
+        if nearby.exists():
+            return nearby, {
+                "fallback_applied": True,
+                "fallback_stage": "nearby_suggestions",
+                "suggested_locations": suggestions,
+            }
+
+    safety = base_qs.order_by(*order_by)
+    return safety, {
+        "fallback_applied": True,
+        "fallback_stage": "safety_net",
+        "suggested_locations": suggestions,
+    }
 
 
 def _parse_bbox(params):
@@ -413,127 +627,33 @@ class PropertyFilterView(APIView):
         limit = min(int(request.GET.get('limit', 6)), 100)
         offset = int(request.GET.get('offset', 0))
 
-        # Start with all properties
         qs = Property.objects.all()
-
-        # === PRICE ===
-        if request.GET.get('price_min'):
-            qs = qs.filter(list_price__gte=float(request.GET['price_min']))
-        if request.GET.get('price_max'):
-            qs = qs.filter(list_price__lte=float(request.GET['price_max']))
-
-        # === BEDS / BATHS ===
-        if request.GET.get('bedrooms'):
-            qs = qs.filter(bedrooms_total__gte=int(request.GET['bedrooms']))
-        if request.GET.get('bathrooms'):
-            qs = qs.filter(bathrooms_total_integer__gte=int(request.GET['bathrooms']))
-
-        # === CITY / PROVINCE / POSTAL CODE (multiple) ===
-        if request.GET.get('city'):
-            cities = [c.strip() for c in request.GET['city'].split(',') if c.strip()]
-            qs = qs.filter(city__in=cities)
-
-        if request.GET.get('province'):
-            provs = [p.strip().upper() for p in request.GET['province'].split(',') if p.strip()]
-            qs = qs.filter(state_or_province__in=provs)
-
-        if request.GET.get('postal_code'):
-            codes = [c.strip().upper() for c in request.GET['postal_code'].split(',') if c.strip()]
-            qs = qs.filter(postal_code__in=codes)
-
-        # === PROPERTY TYPE ===
-        if request.GET.get('property_type'):
-            types = [t.strip() for t in request.GET['property_type'].split(',') if t.strip()]
-            qs = qs.filter(property_sub_type__in=types)
-
-        # === STATUS ===
-        if request.GET.get('status'):
-            qs = qs.filter(standard_status=request.GET['status'].strip())
-
-        # === LEASE AMOUNT (commercial) ===
-        if request.GET.get('has_lease') in ('true', '1'):
+        if request.GET.get("status"):
+            qs = qs.filter(standard_status=request.GET.get("status", "").strip())
+        if request.GET.get("has_lease") in ("true", "1", "True"):
             qs = qs.filter(lease_amount__gt=0)
-
-        # === MAP BOUNDING BOX ===
-        if all(k in request.GET for k in ['lat_min', 'lat_max', 'lng_min', 'lng_max']):
+        if all(k in request.GET for k in ["lat_min", "lat_max", "lng_min", "lng_max"]):
             qs = qs.annotate(
-                lat_float=Cast('latitude', FloatField()),
-                lng_float=Cast('longitude', FloatField())
+                lat_float=Cast("latitude", FloatField()),
+                lng_float=Cast("longitude", FloatField())
             ).filter(
-                lat_float__gte=float(request.GET['lat_min']),
-                lat_float__lte=float(request.GET['lat_max']),
-                lng_float__gte=float(request.GET['lng_min']),
-                lng_float__lte=float(request.GET['lng_max']),
+                lat_float__gte=float(request.GET.get("lat_min")),
+                lat_float__lte=float(request.GET.get("lat_max")),
+                lng_float__gte=float(request.GET.get("lng_min")),
+                lng_float__lte=float(request.GET.get("lng_max")),
             )
-
-        # === SOLD IN LAST N DAYS ===
-        if request.GET.get('sold_days'):
-            days = int(request.GET['sold_days'])
+        if request.GET.get("sold_days"):
+            days = int(request.GET.get("sold_days"))
             cutoff = timezone.now() - timedelta(days=days)
             qs = qs.filter(status_change_timestamp__gte=cutoff)
+        if request.GET.get("modified_since"):
+            qs = qs.filter(modification_timestamp__gte=request.GET.get("modified_since"))
 
-        # === MODIFIED SINCE ===
-        if request.GET.get('modified_since'):
-            qs = qs.filter(modification_timestamp__gte=request.GET['modified_since'])
-
-        # === HAS PHOTOS ===
-        if request.GET.get('has_photos') in ('true', '1'):
-            qs = qs.filter(photos_count__gt=0)
-
-        # === UNIVERSAL SEARCH (address, remarks, listing ID, etc.) ===
-        if request.GET.get('search'):
-            search_term = request.GET['search'].strip()
-            if search_term:
-                search_q = Q()
-
-                # Text fields (case-insensitive partial match)
-                text_fields = [
-                    'unparsed_address',
-                    'public_remarks',
-                    'city',
-                    'postal_code',
-                    'listing_id',
-                    'listing_key',
-                    'street_name',
-                    'street_number',
-                    'unit_number',
-                    'subdivision_name',
-                    'directions',
-                    'property_sub_type',
-                    'common_interest',
-                    'list_aor',
-                    'zoning',
-                    'zoning_description',
-                    'parcel_number',
-                    'anchors_co_tenants',
-                    'water_body_name',
-                ]
-
-                for field in text_fields:
-                    search_q |= Q(**{f"{field}__icontains": search_term})
-
-                # Exact match for numeric-like strings (e.g. postal code without space)
-                if len(search_term) >= 3:
-                    search_q |= Q(postal_code__iexact=search_term.replace(" ", ""))
-
-                # Search in remarks keywords
-                search_q |= Q(public_remarks__icontains=search_term)
-
-                qs = qs.filter(search_q)
-        if request.GET.get('keywords'):
-            keywords = [k.strip().lower() for k in request.GET['keywords'].split(',') if k.strip()]
-            if keywords:
-                kw_q = Q()
-                for kw in keywords:
-                    kw_q |= Q(public_remarks__icontains=kw)
-                qs = qs.filter(kw_q)
-
-        # === ORDERING ===
-        order_by = request.GET.get('orderby', '-modification_timestamp')
-        qs = qs.order_by(order_by)
+        order_by = request.GET.get("orderby", "-modification_timestamp")
+        final_qs, fallback_meta = _apply_fallback_pipeline(qs, request.GET, (order_by,))
 
         # === PAGINATION ===
-        paginator = Paginator(qs, limit)
+        paginator = Paginator(final_qs, limit)
         page = paginator.get_page((offset // limit) + 1)
 
         serializer = PropertySerializer(page.object_list, many=True, context={'request': request})
@@ -543,6 +663,7 @@ class PropertyFilterView(APIView):
             "next": offset + limit if page.has_next() else None,
             "previous": offset - limit if offset >= limit else None,
             "results": serializer.data,
+            **fallback_meta,
         }
         cache.set(filter_cache_key, payload, MAP_VIEW_CACHE_TTL_SECONDS)
         return Response(payload)
@@ -944,121 +1065,13 @@ class ExclusivePropertiesAPIView(APIView):
         if to_tag.exists():
             updated_count = to_tag.update(category_type=Property.EXCLUSIVE)
 
-        # Start with all properties
-        q = Property.objects.all()
-        if params.get('search'):
-            search_term = params['search'].strip()
-            if search_term:
-                search_q = Q()
-
-                # Text fields (case-insensitive partial match)
-                text_fields = [
-                    'unparsed_address',
-                    'public_remarks',
-                    'city',
-                    'postal_code',
-                    'listing_id',
-                    'listing_key',
-                    'street_name',
-                    'street_number',
-                    'unit_number',
-                    'subdivision_name',
-                    'directions',
-                    'property_sub_type',
-                    'common_interest',
-                    'list_aor',
-                    'zoning',
-                    'zoning_description',
-                    'parcel_number',
-                    'anchors_co_tenants',
-                    'water_body_name',
-                ]
-
-                for field in text_fields:
-                    search_q |= Q(**{f"{field}__icontains": search_term})
-
-                # Exact match for numeric-like strings (e.g. postal code without space)
-                if len(search_term) >= 3:
-                    search_q |= Q(postal_code__iexact=search_term.replace(" ", ""))
-
-                # Search in remarks keywords
-                search_q |= Q(public_remarks__icontains=search_term)
-
-                q = q.filter(search_q)
-        # === ALL REALTOR.CA FILTERS ===
-        if params.get('price_min'):
-            q = q.filter(list_price__gte=float(params['price_min']))
-        if params.get('price_max'):
-            q = q.filter(list_price__lte=float(params['price_max']))
-
-        if params.get('bedrooms'):
-            q = q.filter(bedrooms_total__gte=int(params['bedrooms']))
-        if params.get('bathrooms'):
-            q = q.filter(bathrooms_total_integer__gte=int(params['bathrooms']))
-
-        if params.get('property_type'):
-            types = [t.strip() for t in params['property_type'].split(',') if t.strip()]
-            if types:
-                q = q.filter(property_sub_type__in=types)
-
-        if params.get('city'):
-            cities = [c.strip() for c in params['city'].split(',') if c.strip()]
-            if cities:
-                q = q.filter(city__in=cities)
-
-        if params.get('province'):
-            provinces = [p.strip() for p in params['province'].split(',') if p.strip()]
-            if provinces:
-                q = q.filter(state_or_province__in=provinces)
-
-        if params.get('postal_code'):
-            codes = [c.strip().upper() for c in params['postal_code'].split(',') if c.strip()]
-            if codes:
-                q = q.filter(postal_code__in=codes)
-
-        # Map bounding box
-        if all(k in params for k in ['latitude_min', 'latitude_max', 'longitude_min', 'longitude_max']):
-            q = q.annotate(
-                lat_float=Cast('latitude', FloatField()),
-                lng_float=Cast('longitude', FloatField())
-            ).filter(
-                lat_float__gte=float(params['latitude_min']),
-                lat_float__lte=float(params['latitude_max']),
-                lng_float__gte=float(params['longitude_min']),
-                lng_float__lte=float(params['longitude_max']),
-            )
-
-        if params.get('building_area_min'):
-            q = q.filter(building_area_total__gte=float(params['building_area_min']))
-        if params.get('lot_size_min'):
-            q = q.filter(lot_size_area__gte=float(params['lot_size_min']))
-        if params.get('year_built_min'):
-            q = q.filter(year_built__gte=int(params['year_built_min']))
-
-        if params.get('keywords'):
-            keywords = [k.strip() for k in params['keywords'].split(',') if k.strip()]
-            kw_q = Q()
-            for kw in keywords:
-                kw_q |= Q(public_remarks__icontains=kw)
-            q = q.filter(kw_q)
-
-        if params.get('has_photos') in ('true', '1', 'True'):
-            q = q.filter(photos_count__gt=0)
-
-        if params.get('new_listings_days'):
-            days = int(params['new_listings_days'])
-            cutoff = timezone.now() - timedelta(days=days)
-            q = q.filter(modification_timestamp__gte=cutoff)
-
-        if params.get('standard_status'):
-            q = q.filter(standard_status=params['standard_status'])
-
-        # Final: must be exclusive (by intro or tag)
-        final_qs = q.filter(id__in=base_qs.values('id')) \
-                    .distinct() \
-                    .order_by('-modification_timestamp', '-list_price')
-
-        return final_qs, limit, offset, updated_count
+        scoped_qs = Property.objects.filter(id__in=base_qs.values('id')).distinct()
+        final_qs, fallback_meta = _apply_fallback_pipeline(
+            scoped_qs,
+            params,
+            ("-modification_timestamp", "-list_price"),
+        )
+        return final_qs, limit, offset, updated_count, fallback_meta
 
     def get(self, request):
         cache_key = _build_query_params_cache_key(
@@ -1068,7 +1081,7 @@ class ExclusivePropertiesAPIView(APIView):
         if cached_payload is not None:
             return Response(cached_payload)
 
-        qs, limit, offset, updated = self.get_queryset(request.query_params)
+        qs, limit, offset, updated, fallback_meta = self.get_queryset(request.query_params)
         paginator = Paginator(qs, limit)
         page = paginator.get_page((offset // limit) + 1)
 
@@ -1079,7 +1092,8 @@ class ExclusivePropertiesAPIView(APIView):
             "next": offset + limit if page.has_next() else None,
             "previous": offset - limit if offset >= limit else None,
             "updated_to_exclusive": updated,
-            "results": serializer.data
+            "results": serializer.data,
+            **fallback_meta,
         }
         cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
         return Response(payload)
@@ -1150,121 +1164,12 @@ class PreConnPropertiesAPIView(APIView):
         limit = min(int(request.query_params.get('limit', 6)), 100)
         offset = int(request.query_params.get('offset', 0))
 
-        # Base: only PRE_CONN properties
         qs = Property.objects.filter(category_type=Property.PRE_CONN)
-
-        # === ALL REALTOR.CA FILTERS ===
-        params = request.query_params
-        if params.get('search'):
-            search_term = params['search'].strip()
-            if search_term:
-                search_q = Q()
-
-                # Text fields (case-insensitive partial match)
-                text_fields = [
-                    'unparsed_address',
-                    'public_remarks',
-                    'city',
-                    'postal_code',
-                    'listing_id',
-                    'listing_key',
-                    'street_name',
-                    'street_number',
-                    'unit_number',
-                    'subdivision_name',
-                    'directions',
-                    'property_sub_type',
-                    'common_interest',
-                    'list_aor',
-                    'zoning',
-                    'zoning_description',
-                    'parcel_number',
-                    'anchors_co_tenants',
-                    'water_body_name',
-                ]
-
-                for field in text_fields:
-                    search_q |= Q(**{f"{field}__icontains": search_term})
-
-                # Exact match for numeric-like strings (e.g. postal code without space)
-                if len(search_term) >= 3:
-                    search_q |= Q(postal_code__iexact=search_term.replace(" ", ""))
-
-                # Search in remarks keywords
-                search_q |= Q(public_remarks__icontains=search_term)
-
-                qs = qs.filter(search_q)
-
-        if params.get('price_min'):
-            qs = qs.filter(list_price__gte=float(params['price_min']))
-        if params.get('price_max'):
-            qs = qs.filter(list_price__lte=float(params['price_max']))
-
-        if params.get('bedrooms'):
-            qs = qs.filter(bedrooms_total__gte=int(params['bedrooms']))
-        if params.get('bathrooms'):
-            qs = qs.filter(bathrooms_total_integer__gte=int(params['bathrooms']))
-
-        if params.get('property_type'):
-            types = [t.strip() for t in params['property_type'].split(',') if t.strip()]
-            if types:
-                qs = qs.filter(property_sub_type__in=types)
-
-        if params.get('city'):
-            cities = [c.strip() for c in params['city'].split(',') if c.strip()]
-            if cities:
-                qs = qs.filter(city__in=cities)
-        if params.get('province'):
-            provinces = [p.strip() for p in params['province'].split(',') if p.strip()]
-            if provinces:
-                qs = qs.filter(state_or_province__in=provinces)
-
-        if params.get('postal_code'):
-            codes = [c.strip().upper() for c in params['postal_code'].split(',') if c.strip()]
-            if codes:
-                qs = qs.filter(postal_code__in=codes)
-
-        # Map bounding box
-        if all(k in params for k in ['latitude_min', 'latitude_max', 'longitude_min', 'longitude_max']):
-            qs = qs.annotate(
-                lat_float=Cast('latitude', FloatField()),
-                lng_float=Cast('longitude', FloatField())
-            ).filter(
-                lat_float__gte=float(params['latitude_min']),
-                lat_float__lte=float(params['latitude_max']),
-                lng_float__gte=float(params['longitude_min']),
-                lng_float__lte=float(params['longitude_max']),
-            )
-
-        if params.get('building_area_min'):
-            qs = qs.filter(building_area_total__gte=float(params['building_area_min']))
-        if params.get('lot_size_min'):
-            qs = qs.filter(lot_size_area__gte=float(params['lot_size_min']))
-        if params.get('year_built_min'):
-            qs = qs.filter(year_built__gte=int(params['year_built_min']))
-
-        if params.get('keywords'):
-            keywords = [k.strip() for k in params['keywords'].split(',') if k.strip()]
-            kw_q = Q()
-            for kw in keywords:
-                kw_q |= Q(public_remarks__icontains=kw)
-            qs = qs.filter(kw_q)
-
-        if params.get('has_photos') in ('true', '1', 'True'):
-            qs = qs.filter(photos_count__gt=0)
-
-        if params.get('new_listings_days'):
-            days = int(params['new_listings_days'])
-            from django.utils import timezone
-            from datetime import timedelta
-            cutoff = timezone.now() - timedelta(days=days)
-            qs = qs.filter(modification_timestamp__gte=cutoff)
-
-        if params.get('standard_status'):
-            qs = qs.filter(standard_status=params['standard_status'])
-
-        # Order & paginate
-        qs = qs.order_by('-modification_timestamp', '-list_price')
+        qs, fallback_meta = _apply_fallback_pipeline(
+            qs,
+            request.query_params,
+            ("-modification_timestamp", "-list_price"),
+        )
         paginator = Paginator(qs, limit)
         page = paginator.get_page((offset // limit) + 1)
 
@@ -1274,7 +1179,8 @@ class PreConnPropertiesAPIView(APIView):
             "count": paginator.count,
             "next": offset + limit if page.has_next() else None,
             "previous": offset - limit if offset >= limit else None,
-            "results": serializer.data
+            "results": serializer.data,
+            **fallback_meta,
         }
         cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
         return Response(payload)
@@ -1301,127 +1207,20 @@ class LeasePropertiesAPIView(APIView):
         limit = min(int(request.query_params.get('limit', 6)), 100)
         offset = int(request.query_params.get('offset', 0))
 
-        # Base: only properties with actual lease amount
         qs = Property.objects.filter(
             lease_amount__gt=0
         ).exclude(
             lease_amount__isnull=True
         )
-
-        # === ALL REALTOR.CA FILTERS ===
-        params = request.query_params
-        if params.get('search'):
-            search_term = params['search'].strip()
-            if search_term:
-                search_q = Q()
-
-                # Text fields (case-insensitive partial match)
-                text_fields = [
-                    'unparsed_address',
-                    'public_remarks',
-                    'city',
-                    'postal_code',
-                    'listing_id',
-                    'listing_key',
-                    'street_name',
-                    'street_number',
-                    'unit_number',
-                    'subdivision_name',
-                    'directions',
-                    'property_sub_type',
-                    'common_interest',
-                    'list_aor',
-                    'zoning',
-                    'zoning_description',
-                    'parcel_number',
-                    'anchors_co_tenants',
-                    'water_body_name',
-                ]
-
-                for field in text_fields:
-                    search_q |= Q(**{f"{field}__icontains": search_term})
-
-                # Exact match for numeric-like strings (e.g. postal code without space)
-                if len(search_term) >= 3:
-                    search_q |= Q(postal_code__iexact=search_term.replace(" ", ""))
-
-                # Search in remarks keywords
-                search_q |= Q(public_remarks__icontains=search_term)
-
-                qs = qs.filter(search_q)
-        if params.get('price_min'):
-            qs = qs.filter(list_price__gte=float(params['price_min']))
-        if params.get('price_max'):
-            qs = qs.filter(list_price__lte=float(params['price_max']))
-
-        if params.get('lease_amount_min'):
-            qs = qs.filter(lease_amount__gte=float(params['lease_amount_min']))
-        if params.get('lease_amount_max'):
-            qs = qs.filter(lease_amount__lte=float(params['lease_amount_max']))
-
-        if params.get('bedrooms'):
-            qs = qs.filter(bedrooms_total__gte=int(params['bedrooms']))
-        if params.get('bathrooms'):
-            qs = qs.filter(bathrooms_total_integer__gte=int(params['bathrooms']))
-
-        if params.get('property_type'):
-            types = [t.strip() for t in params['property_type'].split(',') if t.strip()]
-            if types:
-                qs = qs.filter(property_sub_type__in=types)
-
-        if params.get('city'):
-            cities = [c.strip() for c in params['city'].split(',') if c.strip()]
-            if cities:
-                qs = qs.filter(city__in=cities)
-        if params.get('province'):
-            provinces = [p.strip() for p in params['province'].split(',') if p.strip()]
-            if provinces:
-                qs = qs.filter(state_or_province__in=provinces)
-
-        if params.get('postal_code'):
-            codes = [c.strip().upper() for c in params['postal_code'].split(',') if c.strip()]
-            if codes:
-                qs = qs.filter(postal_code__in=codes)
-
-        # Map bounding box
-        if all(k in params for k in ['latitude_min', 'latitude_max', 'longitude_min', 'longitude_max']):
-            qs = qs.annotate(
-                lat_float=Cast('latitude', FloatField()),
-                lng_float=Cast('longitude', FloatField())
-            ).filter(
-                lat_float__gte=float(params['latitude_min']),
-                lat_float__lte=float(params['latitude_max']),
-                lng_float__gte=float(params['longitude_min']),
-                lng_float__lte=float(params['longitude_max']),
-            )
-
-        if params.get('building_area_min'):
-            qs = qs.filter(building_area_total__gte=float(params['building_area_min']))
-        if params.get('lot_size_min'):
-            qs = qs.filter(lot_size_area__gte=float(params['lot_size_min']))
-        if params.get('year_built_min'):
-            qs = qs.filter(year_built__gte=int(params['year_built_min']))
-
-        if params.get('keywords'):
-            keywords = [k.strip() for k in params['keywords'].split(',') if k.strip()]
-            kw_q = Q()
-            for kw in keywords:
-                kw_q |= Q(public_remarks__icontains=kw)
-            qs = qs.filter(kw_q)
-
-        if params.get('has_photos') in ('true', '1', 'True'):
-            qs = qs.filter(photos_count__gt=0)
-
-        if params.get('new_listings_days'):
-            days = int(params['new_listings_days'])
-            cutoff = timezone.now() - timedelta(days=days)
-            qs = qs.filter(modification_timestamp__gte=cutoff)
-
-        if params.get('standard_status'):
-            qs = qs.filter(standard_status=params['standard_status'])
-
-        # Final ordering
-        qs = qs.order_by('-lease_amount', '-modification_timestamp')
+        if request.query_params.get("lease_amount_min"):
+            qs = qs.filter(lease_amount__gte=float(request.query_params.get("lease_amount_min")))
+        if request.query_params.get("lease_amount_max"):
+            qs = qs.filter(lease_amount__lte=float(request.query_params.get("lease_amount_max")))
+        qs, fallback_meta = _apply_fallback_pipeline(
+            qs,
+            request.query_params,
+            ("-lease_amount", "-modification_timestamp"),
+        )
 
         # Pagination
         paginator = Paginator(qs, limit)
@@ -1433,7 +1232,8 @@ class LeasePropertiesAPIView(APIView):
             "count": paginator.count,
             "next": offset + limit if page.has_next() else None,
             "previous": offset - limit if offset >= limit else None,
-            "results": serializer.data
+            "results": serializer.data,
+            **fallback_meta,
         }
         cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
         return Response(payload)
@@ -1707,125 +1507,19 @@ class NewlyListedPropertiesAPIView(APIView):
         limit = min(int(request.query_params.get('limit', 6)), 100)
         offset = int(request.query_params.get('offset', 0))
 
-        # Base: only properties with actual lease amount
+        # Base: only properties with valid original entry timestamp
         qs = Property.objects.filter(
             original_entry_timestamp__isnull=False
-        ).order_by('-original_entry_timestamp')
-
-        # === ALL REALTOR.CA FILTERS ===
-        params = request.query_params
-        if params.get('search'):
-            search_term = params['search'].strip()
-            if search_term:
-                search_q = Q()
-
-                # Text fields (case-insensitive partial match)
-                text_fields = [
-                    'unparsed_address',
-                    'public_remarks',
-                    'city',
-                    'postal_code',
-                    'listing_id',
-                    'listing_key',
-                    'street_name',
-                    'street_number',
-                    'unit_number',
-                    'subdivision_name',
-                    'directions',
-                    'property_sub_type',
-                    'common_interest',
-                    'list_aor',
-                    'zoning',
-                    'zoning_description',
-                    'parcel_number',
-                    'anchors_co_tenants',
-                    'water_body_name',
-                ]
-
-                for field in text_fields:
-                    search_q |= Q(**{f"{field}__icontains": search_term})
-
-                # Exact match for numeric-like strings (e.g. postal code without space)
-                if len(search_term) >= 3:
-                    search_q |= Q(postal_code__iexact=search_term.replace(" ", ""))
-
-                # Search in remarks keywords
-                search_q |= Q(public_remarks__icontains=search_term)
-
-                qs = qs.filter(search_q)
-        if params.get('price_min'):
-            qs = qs.filter(list_price__gte=float(params['price_min']))
-        if params.get('price_max'):
-            qs = qs.filter(list_price__lte=float(params['price_max']))
-
-        if params.get('lease_amount_min'):
-            qs = qs.filter(lease_amount__gte=float(params['lease_amount_min']))
-        if params.get('lease_amount_max'):
-            qs = qs.filter(lease_amount__lte=float(params['lease_amount_max']))
-
-        if params.get('bedrooms'):
-            qs = qs.filter(bedrooms_total__gte=int(params['bedrooms']))
-        if params.get('bathrooms'):
-            qs = qs.filter(bathrooms_total_integer__gte=int(params['bathrooms']))
-
-        if params.get('property_type'):
-            types = [t.strip() for t in params['property_type'].split(',') if t.strip()]
-            if types:
-                qs = qs.filter(property_sub_type__in=types)
-
-        if params.get('city'):
-            cities = [c.strip() for c in params['city'].split(',') if c.strip()]
-            if cities:
-                qs = qs.filter(city__in=cities)
-        if params.get('province'):
-            provinces = [p.strip() for p in params['province'].split(',') if p.strip()]
-            if provinces:
-                qs = qs.filter(state_or_province__in=provinces)
-
-        if params.get('postal_code'):
-            codes = [c.strip().upper() for c in params['postal_code'].split(',') if c.strip()]
-            if codes:
-                qs = qs.filter(postal_code__in=codes)
-
-        # Map bounding box
-        if all(k in params for k in ['latitude_min', 'latitude_max', 'longitude_min', 'longitude_max']):
-            qs = qs.annotate(
-                lat_float=Cast('latitude', FloatField()),
-                lng_float=Cast('longitude', FloatField())
-            ).filter(
-                lat_float__gte=float(params['latitude_min']),
-                lat_float__lte=float(params['latitude_max']),
-                lng_float__gte=float(params['longitude_min']),
-                lng_float__lte=float(params['longitude_max']),
-            )
-
-        if params.get('building_area_min'):
-            qs = qs.filter(building_area_total__gte=float(params['building_area_min']))
-        if params.get('lot_size_min'):
-            qs = qs.filter(lot_size_area__gte=float(params['lot_size_min']))
-        if params.get('year_built_min'):
-            qs = qs.filter(year_built__gte=int(params['year_built_min']))
-
-        if params.get('keywords'):
-            keywords = [k.strip() for k in params['keywords'].split(',') if k.strip()]
-            kw_q = Q()
-            for kw in keywords:
-                kw_q |= Q(public_remarks__icontains=kw)
-            qs = qs.filter(kw_q)
-
-        if params.get('has_photos') in ('true', '1', 'True'):
-            qs = qs.filter(photos_count__gt=0)
-
-        if params.get('new_listings_days'):
-            days = int(params['new_listings_days'])
-            cutoff = timezone.now() - timedelta(days=days)
-            qs = qs.filter(modification_timestamp__gte=cutoff)
-
-        if params.get('standard_status'):
-            qs = qs.filter(standard_status=params['standard_status'])
-
-        # Final ordering
-        qs = qs.order_by('-lease_amount', '-modification_timestamp')
+        )
+        if request.query_params.get("lease_amount_min"):
+            qs = qs.filter(lease_amount__gte=float(request.query_params.get("lease_amount_min")))
+        if request.query_params.get("lease_amount_max"):
+            qs = qs.filter(lease_amount__lte=float(request.query_params.get("lease_amount_max")))
+        qs, fallback_meta = _apply_fallback_pipeline(
+            qs,
+            request.query_params,
+            ("-original_entry_timestamp", "-modification_timestamp"),
+        )
 
         # Pagination
         paginator = Paginator(qs, limit)
@@ -1837,7 +1531,8 @@ class NewlyListedPropertiesAPIView(APIView):
             "count": paginator.count,
             "next": offset + limit if page.has_next() else None,
             "previous": offset - limit if offset >= limit else None,
-            "results": serializer.data
+            "results": serializer.data,
+            **fallback_meta,
         }
         cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
         return Response(payload)
