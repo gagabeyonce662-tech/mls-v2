@@ -18,6 +18,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PropertyGalleryGrid from "@/components/listing/PropertyGalleryGrid";
 import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
+import ListingAISummary from "@/components/listing/details/ListingAISummary";
 import { ds } from "@/lib/design-system-utils";
 import { fetchPropertyByKey } from "@/lib/api";
 import { notFound } from "next/navigation";
@@ -356,6 +357,8 @@ export default async function RentalPropertyPage(
                 maxChars={400}
               />
             </div>
+
+            <ListingAISummary property={property} />
 
             {/* Rental-Specific Features */}
             <div>
