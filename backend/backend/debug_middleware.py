@@ -58,6 +58,11 @@ class AdminContextDebugMiddleware:
                 "has_inline_border_patch": "data-wp-border-patch" in body_text,
                 "css_has_caret_color_rule": "caret-color" in css_text,
                 "css_has_text_color_rule": ".wp-admin-editor input" in css_text and "color:" in css_text,
+                "css_has_padding_left_rule": "padding-left" in css_text,
+                "css_has_text_indent_rule": "text-indent" in css_text,
+                "css_has_inset_shadow_rule": "inset 0 0 0 1px" in css_text,
+                "inline_patch_sets_padding_left": "setProperty(\"padding-left\"" in body_text,
+                "inline_patch_sets_text_indent": "setProperty(\"text-indent\"" in body_text,
             },
         )
         return response
