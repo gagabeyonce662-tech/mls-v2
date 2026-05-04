@@ -5,6 +5,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Property } from "@/lib/api/types";
 import { ds } from "@/lib/design-system-utils";
+import {
+  getDisplayAddress,
+  getListingIsPrivileged,
+  hasListPrice,
+} from "@/lib/listingDisplay";
 
 interface ListingAISummaryProps {
   property: Property;
@@ -25,13 +30,17 @@ export default function ListingAISummary({ property }: ListingAISummaryProps) {
     [property],
   );
 
-  const summaryPayload = useMemo(
-    () => ({
+  const summaryPayload = useMemo(() => {
+    const isPrivileged = getListingIsPrivileged();
+    return {
       listing_key: listingKey,
-      address: property.unparsed_address || property.address || "",
+      address: getDisplayAddress(property, { isPrivileged }),
       city: property.city || property.City || "",
       city_region: property.city_region || "",
-      list_price: property.list_price ?? property.ListPrice ?? null,
+      list_price:
+        isPrivileged || hasListPrice(property)
+          ? property.list_price ?? property.ListPrice ?? null
+          : null,
       bedrooms_total: property.bedrooms_total ?? property.BedroomsTotal ?? null,
       bathrooms_total_integer:
         property.bathrooms_total_integer ?? property.BathroomsTotalInteger ?? null,
@@ -44,9 +53,8 @@ export default function ListingAISummary({ property }: ListingAISummaryProps) {
       parking_total: property.parking_total ?? property.ParkingTotal ?? null,
       lot_size_area: property.lot_size_area ?? property.LotSizeArea ?? null,
       appliances: property.appliances || property.Appliances || "",
-    }),
-    [property, listingKey],
-  );
+    };
+  }, [property, listingKey]);
 
   const handleGenerateSummary = async () => {
     setSummaryError("");

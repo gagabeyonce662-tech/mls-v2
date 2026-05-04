@@ -147,7 +147,6 @@ export function transformPropertyData(
         property.PropertySubType ||
         property.PropertyType ||
         property.property_type ||
-        property.category_type ||
         property.type ||
         "Property",
     ),

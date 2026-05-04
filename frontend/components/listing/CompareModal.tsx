@@ -37,8 +37,9 @@ export const CompareModal = ({
           style={{ backgroundColor: colors.boarder }}
         >
           <p className="font-medium" style={{ color: colors.heading }}>
-            {selectedProperty.category_type ||
+            {selectedProperty.property_sub_type ||
               selectedProperty.PropertySubType ||
+              selectedProperty.PropertyType ||
               "Property"}{" "}
             in{" "}
             {selectedProperty.city || selectedProperty.City || "Unknown City"}

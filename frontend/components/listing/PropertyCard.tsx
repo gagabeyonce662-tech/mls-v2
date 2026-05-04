@@ -67,7 +67,10 @@ export const PropertyCard = ({
   const displayPrice = property.list_price || property.ListPrice || 0;
   const displayCity = property.city || property.City || "Unknown City";
   const displayPropertyType =
-    property.category_type || property.PropertySubType || "Property";
+    property.property_sub_type ||
+    property.PropertySubType ||
+    property.PropertyType ||
+    "Property";
   const bedCount = property.bedrooms_total || property.BedroomsTotal || 0;
   const bathCount =
     property.bathrooms_total_integer || property.BathroomsTotalInteger || 0;

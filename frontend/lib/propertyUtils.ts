@@ -14,6 +14,7 @@
 
 import type { Property } from "@/lib/api";
 import { propertyCard } from "@/config/design-system";
+import { getMlsNumberForDisplay } from "@/lib/listingDisplay";
 
 export interface PropertyDetailItem {
   label: string;
@@ -98,11 +99,11 @@ export const formatPrice = (price: number): string =>
 
 /* ──────────────────────────── Classification ──────────────────────────── */
 
+/** Human-facing building/type label — not `category_type` (ddf / exclusive / pre_conn). */
 export const getPropertyType = (property: Property): string =>
   property.property_sub_type ||
   property.PropertySubType ||
   property.PropertyType ||
-  property.category_type ||
   "Property";
 
 export const getStatus = (property: Property): string =>
@@ -282,17 +283,23 @@ export const getDescription = (property: Property): string =>
 export const getListingUrl = (property: Property): string | null =>
   property.listing_url || null;
 
+/** Canadian postal FSA (first 3 alphanumeric chars, spaces removed). */
+export function postalToFsa(
+  postal: string | null | undefined,
+): string | null {
+  if (!postal || typeof postal !== "string") return null;
+  const alnum = postal.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  if (alnum.length < 3) return null;
+  return alnum.slice(0, 3);
+}
+
 /* ──────────────────────────── Navigation ──────────────────────────── */
 
 /**
  * Checks if the property is a rental/lease based on various possible API fields.
  */
 export const isRental = (property: Property): boolean => {
-  const type = (
-    property.PropertyType ||
-    property.category_type ||
-    ""
-  ).toLowerCase();
+  const type = (property.PropertyType || "").toLowerCase();
   const subType = (
     property.PropertySubType ||
     property.property_sub_type ||
@@ -427,6 +434,113 @@ export const getLotSizeSummary = (property: Property): string | null => {
   return area ? `${area} sq ft` : null;
 };
 
+/** Prefer living area min–max range when both exist (matches DDF LivingAreaMinimum / Maximum). */
+export const getLivingAreaSummary = (property: Property): string => {
+  const minStr = toValue(
+    getRaw(property, "living_area_minimum", "LivingAreaMinimum"),
+  );
+  const maxStr = toValue(
+    getRaw(property, "living_area_maximum", "LivingAreaMaximum"),
+  );
+  const minN = minStr ? Number(String(minStr).replace(/,/g, "")) : NaN;
+  const maxN = maxStr ? Number(String(maxStr).replace(/,/g, "")) : NaN;
+  if (Number.isFinite(minN) && Number.isFinite(maxN)) {
+    if (minN === maxN) return `${minN.toLocaleString("en-US")} sq ft`;
+    return `${minN.toLocaleString("en-US")} - ${maxN.toLocaleString("en-US")} sq ft`;
+  }
+  const single =
+    toValue(getRaw(property, "building_area_total", "BuildingAreaTotal")) ||
+    toValue(getRaw(property, "living_area", "LivingArea")) ||
+    (Number.isFinite(minN) ? minN.toLocaleString("en-US") : "");
+  if (single) return `${single} sq ft`;
+  return "";
+};
+
+/** Quick facts / stats: total baths plus partial count when present. */
+export const getBathroomDisplayLabel = (property: Property): string | null => {
+  const totalRaw =
+    property.bathrooms_total_integer ?? property.BathroomsTotalInteger ?? null;
+  const partialRaw =
+    property.bathrooms_partial ?? property.BathroomsPartial ?? null;
+  const t =
+    totalRaw === null || totalRaw === ""
+      ? NaN
+      : typeof totalRaw === "string"
+        ? parseInt(totalRaw, 10)
+        : Number(totalRaw);
+  const p =
+    partialRaw === null || partialRaw === ""
+      ? NaN
+      : typeof partialRaw === "string"
+        ? parseInt(partialRaw, 10)
+        : Number(partialRaw);
+  if (!Number.isFinite(t) || t <= 0) return null;
+  if (Number.isFinite(p) && p > 0) {
+    return `${t} (${p} partial)`;
+  }
+  return String(t);
+};
+
+/** Annual tax amount with tax year when available (e.g. MLS TaxAnnualAmount + TaxYear). */
+export const getAnnualTaxDisplayWithYear = (property: Property): string | null => {
+  const amt = getTaxAnnualAmount(property);
+  const year = toValue(getRaw(property, "tax_year", "TaxYear"));
+  if (amt && year) return `${amt} (${year})`;
+  if (amt) return amt;
+  if (year) return `Tax year ${year}`;
+  return null;
+};
+
+/** Lat/lng as plain text for listing detail (six decimal places). */
+export const getCoordinatesLabel = (property: Property): string | null => {
+  const lat = getLatitude(property);
+  const lon = getLongitude(property);
+  if (lat === null || lon === null) return null;
+  return `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+};
+
+const EXTERNAL_MEDIA_CATEGORY =
+  /video tour|virtual tour|additional pictures|unbranded virtual/i;
+
+const DDFCDN_PHOTO =
+  /^https:\/\/ddfcdn\.realtor\.ca\/.*\.(jpe?g|png|webp)(\?|$)/i;
+
+/**
+ * Non-photo MLS media links (virtual tour site, extra photo galleries, Matterport, etc.).
+ */
+export const getListingExternalMediaLinks = (
+  property: Property,
+): { label: string; url: string }[] => {
+  const rows = (property.media || property.Media || []) as unknown as Array<
+    Record<string, unknown>
+  >;
+  const seen = new Set<string>();
+  const out: { label: string; url: string }[] = [];
+
+  for (const row of rows) {
+    const url = String(row.media_url ?? row.MediaURL ?? "").trim();
+    if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
+
+    const cat = String(row.media_category ?? row.MediaCategory ?? "").trim();
+    if (DDFCDN_PHOTO.test(url) && /property photo|^photo$/i.test(cat)) continue;
+
+    const looksExternal =
+      EXTERNAL_MEDIA_CATEGORY.test(cat) ||
+      /insideottawamedia|matterport|my3d|tour\.|vimeo\.com|youtu\.be|youtube\.com/i.test(
+        url,
+      );
+    if (!looksExternal) continue;
+
+    seen.add(url);
+    let label = cat || "External media";
+    if (/video tour/i.test(cat)) label = "Video tour";
+    else if (/additional pictures/i.test(cat)) label = "More photos (external site)";
+    else if (/unbranded virtual/i.test(cat)) label = "Virtual tour";
+    out.push({ label, url });
+  }
+  return out;
+};
+
 const toDetailItem = (
   label: string,
   value: string | null,
@@ -439,10 +553,16 @@ const toDetailItem = (
   return { label, value: trimmed };
 };
 
+export type PropertyDetailSectionsOptions = {
+  isPrivileged?: boolean;
+};
+
 export const getPropertyDetailSections = (
   property: Property,
   core: { price: string; type: string; livingArea: string },
+  options: PropertyDetailSectionsOptions = {},
 ): PropertyDetailSection[] => {
+  const isPrivileged = options.isPrivileged ?? false;
   const sections: PropertyDetailSection[] = [];
 
   const pushSection = (title: string, items: Array<PropertyDetailItem | null>) => {
@@ -450,22 +570,26 @@ export const getPropertyDetailSections = (
     if (filtered.length > 0) sections.push({ title, items: filtered });
   };
 
+  const mlsDisplay = getMlsNumberForDisplay(property, { isPrivileged });
+
   pushSection("Financial Information", [
     toDetailItem("List Price", core.price),
     toDetailItem(
       "Status",
       toValue(getRaw(property, "standard_status", "StandardStatus")),
     ),
-    toDetailItem(
-      "MLS Number",
-      toValue(getRaw(property, "listing_key", "ListingKey", "PropertyKey")),
-    ),
+    toDetailItem("MLS® #", mlsDisplay),
     toDetailItem("Annual Taxes", getTaxAnnualAmount(property)),
+    toDetailItem("Tax Year", toValue(getRaw(property, "tax_year", "TaxYear"))),
     toDetailItem(
       "Common Interest",
       toValue(getRaw(property, "common_interest", "CommonInterest")),
     ),
   ]);
+
+  const partialBathCount = Number(
+    toValue(getRaw(property, "bathrooms_partial", "BathroomsPartial")),
+  );
 
   pushSection("Building Facts", [
     toDetailItem("Property Type", core.type),
@@ -482,6 +606,14 @@ export const getPropertyDetailSections = (
       "Bedrooms Above Grade",
       toValue(getRaw(property, "bedrooms_above_grade", "BedroomsAboveGrade")),
     ),
+    Number.isFinite(partialBathCount) && partialBathCount > 0
+      ? toDetailItem("Partial bathrooms", String(partialBathCount))
+      : null,
+  ]);
+
+  pushSection("Location & access", [
+    toDetailItem("Directions", toValue(getRaw(property, "directions", "Directions"))),
+    toDetailItem("Coordinates", getCoordinatesLabel(property)),
   ]);
 
   pushSection("Lot & Land", [
@@ -520,6 +652,10 @@ export const getPropertyDetailSections = (
     toDetailItem(
       "Exterior",
       formatList(getRaw(property, "exterior_features", "ExteriorFeatures")),
+    ),
+    toDetailItem(
+      "Flooring",
+      formatList(getRaw(property, "flooring", "Flooring")),
     ),
     toDetailItem(
       "Construction",

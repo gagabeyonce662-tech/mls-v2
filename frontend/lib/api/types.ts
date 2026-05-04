@@ -51,6 +51,10 @@ export interface Property {
   category_type?: string;
   bedrooms_total?: number | string;
   bathrooms_total_integer?: number | string;
+  bathrooms_partial?: number | string | null;
+  living_area_minimum?: number | string | null;
+  living_area_maximum?: number | string | null;
+  tax_year?: number | string | null;
   building_area_total?: string | number | null;
   year_built?: string | number | null;
   lot_size_area?: number | null;
@@ -58,6 +62,8 @@ export interface Property {
 
   // Status & Metadata
   standard_status?: string;
+  /** CREA DDF: whether street address may be shown (synced from InternetAddressDisplayYN). */
+  internet_address_display_yn?: boolean | null;
   photos_count?: number;
   days_on_market?: number | null;
   modification_timestamp?: string;
@@ -233,6 +239,11 @@ export interface School {
   geometry: {
     type: string;
     coordinates: number[][][];
+  };
+  /** Optional public-data enrichment (e.g. EQAO band) from backend lookup file. */
+  enrichment?: {
+    eqao_band?: string;
+    notes?: string;
   };
 }
 

@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from django.db.models import Q, FloatField, Count, Value
+from django.db.models import Q, FloatField, Count, Value, F
 from django.db.models.functions import Cast, Substr, Lower, Replace, Upper
 from django.core.paginator import Paginator
 from django.core.cache import cache
@@ -25,7 +25,16 @@ from django.utils import timezone
 # Local imports
 from .models import AccessToken
 from .helpers import get_access_token, fetch_properties_by_property_data
-from mls.models import MapAggregateCell, Property, UserFavorite, UserHistory
+from mls.models import (
+    MapAggregateCell,
+    Property,
+    UserFavorite,
+    UserHistory,
+    ListingViewEvent,
+    PropertyNote,
+    PropertySnapshot,
+    CensusFSA,
+)
 from .serializers import (
     PropertySerializer,
     PropertyDetailSerializer,
@@ -55,6 +64,32 @@ LISTING_CACHE_TTL_SECONDS = int(
 NEAREST_SCHOOL_CACHE_TTL_SECONDS = int(
     os.environ.get("NEAREST_SCHOOL_CACHE_TTL_SECONDS", "86400")
 )
+
+
+def _load_school_enrichment_map():
+    path = os.path.join(os.path.dirname(__file__), "data", "school_enrichment.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+            return {str(k).strip().lower(): v for k, v in data.items()}
+    except Exception:
+        return {}
+
+
+_SCHOOL_ENRICHMENT = _load_school_enrichment_map()
+
+
+def _median_sorted(nums):
+    if not nums:
+        return None
+    s = sorted(nums)
+    n = len(s)
+    mid = n // 2
+    if n % 2:
+        return float(s[mid])
+    return (float(s[mid - 1]) + float(s[mid])) / 2.0
+
+
 MAP_FILTER_KEYS = {
     "price_min",
     "price_max",
@@ -1448,7 +1483,7 @@ class NearestSchoolAPIView(APIView):
             distance_m = self.haversine(lat, lon, coords[0][1], coords[0][0]) * 1000  # Convert to meters
             distance_km = round(distance_m / 1000, 2)
 
-            schools.append({
+            row = {
                 "name": name,
                 "operator": operator,
                 "amenity": amenity,
@@ -1461,8 +1496,12 @@ class NearestSchoolAPIView(APIView):
                 "geometry": {
                     "type": "Polygon",
                     "coordinates": [coords]
-                }
-            })
+                },
+            }
+            enrich = _SCHOOL_ENRICHMENT.get(name.strip().lower())
+            if enrich:
+                row["enrichment"] = enrich
+            schools.append(row)
 
         # Sort by distance
         schools.sort(key=lambda x: x['distance_meters'])
@@ -1536,4 +1575,225 @@ class NewlyListedPropertiesAPIView(APIView):
         }
         cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
         return Response(payload)
-    
+
+
+class ListingCatalogStatsAPIView(APIView):
+    """Aggregates from active listings in our DB only (not sold market data)."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        city = (request.query_params.get("city") or "").strip()
+        fsa = (request.query_params.get("fsa") or "").strip().upper()[:3]
+        has_city = bool(city)
+        has_fsa = len(fsa) == 3
+        if not has_city and not has_fsa:
+            return Response(
+                {"error": "Provide city or fsa (3-letter FSA)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        cache_key = f"catalog-stats:{city.lower()}:{fsa}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        qs = Property.objects.filter(
+            standard_status__iexact="Active",
+            list_price__isnull=False,
+        ).exclude(list_price__lte=0)
+        if city:
+            qs = qs.filter(city__iexact=city)
+        if len(fsa) == 3:
+            pc_norm = Upper(
+                Replace(
+                    Replace(F("postal_code"), Value(" "), Value("")),
+                    Value("-"),
+                    Value(""),
+                )
+            )
+            qs = qs.annotate(pc_norm=pc_norm).filter(pc_norm__startswith=fsa)
+
+        prices = []
+        ppsf = []
+        for lp, la in qs.values_list("list_price", "living_area"):
+            if lp is None:
+                continue
+            try:
+                fv = float(lp)
+            except (TypeError, ValueError):
+                continue
+            if fv <= 0:
+                continue
+            prices.append(fv)
+            if la:
+                try:
+                    laf = float(la)
+                    if laf > 0:
+                        ppsf.append(fv / laf)
+                except (TypeError, ValueError):
+                    pass
+
+        payload = {
+            "scope": {"city": city or None, "fsa": fsa if len(fsa) == 3 else None},
+            "sample_size": len(prices),
+            "median_list_price": _median_sorted(prices),
+            "mean_list_price": (sum(prices) / len(prices)) if prices else None,
+            "min_list_price": min(prices) if prices else None,
+            "max_list_price": max(prices) if prices else None,
+            "median_price_per_sqft": _median_sorted(ppsf),
+            "disclaimer": "Based on active listings in this site catalog only; not sold comparables or board-reported market stats.",
+        }
+        cache.set(cache_key, payload, 300)
+        return Response(payload)
+
+
+class ListingViewBeaconAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from .serializers import ListingViewBeaconSerializer
+
+        ser = ListingViewBeaconSerializer(data=request.data)
+        if not ser.is_valid():
+            return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+        lk = ser.validated_data["listing_key"]
+        sk = ser.validated_data["session_key"]
+        user = request.user if request.user.is_authenticated else None
+        ListingViewEvent.objects.create(
+            listing_key=lk,
+            session_key=sk,
+            user=user,
+        )
+        return Response({"ok": True}, status=status.HTTP_201_CREATED)
+
+
+class ListingEngagementAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        lk = (request.query_params.get("listing_key") or "").strip()
+        if not lk:
+            return Response(
+                {"error": "listing_key required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        since = timezone.now() - timedelta(days=7)
+        views_7d = ListingViewEvent.objects.filter(
+            listing_key=lk, created_at__gte=since
+        ).count()
+        views_30d = ListingViewEvent.objects.filter(
+            listing_key=lk, created_at__gte=timezone.now() - timedelta(days=30)
+        ).count()
+        city = (
+            Property.objects.filter(listing_key=lk)
+            .values_list("city", flat=True)
+            .first()
+        )
+        peer_views = 0
+        if city:
+            peer_keys = list(
+                Property.objects.filter(
+                    city__iexact=city, standard_status__iexact="Active"
+                ).values_list("listing_key", flat=True)[:500]
+            )
+            if peer_keys:
+                peer_views = ListingViewEvent.objects.filter(
+                    created_at__gte=since,
+                    listing_key__in=peer_keys,
+                ).count()
+        activity = "low"
+        if views_7d >= 15:
+            activity = "high"
+        elif views_7d >= 5:
+            activity = "medium"
+        return Response(
+            {
+                "listing_key": lk,
+                "views_7d": views_7d,
+                "views_30d": views_30d,
+                "activity_band": activity,
+                "peer_views_7d_sample": peer_views,
+                "peer_context_note": "Counts reflect traffic on this site only (approximate peer sample by city).",
+            }
+        )
+
+
+class CensusFSAAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, fsa):
+        fsa = (fsa or "").strip().upper()[:3]
+        if len(fsa) != 3:
+            return Response({"error": "Invalid FSA"}, status=status.HTTP_400_BAD_REQUEST)
+        row = CensusFSA.objects.filter(pk=fsa).first()
+        if row:
+            return Response({"fsa": fsa, "profile": row.data})
+        seed_path = os.path.join(
+            os.path.dirname(__file__), "data", "census_fsa_seed.json"
+        )
+        try:
+            with open(seed_path, encoding="utf-8") as f:
+                blob = json.load(f)
+            block = blob.get(fsa)
+            if block:
+                return Response({"fsa": fsa, "profile": block, "source": "seed_file"})
+        except Exception:
+            pass
+        return Response(
+            {"fsa": fsa, "profile": None, "message": "No census profile loaded for this FSA."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+
+class PropertySnapshotsAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, listing_key):
+        qs = (
+            PropertySnapshot.objects.filter(listing_key=listing_key)
+            .order_by("-created_at")[:50]
+        )
+        data = [
+            {
+                "list_price": float(s.list_price) if s.list_price is not None else None,
+                "standard_status": s.standard_status,
+                "source_modification_timestamp": s.source_modification_timestamp,
+                "created_at": s.created_at,
+            }
+            for s in qs
+        ]
+        return Response({"listing_key": listing_key, "snapshots": data})
+
+
+class PropertyNoteAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        lk = (request.query_params.get("listing_key") or "").strip()
+        if not lk:
+            return Response(
+                {"error": "listing_key required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        note, _ = PropertyNote.objects.get_or_create(
+            user=request.user, listing_key=lk, defaults={"body": ""}
+        )
+        return Response(
+            {"listing_key": lk, "body": note.body, "updated_at": note.updated_at}
+        )
+
+    def put(self, request):
+        lk = (request.data.get("listing_key") or "").strip()
+        body = request.data.get("body", "")
+        if not lk:
+            return Response(
+                {"error": "listing_key required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        note, _ = PropertyNote.objects.update_or_create(
+            user=request.user,
+            listing_key=lk,
+            defaults={"body": str(body)[:20000]},
+        )
+        return Response(
+            {"listing_key": lk, "body": note.body, "updated_at": note.updated_at}
+        )
+

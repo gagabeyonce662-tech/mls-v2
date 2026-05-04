@@ -8,6 +8,7 @@ from mls.models import (
     UserFavorite,
     UserHistory,
     PropertyInquiry,
+    PropertySnapshot,
 )
 
 
@@ -185,3 +186,19 @@ class UserHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = UserHistory
         fields = ["property_key", "property_snapshot_json", "viewed_at"]
+
+
+class ListingViewBeaconSerializer(serializers.Serializer):
+    listing_key = serializers.CharField(max_length=2000)
+    session_key = serializers.CharField(max_length=64)
+
+
+class PropertySnapshotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertySnapshot
+        fields = [
+            "list_price",
+            "standard_status",
+            "source_modification_timestamp",
+            "created_at",
+        ]

@@ -1,4 +1,5 @@
 // app/rental/[id]/page.tsx
+import { cache } from "react";
 import { Metadata } from "next";
 import {
   Bed,
@@ -23,6 +24,19 @@ import { ds } from "@/lib/design-system-utils";
 import { fetchPropertyByKey } from "@/lib/api";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import ListingExternalLinks from "@/components/listing/ListingExternalLinks";
+import {
+  getDisplayAddress,
+  getDisplayMonthlyRentLabel,
+  getDisplayPriceLabel,
+  getListingIsPrivileged,
+  getMlsNumberForDisplay,
+  getPropertyHistorySource,
+  shouldShowMonthlyRentRow,
+} from "@/lib/listingDisplay";
+import { getLivingAreaSummary, getPropertyType } from "@/lib/propertyUtils";
+
+const getCachedPropertyByKey = cache(fetchPropertyByKey);
 
 interface RentalPropertyPageProps {
   params: Promise<{
@@ -34,7 +48,7 @@ export async function generateMetadata({
   params,
 }: RentalPropertyPageProps): Promise<Metadata> {
   const id = (await params).id;
-  const property = await fetchPropertyByKey(id);
+  const property = await getCachedPropertyByKey(id);
 
   if (!property) {
     return {
@@ -42,22 +56,15 @@ export async function generateMetadata({
     };
   }
 
+  const metaPriv = getListingIsPrivileged();
   const address =
-    property.unparsed_address ||
-    `${property.address || ""} ${property.city || ""}`.trim() ||
+    getDisplayAddress(property, { isPrivileged: metaPriv }) ||
     "Rental Property Details";
-
-  const getPropertyType = () => {
-    if (property.category_type) return property.category_type;
-    if (property.PropertySubType) return property.PropertySubType;
-    if (property.PropertyType) return property.PropertyType;
-    return "Rental Property";
-  };
 
   const description =
     property.public_remarks ||
     property.PublicRemarks ||
-    `Check out this ${getPropertyType()} for rent at ${address}. View photos and details on Estate-4u.`;
+    `Check out this ${getPropertyType(property)} for rent at ${address}. View photos and details on Estate-4u.`;
 
   const images = (
     property.media && property.media.length > 0
@@ -96,12 +103,20 @@ export default async function RentalPropertyPage(
   props: RentalPropertyPageProps,
 ) {
   const params = await props.params;
-  // Fetch rental property data using the PropertyKey from URL
-  const property = await fetchPropertyByKey(params.id);
+  const property = await getCachedPropertyByKey(params.id);
 
   if (!property) {
     notFound();
   }
+
+  const isPrivileged = getListingIsPrivileged();
+  const displayPrice = getDisplayPriceLabel(property, { isPrivileged });
+  const displayAddress = getDisplayAddress(property, { isPrivileged });
+  const displayMonthlyRent = getDisplayMonthlyRentLabel(property, {
+    isPrivileged,
+  });
+  const showMonthlyRentRow = shouldShowMonthlyRentRow(property, isPrivileged);
+  const mlsForDisplay = getMlsNumberForDisplay(property, { isPrivileged });
 
   // Extract property images from several possible shapes
   const propertyImages: string[] = (
@@ -116,54 +131,17 @@ export default async function RentalPropertyPage(
 
   const hasImages = propertyImages.length > 0;
 
-  // Format price for rental properties
-  const getPrice = () => {
-    const price =
-      property.lease_amount || property.list_price || property.ListPrice;
-    if (!price && price !== 0) return "Price on request";
-
-    const numericPrice = typeof price === "string" ? parseFloat(price) : price;
-    if (isNaN(numericPrice)) return "Price on request";
-
-    if (property.lease_amount) {
-      return `$${numericPrice.toFixed(2)}/sq ft`;
-    }
-    return `$${numericPrice.toLocaleString('en-US')}`;
-  };
-
-  // Format monthly rent if available
-  const getMonthlyRent = () => {
-    const rentVal = property.total_actual_rent;
-    if (!rentVal) return "Rent not specified";
-
-    const rent = typeof rentVal === "string" ? parseFloat(rentVal) : rentVal;
-    return isNaN(rent)
-      ? "Rent not specified"
-      : `$${rent.toLocaleString('en-US')}/month`;
-  };
-
   const getBedCount = () =>
     property.bedrooms_total || property.BedroomsTotal || "N/A";
   const getBathCount = () =>
     property.bathrooms_total_integer || property.BathroomsTotalInteger || "N/A";
   const getCity = () => property.city || property.City || "N/A";
-  const getAddress = () =>
-    property.unparsed_address ||
-    `${property.address || ""} ${property.city || ""}`.trim() ||
-    "Address not available";
 
-  const getPropertyType = () => {
-    if (property.category_type) return property.category_type;
-    if (property.PropertySubType) return property.PropertySubType;
-    if (property.PropertyType) return property.PropertyType;
-    return "Rental Property";
-  };
+  const uiPropertyType = getPropertyType(property);
 
   const getLivingArea = () => {
-    if (property.building_area_total)
-      return `${property.building_area_total} sq ft`;
-    if (property.LivingArea) return `${property.LivingArea} sq ft`;
-    return "N/A";
+    const summary = getLivingAreaSummary(property);
+    return summary || "N/A";
   };
 
   const getLeaseTerm = () => {
@@ -186,8 +164,8 @@ export default async function RentalPropertyPage(
         })
         : "Recent",
       event: property.StandardStatus || property.standard_status || "Available",
-      price: getPrice(),
-      source: `MLS # ${property.listing_key || property.ListingKey || property.PropertyKey}`,
+      price: displayPrice,
+      source: getPropertyHistorySource(property, { isPrivileged }),
     },
   ];
 
@@ -205,7 +183,7 @@ export default async function RentalPropertyPage(
     },
     {
       label: "Property Type",
-      value: getPropertyType(),
+      value: uiPropertyType,
       icon: <HomeIcon className="w-4 h-4" />,
     },
     {
@@ -286,22 +264,22 @@ export default async function RentalPropertyPage(
         <div className="flex items-start justify-between mb-6">
           <div>
             <h1 className={`${ds.h2} mb-2`}>
-              {getPropertyType()} for Rent in {getCity()}
+              {uiPropertyType} for Rent in {getCity()}
             </h1>
             <p className={`${ds.bodyRegular} text-ds-body`}>
-              {getAddress()} •{" "}
+              {displayAddress} •{" "}
               {property.StandardStatus ||
                 property.standard_status ||
                 "Available"}
             </p>
           </div>
           <div className="text-right">
-            <p className={`${ds.h2} text-ds-primary`}>{getPrice()}</p>
-            {property.total_actual_rent && (
+            <p className={`${ds.h2} text-ds-primary`}>{displayPrice}</p>
+            {showMonthlyRentRow && displayMonthlyRent ? (
               <p className={`${ds.body} text-green-600 mt-1`}>
-                {getMonthlyRent()}
+                {displayMonthlyRent}
               </p>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -311,7 +289,7 @@ export default async function RentalPropertyPage(
             <PropertyGalleryGrid images={propertyImages} />
           </div>
         ) : (
-          <div className="w-full h-96 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-8">
+          <div className="w-full h-96 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-6">
             <div className="text-center">
               <svg
                 className="mx-auto h-12 w-12 text-gray-400 mb-4"
@@ -336,6 +314,8 @@ export default async function RentalPropertyPage(
           </div>
         )}
 
+        <ListingExternalLinks property={property} />
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             <div>
@@ -346,7 +326,7 @@ export default async function RentalPropertyPage(
                   property.PublicRemarks ||
                   property.PrivateRemarks ||
                   property.Description ||
-                  `This ${getPropertyType()} is available for rent in ${getCity()}, ${property.StateOrProvince || "Ontario"}. ${property.year_built || property.YearBuilt
+                  `This ${uiPropertyType} is available for rent in ${getCity()}, ${property.StateOrProvince || "Ontario"}. ${property.year_built || property.YearBuilt
                     ? `Built in ${property.year_built || property.YearBuilt}, `
                     : ""
                   }this rental property features ${getBedCount()} bedrooms and ${getBathCount()} bathrooms${getLivingArea() !== "N/A"
@@ -372,11 +352,11 @@ export default async function RentalPropertyPage(
                         <span className={ds.bodyRegular}>Lease Rate</span>
                       </div>
                       <span className={`${ds.body} font-semibold`}>
-                        {getPrice()}
+                        {displayPrice}
                       </span>
                     </div>
 
-                    {property.total_actual_rent && (
+                    {showMonthlyRentRow && displayMonthlyRent ? (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <DollarSign className="w-5 h-5 text-green-600" />
@@ -385,10 +365,10 @@ export default async function RentalPropertyPage(
                         <span
                           className={`${ds.body} font-semibold text-green-600`}
                         >
-                          {getMonthlyRent()}
+                          {displayMonthlyRent}
                         </span>
                       </div>
-                    )}
+                    ) : null}
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -437,7 +417,7 @@ export default async function RentalPropertyPage(
                         <Building className="w-5 h-5 text-ds-body" />
                         <span className={ds.bodyRegular}>Property Type</span>
                       </div>
-                      <span className={ds.body}>{getPropertyType()}</span>
+                      <span className={ds.body}>{uiPropertyType}</span>
                     </div>
                   </div>
                 </div>
@@ -463,29 +443,41 @@ export default async function RentalPropertyPage(
                       <td className="p-4 border-r-2 border-gray-400">
                         <div className="flex justify-between">
                           <span className={ds.bodyRegular}>Lease Rate</span>
-                          <span className={ds.body}>{getPrice()}</span>
+                          <span className={ds.body}>{displayPrice}</span>
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex justify-between">
-                          <span className={ds.bodyRegular}>MLS Number</span>
+                          <span className={ds.bodyRegular}>MLS® #</span>
                           <span className={ds.body}>
-                            {property.listing_key ||
-                              property.ListingKey ||
-                              property.PropertyKey}
+                            {mlsForDisplay || "—"}
                           </span>
                         </div>
                       </td>
                     </tr>
 
-                    {property.total_actual_rent && (
+                    {showMonthlyRentRow && displayMonthlyRent ? (
                       <tr className="border-b-2 border-gray-400">
                         <td className="p-4 border-r-2 border-gray-400">
                           <div className="flex justify-between">
                             <span className={ds.bodyRegular}>Monthly Rent</span>
-                            <span className={ds.body}>{getMonthlyRent()}</span>
+                            <span className={ds.body}>{displayMonthlyRent}</span>
                           </div>
                         </td>
+                        <td className="p-4">
+                          <div className="flex justify-between">
+                            <span className={ds.bodyRegular}>Status</span>
+                            <span className={ds.body}>
+                              {property.standard_status ||
+                                property.StandardStatus ||
+                                "N/A"}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr className="border-b-2 border-gray-400">
+                        <td className="p-4 border-r-2 border-gray-400" />
                         <td className="p-4">
                           <div className="flex justify-between">
                             <span className={ds.bodyRegular}>Status</span>
@@ -529,7 +521,7 @@ export default async function RentalPropertyPage(
                       <td className="p-4 border-r-2 border-gray-400">
                         <div className="flex justify-between">
                           <span className={ds.bodyRegular}>Property Type</span>
-                          <span className={ds.body}>{getPropertyType()}</span>
+                          <span className={ds.body}>{uiPropertyType}</span>
                         </div>
                       </td>
                       <td className="p-4">
@@ -663,7 +655,7 @@ export default async function RentalPropertyPage(
                         {getCity()}, {property.StateOrProvince || "Ontario"}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        {getAddress()}
+                        {displayAddress}
                       </p>
                     </div>
                   </div>

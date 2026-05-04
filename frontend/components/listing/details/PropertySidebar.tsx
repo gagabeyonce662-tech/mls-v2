@@ -16,6 +16,12 @@ import { useWatched } from "@/contexts/WatchedContext";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { submitPropertyInquiry, type PropertyInquiryIntent } from "@/lib/api";
 import { getDetailUrl } from "@/lib/propertyUtils";
+import {
+  getDisplayAddress,
+  getDisplayPriceLabel,
+  getListingIsPrivileged,
+  getMlsNumberForDisplay,
+} from "@/lib/listingDisplay";
 
 interface PropertySidebarProps {
   property: any;
@@ -70,27 +76,21 @@ export default function PropertySidebar({
 
   useEffect(() => {
     if (message.trim()) return;
-    const address =
-      property?.unparsed_address ||
-      property?.address ||
-      [property?.street_number, property?.street_name].filter(Boolean).join(" ");
-    const listPrice = property?.list_price || property?.ListPrice;
-    const listingKey = property?.listing_key || property?.ListingKey || propertyKey;
-    const locationLabel = [city || property?.city, property?.state_or_province || property?.StateOrProvince]
-      .filter(Boolean)
-      .join(", ");
+    const isPrivileged = getListingIsPrivileged();
+    const address = getDisplayAddress(property, { isPrivileged });
+    const priceLabel = getDisplayPriceLabel(property, { isPrivileged });
+    const mls = getMlsNumberForDisplay(property, { isPrivileged });
     const details = [
-      address ? `Address: ${address}` : null,
-      locationLabel ? `Location: ${locationLabel}` : null,
-      listPrice ? `Price: ${listPrice}` : null,
-      listingKey ? `Listing: ${listingKey}` : null,
+      address ? `Location: ${address}` : null,
+      priceLabel ? `Price: ${priceLabel}` : null,
+      mls ? `MLS® #: ${mls}` : null,
     ]
       .filter(Boolean)
       .join(" | ");
     setMessage(
       `Hi, I'm interested in this property and would like more details and viewing availability.${details ? `\n\n${details}` : ""}`,
     );
-  }, [message, property, propertyKey, city]);
+  }, [message, property, propertyKey]);
 
   const canSubmitInquiry =
     firstName.trim().length > 0 && email.trim().length > 2 && message.trim().length >= 10;
@@ -128,8 +128,10 @@ export default function PropertySidebar({
       typeof window !== "undefined"
         ? `${window.location.origin}${detailUrl}`
         : detailUrl;
-    const address = property?.unparsed_address || property?.address || city || "Listing";
-    const shareTitle = `${address} | Estate-4u`;
+    const shareAddress = getDisplayAddress(property, {
+      isPrivileged: getListingIsPrivileged(),
+    });
+    const shareTitle = `${shareAddress} | Estate-4u`;
     const shareText = `Check out this property on Estate-4u.`;
 
     try {

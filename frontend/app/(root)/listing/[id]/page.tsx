@@ -1,5 +1,5 @@
 // app/(root)/listing/[id]/page.tsx
-import React from "react";
+import React, { cache } from "react";
 import { Metadata } from "next";
 import { Home as HomeIcon } from "lucide-react";
 import Header from "@/components/Header";
@@ -9,7 +9,13 @@ import Footer from "@/components/Footer";
 import PropertyGalleryGrid from "@/components/listing/PropertyGalleryGrid";
 import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
 import { ds } from "@/lib/design-system-utils";
-import { fetchNearestSchools, fetchPropertyByKey } from "@/lib/api";
+import {
+  fetchNearestSchools,
+  fetchPropertyByKey,
+  fetchListingCatalogStats,
+  fetchPropertySnapshots,
+  fetchCensusFsaProfile,
+} from "@/lib/api";
 import { notFound } from "next/navigation";
 
 // Modular Detail Components
@@ -22,12 +28,37 @@ import ListingAISummary from "@/components/listing/details/ListingAISummary";
 import NearestSchoolsSection from "../../../../components/listing/details/NearestSchoolsSection";
 import SimilarProperties from "@/components/listing/SimilarProperties";
 import { PropertyViewerTracker } from "@/components/listing/PropertyViewerTracker";
+import ListingCatalogStatsSection from "@/components/listing/details/ListingCatalogStatsSection";
+import ListingEngagementMeter from "@/components/listing/details/ListingEngagementMeter";
+import ListingDemographicsSection from "@/components/listing/details/ListingDemographicsSection";
+import PropertyNotesPanel from "@/components/listing/details/PropertyNotesPanel";
 import { MortgageCalculator } from "@/components/ui/MortgageCalculator";
+import { CashflowCalculator } from "@/components/calculators/CashflowCalculator";
 import {
+  getAnnualTaxDisplayWithYear,
+  getBathroomDisplayLabel,
+  getLivingAreaSummary,
   getLotSizeSummary,
   getParkingSummary,
+  getPropertyType,
   getTaxAnnualAmount,
+  postalToFsa,
 } from "@/lib/propertyUtils";
+import ListingExternalLinks from "@/components/listing/ListingExternalLinks";
+import {
+  getCashflowInitialsFromProperty,
+  getDisplayAddress,
+  getDisplayPriceLabel,
+  getListingIsPrivileged,
+  getMortgageInitialPrice,
+  getPropertyHistorySource,
+} from "@/lib/listingDisplay";
+import { listingT, type ListingLocale } from "@/lib/i18n/listing";
+
+const LISTING_LOCALE: ListingLocale = "en";
+
+/** One property fetch per request (shared by generateMetadata + page). */
+const getCachedPropertyByKey = cache(fetchPropertyByKey);
 
 interface ListingPageProps {
   params: Promise<{
@@ -39,7 +70,7 @@ export async function generateMetadata({
   params,
 }: ListingPageProps): Promise<Metadata> {
   const id = (await params).id;
-  const property = await fetchPropertyByKey(id);
+  const property = await getCachedPropertyByKey(id);
 
   if (!property) {
     return {
@@ -47,10 +78,9 @@ export async function generateMetadata({
     };
   }
 
+  const metaPriv = getListingIsPrivileged();
   const address =
-    property.unparsed_address ||
-    `${property.address || ""} ${property.city || ""}`.trim() ||
-    "Property Details";
+    getDisplayAddress(property, { isPrivileged: metaPriv }) || "Property Details";
 
   const description =
     property.public_remarks ||
@@ -84,47 +114,39 @@ export async function generateMetadata({
 
 export default async function ListingPage(props: ListingPageProps) {
   const params = await props.params;
-  // #region agent log
-  fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Debug-Session-Id": "db96a5",
-    },
-    body: JSON.stringify({
-      sessionId: "db96a5",
-      runId: "pre-fix",
-      hypothesisId: "H5",
-      location: "frontend/app/(root)/listing/[id]/page.tsx:87",
-      message: "Listing page requested",
-      data: { id: params.id },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-  const property = await fetchPropertyByKey(params.id);
+  const property = await getCachedPropertyByKey(params.id);
 
   if (!property) {
-    // #region agent log
-    fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "db96a5",
-      },
-      body: JSON.stringify({
-        sessionId: "db96a5",
-        runId: "pre-fix",
-        hypothesisId: "H5",
-        location: "frontend/app/(root)/listing/[id]/page.tsx:92",
-        message: "Listing page notFound due to null property",
-        data: { id: params.id },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     notFound();
   }
+
+  const isPrivileged = getListingIsPrivileged();
+  const displayPrice = getDisplayPriceLabel(property, { isPrivileged });
+  const displayAddress = getDisplayAddress(property, { isPrivileged });
+  const cashflowInitials = getCashflowInitialsFromProperty(property, {
+    isPrivileged,
+  });
+
+  const cityRaw = () => property.city || property.City || "N/A";
+  const cityForStats =
+    cityRaw() === "N/A" ? "" : String(cityRaw()).trim();
+  const postal =
+    (property.postal_code as string | undefined) ||
+    (property as { PostalCode?: string }).PostalCode ||
+    "";
+  const fsa = postalToFsa(postal);
+  const listingKeyStr = String(
+    property.listing_key || property.ListingKey || (await props.params).id,
+  );
+
+  const [catalogStats, snapshots, census] = await Promise.all([
+    fetchListingCatalogStats({
+      city: cityForStats || undefined,
+      fsa: fsa || undefined,
+    }),
+    fetchPropertySnapshots(listingKeyStr),
+    fsa ? fetchCensusFsaProfile(fsa) : Promise.resolve(null),
+  ]);
 
   // Data extraction helpers
   const propertyImages =
@@ -132,63 +154,61 @@ export default async function ListingPage(props: ListingPageProps) {
       ? property.media.map((m: any) => m.media_url).filter(Boolean)
       : [];
 
-  const getPrice = () => {
-    const price = property.list_price ?? property.ListPrice;
-    if (!price && price !== 0) return "Price on request";
-
-    const numericPrice = typeof price === "string" ? parseFloat(price) : price;
-    return isNaN(numericPrice)
-      ? "Price on request"
-      : `$${numericPrice.toLocaleString('en-US')}`;
-  };
-
   const getBedCount = () =>
     property.bedrooms_total || property.BedroomsTotal || null;
   const getBathCount = () =>
     property.bathrooms_total_integer || property.BathroomsTotalInteger || null;
   const getCity = () => property.city || property.City || "N/A";
-  const getAddress = () =>
-    property.unparsed_address ||
-    `${property.address || ""} ${property.city || ""}`.trim() ||
-    "Address not available";
 
-  const getPropertyType = () => {
-    if (property.category_type) return property.category_type;
-    if (property.PropertySubType) return property.PropertySubType;
-    return property.PropertyType || "Property";
-  };
+  const uiPropertyType = getPropertyType(property);
 
-  const getLivingArea = () => {
-    const area =
-      property.building_area_total ||
-      property.LivingArea ||
-      property.LivingAreaMinimum;
-    if (area) return `${area} sq ft`;
+  const livingArea = getLivingAreaSummary(property);
 
-    if (property.LivingAreaMinimum && property.LivingAreaMaximum) {
-      return `${property.LivingAreaMinimum} - ${property.LivingAreaMaximum} sq ft`;
-    }
-    return "";
-  };
-
-  const history = [
-    {
-      date: property.ModificationTimestamp
-        ? new Date(property.ModificationTimestamp).toLocaleDateString("en-US", {
+  const currentHistoryRow = {
+    date: property.ModificationTimestamp
+      ? new Date(property.ModificationTimestamp).toLocaleDateString("en-US", {
           year: "numeric",
           month: "short",
           day: "numeric",
         })
-        : "Recent",
-      event: property.StandardStatus || property.standard_status || "Listed",
-      price: getPrice(),
-      source: `MLS # ${property.listing_key || property.ListingKey || property.PropertyKey}`,
-    },
-  ];
+      : "Recent",
+    event: property.StandardStatus || property.standard_status || "Listed",
+    price: displayPrice,
+    source: getPropertyHistorySource(property, { isPrivileged }),
+  };
+
+  const snapshotHistoryRows = [...snapshots]
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    )
+    .map((s) => ({
+      date: new Date(s.created_at).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }),
+      event: s.standard_status || "Catalog snapshot",
+      price:
+        s.list_price != null
+          ? `$${Number(s.list_price).toLocaleString("en-US")}`
+          : "—",
+      source: "Our catalog sync history",
+    }));
+
+  const history =
+    snapshotHistoryRows.length > 0
+      ? [...snapshotHistoryRows, currentHistoryRow]
+      : [currentHistoryRow];
+
+  const currentListNumeric = getMortgageInitialPrice(property, {
+    isPrivileged,
+  });
 
   const beds = getBedCount();
-  const baths = getBathCount();
-  const livingArea = getLivingArea();
+  const baths =
+    getBathroomDisplayLabel(property) ||
+    (getBathCount() != null ? String(getBathCount()) : "");
   const builtYear = property.year_built || property.YearBuilt;
 
   const description =
@@ -196,12 +216,16 @@ export default async function ListingPage(props: ListingPageProps) {
     property.PublicRemarks ||
     property.PrivateRemarks ||
     property.Description ||
-    `This ${getPropertyType()} is located in ${getCity()}, ${property.StateOrProvince || "Ontario"}${builtYear ? `. Built in ${builtYear}` : ""}${beds || baths ? `, this property features ${beds ? `${beds} bedrooms` : ""}${beds && baths ? " and " : ""}${baths ? `${baths} bathrooms` : ""}` : ""}${livingArea ? ` with ${livingArea} of living space` : ""}.`;
+    `This ${uiPropertyType} is located in ${getCity()}, ${property.StateOrProvince || "Ontario"}${builtYear ? `. Built in ${builtYear}` : ""}${beds || baths ? `, this property features ${beds ? `${beds} bedrooms` : ""}${beds && baths ? " and " : ""}${baths ? `${baths} bathrooms` : ""}` : ""}${livingArea ? ` with ${livingArea} of living space` : ""}.`;
 
   const quickFacts = [
     { label: "Lot Size", value: getLotSizeSummary(property) },
     { label: "Parking", value: getParkingSummary(property) },
-    { label: "Annual Taxes", value: getTaxAnnualAmount(property) },
+    {
+      label: "Annual Taxes",
+      value:
+        getAnnualTaxDisplayWithYear(property) || getTaxAnnualAmount(property),
+    },
   ].filter((item) => item.value);
 
   const parseCoordinate = (value: unknown): number | null => {
@@ -247,13 +271,13 @@ export default async function ListingPage(props: ListingPageProps) {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-700">
         <PropertyHeader
-          propertyType={getPropertyType()}
+          propertyType={uiPropertyType}
           city={getCity()}
-          address={getAddress()}
+          address={displayAddress}
           status={
             property.StandardStatus || property.standard_status || "Active"
           }
-          price={getPrice()}
+          price={displayPrice}
         />
 
         {propertyImages.length > 0 ? (
@@ -269,13 +293,15 @@ export default async function ListingPage(props: ListingPageProps) {
           </div>
         )}
 
+        <ListingExternalLinks property={property} />
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           <div className="lg:col-span-2 space-y-12">
             <PropertyStats
               beds={beds || ""}
               baths={baths || ""}
               sqft={livingArea}
-              type={getPropertyType()}
+              type={uiPropertyType}
               year={builtYear || ""}
             />
 
@@ -329,27 +355,29 @@ export default async function ListingPage(props: ListingPageProps) {
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-start">
                   <div className="xl:col-span-2">
                     <MortgageCalculator
-                      initialPrice={
-                        typeof property.list_price === "number"
-                          ? property.list_price
-                          : parseFloat(
-                            String(
-                              property.list_price ||
-                              property.ListPrice ||
-                              "0",
-                            ),
-                          )
-                      }
+                      initialPrice={getMortgageInitialPrice(property, {
+                        isPrivileged,
+                      })}
                     />
                   </div>
                 </div>
               </div>
             </section>
 
+            <section className="bg-white border border-ds-card-border rounded-2xl p-8 shadow-sm">
+              <h2 className={`${ds.h3} mb-4 text-2xl`}>Cash flow estimator</h2>
+              <p className="text-sm text-ds-body mb-6 max-w-3xl">
+                Model monthly carrying costs vs gross rent using this
+                listing&apos;s price and tax line where available. Figures are
+                not verified against lender rules.
+              </p>
+              <CashflowCalculator {...cashflowInitials} />
+            </section>
+
             <PropertyDetailsGrid
               property={property}
-              price={getPrice()}
-              type={getPropertyType()}
+              price={displayPrice}
+              type={uiPropertyType}
               livingArea={livingArea}
             />
           </div>

@@ -72,7 +72,7 @@ export default function MapPropertyCard({
   const subtype =
     property?.property_sub_type ||
     property?.PropertySubType ||
-    property?.category_type ||
+    property?.PropertyType ||
     null;
   const sqft = formatBuildingArea(
     property?.building_area_total ?? property?.LivingArea,

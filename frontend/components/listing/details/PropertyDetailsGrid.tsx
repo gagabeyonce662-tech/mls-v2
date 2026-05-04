@@ -7,6 +7,7 @@ import {
   getFormattedRoomDimensions,
   getPropertyDetailSections,
 } from "@/lib/propertyUtils";
+import { getListingIsPrivileged } from "@/lib/listingDisplay";
 
 interface PropertyDetailsGridProps {
   property: Property;
@@ -22,9 +23,15 @@ export default function PropertyDetailsGrid({
   livingArea,
 }: PropertyDetailsGridProps) {
   const [showAllRooms, setShowAllRooms] = useState(false);
+  const isPrivileged = getListingIsPrivileged();
   const sections = useMemo(
-    () => getPropertyDetailSections(property, { price, type, livingArea }),
-    [property, price, type, livingArea],
+    () =>
+      getPropertyDetailSections(
+        property,
+        { price, type, livingArea },
+        { isPrivileged },
+      ),
+    [property, price, type, livingArea, isPrivileged],
   );
   const rooms = useMemo(
     () =>

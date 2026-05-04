@@ -25,6 +25,12 @@ urlpatterns = [
     path('properties/compare/', PropertyCompareDetailView.as_view(), name='property_detail_compare'),
     path('properties/comapare/', PropertyCompareDetailView.as_view(), name='property_detail_compare'),
     path('nearest-school/', NearestSchoolAPIView.as_view(), name='nearest-school'),
+    path('catalog-stats/', ListingCatalogStatsAPIView.as_view(), name='catalog-stats'),
+    path('listing-views/', ListingViewBeaconAPIView.as_view(), name='listing-view-beacon'),
+    path('listing-engagement/', ListingEngagementAPIView.as_view(), name='listing-engagement'),
+    path('census/fsa/<str:fsa>/', CensusFSAAPIView.as_view(), name='census-fsa'),
+    path('properties/<str:listing_key>/snapshots/', PropertySnapshotsAPIView.as_view(), name='property-snapshots'),
+    path('property-notes/', PropertyNoteAPIView.as_view(), name='property-notes'),
     path('properties/<str:PropertyKey>/', PropertyDetailView.as_view(), name='property_detail_path'),
 ]
 

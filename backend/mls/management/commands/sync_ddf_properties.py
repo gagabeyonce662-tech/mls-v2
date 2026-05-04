@@ -284,6 +284,7 @@ class Command(BaseCommand):
                 "availability_date": safe_datetime(data.get("AvailabilityDate")),
                 "listing_id": safe_str(data.get("ListingId")),
                 "internet_entire_listing_display_yn": safe_bool(data.get("InternetEntireListingDisplayYN")),
+                "internet_address_display_yn": safe_bool(data.get("InternetAddressDisplayYN")),
                 "standard_status": safe_str(data.get("StandardStatus")),
                 "status_change_timestamp": safe_datetime(data.get("StatusChangeTimestamp")),
                 "public_remarks": safe_str(data.get("PublicRemarks")),

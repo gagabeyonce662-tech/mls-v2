@@ -119,6 +119,12 @@ export default function NearestSchoolsSection({
                         Operator: {school.operator}
                       </p>
                     ) : null}
+                    {school.enrichment?.eqao_band ? (
+                      <p className="text-xs text-ds-body mt-1">
+                        Public data tag: {school.enrichment.eqao_band}
+                        {school.enrichment.notes ? ` — ${school.enrichment.notes}` : ""}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="text-xs font-semibold text-ds-primary shrink-0">
                     {formatDistanceMeters(school.distance_meters)}

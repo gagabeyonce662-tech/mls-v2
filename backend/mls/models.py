@@ -107,6 +107,7 @@ class Property(models.Model):
     availability_date = models.DateTimeField(null=True, blank=True)
     listing_id = models.CharField(max_length=2000, null=True, blank=True)
     internet_entire_listing_display_yn = models.BooleanField(default=False,null=True, blank=True)
+    internet_address_display_yn = models.BooleanField(default=False, null=True, blank=True)
     standard_status = models.CharField(max_length=50, null=True, blank=True)
     status_change_timestamp = models.DateTimeField(null=True, blank=True)
     public_remarks = models.TextField(null=True, blank=True)
@@ -394,3 +395,78 @@ class PropertyInquiry(models.Model):
 
     def __str__(self):
         return f"Inquiry<{self.email}:{self.created_at:%Y-%m-%d}>"
+
+
+class ListingViewEvent(models.Model):
+    """Anonymous or authenticated listing page views for on-site engagement metrics."""
+
+    listing_key = models.CharField(max_length=2000, db_index=True)
+    session_key = models.CharField(max_length=64, db_index=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="listing_view_events",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["listing_key", "created_at"]),
+            models.Index(fields=["session_key", "listing_key"]),
+        ]
+
+
+class PropertyNote(models.Model):
+    """Private per-user notes on a listing (by MLS listing key)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="property_notes",
+    )
+    listing_key = models.CharField(max_length=2000, db_index=True)
+    body = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "listing_key"],
+                name="uniq_propertynote_user_listing_key",
+            ),
+        ]
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"Note<{self.user_id}:{self.listing_key}>"
+
+
+class PropertySnapshot(models.Model):
+    """Point-in-time list price / status from our catalog syncs (not sold history)."""
+
+    listing_key = models.CharField(max_length=2000, db_index=True)
+    list_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    standard_status = models.CharField(max_length=80, blank=True)
+    source_modification_timestamp = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["listing_key", "-created_at"]),
+        ]
+
+
+class CensusFSA(models.Model):
+    """Optional FSA-level census profile (imported from public StatsCan-style data)."""
+
+    fsa = models.CharField(max_length=3, primary_key=True)
+    data = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.fsa

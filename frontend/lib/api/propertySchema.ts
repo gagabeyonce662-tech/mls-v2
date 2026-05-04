@@ -199,11 +199,10 @@ export const PropertyResponseSchema = z
     const resolvedProvince =
       prop.state_or_province || prop.StateOrProvince || "ON";
     const resolvedSubType =
-      prop.category_type ||
       prop.property_sub_type ||
       prop.PropertySubType ||
       prop.PropertyType ||
-      "Exclusive";
+      "Property";
     const resolvedBedrooms = parseInt(
       String(prop.bedrooms_total || prop.BedroomsTotal || 0),
     );

@@ -5,6 +5,9 @@ import requests
 import logging
 from django.db import IntegrityError
 from celery import shared_task
+
+from mls.snapshot_utils import record_property_snapshot
+
 logger = logging.getLogger(__name__)
 
 def regenerate_access_token():
@@ -171,6 +174,7 @@ def fetch_properties():
                             'availability_date': property_data.get('AvailabilityDate'),
                             'listing_id': property_data.get('ListingId'),
                             'internet_entire_listing_display_yn': property_data.get('InternetEntireListingDisplayYN', False),
+                            'internet_address_display_yn': property_data.get('InternetAddressDisplayYN', False),
                             'standard_status': property_data.get('StandardStatus'),
                             'status_change_timestamp': property_data.get('StatusChangeTimestamp'),
                             'public_remarks': property_data.get('PublicRemarks'),
@@ -279,6 +283,8 @@ def fetch_properties():
                             }
                         )
 
+                    record_property_snapshot(property_instance)
+
                 except IntegrityError as e:
                     logger.error(f"IntegrityError while processing property {property_data.get('ListingKey')}: {e}")
                 except Exception as e:
@@ -337,6 +343,7 @@ def fetch_properties_by_property_data(property_data):
         'availability_date': property_data.get('AvailabilityDate'),
         'listing_id': property_data.get('ListingId'),
         'internet_entire_listing_display_yn': property_data.get('InternetEntireListingDisplayYN', False),
+        'internet_address_display_yn': property_data.get('InternetAddressDisplayYN', False),
         'standard_status': property_data.get('StandardStatus'),
         'status_change_timestamp': property_data.get('StatusChangeTimestamp'),
         'public_remarks': property_data.get('PublicRemarks'),
@@ -441,5 +448,6 @@ def fetch_properties_by_property_data(property_data):
                 'order': media_data.get('Order'),
             }
         )
-        logger.info(f"Processed property {property_instance.listing_key}")
+    record_property_snapshot(property_instance)
+    logger.info(f"Processed property {property_instance.listing_key}")
 

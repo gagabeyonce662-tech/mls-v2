@@ -423,8 +423,9 @@ export default function RentalListingsPage() {
                   const displayCity =
                     property.city || property.City || "Unknown City";
                   const displayPropertyType =
-                    property.category_type ||
+                    property.property_sub_type ||
                     property.PropertySubType ||
+                    property.PropertyType ||
                     "Retail Property";
                   const rawBedCount =
                     property.bedrooms_total || property.BedroomsTotal;

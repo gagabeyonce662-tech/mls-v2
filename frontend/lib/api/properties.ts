@@ -901,7 +901,10 @@ export async function fetchSimilarProperties(
 ): Promise<Property[]> {
   try {
     const city = property.city || property.City;
-    const propertyType = property.category_type || property.PropertySubType;
+    const propertyType =
+      property.property_sub_type ||
+      property.PropertySubType ||
+      property.PropertyType;
     const price =
       typeof property.list_price === "string"
         ? parseFloat(property.list_price)
@@ -981,5 +984,81 @@ export async function fetchSimilarProperties(
   } catch (error) {
     console.error("Error fetching similar properties:", error);
     return [];
+  }
+}
+
+export type ListingCatalogStatsPayload = {
+  scope: { city: string | null; fsa: string | null };
+  sample_size: number;
+  median_list_price: number | null;
+  mean_list_price: number | null;
+  min_list_price: number | null;
+  max_list_price: number | null;
+  median_price_per_sqft: number | null;
+  disclaimer: string;
+};
+
+export async function fetchListingCatalogStats(params: {
+  city?: string;
+  fsa?: string;
+}): Promise<ListingCatalogStatsPayload | null> {
+  try {
+    const usp = new URLSearchParams();
+    if (params.city) usp.set("city", params.city);
+    if (params.fsa) usp.set("fsa", params.fsa);
+    const q = usp.toString();
+    if (!q) return null;
+    const res = await fetch(
+      `${API_BASE_URL}/api/mls/catalog-stats/?${q}`,
+      { next: { revalidate: 300 } },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as ListingCatalogStatsPayload;
+  } catch {
+    return null;
+  }
+}
+
+export type PropertySnapshotRow = {
+  list_price: number | null;
+  standard_status: string;
+  source_modification_timestamp: string | null;
+  created_at: string;
+};
+
+export async function fetchPropertySnapshots(
+  listingKey: string,
+): Promise<PropertySnapshotRow[]> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/mls/properties/${encodeURIComponent(listingKey)}/snapshots/`,
+      { next: { revalidate: 60 } },
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.snapshots || []) as PropertySnapshotRow[];
+  } catch {
+    return [];
+  }
+}
+
+export type CensusFsaProfileResponse = {
+  fsa: string;
+  profile: Record<string, unknown> | null;
+  source?: string;
+};
+
+export async function fetchCensusFsaProfile(
+  fsa: string,
+): Promise<CensusFsaProfileResponse | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/mls/census/fsa/${encodeURIComponent(fsa)}/`,
+      { next: { revalidate: 86400 } },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as CensusFsaProfileResponse;
+  } catch {
+    return null;
   }
 }

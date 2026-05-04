@@ -1,6 +1,13 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -177,6 +184,27 @@ function MapOnlyPageInner() {
     return apiMarkers.find((m) => m.id === selectedPropertyId) ?? null;
   }, [apiMarkers, selectedPropertyId]);
 
+  /** After geocode flyTo finishes, load listings (or aggregates) for the new viewport. */
+  const flyToGeocodeResultAndFetchArea = useCallback(
+    (lat: number, lng: number) => {
+      const map = mapRef.current;
+      if (!map) return;
+      const onMoveEnd = () => {
+        void handleSearchThisArea(mapRef);
+      };
+      map.once("moveend", onMoveEnd);
+      try {
+        map.flyTo([lat, lng], 14, {
+          animate: true,
+          duration: 1.2,
+        });
+      } catch {
+        map.off("moveend", onMoveEnd);
+      }
+    },
+    [handleSearchThisArea],
+  );
+
   const {
     searchQuery,
     searchResults,
@@ -192,12 +220,7 @@ function MapOnlyPageInner() {
     setSearchResults,
     setAnchorRect,
   } = useGeocoding(inputRef, (res) => {
-    if (mapRef.current) {
-      mapRef.current.flyTo([res.lat, res.lng], 14, {
-        animate: true,
-        duration: 1.2,
-      });
-    }
+    flyToGeocodeResultAndFetchArea(res.lat, res.lng);
   });
 
   // Special handler for drawing finish
@@ -413,11 +436,7 @@ function MapOnlyPageInner() {
         setSearchResult({ lat, lng: lon, display_name: r.display_name });
         setResultsOpen(false);
         setSearchResults([]);
-        if (mapRef.current)
-          mapRef.current.flyTo([lat, lon], 14, {
-            animate: true,
-            duration: 1.2,
-          });
+        flyToGeocodeResultAndFetchArea(lat, lon);
         return;
       }
     }

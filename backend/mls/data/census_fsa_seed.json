@@ -1,0 +1,34 @@
+{
+  "K2P": {
+    "population": 0,
+    "medianAge": 0,
+    "averageHouseholdSize": 0,
+    "averageHouseholdIncome": "See Statistics Canada for FSA K2P",
+    "educationLevel": "Import census profile",
+    "employmentRate": "—",
+    "languageSpoken": "—",
+    "incomeDistribution": [
+      { "range": "Under $50k", "value": 20, "color": "#94a3b8" },
+      { "range": "$50k–$100k", "value": 30, "color": "#64748b" },
+      { "range": "$100k–$150k", "value": 30, "color": "#475569" },
+      { "range": "$150k+", "value": 20, "color": "#334155" }
+    ],
+    "disclaimer": "Placeholder row. Replace with 2021 Census Profile values for this FSA or load via admin."
+  },
+  "K1A": {
+    "population": 0,
+    "medianAge": 0,
+    "averageHouseholdSize": 0,
+    "averageHouseholdIncome": "Placeholder",
+    "educationLevel": "—",
+    "employmentRate": "—",
+    "languageSpoken": "—",
+    "incomeDistribution": [
+      { "range": "Under $50k", "value": 25, "color": "#94a3b8" },
+      { "range": "$50k–$100k", "value": 25, "color": "#64748b" },
+      { "range": "$100k–$150k", "value": 25, "color": "#475569" },
+      { "range": "$150k+", "value": 25, "color": "#334155" }
+    ],
+    "disclaimer": "Illustrative distribution only — not official census data."
+  }
+}
