@@ -1,1 +1,0 @@
-{"nodes": [{"id": "frontend_components_ui_propertybasicinfo_tsx", "label": "PropertyBasicInfo.tsx", "file_type": "code", "source_file": "frontend\\components\\ui\\PropertyBasicInfo.tsx", "source_location": "L1"}], "edges": []}
