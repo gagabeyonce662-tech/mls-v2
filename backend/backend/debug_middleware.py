@@ -1,4 +1,5 @@
 import json
+import os
 import platform
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +12,9 @@ DEBUG_LOG_PATH = Path(__file__).resolve().parent.parent / "debug-490580.log"
 
 
 def _log_debug(hypothesis_id: str, message: str, data: dict) -> None:
+    # Vercel serverless: /var/task is read-only; skip file logging.
+    if os.environ.get("VERCEL") == "1" or os.environ.get("VERCEL_ENV"):
+        return
     payload = {
         "sessionId": "490580",
         "runId": "pre-fix",

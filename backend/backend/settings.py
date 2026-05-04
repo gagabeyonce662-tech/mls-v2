@@ -65,14 +65,19 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'backend.debug_middleware.AdminContextDebugMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    
 ]
+
+# Local-only: writes to disk; Vercel's filesystem under /var/task is read-only.
+if not IS_VERCEL:
+    MIDDLEWARE.insert(
+        4,
+        'backend.debug_middleware.AdminContextDebugMiddleware',
+    )
 
 ROOT_URLCONF = 'backend.urls'
 
