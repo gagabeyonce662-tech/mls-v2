@@ -1,23 +1,18 @@
 import json
 import os
-import platform
 from datetime import datetime, timezone
 from pathlib import Path
 
-import django
-from django.template.context import BaseContext, RequestContext
 
-
-DEBUG_LOG_PATH = Path(__file__).resolve().parent.parent / "debug-490580.log"
+DEBUG_LOG_PATH = Path(__file__).resolve().parent.parent.parent / "debug-e55290.log"
 
 
 def _log_debug(hypothesis_id: str, message: str, data: dict) -> None:
-    # Vercel serverless: /var/task is read-only; skip file logging.
     if os.environ.get("VERCEL") == "1" or os.environ.get("VERCEL_ENV"):
         return
     payload = {
-        "sessionId": "490580",
-        "runId": "pre-fix",
+        "sessionId": "e55290",
+        "runId": "pre-fix-caret-server",
         "hypothesisId": hypothesis_id,
         "location": "backend/debug_middleware.py",
         "message": message,
@@ -33,43 +28,36 @@ class AdminContextDebugMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.path.startswith("/admin/mls/property/"):
-            # region agent log
-            _log_debug(
-                "H1",
-                "Runtime version matrix for admin request",
-                {
-                    "path": request.path,
-                    "django_version": django.get_version(),
-                    "python_version": platform.python_version(),
-                },
-            )
-            # endregion
+        response = self.get_response(request)
+        if "/admin/mls/property/" not in request.path:
+            return response
 
-            # region agent log
-            _log_debug(
-                "H2",
-                "Template context copy implementation origins",
-                {
-                    "base_context_copy_module": getattr(BaseContext.__copy__, "__module__", None),
-                    "base_context_copy_qualname": getattr(BaseContext.__copy__, "__qualname__", None),
-                    "request_context_copy_module": getattr(RequestContext.__copy__, "__module__", None),
-                    "request_context_copy_qualname": getattr(RequestContext.__copy__, "__qualname__", None),
-                },
-            )
-            # endregion
+        content_type = response.get("Content-Type", "")
+        body_text = ""
+        if "text/html" in content_type and hasattr(response, "content"):
+            try:
+                body_text = response.content.decode("utf-8", errors="ignore")
+            except Exception:
+                body_text = ""
 
-            # region agent log
-            _log_debug(
-                "H3",
-                "Context class characteristics",
-                {
-                    "base_context_has_dict_attr": hasattr(BaseContext, "__dict__"),
-                    "request_context_has_dict_attr": hasattr(RequestContext, "__dict__"),
-                    "base_context_slots": getattr(BaseContext, "__slots__", None),
-                    "request_context_slots": getattr(RequestContext, "__slots__", None),
-                },
-            )
-            # endregion
+        css_path = Path(__file__).resolve().parent.parent / "static" / "admin" / "css" / "sectioned-admin.css"
+        css_text = ""
+        if css_path.exists():
+            try:
+                css_text = css_path.read_text(encoding="utf-8")
+            except Exception:
+                css_text = ""
 
-        return self.get_response(request)
+        _log_debug(
+            "C5",
+            "Caret rule presence snapshot",
+            {
+                "path": request.path,
+                "status_code": response.status_code,
+                "has_wp_editor_root": "wp-admin-editor" in body_text,
+                "has_inline_border_patch": "data-wp-border-patch" in body_text,
+                "css_has_caret_color_rule": "caret-color" in css_text,
+                "css_has_text_color_rule": ".wp-admin-editor input" in css_text and "color:" in css_text,
+            },
+        )
+        return response

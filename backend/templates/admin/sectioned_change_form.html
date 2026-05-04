@@ -1,0 +1,116 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block field_sets %}
+<div class="wp-admin-editor" data-sectioned-admin data-model="{{ opts.app_label }}.{{ opts.model_name }}">
+  <aside class="wp-admin-editor__nav" aria-label="{% trans 'Sections' %}">
+    {% for fieldset in adminform %}
+      {% if fieldset.name %}
+        {% with section_title=fieldset.name %}
+          <button
+            type="button"
+            class="wp-admin-editor__tab"
+            data-section-target="section-{{ forloop.counter0 }}"
+            aria-controls="section-{{ forloop.counter0 }}"
+            aria-selected="false"
+          >
+            {{ section_title }}
+          </button>
+        {% endwith %}
+      {% else %}
+        <button
+          type="button"
+          class="wp-admin-editor__tab"
+          data-section-target="section-{{ forloop.counter0 }}"
+          aria-controls="section-{{ forloop.counter0 }}"
+          aria-selected="false"
+        >
+          {% trans "General" %}
+        </button>
+      {% endif %}
+    {% endfor %}
+  </aside>
+
+  <section class="wp-admin-editor__content">
+    {% for fieldset in adminform %}
+      <div
+        id="section-{{ forloop.counter0 }}"
+        class="wp-admin-editor__panel"
+        data-section-panel
+        {% if fieldset.errors %}data-has-errors="true"{% endif %}
+      >
+        {% include "admin/includes/fieldset.html" %}
+      </div>
+    {% endfor %}
+  </section>
+</div>
+<script data-wp-border-patch="true">
+  (function () {
+    var controls = document.querySelectorAll(
+      ".wp-admin-editor .module.aligned input, .wp-admin-editor .module.aligned select, .wp-admin-editor .module.aligned textarea"
+    );
+    controls.forEach(function (el) {
+      if (el.type === "checkbox" || el.type === "radio" || el.type === "hidden") {
+        return;
+      }
+      el.style.setProperty("border", "1px solid #8c8f94", "important");
+      el.style.setProperty("box-shadow", "inset 0 0 0 1px #8c8f94", "important");
+      el.style.setProperty("background-color", "#ffffff", "important");
+      el.style.setProperty("border-radius", "8px", "important");
+      el.style.setProperty("color", "#1d2327", "important");
+      el.style.setProperty("caret-color", "#1d2327", "important");
+    });
+
+    var rows = document.querySelectorAll(".wp-admin-editor .module.aligned .form-row");
+    rows.forEach(function (row) {
+      row.style.setProperty("border-bottom", "1px solid #dcdcde", "important");
+    });
+  })();
+</script>
+<script data-caret-debug="true">
+  // #region agent log
+  (function () {
+    var endpoint = "http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f";
+    function send(hypothesisId, message, data) {
+      fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Debug-Session-Id": "e55290"
+        },
+        body: JSON.stringify({
+          sessionId: "e55290",
+          runId: "pre-fix-caret-inline",
+          hypothesisId: hypothesisId,
+          location: "templates/admin/sectioned_change_form.html",
+          message: message,
+          data: data,
+          timestamp: Date.now()
+        })
+      }).catch(function () {});
+    }
+
+    send("C3", "Inline caret debug script executed", { path: window.location.pathname });
+
+    document.addEventListener("focusin", function (event) {
+      var target = event.target;
+      if (!target || !target.matches) {
+        return;
+      }
+      if (!target.matches(".wp-admin-editor input:not([type='checkbox']):not([type='radio']):not([type='hidden']), .wp-admin-editor textarea, .wp-admin-editor select")) {
+        return;
+      }
+      var style = window.getComputedStyle(target);
+      send("C4", "Focused field caret-related styles", {
+        tagName: target.tagName,
+        className: target.className,
+        color: style.color,
+        caretColor: style.caretColor,
+        backgroundColor: style.backgroundColor,
+        textIndent: style.textIndent
+      });
+    });
+  })();
+  // #endregion
+</script>
+{% endblock %}

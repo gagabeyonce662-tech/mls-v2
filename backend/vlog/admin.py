@@ -4,6 +4,7 @@ from django.utils.html import format_html
 from django import forms
 from django.conf import settings
 from django.utils.safestring import mark_safe
+from mls.admin_ui import SectionedAdminMixin
 
 class VlogPostAdminForm(forms.ModelForm):
     # Use plain FileInput so admin rendering does not require resolving remote
@@ -30,7 +31,7 @@ class VlogPostAdminForm(forms.ModelForm):
         fields = '__all__'
 
 @admin.register(VlogPost)
-class VlogPostAdmin(admin.ModelAdmin):
+class VlogPostAdmin(SectionedAdminMixin, admin.ModelAdmin):
     form = VlogPostAdminForm
     list_display = ('title', 'author', 'status', 'publish_date', 'thumbnail_tag')
     list_filter = ('status', 'category', 'author')
@@ -123,5 +124,5 @@ class VlogPostAdmin(admin.ModelAdmin):
     seo_analysis.short_description = "SEO analysis"
 
 @admin.register(VlogCategory)
-class VlogCategoryAdmin(admin.ModelAdmin):
+class VlogCategoryAdmin(SectionedAdminMixin, admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}

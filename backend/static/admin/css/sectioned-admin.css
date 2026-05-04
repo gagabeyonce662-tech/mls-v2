@@ -1,0 +1,183 @@
+.wp-admin-editor {
+  /* WordPress-like design tokens (scoped) */
+  --wp-surface: #ffffff;
+  --wp-surface-subtle: #f6f7f7;
+  --wp-surface-hover: #f0f0f1;
+  --wp-border: #dcdcde;
+  --wp-border-strong: #c3c4c7;
+  --wp-text: #1d2327;
+  --wp-text-muted: #50575e;
+  --wp-accent: #2271b1;
+  --wp-accent-strong: #135e96;
+  --wp-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+  --wp-radius: 8px;
+  --wp-gap-sm: 8px;
+  --wp-gap-md: 12px;
+  --wp-gap-lg: 16px;
+
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--wp-gap-lg);
+  align-items: start;
+}
+
+.wp-admin-editor__nav {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--wp-surface);
+  border: 1px solid var(--wp-border);
+  border-radius: var(--wp-radius);
+  box-shadow: var(--wp-shadow);
+  padding: var(--wp-gap-sm);
+}
+
+.wp-admin-editor__tab {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--wp-text);
+  border-radius: var(--wp-radius);
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.wp-admin-editor__tab:hover {
+  background: var(--wp-surface-hover);
+  border-color: var(--wp-border);
+}
+
+.wp-admin-editor__tab.is-active {
+  border-color: var(--wp-accent);
+  background: #f0f6fc;
+  color: var(--wp-accent-strong);
+  font-weight: 600;
+}
+
+.wp-admin-editor__tab:focus-visible {
+  outline: 2px solid var(--wp-accent);
+  outline-offset: 1px;
+}
+
+.wp-admin-editor__content {
+  min-width: 0;
+}
+
+.wp-admin-editor__panel {
+  display: block;
+}
+
+.wp-admin-editor__panel[hidden] {
+  display: none !important;
+}
+
+.wp-admin-editor__panel .module.aligned {
+  margin-bottom: var(--wp-gap-lg);
+  border: 1px solid var(--wp-border);
+  border-radius: var(--wp-radius);
+  box-shadow: var(--wp-shadow);
+  overflow: hidden;
+}
+
+.wp-admin-editor__panel .module.aligned h2 {
+  background: var(--wp-surface-subtle);
+  color: var(--wp-text);
+  border-bottom: 1px solid var(--wp-border);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 12px;
+}
+
+.wp-admin-editor__panel .module.aligned .form-row {
+  border-bottom: 1px solid #dcdcde !important;
+}
+
+.wp-admin-editor__panel .module.aligned .form-row:last-child {
+  border-bottom: 0;
+}
+
+.wp-admin-editor__panel .module.aligned .help {
+  color: var(--wp-text-muted);
+}
+
+.wp-admin-editor__panel .module.aligned input[type="text"],
+.wp-admin-editor__panel .module.aligned input[type="number"],
+.wp-admin-editor__panel .module.aligned input[type="email"],
+.wp-admin-editor__panel .module.aligned input[type="url"],
+.wp-admin-editor__panel .module.aligned input[type="search"],
+.wp-admin-editor__panel .module.aligned input[type="tel"],
+.wp-admin-editor__panel .module.aligned input[type="password"],
+.wp-admin-editor__panel .module.aligned input[type="date"],
+.wp-admin-editor__panel .module.aligned input[type="datetime-local"],
+.wp-admin-editor__panel .module.aligned input[type="time"],
+.wp-admin-editor__panel .module.aligned input[type="month"],
+.wp-admin-editor__panel .module.aligned input[type="week"],
+.wp-admin-editor__panel .module.aligned select,
+.wp-admin-editor__panel .module.aligned textarea {
+  border: 1px solid #8c8f94 !important;
+  border-radius: var(--wp-radius);
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #8c8f94 !important;
+}
+
+.wp-admin-editor__panel .module.aligned .vTextField,
+.wp-admin-editor__panel .module.aligned .vIntegerField,
+.wp-admin-editor__panel .module.aligned .vURLField,
+.wp-admin-editor__panel .module.aligned .vLargeTextField,
+.wp-admin-editor__panel .module.aligned .vDateField,
+.wp-admin-editor__panel .module.aligned .vTimeField,
+.wp-admin-editor__panel .module.aligned .vDateTimeField {
+  border: 1px solid #8c8f94 !important;
+  box-shadow: inset 0 0 0 1px #8c8f94 !important;
+  background: #fff;
+}
+
+/* Fallback for Unfold/Django markup variants where module/form-row wrappers differ. */
+.wp-admin-editor input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.wp-admin-editor select,
+.wp-admin-editor textarea {
+  border: 1px solid #8c8f94 !important;
+  border-radius: var(--wp-radius);
+  box-shadow: inset 0 0 0 1px #8c8f94 !important;
+  background-color: #fff !important;
+  color: #1d2327 !important;
+  caret-color: #1d2327 !important;
+}
+
+.wp-admin-editor__panel .module.aligned input:focus,
+.wp-admin-editor__panel .module.aligned select:focus,
+.wp-admin-editor__panel .module.aligned textarea:focus {
+  border-color: var(--wp-accent) !important;
+  box-shadow: 0 0 0 1px var(--wp-accent), inset 0 0 0 1px var(--wp-accent) !important;
+}
+
+.wp-admin-editor input:not([type="checkbox"]):not([type="radio"]):focus,
+.wp-admin-editor select:focus,
+.wp-admin-editor textarea:focus {
+  border-color: var(--wp-accent) !important;
+  box-shadow: 0 0 0 1px var(--wp-accent), inset 0 0 0 1px var(--wp-accent) !important;
+}
+
+@media (max-width: 1080px) {
+  .wp-admin-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .wp-admin-editor__nav {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 6px;
+  }
+
+  .wp-admin-editor__tab {
+    width: auto;
+  }
+}
