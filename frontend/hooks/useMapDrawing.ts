@@ -15,6 +15,8 @@ type DrawingCompletePayload = {
   polygon?: LatLngPoint[];
 };
 
+const MAX_POLYGON_POINTS = 5;
+
 export const useMapDrawing = (
   mapRef: React.MutableRefObject<any>,
   leaflet: any,
@@ -31,6 +33,7 @@ export const useMapDrawing = (
   const drawStartRef = useRef<{ lat: number; lng: number } | null>(null);
   const polygonPointsRef = useRef<LatLngPoint[]>([]);
   const previousDoubleClickZoomEnabledRef = useRef<boolean | null>(null);
+  const isCompletingPolygonRef = useRef(false);
 
   const clearLayers = () => {
     if (rectLayerRef.current) {
@@ -181,14 +184,20 @@ export const useMapDrawing = (
     }
   };
 
-  const onPolygonMapClick = (e: any) => {
+  const onPolygonMapClick = async (e: any) => {
     if (drawingModeRef.current !== "polygon") return;
+    if (isCompletingPolygonRef.current) return;
+    if (polygonPointsRef.current.length >= MAX_POLYGON_POINTS) return;
     polygonPointsRef.current = [
       ...polygonPointsRef.current,
       { lat: e.latlng.lat, lng: e.latlng.lng },
     ];
-    setPolygonPointCount(polygonPointsRef.current.length);
+    const pointCount = polygonPointsRef.current.length;
+    setPolygonPointCount(pointCount);
     redrawPolygonLayer();
+    if (pointCount === MAX_POLYGON_POINTS) {
+      await completePolygonDrawing();
+    }
   };
 
   const onPolygonMouseMove = (e: any) => {
@@ -211,35 +220,41 @@ export const useMapDrawing = (
 
   const completePolygonDrawing = async () => {
     if (drawingModeRef.current !== "polygon") return;
-    const points = polygonPointsRef.current;
-    if (points.length < 3) {
-      disableDrawing();
-      return;
+    if (isCompletingPolygonRef.current) return;
+    isCompletingPolygonRef.current = true;
+    try {
+      const points = polygonPointsRef.current;
+      if (points.length < 3) {
+        disableDrawing();
+        return;
+      }
+      const closedRing = [...points, points[0]];
+      const bbox = toBBox(points);
+      if (polygonPreviewLineRef.current) {
+        try {
+          polygonPreviewLineRef.current.remove();
+        } catch {}
+        polygonPreviewLineRef.current = null;
+      }
+      await onFinishDrawing({
+        mode: "polygon",
+        bbox,
+        polygon: closedRing.map((p) => ({
+          lat: Number(p.lat.toFixed(6)),
+          lng: Number(p.lng.toFixed(6)),
+        })),
+      });
+      redrawPolygonLayer();
+      setDrawing(false);
+      setDrawingMode(null);
+      setHasActiveShape(true);
+      polygonPointsRef.current = [];
+      setPolygonPointCount(0);
+      teardownListeners();
+      restoreMapInteractions();
+    } finally {
+      isCompletingPolygonRef.current = false;
     }
-    const closedRing = [...points, points[0]];
-    const bbox = toBBox(points);
-    if (polygonPreviewLineRef.current) {
-      try {
-        polygonPreviewLineRef.current.remove();
-      } catch {}
-      polygonPreviewLineRef.current = null;
-    }
-    await onFinishDrawing({
-      mode: "polygon",
-      bbox,
-      polygon: closedRing.map((p) => ({
-        lat: Number(p.lat.toFixed(6)),
-        lng: Number(p.lng.toFixed(6)),
-      })),
-    });
-    redrawPolygonLayer();
-    setDrawing(false);
-    setDrawingMode(null);
-    setHasActiveShape(true);
-    polygonPointsRef.current = [];
-    setPolygonPointCount(0);
-    teardownListeners();
-    restoreMapInteractions();
   };
 
   const onPolygonDoubleClick = async (e: any) => {
@@ -264,6 +279,7 @@ export const useMapDrawing = (
     drawStartRef.current = null;
     polygonPointsRef.current = [];
     setPolygonPointCount(0);
+    isCompletingPolygonRef.current = false;
 
     previousDoubleClickZoomEnabledRef.current =
       mapRef.current.doubleClickZoom.enabled();
@@ -288,6 +304,7 @@ export const useMapDrawing = (
     drawStartRef.current = null;
     polygonPointsRef.current = [];
     setPolygonPointCount(0);
+    isCompletingPolygonRef.current = false;
     clearLayers();
     teardownListeners();
     restoreMapInteractions();
@@ -298,6 +315,7 @@ export const useMapDrawing = (
     drawStartRef.current = null;
     polygonPointsRef.current = [];
     setPolygonPointCount(0);
+    isCompletingPolygonRef.current = false;
     setDrawingMode(null);
     drawingModeRef.current = null;
     setDrawing(false);

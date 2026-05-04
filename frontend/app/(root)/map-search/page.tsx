@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { env } from "@/lib/env";
 
@@ -13,15 +14,15 @@ import StreetViewButton from "@/components/map/StreetViewButton";
 import { MapSidebar } from "@/components/map/MapSidebar";
 import { MapOverlayControls } from "@/components/map/MapOverlayControls";
 import { SearchThisAreaButton } from "@/components/map/SearchThisAreaButton";
+import MapPropertyCard from "@/components/map/MapPropertyCard";
+import MobilePropertyBottomSheet from "@/components/map/MobilePropertyBottomSheet";
 
 // Hooks & state
 import { useMapSearch } from "@/hooks/useMapSearch";
 import { useGeocoding } from "@/hooks/useGeocoding";
 import { useMapDrawing } from "@/hooks/useMapDrawing";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { getCustomIcon, getSelectedIcon } from "@/components/map/MapIcons";
-import { formatPrice } from "@/lib/helpers";
-import { getDetailUrl } from "@/lib/propertyUtils";
-import { openInNewTab } from "@/lib/navigation/openInNewTab";
 
 // Types
 import { AggregateCellMarker, PropertyMarker } from "@/components/map/types";
@@ -53,16 +54,96 @@ const Tooltip = dynamic(() => import("react-leaflet").then((m) => m.Tooltip), {
   ssr: false,
 });
 
-export default function MapOnlyPage() {
+const DEFAULT_CENTER: [number, number] = [43.65, -79.385];
+const DEFAULT_ZOOM = 9;
+const FALLBACK_PARAM_ZOOM = 14;
+
+function LoadingShell() {
+  return (
+    <div className="flex items-center justify-center h-screen bg-gray-50">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="h-12 w-12 animate-spin text-ds-primary" />
+        <p className="text-ds-body font-medium">
+          Preparing immersive map experience...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+type ParsedMapParams = {
+  initialCenter: [number, number];
+  initialZoom: number;
+  hasUrlCoords: boolean;
+  targetListingId: string | null;
+};
+
+function parseMapParams(searchParams: URLSearchParams | null): ParsedMapParams {
+  const fallback: ParsedMapParams = {
+    initialCenter: DEFAULT_CENTER,
+    initialZoom: DEFAULT_ZOOM,
+    hasUrlCoords: false,
+    targetListingId: null,
+  };
+  if (!searchParams) return fallback;
+
+  const latRaw = searchParams.get("lat");
+  const lngRaw = searchParams.get("lng");
+  const zoomRaw = searchParams.get("zoom");
+  const idRaw = searchParams.get("id");
+  const trimmedId = idRaw ? idRaw.trim() : "";
+  const targetListingId = trimmedId.length > 0 ? trimmedId : null;
+
+  const lat = latRaw !== null && latRaw !== "" ? Number(latRaw) : NaN;
+  const lng = lngRaw !== null && lngRaw !== "" ? Number(lngRaw) : NaN;
+  const coordsValid =
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180;
+
+  if (!coordsValid) {
+    return { ...fallback, targetListingId };
+  }
+
+  let zoom = FALLBACK_PARAM_ZOOM;
+  if (zoomRaw !== null && zoomRaw !== "") {
+    const parsedZoom = Number(zoomRaw);
+    if (Number.isFinite(parsedZoom)) {
+      const clamped = Math.round(parsedZoom);
+      if (clamped >= 1 && clamped <= 20) {
+        zoom = clamped;
+      }
+    }
+  }
+
+  return {
+    initialCenter: [lat, lng],
+    initialZoom: zoom,
+    hasUrlCoords: true,
+    targetListingId,
+  };
+}
+
+function MapOnlyPageInner() {
   const API_BASE_URL = env.NEXT_PUBLIC_API_URL;
+  const searchParams = useSearchParams();
+  const { initialCenter, initialZoom, hasUrlCoords, targetListingId } = useMemo(
+    () => parseMapParams(searchParams),
+    [searchParams],
+  );
   const [mounted, setMounted] = useState(false);
   const [L, setL] = useState<any>(null);
   const mapRef = useRef<any | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const initialSearchDone = useRef(false);
+  const autoSelectAppliedRef = useRef(false);
   const [selectedAggregateId, setSelectedAggregateId] = useState<string | null>(
     null,
   );
+  const isMobile = useIsMobile();
 
   // Custom Hooks
   const {
@@ -90,6 +171,11 @@ export default function MapOnlyPage() {
   } = useMapSearch(API_BASE_URL);
 
   const { addToHistory } = useWatched();
+
+  const selectedMarker = useMemo<PropertyMarker | null>(() => {
+    if (!selectedPropertyId) return null;
+    return apiMarkers.find((m) => m.id === selectedPropertyId) ?? null;
+  }, [apiMarkers, selectedPropertyId]);
 
   const {
     searchQuery,
@@ -227,6 +313,18 @@ export default function MapOnlyPage() {
     }
   }, [mapDataMode]);
 
+  // Auto-select the property whose listing_key matches the URL `id` once area
+  // markers load. Runs only once per page load — user clicks elsewhere stick.
+  useEffect(() => {
+    if (autoSelectAppliedRef.current) return;
+    if (!targetListingId) return;
+    if (!apiMarkers || apiMarkers.length === 0) return;
+    const match = apiMarkers.find((m) => m.id === targetListingId);
+    if (!match) return;
+    autoSelectAppliedRef.current = true;
+    setSelectedPropertyId(targetListingId);
+  }, [apiMarkers, targetListingId, setSelectedPropertyId]);
+
   useEffect(() => {
     function updateRect() {
       const el = inputRef.current;
@@ -242,21 +340,19 @@ export default function MapOnlyPage() {
   }, [resultsOpen, searchQuery, setAnchorRect]);
 
   if (!mounted || !L) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-ds-primary" />
-          <p className="text-ds-body font-medium">
-            Preparing immersive map experience...
-          </p>
-        </div>
-      </div>
-    );
+    return <LoadingShell />;
   }
 
   const handleMapReady = (map: any) => {
     mapRef.current = map;
     try {
+      // Belt-and-suspenders: ensure URL-supplied coords are applied even if
+      // MapContainer's initial props were stale due to HMR or a race.
+      if (hasUrlCoords) {
+        try {
+          map.setView(initialCenter, initialZoom, { animate: false });
+        } catch {}
+      }
       map.scrollWheelZoom.enable();
       // Pan/zoom alone does NOT call the backend — only reveals "Properties in this area".
       // Data loads on initial handleSearchThisArea, that button click, or aggregate drill moveend.
@@ -403,14 +499,14 @@ export default function MapOnlyPage() {
                 >
                   Finish Polygon
                   <span className="text-[10px] lg:text-xs font-medium text-ds-body">
-                    ({polygonPointCount}/3+ points)
+                    ({polygonPointCount}/5 points)
                   </span>
                 </button>
               </div>
             )}
             <MapContainer
-              center={[43.65, -79.385]}
-              zoom={9}
+              center={initialCenter}
+              zoom={initialZoom}
               className="w-full h-full z-0"
               zoomControl={false}
             >
@@ -442,46 +538,16 @@ export default function MapOnlyPage() {
                     },
                   }}
                 >
-                  <Popup>
-                    <div className="max-w-xs p-1">
-                      <h3 className="font-bold text-ds-heading text-base leading-tight mb-1">
-                        {m.title}
-                      </h3>
-                      <p className="text-ds-primary font-extrabold text-lg mb-2">
-                        {formatPrice(m.price)}
-                      </p>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-ds-body border-t border-gray-100 pt-2 pb-3">
-                        <div className="flex justify-between">
-                          <span>Beds:</span>{" "}
-                          <span className="font-bold">
-                            {m.raw?.bedrooms_total || "N/A"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Baths:</span>{" "}
-                          <span className="font-bold">
-                            {m.raw?.bathrooms_total_integer || "N/A"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Type:</span>{" "}
-                          <span className="font-bold">
-                            {m.raw?.property_sub_type || "N/A"}
-                          </span>
-                        </div>
-                      </div>
-                      {m.raw && (m.raw.listing_key || m.raw.PropertyKey) && (
-                        <button
-                          type="button"
-                          onClick={() => openInNewTab(getDetailUrl(m.raw!))}
-                          className="w-full mb-2 inline-flex items-center justify-center rounded-md border border-ds-primary text-ds-primary px-3 py-1.5 text-xs font-semibold hover:bg-ds-primary hover:text-white transition-colors"
-                        >
-                          Details
-                        </button>
-                      )}
-                      <StreetViewButton lat={m.lat} lng={m.lng} />
-                    </div>
-                  </Popup>
+                  {!isMobile && (
+                    <Popup
+                      maxWidth={300}
+                      minWidth={260}
+                      closeButton
+                      autoPan
+                    >
+                      <MapPropertyCard marker={m} compact />
+                    </Popup>
+                  )}
                 </Marker>
               ))}
 
@@ -549,6 +615,13 @@ export default function MapOnlyPage() {
           </div>
         </div>
 
+        {isMobile && (
+          <MobilePropertyBottomSheet
+            marker={selectedMarker}
+            onClose={() => setSelectedPropertyId(null)}
+          />
+        )}
+
         {mapDataMode === "aggregates" && (
           <div className="absolute bottom-6 right-6 z-[520] rounded-xl border border-blue-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm">
             <p className="text-sm font-semibold text-slate-800">
@@ -569,5 +642,13 @@ export default function MapOnlyPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function MapOnlyPage() {
+  return (
+    <Suspense fallback={<LoadingShell />}>
+      <MapOnlyPageInner />
+    </Suspense>
   );
 }

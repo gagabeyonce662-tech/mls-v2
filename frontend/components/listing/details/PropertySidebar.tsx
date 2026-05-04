@@ -213,7 +213,11 @@ export default function PropertySidebar({
               Google Maps
             </a>
             <Link
-              href={`/map-search?lat=${lat}&lng=${lon}&zoom=15`}
+              href={`/map-search?lat=${lat}&lng=${lon}&zoom=15${
+                property?.listing_key
+                  ? `&id=${encodeURIComponent(property.listing_key)}`
+                  : ""
+              }`}
               className="flex items-center justify-center gap-1.5 py-2 px-3 text-[11px] font-semibold bg-gray-50 border border-ds-card-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-ds-body"
             >
               <ExternalLink className="w-3 h-3 text-ds-primary" />

@@ -212,7 +212,7 @@ export const MapOverlayControls = ({
             animate={{ x: 0, opacity: 1, scale: 1 }}
             exit={{ x: 60, opacity: 0, scale: 0.95 }}
             transition={{ type: "tween", ease: "easeOut", duration: 0.4 }}
-            className="absolute top-4 right-4 bottom-4 z-[1000] w-[360px] hidden lg:flex flex-col pointer-events-auto"
+            className="absolute top-4 right-4 bottom-4 z-[1000] w-[clamp(320px,23vw,360px)] hidden lg:flex flex-col pointer-events-auto"
           >
             <div className="flex flex-col h-full rounded-2xl border border-ds-card-border bg-white/95 backdrop-blur-sm shadow-md overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2 border-b border-ds-card-border bg-ds-card/60">
@@ -291,7 +291,7 @@ export const MapOverlayControls = ({
 
                 {drawing && drawingMode === "polygon" && (
                   <div className="rounded-lg border border-ds-card-border bg-ds-card px-3 py-2 text-xs text-ds-body">
-                    Click map to add points. Double-click or right-click to finish polygon.
+                    Click map to add points (3-5 max). Double-click or right-click to finish, or auto-finish at 5 points.
                   </div>
                 )}
 
