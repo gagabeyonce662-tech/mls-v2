@@ -1,0 +1,118 @@
+{
+  "name": "phase1-production-smoke-gate",
+  "base_url_env": "SMOKE_BASE_URL",
+  "checks": [
+    {
+      "id": "admin_root",
+      "method": "GET",
+      "path": "/admin/",
+      "assertions": {
+        "status_in": [200, 301, 302],
+        "html_markers_any": [
+          "Django administration",
+          "Log in | Django site admin"
+        ]
+      }
+    },
+    {
+      "id": "admin_mls_property",
+      "method": "GET",
+      "path": "/admin/mls/property/",
+      "assertions": {
+        "status_in": [200, 301, 302],
+        "html_markers_any": [
+          "Django administration",
+          "Log in | Django site admin"
+        ]
+      }
+    },
+    {
+      "id": "admin_vlog_post",
+      "method": "GET",
+      "path": "/admin/vlog/vlogpost/",
+      "assertions": {
+        "status_in": [200, 301, 302],
+        "html_markers_any": [
+          "Django administration",
+          "Log in | Django site admin"
+        ]
+      }
+    },
+    {
+      "id": "auth_login",
+      "method": "POST",
+      "path": "/api/auth/login/",
+      "assertions": {
+        "status_in": [200],
+        "json_required_keys": ["access", "refresh", "user"]
+      }
+    },
+    {
+      "id": "auth_refresh",
+      "method": "POST",
+      "path": "/api/auth/token/refresh/",
+      "assertions": {
+        "status_in": [200],
+        "json_required_keys": ["access"]
+      }
+    },
+    {
+      "id": "auth_profile",
+      "method": "GET",
+      "path": "/api/auth/profile/",
+      "assertions": {
+        "status_in": [200],
+        "json_required_keys": ["id", "email"]
+      }
+    },
+    {
+      "id": "mls_properties",
+      "method": "GET",
+      "path": "/api/mls/properties/",
+      "assertions": {
+        "status_in": [200],
+        "json_top_level": ["object", "array"]
+      }
+    },
+    {
+      "id": "mls_properties_filter",
+      "method": "GET",
+      "path": "/api/mls/properties/filter/?page=1",
+      "assertions": {
+        "status_in": [200],
+        "json_top_level": ["object", "array"]
+      }
+    },
+    {
+      "id": "mls_property_types",
+      "method": "GET",
+      "path": "/api/mls/properties/property-types/",
+      "assertions": {
+        "status_in": [200],
+        "json_top_level": ["object", "array"]
+      }
+    },
+    {
+      "id": "mls_map_aggregates",
+      "method": "GET",
+      "path": "/api/mls/properties/map-aggregates/",
+      "assertions": {
+        "status_in": [200],
+        "json_top_level": ["object", "array"]
+      }
+    },
+    {
+      "id": "mls_inquiry_create_tagged",
+      "method": "POST",
+      "path": "/api/mls/inquiries/",
+      "assertions": {
+        "status_in": [201],
+        "json_required_keys": ["id", "message"]
+      },
+      "cleanup": {
+        "mode": "tag_and_audit",
+        "note": "Phase 1 records are tagged and logged for scheduled purge."
+      }
+    }
+  ]
+}
