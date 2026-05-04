@@ -22,6 +22,8 @@ import { useSearchParams } from "next/navigation";
 import { useSearch } from "@/contexts/SearchContext";
 import { ListingMapView } from "@/components/listing/ListingMapView";
 import { MapToggleButton } from "@/components/listing/MapToggleButton";
+import { PropertyCardSkeleton } from "@/components/shared/PropertyCardSkeleton";
+import { Skeleton as BoneyardSkeleton } from "boneyard-js/react";
 
 export default function ListingsPage() {
   const { user } = useUserAuth();
@@ -91,6 +93,21 @@ export default function ListingsPage() {
     [],
   );
 
+  const isInitialLoading = isLoading && displayedProperties.length === 0;
+
+  const listingSkeletonFallback =
+    viewMode === "grid" ? (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 gap-6 w-full">
+        {Array.from({ length: 8 }).map((_, index) => (
+          <PropertyCardSkeleton key={`listing-grid-skeleton-${index}`} />
+        ))}
+      </div>
+    ) : (
+      <div className="w-full h-[700px] rounded-2xl border border-gray-200 bg-white overflow-hidden">
+        <div className="h-full w-full animate-pulse bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100" />
+      </div>
+    );
+
   return (
     <div className="min-h-screen bg-white">
       <Header />
@@ -144,22 +161,30 @@ export default function ListingsPage() {
                 Retry
               </button>
             </div>
-          ) : viewMode === "grid" ? (
-            <PropertyGridLayout
-              properties={displayedProperties}
-              isLoading={isLoading}
-              isFetchingNextPage={isFetchingNextPage}
-              hasNextPage={hasNextPage}
-              fetchNextPage={fetchNextPage}
-              isLoggedIn={isLoggedIn}
-              interactions={interactions}
-              currentCity={currentCity}
-            />
           ) : (
-            <ListingMapView
-              properties={displayedProperties}
-              isLoading={isLoading}
-            />
+            <BoneyardSkeleton
+              name={viewMode === "grid" ? "listing-grid-results" : "listing-map-results"}
+              loading={isInitialLoading}
+              fallback={listingSkeletonFallback}
+            >
+              {viewMode === "grid" ? (
+                <PropertyGridLayout
+                  properties={displayedProperties}
+                  isLoading={isLoading}
+                  isFetchingNextPage={isFetchingNextPage}
+                  hasNextPage={hasNextPage}
+                  fetchNextPage={fetchNextPage}
+                  isLoggedIn={isLoggedIn}
+                  interactions={interactions}
+                  currentCity={currentCity}
+                />
+              ) : (
+                <ListingMapView
+                  properties={displayedProperties}
+                  isLoading={isLoading}
+                />
+              )}
+            </BoneyardSkeleton>
           )}
         </div>
       </div>

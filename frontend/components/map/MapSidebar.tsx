@@ -30,7 +30,7 @@ export const MapSidebar = ({
         initial={{ x: -420 }}
         animate={{ x: 0 }}
         transition={{ type: "tween", ease: "easeOut", duration: 0.4 }}
-        className="absolute top-4 left-4 bottom-4 hidden xl:flex w-[clamp(340px,26vw,400px)] flex-col rounded-2xl overflow-hidden shadow-2xl border border-ds-card-border bg-white/95 backdrop-blur-md z-[500]"
+        className="absolute top-4 left-4 bottom-4 hidden xl:flex w-[clamp(340px,26vw,400px)] flex-col rounded-2xl overflow-hidden shadow-2xl border border-ds-card-border bg-white/95 backdrop-blur-md z-30"
       >
         <div className="p-6 border-b border-ds-card-border bg-ds-card">
           <h2 className="text-xl font-bold text-ds-heading">

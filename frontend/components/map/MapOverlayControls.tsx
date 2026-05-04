@@ -183,7 +183,7 @@ export const MapOverlayControls = ({
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 40 }}
-            className="absolute top-0 bottom-0 right-0 z-[1000] hidden lg:flex items-center pointer-events-none"
+            className="absolute top-0 bottom-0 right-0 z-30 hidden lg:flex items-center pointer-events-none"
           >
             <button
               onClick={() => setIsOpen(true)}
@@ -212,7 +212,7 @@ export const MapOverlayControls = ({
             animate={{ x: 0, opacity: 1, scale: 1 }}
             exit={{ x: 60, opacity: 0, scale: 0.95 }}
             transition={{ type: "tween", ease: "easeOut", duration: 0.4 }}
-            className="absolute top-4 right-4 bottom-4 z-[1000] w-[clamp(320px,23vw,360px)] hidden lg:flex flex-col pointer-events-auto"
+            className="absolute top-4 right-4 bottom-4 z-30 w-[clamp(320px,23vw,360px)] hidden lg:flex flex-col pointer-events-auto"
           >
             <div className="flex flex-col h-full rounded-2xl border border-ds-card-border bg-white/95 backdrop-blur-sm shadow-md overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2 border-b border-ds-card-border bg-ds-card/60">

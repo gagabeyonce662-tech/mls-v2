@@ -236,6 +236,14 @@ export const useMapDrawing = (
         } catch {}
         polygonPreviewLineRef.current = null;
       }
+      // Stop drawing interactions immediately so no preview line lingers
+      // while async onFinishDrawing is in flight.
+      setDrawing(false);
+      setDrawingMode(null);
+      drawingModeRef.current = null;
+      teardownListeners();
+      restoreMapInteractions();
+
       await onFinishDrawing({
         mode: "polygon",
         bbox,
@@ -245,13 +253,9 @@ export const useMapDrawing = (
         })),
       });
       redrawPolygonLayer();
-      setDrawing(false);
-      setDrawingMode(null);
       setHasActiveShape(true);
       polygonPointsRef.current = [];
       setPolygonPointCount(0);
-      teardownListeners();
-      restoreMapInteractions();
     } finally {
       isCompletingPolygonRef.current = false;
     }
