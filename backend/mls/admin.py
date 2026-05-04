@@ -34,6 +34,7 @@ class MediaInline(admin.TabularInline):
     )
 
 class PropertyAdmin(SectionedAdminMixin, admin.ModelAdmin):
+    change_list_template = "admin/mls/property_change_list.html"
     list_display = ('listing_key','category_type','is_featured','list_price', 'property_sub_type', 'city', 'state_or_province')
     list_filter = ('category_type', 'is_featured', 'city', 'state_or_province')
     list_editable = ('is_featured',)
