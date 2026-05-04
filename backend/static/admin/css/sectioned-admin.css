@@ -151,54 +151,17 @@
   caret-color: #1d2327 !important;
 }
 
-/* Rooms/Media inlines render outside .wp-admin-editor in Django change forms. */
-.inline-group input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-.inline-group select,
-.inline-group textarea {
-  border: 1px solid #8c8f94 !important;
-  border-style: solid !important;
-  border-width: 1px !important;
-  border-radius: var(--wp-radius);
-  box-shadow: inset 0 0 0 1px #8c8f94 !important;
-  background-color: #fff !important;
-  color: #1d2327 !important;
-  caret-color: #1d2327 !important;
-}
-
-/* Higher-specificity safeguard for Django inline rows (e.g., Rooms). */
-.inline-group .inline-related input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-.inline-group .inline-related select,
-.inline-group .inline-related textarea,
-.inline-group .inline-related .vTextField,
-.inline-group .inline-related .vIntegerField,
-.inline-group .inline-related .vURLField,
-.inline-group .inline-related .vLargeTextField,
-.inline-group .inline-related .vDateField,
-.inline-group .inline-related .vTimeField,
-.inline-group .inline-related .vDateTimeField {
-  border: 1px solid #8c8f94 !important;
-  border-style: solid !important;
-  border-width: 1px !important;
-  border-radius: var(--wp-radius) !important;
-  box-shadow: inset 0 0 0 1px #8c8f94 !important;
-  background-color: #fff !important;
-  color: #1d2327 !important;
-  caret-color: #1d2327 !important;
-}
-
-/* Last-resort fallback for themed admin markup (Rooms inline ids/names). */
-input[id^="id_rooms-"]:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-select[id^="id_rooms-"],
-textarea[id^="id_rooms-"],
-input[name^="rooms-"]:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-select[name^="rooms-"],
-textarea[name^="rooms-"],
-input[id^="id_media-"]:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-select[id^="id_media-"],
-textarea[id^="id_media-"],
-input[name^="media-"]:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-select[name^="media-"],
-textarea[name^="media-"] {
+/* Property inlines render outside .wp-admin-editor in Django change forms. */
+body.app-mls.model-property .inline-group input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+body.app-mls.model-property .inline-group select,
+body.app-mls.model-property .inline-group textarea,
+body.app-mls.model-property .inline-group .vTextField,
+body.app-mls.model-property .inline-group .vIntegerField,
+body.app-mls.model-property .inline-group .vURLField,
+body.app-mls.model-property .inline-group .vLargeTextField,
+body.app-mls.model-property .inline-group .vDateField,
+body.app-mls.model-property .inline-group .vTimeField,
+body.app-mls.model-property .inline-group .vDateTimeField {
   border: 1px solid #8c8f94 !important;
   border-style: solid !important;
   border-width: 1px !important;
@@ -223,39 +186,16 @@ textarea[name^="media-"] {
   box-shadow: 0 0 0 1px var(--wp-accent), inset 0 0 0 1px var(--wp-accent) !important;
 }
 
-.inline-group input:not([type="checkbox"]):not([type="radio"]):focus,
-.inline-group select:focus,
-.inline-group textarea:focus {
-  border-color: var(--wp-accent) !important;
-  box-shadow: 0 0 0 1px var(--wp-accent), inset 0 0 0 1px var(--wp-accent) !important;
-}
-
-.inline-group .inline-related input:not([type="checkbox"]):not([type="radio"]):focus,
-.inline-group .inline-related select:focus,
-.inline-group .inline-related textarea:focus,
-.inline-group .inline-related .vTextField:focus,
-.inline-group .inline-related .vIntegerField:focus,
-.inline-group .inline-related .vURLField:focus,
-.inline-group .inline-related .vLargeTextField:focus,
-.inline-group .inline-related .vDateField:focus,
-.inline-group .inline-related .vTimeField:focus,
-.inline-group .inline-related .vDateTimeField:focus {
-  border-color: var(--wp-accent) !important;
-  box-shadow: 0 0 0 1px var(--wp-accent), inset 0 0 0 1px var(--wp-accent) !important;
-}
-
-input[id^="id_rooms-"]:not([type="checkbox"]):not([type="radio"]):focus,
-select[id^="id_rooms-"]:focus,
-textarea[id^="id_rooms-"]:focus,
-input[name^="rooms-"]:not([type="checkbox"]):not([type="radio"]):focus,
-select[name^="rooms-"]:focus,
-textarea[name^="rooms-"]:focus,
-input[id^="id_media-"]:not([type="checkbox"]):not([type="radio"]):focus,
-select[id^="id_media-"]:focus,
-textarea[id^="id_media-"]:focus,
-input[name^="media-"]:not([type="checkbox"]):not([type="radio"]):focus,
-select[name^="media-"]:focus,
-textarea[name^="media-"]:focus {
+body.app-mls.model-property .inline-group input:not([type="checkbox"]):not([type="radio"]):focus,
+body.app-mls.model-property .inline-group select:focus,
+body.app-mls.model-property .inline-group textarea:focus,
+body.app-mls.model-property .inline-group .vTextField:focus,
+body.app-mls.model-property .inline-group .vIntegerField:focus,
+body.app-mls.model-property .inline-group .vURLField:focus,
+body.app-mls.model-property .inline-group .vLargeTextField:focus,
+body.app-mls.model-property .inline-group .vDateField:focus,
+body.app-mls.model-property .inline-group .vTimeField:focus,
+body.app-mls.model-property .inline-group .vDateTimeField:focus {
   border-color: var(--wp-accent) !important;
   box-shadow: 0 0 0 1px var(--wp-accent), inset 0 0 0 1px var(--wp-accent) !important;
 }

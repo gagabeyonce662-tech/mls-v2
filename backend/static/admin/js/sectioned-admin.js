@@ -1,25 +1,4 @@
 (function () {
-  function debugLog(hypothesisId, location, message, data) {
-    // #region agent log
-    fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "e55290",
-      },
-      body: JSON.stringify({
-        sessionId: "e55290",
-        runId: "pre-fix-caret",
-        hypothesisId: hypothesisId,
-        location: location,
-        message: message,
-        data: data,
-        timestamp: Date.now(),
-      }),
-    }).catch(function () {});
-    // #endregion
-  }
-
   function initSectionedAdmin(root) {
     var tabs = Array.prototype.slice.call(root.querySelectorAll("[data-section-target]"));
     var panels = Array.prototype.slice.call(root.querySelectorAll("[data-section-panel]"));
@@ -81,47 +60,6 @@
   function onReady() {
     var roots = document.querySelectorAll("[data-sectioned-admin]");
     roots.forEach(initSectionedAdmin);
-
-    // #region agent log
-    debugLog("C1", "sectioned-admin.js:onReady", "Caret debug bootstrap", {
-      roots: roots.length,
-      path: window.location.pathname,
-    });
-    // #endregion
-
-    document.addEventListener("focusin", function (event) {
-      var target = event.target;
-      if (!target) {
-        return;
-      }
-      var isInput =
-        target.matches &&
-        target.matches(".wp-admin-editor input:not([type='checkbox']):not([type='radio']):not([type='hidden']), .wp-admin-editor textarea, .wp-admin-editor select");
-      if (!isInput) {
-        return;
-      }
-      var style = window.getComputedStyle(target);
-      var rect = target.getBoundingClientRect();
-      // #region agent log
-      debugLog("C2", "sectioned-admin.js:focusin", "Focused field computed styles", {
-        tagName: target.tagName,
-        className: target.className,
-        color: style.color,
-        caretColor: style.caretColor,
-        backgroundColor: style.backgroundColor,
-        borderColor: style.borderColor,
-        boxShadow: style.boxShadow,
-        paddingLeft: style.paddingLeft,
-        textIndent: style.textIndent,
-        overflowX: style.overflowX,
-        selectionStart: typeof target.selectionStart === "number" ? target.selectionStart : null,
-        valueLength: typeof target.value === "string" ? target.value.length : null,
-        clientWidth: target.clientWidth,
-        left: rect.left,
-        right: rect.right,
-      });
-      // #endregion
-    });
   }
 
   if (document.readyState === "loading") {
