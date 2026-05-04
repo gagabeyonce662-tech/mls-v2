@@ -3,8 +3,6 @@ import React, { cache } from "react";
 import { Metadata } from "next";
 import { Home as HomeIcon } from "lucide-react";
 import Header from "@/components/Header";
-import Image from "next/image";
-
 import Footer from "@/components/Footer";
 import PropertyGalleryGrid from "@/components/listing/PropertyGalleryGrid";
 import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
@@ -53,9 +51,8 @@ import {
   getMortgageInitialPrice,
   getPropertyHistorySource,
 } from "@/lib/listingDisplay";
-import { listingT, type ListingLocale } from "@/lib/i18n/listing";
-
-const LISTING_LOCALE: ListingLocale = "en";
+import { getTranslations } from "next-intl/server";
+import { ListingLocaleSwitcher } from "@/components/listing/ListingLocaleSwitcher";
 
 /** One property fetch per request (shared by generateMetadata + page). */
 const getCachedPropertyByKey = cache(fetchPropertyByKey);
@@ -119,6 +116,8 @@ export default async function ListingPage(props: ListingPageProps) {
   if (!property) {
     notFound();
   }
+
+  const t = await getTranslations("Listing");
 
   const isPrivileged = getListingIsPrivileged();
   const displayPrice = getDisplayPriceLabel(property, { isPrivileged });
@@ -219,10 +218,10 @@ export default async function ListingPage(props: ListingPageProps) {
     `This ${uiPropertyType} is located in ${getCity()}, ${property.StateOrProvince || "Ontario"}${builtYear ? `. Built in ${builtYear}` : ""}${beds || baths ? `, this property features ${beds ? `${beds} bedrooms` : ""}${beds && baths ? " and " : ""}${baths ? `${baths} bathrooms` : ""}` : ""}${livingArea ? ` with ${livingArea} of living space` : ""}.`;
 
   const quickFacts = [
-    { label: "Lot Size", value: getLotSizeSummary(property) },
-    { label: "Parking", value: getParkingSummary(property) },
+    { label: t("lotSize"), value: getLotSizeSummary(property) },
+    { label: t("parking"), value: getParkingSummary(property) },
     {
-      label: "Annual Taxes",
+      label: t("annualTaxes"),
       value:
         getAnnualTaxDisplayWithYear(property) || getTaxAnnualAmount(property),
     },
@@ -270,6 +269,9 @@ export default async function ListingPage(props: ListingPageProps) {
       <PropertyViewerTracker property={property} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-700">
+        <div className="mb-6 flex justify-end">
+          <ListingLocaleSwitcher />
+        </div>
         <PropertyHeader
           propertyType={uiPropertyType}
           city={getCity()}
@@ -288,7 +290,7 @@ export default async function ListingPage(props: ListingPageProps) {
           <div className="w-full h-96 bg-ds-card border border-ds-card-border rounded-2xl flex items-center justify-center mb-10">
             <div className="text-center opacity-40">
               <HomeIcon className="mx-auto h-12 w-12 mb-4" />
-              <p className="text-lg font-medium">No Images Available</p>
+              <p className="text-lg font-medium">{t("noImages")}</p>
             </div>
           </div>
         )}
@@ -307,7 +309,7 @@ export default async function ListingPage(props: ListingPageProps) {
 
             {quickFacts.length > 0 && (
               <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
-                <h2 className={`${ds.h3} mb-4`}>Quick Facts</h2>
+                <h2 className={`${ds.h3} mb-4`}>{t("quickFacts")}</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {quickFacts.map((fact) => (
                     <div
@@ -326,6 +328,20 @@ export default async function ListingPage(props: ListingPageProps) {
               </section>
             )}
 
+            <ListingCatalogStatsSection
+              stats={catalogStats}
+              currentListPrice={
+                currentListNumeric > 0 ? currentListNumeric : null
+              }
+              title={t("catalogStatsTitle")}
+            />
+
+            <ListingDemographicsSection
+              fsa={fsa}
+              profile={census?.profile ?? null}
+              headingPrefix={t("demographicsTitle")}
+            />
+
             <NearestSchoolsSection
               schools={nearestSchoolsData?.nearest_schools || []}
               radiusMeters={
@@ -336,7 +352,7 @@ export default async function ListingPage(props: ListingPageProps) {
             />
 
             <section>
-              <h2 className={`${ds.h3} mb-4`}>About this home</h2>
+              <h2 className={`${ds.h3} mb-4`}>{t("aboutTitle")}</h2>
               <div className="bg-white rounded-2xl p-1">
                 <OverviewExcerpt text={description} maxChars={400} />
               </div>
@@ -350,7 +366,7 @@ export default async function ListingPage(props: ListingPageProps) {
             <section className="bg-white border border-ds-card-border rounded-2xl p-8 shadow-sm">
               <div className="max-w-3xl">
                 <h2 className={`${ds.h3} mb-6 text-2xl`}>
-                  Mortgage Calculator
+                  {t("mortgageCalculatorTitle")}
                 </h2>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-start">
                   <div className="xl:col-span-2">
@@ -365,11 +381,11 @@ export default async function ListingPage(props: ListingPageProps) {
             </section>
 
             <section className="bg-white border border-ds-card-border rounded-2xl p-8 shadow-sm">
-              <h2 className={`${ds.h3} mb-4 text-2xl`}>Cash flow estimator</h2>
+              <h2 className={`${ds.h3} mb-4 text-2xl`}>
+                {t("cashFlowEstimatorTitle")}
+              </h2>
               <p className="text-sm text-ds-body mb-6 max-w-3xl">
-                Model monthly carrying costs vs gross rent using this
-                listing&apos;s price and tax line where available. Figures are
-                not verified against lender rules.
+                {t("cashFlowDisclaimer")}
               </p>
               <CashflowCalculator {...cashflowInitials} />
             </section>
@@ -382,13 +398,24 @@ export default async function ListingPage(props: ListingPageProps) {
             />
           </div>
 
-          <aside>
+          <aside className="space-y-6">
             <PropertySidebar property={property} city={getCity()} />
+            <ListingEngagementMeter
+              listingKey={listingKeyStr}
+              title={t("engagementTitle")}
+            />
+            <PropertyNotesPanel
+              listingKey={listingKeyStr}
+              title={t("myNotesTitle")}
+            />
           </aside>
         </div>
 
         {/* Similar Properties Section */}
-        <SimilarProperties property={property} />
+        <SimilarProperties
+          property={property}
+          sectionTitle={t("similarProperties")}
+        />
       </main>
 
       <Footer />

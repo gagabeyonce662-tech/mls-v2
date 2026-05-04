@@ -11,14 +11,16 @@ function fmtMoney(n: number | null | undefined): string {
 export default function ListingCatalogStatsSection({
   stats,
   currentListPrice,
+  title = "Listing activity in our catalog",
 }: {
   stats: ListingCatalogStatsPayload | null;
   currentListPrice: number | null;
+  title?: string;
 }) {
   if (!stats || stats.sample_size < 1) {
     return (
       <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
-        <h2 className={`${ds.h3} mb-2`}>Listing activity in our catalog</h2>
+        <h2 className={`${ds.h3} mb-2`}>{title}</h2>
         <p className="text-sm text-ds-body">
           Not enough comparable active listings in our database for this area to
           show aggregate stats.
@@ -29,7 +31,7 @@ export default function ListingCatalogStatsSection({
 
   return (
     <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
-      <h2 className={`${ds.h3} mb-2`}>Listing activity in our catalog</h2>
+      <h2 className={`${ds.h3} mb-2`}>{title}</h2>
       <p className="text-xs text-ds-body mb-4 leading-relaxed">{stats.disclaimer}</p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <div className="rounded-xl border border-ds-card-border bg-ds-card/40 p-3">

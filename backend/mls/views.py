@@ -66,17 +66,52 @@ NEAREST_SCHOOL_CACHE_TTL_SECONDS = int(
 )
 
 
-def _load_school_enrichment_map():
+def _load_school_enrichment_maps():
+    """
+    Returns (by_name_lower, by_osm_id_str).
+    JSON may be legacy flat {name: meta} or structured {"names": {...}, "osm_ids": {...}}.
+    """
     path = os.path.join(os.path.dirname(__file__), "data", "school_enrichment.json")
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
-            return {str(k).strip().lower(): v for k, v in data.items()}
+        if isinstance(data, dict) and ("names" in data or "osm_ids" in data):
+            by_name = {
+                str(k).strip().lower(): v
+                for k, v in (data.get("names") or {}).items()
+                if isinstance(v, dict)
+            }
+            by_osm = {
+                str(k).strip(): v
+                for k, v in (data.get("osm_ids") or {}).items()
+                if isinstance(v, dict)
+            }
+            return by_name, by_osm
+        if isinstance(data, dict):
+            legacy = {
+                str(k).strip().lower(): v
+                for k, v in data.items()
+                if isinstance(v, dict)
+            }
+            return legacy, {}
     except Exception:
-        return {}
+        pass
+    return {}, {}
 
 
-_SCHOOL_ENRICHMENT = _load_school_enrichment_map()
+_SCHOOL_ENRICHMENT_BY_NAME, _SCHOOL_ENRICHMENT_BY_OSM = _load_school_enrichment_maps()
+
+
+def _school_enrichment_for_row(osm_id, name):
+    blob = _SCHOOL_ENRICHMENT_BY_OSM.get(str(osm_id)) or _SCHOOL_ENRICHMENT_BY_NAME.get(
+        (name or "").strip().lower()
+    )
+    if not blob or not isinstance(blob, dict):
+        return None
+    out = dict(blob)
+    if "eqao_rating_band" not in out and out.get("eqao_band") is not None:
+        out["eqao_rating_band"] = out["eqao_band"]
+    return out
 
 
 def _median_sorted(nums):
@@ -1498,7 +1533,7 @@ class NearestSchoolAPIView(APIView):
                     "coordinates": [coords]
                 },
             }
-            enrich = _SCHOOL_ENRICHMENT.get(name.strip().lower())
+            enrich = _school_enrichment_for_row(element["id"], name)
             if enrich:
                 row["enrichment"] = enrich
             schools.append(row)

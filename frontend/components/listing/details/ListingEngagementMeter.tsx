@@ -14,8 +14,10 @@ type Engagement = {
 
 export default function ListingEngagementMeter({
   listingKey,
+  title = "Interest on this site",
 }: {
   listingKey: string;
+  title?: string;
 }) {
   const [data, setData] = useState<Engagement | null>(null);
   const [err, setErr] = useState(false);
@@ -41,7 +43,7 @@ export default function ListingEngagementMeter({
 
   return (
     <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
-      <h2 className={`${ds.h3} mb-2`}>Interest on this site</h2>
+      <h2 className={`${ds.h3} mb-2`}>{title}</h2>
       <p className="text-xs text-ds-body mb-4">
         Based on anonymous page views recorded here — not board-wide or national
         demand.

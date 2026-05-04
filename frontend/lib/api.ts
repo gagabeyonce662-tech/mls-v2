@@ -14,3 +14,4 @@ export * from "./api/admin";
 export * from "./api/testing";
 export * from "./api/wordpress";
 export * from "./api/auth";
+export * from "./api/watched";

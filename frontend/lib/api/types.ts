@@ -240,9 +240,11 @@ export interface School {
     type: string;
     coordinates: number[][][];
   };
-  /** Optional public-data enrichment (e.g. EQAO band) from backend lookup file. */
+  /** Optional public-data enrichment from backend static lookup (names / OSM ids). */
   enrichment?: {
     eqao_band?: string;
+    eqao_rating_band?: string;
+    fraser_rank?: string | null;
     notes?: string;
   };
 }

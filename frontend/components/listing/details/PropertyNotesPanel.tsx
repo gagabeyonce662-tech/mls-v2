@@ -8,8 +8,10 @@ import Link from "next/link";
 
 export default function PropertyNotesPanel({
   listingKey,
+  title = "My notes",
 }: {
   listingKey: string;
+  title?: string;
 }) {
   const { user, isLoading } = useUserAuth();
   const [body, setBody] = useState("");
@@ -18,7 +20,7 @@ export default function PropertyNotesPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const authHeader = useCallback(() => {
+  const authHeader = useCallback((): Record<string, string> => {
     const token =
       typeof window !== "undefined"
         ? window.localStorage.getItem("access_token")
@@ -76,7 +78,7 @@ export default function PropertyNotesPanel({
   if (!user) {
     return (
       <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
-        <h2 className={`${ds.h3} mb-2`}>My notes</h2>
+        <h2 className={`${ds.h3} mb-2`}>{title}</h2>
         <p className="text-sm text-ds-body mb-3">
           Sign in to save private notes for this listing.
         </p>
@@ -92,7 +94,7 @@ export default function PropertyNotesPanel({
 
   return (
     <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
-      <h2 className={`${ds.h3} mb-2`}>My notes</h2>
+      <h2 className={`${ds.h3} mb-2`}>{title}</h2>
       <p className="text-xs text-ds-body mb-3">
         Visible only to your account. Not shared with listing agents.
       </p>

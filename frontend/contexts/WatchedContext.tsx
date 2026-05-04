@@ -7,6 +7,15 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
+import { useUserAuth } from "@/contexts/UserAuthContext";
+import {
+  buildPropertySnapshotJson,
+  clearWatchedFavoritesServer,
+  clearWatchedHistoryServer,
+  fetchWatchedOverview,
+  hydrateWatchedProperty,
+  postWatchedFavoriteToggle,
+} from "@/lib/api/watched";
 
 interface WatchedContextType {
   favoritesList: any[];
@@ -29,9 +38,20 @@ export const useWatched = () => {
   return context;
 };
 
+function mergeServerFirst(
+  serverItems: any[],
+  localPrev: any[],
+  getKey: (p: any) => string,
+): any[] {
+  const serverKeys = new Set(serverItems.map((p) => getKey(p)));
+  const extras = localPrev.filter((p) => !serverKeys.has(getKey(p)));
+  return [...serverItems, ...extras];
+}
+
 export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const { user, isLoading: authLoading } = useUserAuth();
   const [favoritesList, setFavoritesList] = useState<any[]>([]);
   const [historyList, setHistoryList] = useState<any[]>([]);
 
@@ -69,6 +89,24 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  useEffect(() => {
+    if (authLoading || !user) return;
+    if (typeof window === "undefined") return;
+    if (!localStorage.getItem("access_token")) return;
+    let cancelled = false;
+    (async () => {
+      const data = await fetchWatchedOverview();
+      if (cancelled || !data) return;
+      const fromFavs = (data.favorites || []).map(hydrateWatchedProperty);
+      const fromHist = (data.history || []).map(hydrateWatchedProperty);
+      setFavoritesList((prev) => mergeServerFirst(fromFavs, prev, getPropertyKey));
+      setHistoryList((prev) => mergeServerFirst(fromHist, prev, getPropertyKey));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading, getPropertyKey]);
+
   // Save to localStorage when changed
   useEffect(() => {
     localStorage.setItem("favorite_properties", JSON.stringify(favoritesList));
@@ -88,13 +126,23 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
   const toggleFavorite = useCallback(
     (property: any) => {
       const key = getPropertyKey(property);
+      let wasFavorite = false;
       setFavoritesList((prev) => {
-        const exists = prev.some((p) => getPropertyKey(p) === key);
-        if (exists) {
+        wasFavorite = prev.some((p) => getPropertyKey(p) === key);
+        if (wasFavorite) {
           return prev.filter((p) => getPropertyKey(p) !== key);
         }
         return [property, ...prev];
       });
+      if (
+        typeof window !== "undefined" &&
+        localStorage.getItem("access_token")
+      ) {
+        void postWatchedFavoriteToggle(
+          key,
+          wasFavorite ? {} : buildPropertySnapshotJson(property),
+        );
+      }
     },
     [getPropertyKey],
   );
@@ -111,8 +159,25 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
     [getPropertyKey],
   );
 
-  const clearFavorites = useCallback(() => setFavoritesList([]), []);
-  const clearHistory = useCallback(() => setHistoryList([]), []);
+  const clearFavorites = useCallback(() => {
+    setFavoritesList([]);
+    if (
+      typeof window !== "undefined" &&
+      localStorage.getItem("access_token")
+    ) {
+      void clearWatchedFavoritesServer();
+    }
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    setHistoryList([]);
+    if (
+      typeof window !== "undefined" &&
+      localStorage.getItem("access_token")
+    ) {
+      void clearWatchedHistoryServer();
+    }
+  }, []);
 
   return (
     <WatchedContext.Provider

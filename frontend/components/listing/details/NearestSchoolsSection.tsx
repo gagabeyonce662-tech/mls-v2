@@ -82,7 +82,8 @@ export default function NearestSchoolsSection({
         </span>
         <span className="inline-flex items-center gap-1">
           <Info className="h-3.5 w-3.5" />
-          Source: OpenStreetMap / Overpass
+          Source: OpenStreetMap / Overpass; optional ratings from bundled public-data
+          lookup (not live paid APIs).
         </span>
       </div>
 
@@ -100,38 +101,77 @@ export default function NearestSchoolsSection({
         </div>
       ) : (
         <>
+          <div className="hidden sm:grid sm:grid-cols-[1fr_minmax(0,9rem)_4.5rem] gap-2 px-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-ds-body">
+            <span>School</span>
+            <span className="text-center">Public data</span>
+            <span className="text-right">Dist.</span>
+          </div>
           <div className="space-y-3">
-            {visibleSchools.map((school) => (
-              <article
-                key={`${school.osm_id}-${school.name}`}
-                className="rounded-xl border border-ds-card-border bg-ds-card/30 p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-ds-heading">
-                      {school.name || "Unnamed School"}
-                    </h3>
-                    {school.address ? (
-                      <p className="text-xs text-ds-body mt-1">{school.address}</p>
-                    ) : null}
-                    {school.operator ? (
-                      <p className="text-xs text-ds-body mt-1">
-                        Operator: {school.operator}
-                      </p>
-                    ) : null}
-                    {school.enrichment?.eqao_band ? (
-                      <p className="text-xs text-ds-body mt-1">
-                        Public data tag: {school.enrichment.eqao_band}
-                        {school.enrichment.notes ? ` — ${school.enrichment.notes}` : ""}
-                      </p>
-                    ) : null}
+            {visibleSchools.map((school) => {
+              const en = school.enrichment;
+              const eqao =
+                en?.eqao_rating_band ?? en?.eqao_band ?? null;
+              const fraser =
+                en?.fraser_rank != null && String(en.fraser_rank).trim() !== ""
+                  ? String(en.fraser_rank)
+                  : null;
+              const tooltip = [eqao && `EQAO-style band: ${eqao}`, fraser && `Rank: ${fraser}`, en?.notes]
+                .filter(Boolean)
+                .join("\n");
+              return (
+                <article
+                  key={`${school.osm_id}-${school.name}`}
+                  className="rounded-xl border border-ds-card-border bg-ds-card/30 p-4"
+                >
+                  <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_minmax(0,9rem)_4.5rem] sm:items-start sm:gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-start gap-1.5">
+                        <h3 className="text-sm font-semibold text-ds-heading">
+                          {school.name || "Unnamed School"}
+                        </h3>
+                        {en && (eqao || en.notes || fraser) ? (
+                          <span
+                            className="shrink-0 text-ds-body"
+                            title={tooltip || undefined}
+                          >
+                            <Info className="h-4 w-4 text-ds-primary" aria-hidden />
+                            <span className="sr-only">Enrichment details</span>
+                          </span>
+                        ) : null}
+                      </div>
+                      {school.address ? (
+                        <p className="text-xs text-ds-body mt-1">{school.address}</p>
+                      ) : null}
+                      {school.operator ? (
+                        <p className="text-xs text-ds-body mt-1">
+                          Operator: {school.operator}
+                        </p>
+                      ) : null}
+                      <div className="sm:hidden mt-2 text-xs text-ds-body space-y-0.5">
+                        {eqao ? <p>EQAO-style band: {eqao}</p> : null}
+                        {fraser ? <p>Fraser-style rank: {fraser}</p> : null}
+                        {en?.notes ? <p>{en.notes}</p> : null}
+                      </div>
+                    </div>
+                    <div className="hidden sm:block text-center text-xs text-ds-heading leading-snug px-1">
+                      {eqao || fraser ? (
+                        <>
+                          {eqao ? <p className="font-medium">{eqao}</p> : null}
+                          {fraser ? (
+                            <p className="text-ds-body text-[11px] mt-0.5">{fraser}</p>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="text-ds-body">—</span>
+                      )}
+                    </div>
+                    <div className="text-xs font-semibold text-ds-primary sm:text-right shrink-0 sm:pt-0.5">
+                      {formatDistanceMeters(school.distance_meters)}
+                    </div>
                   </div>
-                  <div className="text-xs font-semibold text-ds-primary shrink-0">
-                    {formatDistanceMeters(school.distance_meters)}
-                  </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
 
           {sortedSchools.length > MAX_VISIBLE_BY_DEFAULT && (

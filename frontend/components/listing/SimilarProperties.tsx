@@ -6,10 +6,13 @@ import type { Property } from "@/lib/api";
 
 interface SimilarPropertiesProps {
   property: Property;
+  /** i18n section heading (next-intl Listing.similarProperties) */
+  sectionTitle?: string;
 }
 
 export default async function SimilarProperties({
   property,
+  sectionTitle,
 }: SimilarPropertiesProps) {
   const similarProperties = await fetchSimilarProperties(property, 3);
 
@@ -19,7 +22,9 @@ export default async function SimilarProperties({
 
   return (
     <section className="mt-20 border-t border-ds-card-border pt-16">
-      <h2 className={`${ds.h2} mb-8`}>Similar Properties</h2>
+      <h2 className={`${ds.h2} mb-8`}>
+        {sectionTitle ?? "Similar Properties"}
+      </h2>
       <SimilarPropertiesClient properties={similarProperties} />
     </section>
   );

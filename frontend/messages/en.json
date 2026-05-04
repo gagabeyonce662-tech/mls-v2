@@ -1,0 +1,21 @@
+{
+  "Listing": {
+    "quickFacts": "Quick Facts",
+    "lotSize": "Lot Size",
+    "parking": "Parking",
+    "annualTaxes": "Annual Taxes",
+    "noImages": "No Images Available",
+    "aboutTitle": "About this home",
+    "mortgageCalculatorTitle": "Mortgage Calculator",
+    "cashFlowEstimatorTitle": "Cash flow estimator",
+    "cashFlowDisclaimer": "Model monthly carrying costs vs gross rent using this listing's price and tax line where available. Figures are not verified against lender rules.",
+    "catalogStatsTitle": "Listing activity in our catalog",
+    "demographicsTitle": "Neighbourhood demographics",
+    "engagementTitle": "Interest on this site",
+    "myNotesTitle": "My notes",
+    "similarProperties": "Similar Properties",
+    "localeSwitcherLabel": "Language",
+    "localeEn": "English",
+    "localeZh": "简体中文"
+  }
+}

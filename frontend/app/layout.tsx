@@ -1,5 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { ProvinceProvider } from "@/contexts/ProvinceContext";
 import { UserAuthProvider } from "@/contexts/UserAuthContext";
 import { CompareProvider } from "@/contexts/CompareContext";
@@ -78,29 +80,35 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import FeedbackWidget from "@/components/FeedbackWidget";
 import { Toaster } from "@/components/ui/toaster";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const messages = await getMessages();
+  const locale = await getLocale();
+  const htmlLang = locale === "zh-Hans" ? "zh-Hans" : "en";
+
   return (
-    <html lang="en">
+    <html lang={htmlLang}>
       <body>
-        <UserAuthProvider>
-          <ProvinceProvider>
-            <CompareProvider>
-              <WatchedProvider>
-                <SearchProvider>
-                  <TooltipProvider delayDuration={0}>
-                    {children}
-                    <FeedbackWidget />
-                    <Toaster />
-                  </TooltipProvider>
-                </SearchProvider>
-              </WatchedProvider>
-            </CompareProvider>
-          </ProvinceProvider>
-        </UserAuthProvider>
+        <NextIntlClientProvider messages={messages}>
+          <UserAuthProvider>
+            <ProvinceProvider>
+              <CompareProvider>
+                <WatchedProvider>
+                  <SearchProvider>
+                    <TooltipProvider delayDuration={0}>
+                      {children}
+                      <FeedbackWidget />
+                      <Toaster />
+                    </TooltipProvider>
+                  </SearchProvider>
+                </WatchedProvider>
+              </CompareProvider>
+            </ProvinceProvider>
+          </UserAuthProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

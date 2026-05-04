@@ -1,10 +1,14 @@
 {
-  "university of toronto schools": {
-    "eqao_band": "n/a",
-    "notes": "Example enrichment row; extend this file or replace with board-keyed data."
+  "names": {
+    "university of toronto schools": {
+      "eqao_rating_band": "n/a",
+      "notes": "Example enrichment row; extend names or osm_ids or replace with board-keyed data."
+    },
+    "earl of march secondary school": {
+      "eqao_rating_band": "example",
+      "fraser_rank": null,
+      "notes": "Public EQAO aggregates can be joined by official school name (manual QA recommended)."
+    }
   },
-  "earl of march secondary school": {
-    "eqao_band": "example",
-    "notes": "Public EQAO aggregates can be joined by official school name (manual QA recommended)."
-  }
+  "osm_ids": {}
 }

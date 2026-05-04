@@ -48,9 +48,12 @@ function coerceProfile(profile: Profile): {
 export default function ListingDemographicsSection({
   fsa,
   profile,
+  headingPrefix = "Neighbourhood demographics",
 }: {
   fsa: string | null;
   profile: Profile;
+  /** Shown before the FSA code, e.g. i18n "Neighbourhood demographics" */
+  headingPrefix?: string;
 }) {
   const coerced = coerceProfile(profile);
   if (!fsa || !coerced || coerced.incomeDistribution.length === 0) {
@@ -59,7 +62,9 @@ export default function ListingDemographicsSection({
 
   return (
     <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
-      <h2 className={`${ds.h3} mb-2`}>Neighbourhood demographics (FSA {fsa})</h2>
+      <h2 className={`${ds.h3} mb-2`}>
+        {headingPrefix} (FSA {fsa})
+      </h2>
       {coerced.disclaimer ? (
         <p className="text-xs text-ds-body mb-4">{coerced.disclaimer}</p>
       ) : (
