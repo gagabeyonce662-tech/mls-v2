@@ -10,8 +10,40 @@ import {
   shouldUseAggregateMode,
 } from "@/hooks/useMapAggregates";
 
+type MapSearchStatus = "active" | "sold" | "de-listed";
+
+export type MapSearchFilters = {
+  transaction_type: "sale" | "rent";
+  price_min: string;
+  price_max: string;
+  bedrooms: string;
+  bathrooms: string;
+  city: string;
+  province: string;
+  postal_code: string;
+  property_type: string;
+  has_lease: boolean;
+  has_photos: boolean;
+  search: string;
+  keywords: string;
+  modified_since: string;
+  garage: string;
+  statuses: MapSearchStatus[];
+  active_listed_within: string;
+  building_area_min: string;
+  building_area_max: string;
+  lot_size_min: string;
+  lot_size_max: string;
+  parking_min: string;
+  watched_area_key: string;
+  watched_area_city: string;
+  watched_area_community_slug: string;
+  watched_area_label: string;
+};
+
 export const useMapSearch = (API_BASE_URL: string) => {
-  const [filters, setFilters] = useState<any>({
+  const [filters, setFilters] = useState<MapSearchFilters>({
+    transaction_type: "sale",
     price_min: "",
     price_max: "",
     bedrooms: "",
@@ -20,14 +52,23 @@ export const useMapSearch = (API_BASE_URL: string) => {
     province: "",
     postal_code: "",
     property_type: "",
-    status: "",
     has_lease: false,
     has_photos: false,
     search: "",
     keywords: "",
-    sold_days: "",
     modified_since: "",
     garage: "",
+    statuses: [],
+    active_listed_within: "",
+    building_area_min: "",
+    building_area_max: "",
+    lot_size_min: "",
+    lot_size_max: "",
+    parking_min: "",
+    watched_area_key: "",
+    watched_area_city: "",
+    watched_area_community_slug: "",
+    watched_area_label: "",
   });
 
   const [apiMarkers, setApiMarkers] = useState<PropertyMarker[]>([]);
@@ -52,12 +93,50 @@ export const useMapSearch = (API_BASE_URL: string) => {
 
   const buildMapFilterParams = () => {
     const params: Record<string, string | boolean> = {};
+    const trimmedStatuses = filters.statuses;
+    const activeDays = Number.parseInt(filters.active_listed_within, 10);
+
     Object.entries(filters).forEach(([key, value]) => {
-      if (value === undefined || value === null || value === "") return;
+      if (value === undefined || value === null) return;
+      if (typeof value === "string" && value.trim() === "") return;
       if (typeof value === "boolean" && !value) return;
-      if (key === "garage" || key === "sold_days" || key === "modified_since") return;
+      if (
+        key === "garage" ||
+        key === "statuses" ||
+        key === "active_listed_within" ||
+        key === "transaction_type" ||
+        key === "watched_area_key" ||
+        key === "watched_area_label"
+      ) {
+        return;
+      }
       params[key] = typeof value === "string" ? value.trim() : (value as boolean);
     });
+
+    if (filters.transaction_type === "rent") {
+      params.has_lease = true;
+    }
+
+    if (trimmedStatuses.length > 0) {
+      params.status_group = trimmedStatuses.join(",");
+    }
+
+    if (
+      trimmedStatuses.includes("active") &&
+      Number.isFinite(activeDays) &&
+      activeDays > 0
+    ) {
+      params.modified_within_days = String(activeDays);
+    }
+
+    // Best-effort watched area mapping. Metadata may carry either city and/or community slug.
+    if (filters.watched_area_city) {
+      params.city = filters.watched_area_city;
+    }
+    if (filters.watched_area_community_slug) {
+      params.community_slug = filters.watched_area_community_slug;
+    }
+
     return params;
   };
 
@@ -120,7 +199,7 @@ export const useMapSearch = (API_BASE_URL: string) => {
     resetMapFetchDedupe();
 
     try {
-      const data = await fetchFilteredProperties(filters);
+      const data = await fetchFilteredProperties(buildMapFilterParams());
 
       const markers = (data.results ?? [])
         .map((p: Property, idx: number) => {

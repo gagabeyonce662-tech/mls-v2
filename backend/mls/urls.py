@@ -2,19 +2,34 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path,include
 from .views import *
+from .views_valuation import (
+    ValuationAutocompleteAPIView,
+    ValuationLookupAPIView,
+    ValuationEstimateAPIView,
+)
 
 urlpatterns = [
+    path('valuation/autocomplete/', ValuationAutocompleteAPIView.as_view(), name='valuation-autocomplete'),
+    path('valuation/lookup/', ValuationLookupAPIView.as_view(), name='valuation-lookup'),
+    path('valuation/estimate/', ValuationEstimateAPIView.as_view(), name='valuation-estimate'),
     path('inquiries/', PropertyInquiryAPIView.as_view(), name='property-inquiries'),
     path('feedback/', FeedbackAPIView.as_view(), name='feedback'),
     path('watched/', WatchedOverviewAPIView.as_view(), name='watched-overview'),
     path('watched/favorites/toggle/', WatchedFavoriteToggleAPIView.as_view(), name='watched-favorite-toggle'),
     path('watched/history/add/', WatchedHistoryAddAPIView.as_view(), name='watched-history-add'),
+    path('watched/toured/toggle/', WatchedTouredToggleAPIView.as_view(), name='watched-toured-toggle'),
+    path('watched/areas/follow/', WatchedAreaFollowAPIView.as_view(), name='watched-area-follow'),
+    path('watched/areas/unfollow/', WatchedAreaUnfollowAPIView.as_view(), name='watched-area-unfollow'),
+    path('watched/alerts/preferences/', WatchedAlertPreferencesAPIView.as_view(), name='watched-alert-preferences'),
     path('watched/favorites/clear/', WatchedClearFavoritesAPIView.as_view(), name='watched-favorites-clear'),
     path('watched/history/clear/', WatchedClearHistoryAPIView.as_view(), name='watched-history-clear'),
+    path('watched/toured/clear/', WatchedClearTouredAPIView.as_view(), name='watched-toured-clear'),
+    path('watched/areas/clear/', WatchedAreaClearAPIView.as_view(), name='watched-areas-clear'),
     path('properties/map-aggregates/', MapAggregatesAPIView.as_view(), name='map-aggregates'),
     path('properties/property-types/', PropertyTypesAPIView.as_view(), name='property-types'),
     path('properties/exclusive-properties/', ExclusivePropertiesAPIView.as_view(), name='exclusive_properties'),
     path('properties/newly-listed-properties/', NewlyListedPropertiesAPIView.as_view(), name='exclusive_properties'),
+    path('properties/community-properties/', CommunityPropertiesAPIView.as_view(), name='community-properties'),
     path('properties/pre-conn-properties/', PreConnPropertiesAPIView.as_view(), name='pre-conn-properties'),
     path('properties/upload-pre-conn/', UploadPreConnListingsAPIView.as_view(), name='upload-pre-conn'),
     path('properties/', FetchProperties.as_view(), name='fetch_properties'),
@@ -26,6 +41,7 @@ urlpatterns = [
     path('properties/comapare/', PropertyCompareDetailView.as_view(), name='property_detail_compare'),
     path('nearest-school/', NearestSchoolAPIView.as_view(), name='nearest-school'),
     path('catalog-stats/', ListingCatalogStatsAPIView.as_view(), name='catalog-stats'),
+    path('trends/', ListingTrendsAPIView.as_view(), name='listing-trends'),
     path('listing-views/', ListingViewBeaconAPIView.as_view(), name='listing-view-beacon'),
     path('listing-engagement/', ListingEngagementAPIView.as_view(), name='listing-engagement'),
     path('census/fsa/<str:fsa>/', CensusFSAAPIView.as_view(), name='census-fsa'),

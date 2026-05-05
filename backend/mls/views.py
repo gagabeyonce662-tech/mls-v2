@@ -8,7 +8,7 @@ import re
 from difflib import get_close_matches
 from io import BytesIO
 import pandas as pd
-from datetime import timedelta
+from datetime import timedelta, datetime
 import h3
 
 from rest_framework.views import APIView
@@ -28,8 +28,12 @@ from .helpers import get_access_token, fetch_properties_by_property_data
 from mls.models import (
     MapAggregateCell,
     Property,
+    CommunityListing,
     UserFavorite,
     UserHistory,
+    UserToured,
+    UserFollowedArea,
+    UserAlertPreference,
     ListingViewEvent,
     PropertyNote,
     PropertySnapshot,
@@ -43,6 +47,10 @@ from .serializers import (
     WatchedMutationSerializer,
     UserFavoriteSerializer,
     UserHistorySerializer,
+    UserTouredSerializer,
+    FollowedAreaMutationSerializer,
+    UserFollowedAreaSerializer,
+    UserAlertPreferenceSerializer,
 )
 from mls.services.map_aggregates import get_resolution_for_zoom
 from mls.services.inquiry_ghl import sync_inquiry_to_ghl
@@ -139,6 +147,10 @@ MAP_FILTER_KEYS = {
     "search",
     "has_lease",
     "has_photos",
+    "status_group",
+    "modified_within_days",
+    "parking_min",
+    "community_slug",
 }
 SEARCH_TEXT_FIELDS = [
     "unparsed_address",
@@ -175,6 +187,35 @@ def _split_csv(value: str) -> list[str]:
     if not value:
         return []
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _build_status_group_q(raw_value: str | None):
+    groups = {item.strip().lower() for item in _split_csv(raw_value or "")}
+    if not groups:
+        return None
+
+    group_to_statuses = {
+        "active": {"active", "a"},
+        "sold": {"sold", "closed", "leased"},
+        "de-listed": {
+            "delisted",
+            "de-listed",
+            "expired",
+            "terminated",
+            "suspended",
+            "cancelled",
+            "canceled",
+            "withdrawn",
+        },
+    }
+    q = Q()
+    for group in groups:
+        statuses = group_to_statuses.get(group)
+        if not statuses:
+            continue
+        for status_value in statuses:
+            q |= Q(standard_status__iexact=status_value)
+    return q
 
 
 def _build_search_q(search_term: str) -> Q:
@@ -307,6 +348,18 @@ def _apply_common_filters(
         qs = qs.filter(modification_timestamp__gte=cutoff)
     if params.get("standard_status"):
         qs = qs.filter(standard_status=params.get("standard_status"))
+    status_group_q = _build_status_group_q(params.get("status_group"))
+    if status_group_q is not None:
+        qs = qs.filter(status_group_q)
+    if params.get("modified_within_days"):
+        days = int(params.get("modified_within_days"))
+        qs = qs.filter(modification_timestamp__gte=timezone.now() - timedelta(days=days))
+    if params.get("parking_min"):
+        qs = qs.filter(parking_total__gte=int(params.get("parking_min")))
+    if params.get("community_slug"):
+        qs = qs.filter(
+            community_listings__community_slug__in=_split_csv(params.get("community_slug", ""))
+        )
     return qs
 
 
@@ -459,6 +512,9 @@ def _apply_map_filters_to_queryset(qs, params):
             qs = qs.filter(property_sub_type__in=types)
     if params.get("status"):
         qs = qs.filter(standard_status=params.get("status").strip())
+    status_group_q = _build_status_group_q(params.get("status_group"))
+    if status_group_q is not None:
+        qs = qs.filter(status_group_q)
     if params.get("has_lease") in ("true", "1", "True"):
         qs = qs.filter(lease_amount__gt=0)
     if params.get("has_photos") in ("true", "1", "True"):
@@ -503,6 +559,15 @@ def _apply_map_filters_to_queryset(qs, params):
                 search_q |= Q(postal_code__iexact=search_term.replace(" ", ""))
             search_q |= Q(public_remarks__icontains=search_term)
             qs = qs.filter(search_q)
+    if params.get("modified_within_days"):
+        days = int(params.get("modified_within_days"))
+        qs = qs.filter(modification_timestamp__gte=timezone.now() - timedelta(days=days))
+    if params.get("parking_min"):
+        qs = qs.filter(parking_total__gte=int(params.get("parking_min")))
+    if params.get("community_slug"):
+        slugs = _split_csv(params.get("community_slug", ""))
+        if slugs:
+            qs = qs.filter(community_listings__community_slug__in=slugs)
     return qs
 
 class FetchProperties(APIView):
@@ -588,10 +653,16 @@ class WatchedOverviewAPIView(APIView):
     def get(self, request):
         favorites = UserFavorite.objects.filter(user=request.user).order_by("-created_at")
         history = UserHistory.objects.filter(user=request.user).order_by("-viewed_at")
+        toured = UserToured.objects.filter(user=request.user).order_by("-toured_at")
+        followed_areas = UserFollowedArea.objects.filter(user=request.user).order_by("-created_at")
+        prefs, _ = UserAlertPreference.objects.get_or_create(user=request.user)
         return Response(
             {
                 "favorites": UserFavoriteSerializer(favorites, many=True).data,
                 "history": UserHistorySerializer(history, many=True).data,
+                "toured": UserTouredSerializer(toured, many=True).data,
+                "followed_areas": UserFollowedAreaSerializer(followed_areas, many=True).data,
+                "alert_preferences": UserAlertPreferenceSerializer(prefs).data,
             },
             status=status.HTTP_200_OK,
         )
@@ -663,6 +734,92 @@ class WatchedClearHistoryAPIView(APIView):
     def delete(self, request):
         deleted, _ = UserHistory.objects.filter(user=request.user).delete()
         return Response({"deleted": deleted}, status=status.HTTP_200_OK)
+
+
+class WatchedTouredToggleAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = WatchedMutationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        property_key = serializer.validated_data["property_key"]
+        snapshot = serializer.validated_data.get("property_snapshot_json", {}) or {}
+
+        toured, created = UserToured.objects.get_or_create(
+            user=request.user,
+            property_key=property_key,
+            defaults={"property_snapshot_json": snapshot},
+        )
+        if created:
+            return Response({"is_toured": True}, status=status.HTTP_200_OK)
+
+        toured.delete()
+        return Response({"is_toured": False}, status=status.HTTP_200_OK)
+
+
+class WatchedClearTouredAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        deleted, _ = UserToured.objects.filter(user=request.user).delete()
+        return Response({"deleted": deleted}, status=status.HTTP_200_OK)
+
+
+class WatchedAreaFollowAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = FollowedAreaMutationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        area_key = serializer.validated_data["area_key"]
+        area_label = serializer.validated_data.get("area_label") or area_key.replace("-", " ").title()
+        area_kind = serializer.validated_data.get("area_kind", "community")
+        metadata_json = serializer.validated_data.get("metadata_json", {}) or {}
+
+        UserFollowedArea.objects.update_or_create(
+            user=request.user,
+            area_key=area_key,
+            defaults={
+                "area_label": area_label,
+                "area_kind": area_kind,
+                "metadata_json": metadata_json,
+            },
+        )
+        return Response({"followed": True}, status=status.HTTP_200_OK)
+
+
+class WatchedAreaUnfollowAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = FollowedAreaMutationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        area_key = serializer.validated_data["area_key"]
+        deleted, _ = UserFollowedArea.objects.filter(user=request.user, area_key=area_key).delete()
+        return Response({"deleted": deleted}, status=status.HTTP_200_OK)
+
+
+class WatchedAreaClearAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        deleted, _ = UserFollowedArea.objects.filter(user=request.user).delete()
+        return Response({"deleted": deleted}, status=status.HTTP_200_OK)
+
+
+class WatchedAlertPreferencesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        prefs, _ = UserAlertPreference.objects.get_or_create(user=request.user)
+        return Response(UserAlertPreferenceSerializer(prefs).data, status=status.HTTP_200_OK)
+
+    def put(self, request):
+        prefs, _ = UserAlertPreference.objects.get_or_create(user=request.user)
+        serializer = UserAlertPreferenceSerializer(prefs, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class DDFAPIClient:
@@ -745,7 +902,7 @@ class PropertyTypesAPIView(APIView):
     Returns available property_sub_type values with counts.
     Optional query params:
       - province (comma-separated province codes, e.g. ON,QC)
-      - listing_type: all | exclusive | lease | precon
+      - listing_type: all | exclusive | lease | precon | community
     """
 
     def get(self, request):
@@ -772,6 +929,8 @@ class PropertyTypesAPIView(APIView):
             qs = qs.filter(lease_amount__gt=0).exclude(lease_amount__isnull=True)
         elif listing_type == "precon":
             qs = qs.filter(category_type=Property.PRE_CONN)
+        elif listing_type == "community":
+            qs = qs.filter(community_listings__is_published=True).distinct()
         elif listing_type == "exclusive":
             qs = qs.annotate(intro=Lower(Substr("public_remarks", 1, 400))).filter(
                 Q(intro__contains="exclusive") | Q(category_type=Property.EXCLUSIVE)
@@ -856,7 +1015,7 @@ class MapAggregatesAPIView(APIView):
             filtered_qs = Property.objects.filter(
                 latitude__isnull=False,
                 longitude__isnull=False,
-            ).exclude(standard_status__iexact="Sold")
+            )
             filtered_qs = _apply_map_filters_to_queryset(filtered_qs, request.query_params)
             filtered_qs = filtered_qs.annotate(
                 lat_float=Cast("latitude", FloatField()),
@@ -1255,6 +1414,82 @@ class PreConnPropertiesAPIView(APIView):
         cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
         return Response(payload)
     
+
+class CommunityPropertiesAPIView(APIView):
+    """
+    GET /api/community-properties/
+    Returns published community-linked properties with community metadata.
+    """
+
+    def get(self, request):
+        cache_key = _build_query_params_cache_key(
+            "community-properties", request.query_params
+        )
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload)
+
+        limit = min(int(request.query_params.get("limit", 12)), 100)
+        offset = int(request.query_params.get("offset", 0))
+
+        community_qs = CommunityListing.objects.filter(is_published=True).select_related(
+            "property"
+        )
+        if request.query_params.get("community_slug"):
+            slugs = _split_csv(request.query_params.get("community_slug", ""))
+            if slugs:
+                community_qs = community_qs.filter(community_slug__in=slugs)
+        if request.query_params.get("community_name"):
+            community_qs = community_qs.filter(
+                community_name__icontains=request.query_params.get("community_name", "")
+            )
+
+        property_ids = list(community_qs.values_list("property_id", flat=True))
+        base_qs = Property.objects.filter(id__in=property_ids)
+        base_qs, fallback_meta = _apply_fallback_pipeline(
+            base_qs,
+            request.query_params,
+            ("-modification_timestamp", "-list_price"),
+        )
+
+        community_by_property_id = {}
+        for row in community_qs.values(
+            "property_id", "community_name", "community_slug", "badge", "rank"
+        ):
+            community_by_property_id[row["property_id"]] = row
+
+        paginator = Paginator(base_qs, limit)
+        page = paginator.get_page((offset // limit) + 1)
+        serializer = PropertySerializer(page.object_list, many=True, context={"request": request})
+        property_ids_by_key = {
+            item.listing_key: item.id for item in page.object_list
+        }
+
+        merged_results = []
+        for prop in serializer.data:
+            listing_key = prop.get("listing_key")
+            prop_id = property_ids_by_key.get(listing_key)
+            community_info = community_by_property_id.get(prop_id, {})
+            merged_results.append(
+                {
+                    **prop,
+                    "community_name": community_info.get("community_name"),
+                    "community_slug": community_info.get("community_slug"),
+                    "community_badge": community_info.get("badge", ""),
+                    "community_rank": community_info.get("rank", 0),
+                }
+            )
+
+        payload = {
+            "count": paginator.count,
+            "next": offset + limit if page.has_next() else None,
+            "previous": offset - limit if offset >= limit else None,
+            "results": merged_results,
+            **fallback_meta,
+        }
+        cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
+        return Response(payload)
+
 
 class LeasePropertiesAPIView(APIView):
     """
@@ -1677,6 +1912,329 @@ class ListingCatalogStatsAPIView(APIView):
             "max_list_price": max(prices) if prices else None,
             "median_price_per_sqft": _median_sorted(ppsf),
             "disclaimer": "Based on active listings in this site catalog only; not sold comparables or board-reported market stats.",
+        }
+        cache.set(cache_key, payload, 300)
+        return Response(payload)
+
+
+class ListingTrendsAPIView(APIView):
+    """Time-series trends from active/listing catalog data (not sold feed)."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        city = (request.query_params.get("city") or "").strip()
+        fsa = (request.query_params.get("fsa") or "").strip().upper()[:3]
+        months = request.query_params.get("window", "12m").strip().lower()
+        try:
+            window_months = int(months.replace("m", ""))
+        except ValueError:
+            window_months = 12
+        window_months = max(3, min(window_months, 36))
+
+        has_city = bool(city)
+        has_fsa = len(fsa) == 3
+        if not has_city and not has_fsa:
+            return Response(
+                {"error": "Provide city or fsa (3-letter FSA)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cache_key = f"listing-trends:{city.lower()}:{fsa}:{window_months}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        qs = Property.objects.filter(
+            standard_status__iexact="Active",
+            list_price__isnull=False,
+        ).exclude(list_price__lte=0)
+        if city:
+            qs = qs.filter(city__iexact=city)
+        if len(fsa) == 3:
+            pc_norm = Upper(
+                Replace(
+                    Replace(F("postal_code"), Value(" "), Value("")),
+                    Value("-"),
+                    Value(""),
+                )
+            )
+            qs = qs.annotate(pc_norm=pc_norm).filter(pc_norm__startswith=fsa)
+
+        def percentile(nums, p):
+            if not nums:
+                return None
+            s = sorted(nums)
+            if len(s) == 1:
+                return float(s[0])
+            k = (len(s) - 1) * p
+            f = int(k)
+            c = min(f + 1, len(s) - 1)
+            if f == c:
+                return float(s[f])
+            d0 = s[f] * (c - k)
+            d1 = s[c] * (k - f)
+            return float(d0 + d1)
+
+        now = timezone.now()
+        # Approx month start N months back.
+        start_month = (now.year * 12 + now.month - window_months)
+        start_year = start_month // 12
+        start_month_num = start_month % 12
+        if start_month_num == 0:
+            start_year -= 1
+            start_month_num = 12
+        start_date = datetime(start_year, start_month_num, 1, tzinfo=now.tzinfo)
+
+        monthly = {}
+        subtype_count = {}
+        bed_bucket_count = {"0-1": 0, "2": 0, "3": 0, "4+": 0}
+        bath_bucket_count = {"0-1": 0, "2": 0, "3": 0, "4+": 0}
+        lease_vs_sale = {"lease": 0, "sale": 0}
+        all_prices = []
+        all_ppsf = []
+        total_rows = 0
+        rows_with_living_area = 0
+        rows_with_list_price = 0
+        rows_recently_updated_30d = 0
+        new_30d = 0
+        mods_30d = 0
+        for row in qs.values(
+            "listing_key",
+            "list_price",
+            "living_area",
+            "property_sub_type",
+            "bedrooms_total",
+            "bathrooms_total_integer",
+            "lease_amount",
+            "total_actual_rent",
+            "original_entry_timestamp",
+            "modification_timestamp",
+        ):
+            total_rows += 1
+            lp = row.get("list_price")
+            if lp is None:
+                continue
+            rows_with_list_price += 1
+            try:
+                price = float(lp)
+            except (TypeError, ValueError):
+                continue
+            if price <= 0:
+                continue
+            all_prices.append(price)
+            ts = row.get("original_entry_timestamp") or row.get("modification_timestamp")
+            if not ts or ts < start_date:
+                continue
+            if row.get("original_entry_timestamp") and row.get("original_entry_timestamp") >= now - timedelta(days=30):
+                new_30d += 1
+            if row.get("modification_timestamp") and row.get("modification_timestamp") >= now - timedelta(days=30):
+                mods_30d += 1
+                rows_recently_updated_30d += 1
+            month_key = f"{ts.year:04d}-{ts.month:02d}"
+            bucket = monthly.setdefault(
+                month_key,
+                {"prices": [], "ppsf": [], "new_listings": 0},
+            )
+            bucket["prices"].append(price)
+            bucket["new_listings"] += 1
+            la = row.get("living_area")
+            if la:
+                try:
+                    area = float(la)
+                    if area > 0:
+                        bucket["ppsf"].append(price / area)
+                        all_ppsf.append(price / area)
+                        rows_with_living_area += 1
+                except (TypeError, ValueError):
+                    pass
+            subtype = (row.get("property_sub_type") or "Other").strip() or "Other"
+            subtype_count[subtype] = subtype_count.get(subtype, 0) + 1
+            beds = row.get("bedrooms_total")
+            baths = row.get("bathrooms_total_integer")
+            try:
+                b = int(float(beds)) if beds is not None else 0
+            except (TypeError, ValueError):
+                b = 0
+            try:
+                bt = int(float(baths)) if baths is not None else 0
+            except (TypeError, ValueError):
+                bt = 0
+            if b <= 1:
+                bed_bucket_count["0-1"] += 1
+            elif b == 2:
+                bed_bucket_count["2"] += 1
+            elif b == 3:
+                bed_bucket_count["3"] += 1
+            else:
+                bed_bucket_count["4+"] += 1
+            if bt <= 1:
+                bath_bucket_count["0-1"] += 1
+            elif bt == 2:
+                bath_bucket_count["2"] += 1
+            elif bt == 3:
+                bath_bucket_count["3"] += 1
+            else:
+                bath_bucket_count["4+"] += 1
+            if row.get("lease_amount") is not None or row.get("total_actual_rent") is not None:
+                lease_vs_sale["lease"] += 1
+            else:
+                lease_vs_sale["sale"] += 1
+
+        month_points = []
+        ym = start_month
+        for _ in range(window_months):
+            y = ym // 12
+            m = ym % 12
+            if m == 0:
+                y -= 1
+                m = 12
+            key = f"{y:04d}-{m:02d}"
+            b = monthly.get(key, {"prices": [], "ppsf": [], "new_listings": 0})
+            prices = b["prices"]
+            ppsf = b["ppsf"]
+            month_points.append(
+                {
+                    "month": key,
+                    "median_list_price": _median_sorted(prices),
+                    "mean_list_price": (sum(prices) / len(prices)) if prices else None,
+                    "median_price_per_sqft": _median_sorted(ppsf),
+                    "new_listings": b["new_listings"],
+                }
+            )
+            ym += 1
+
+        subtype_distribution = [
+            {"name": k, "count": v}
+            for k, v in sorted(subtype_count.items(), key=lambda kv: kv[1], reverse=True)[:8]
+        ]
+
+        scoped_keys = list(qs.values_list("listing_key", flat=True)[:2000])
+        views_7d = 0
+        views_prev_7d = 0
+        saves_30d = 0
+        rising = []
+        if scoped_keys:
+            last7 = now - timedelta(days=7)
+            prev7 = now - timedelta(days=14)
+            views_7d = ListingViewEvent.objects.filter(
+                listing_key__in=scoped_keys,
+                created_at__gte=last7,
+            ).count()
+            views_prev_7d = ListingViewEvent.objects.filter(
+                listing_key__in=scoped_keys,
+                created_at__gte=prev7,
+                created_at__lt=last7,
+            ).count()
+            saves_30d = UserFavorite.objects.filter(
+                property_key__in=scoped_keys,
+                created_at__gte=now - timedelta(days=30),
+            ).count()
+            current_map = {
+                row["listing_key"]: row["c"]
+                for row in ListingViewEvent.objects.filter(
+                    listing_key__in=scoped_keys,
+                    created_at__gte=last7,
+                )
+                .values("listing_key")
+                .annotate(c=Count("id"))
+            }
+            prev_map = {
+                row["listing_key"]: row["c"]
+                for row in ListingViewEvent.objects.filter(
+                    listing_key__in=scoped_keys,
+                    created_at__gte=prev7,
+                    created_at__lt=last7,
+                )
+                .values("listing_key")
+                .annotate(c=Count("id"))
+            }
+            deltas = []
+            for key, curr in current_map.items():
+                prev = prev_map.get(key, 0)
+                deltas.append((key, curr, prev, curr - prev))
+            deltas.sort(key=lambda x: x[3], reverse=True)
+            rising = [
+                {
+                    "listing_key": d[0],
+                    "views_7d": d[1],
+                    "views_prev_7d": d[2],
+                    "delta": d[3],
+                }
+                for d in deltas[:8]
+                if d[3] > 0
+            ]
+
+        active_prev_30d = Property.objects.filter(
+            standard_status__iexact="Active",
+            list_price__isnull=False,
+        ).exclude(list_price__lte=0)
+        if city:
+            active_prev_30d = active_prev_30d.filter(city__iexact=city)
+        if len(fsa) == 3:
+            pc_norm_prev = Upper(
+                Replace(
+                    Replace(F("postal_code"), Value(" "), Value("")),
+                    Value("-"),
+                    Value(""),
+                )
+            )
+            active_prev_30d = active_prev_30d.annotate(pc_norm=pc_norm_prev).filter(pc_norm__startswith=fsa)
+        active_prev_30d = active_prev_30d.filter(
+            original_entry_timestamp__lt=now - timedelta(days=30)
+        ).count()
+        active_current = total_rows
+
+        payload = {
+            "scope": {"city": city or None, "fsa": fsa if len(fsa) == 3 else None},
+            "window_months": window_months,
+            "series": month_points,
+            "subtype_distribution": subtype_distribution,
+            "sample_size": sum(p["new_listings"] for p in month_points),
+            "velocity": {
+                "active_current": active_current,
+                "active_delta_30d": active_current - active_prev_30d,
+                "new_listings_30d": new_30d,
+                "modifications_30d": mods_30d,
+            },
+            "pricing": {
+                "list_price_p25": percentile(all_prices, 0.25),
+                "list_price_p50": percentile(all_prices, 0.50),
+                "list_price_p75": percentile(all_prices, 0.75),
+                "price_per_sqft_p25": percentile(all_ppsf, 0.25),
+                "price_per_sqft_p50": percentile(all_ppsf, 0.50),
+                "price_per_sqft_p75": percentile(all_ppsf, 0.75),
+                "spread_index": (
+                    (percentile(all_prices, 0.75) - percentile(all_prices, 0.25))
+                    if percentile(all_prices, 0.75) is not None and percentile(all_prices, 0.25) is not None
+                    else None
+                ),
+            },
+            "segmentation": {
+                "by_subtype": subtype_distribution,
+                "by_bedrooms": [{"name": k, "count": v} for k, v in bed_bucket_count.items()],
+                "by_bathrooms": [{"name": k, "count": v} for k, v in bath_bucket_count.items()],
+                "lease_vs_sale": [{"name": k, "count": v} for k, v in lease_vs_sale.items()],
+            },
+            "behavior": {
+                "views_7d": views_7d,
+                "views_prev_7d": views_prev_7d,
+                "views_delta_pct": (
+                    ((views_7d - views_prev_7d) / views_prev_7d * 100.0)
+                    if views_prev_7d > 0
+                    else None
+                ),
+                "saves_30d": saves_30d,
+                "rising_listings": rising,
+                "note": "Activity is based on usage on this site.",
+            },
+            "confidence": {
+                "sample_size": active_current,
+                "pct_with_living_area": (rows_with_living_area / active_current * 100.0) if active_current else 0.0,
+                "pct_with_list_price": (rows_with_list_price / active_current * 100.0) if active_current else 0.0,
+                "pct_recently_updated_30d": (rows_recently_updated_30d / active_current * 100.0) if active_current else 0.0,
+            },
+            "disclaimer": "Based on active listings in this site catalog only; not sold-market stats.",
         }
         cache.set(cache_key, payload, 300)
         return Response(payload)

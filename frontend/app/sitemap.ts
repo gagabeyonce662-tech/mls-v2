@@ -7,6 +7,7 @@ import {
   fetchPreConnProperties,
   fetchVlogPosts,
 } from "@/lib/api";
+import { getIndexableListingLandings } from "@/lib/seo/listingLandingConfig";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://estate-4u.com";
@@ -38,6 +39,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       fetchPreConnProperties({ limit: 50 }),
       fetchVlogPosts(),
     ]);
+    const seoLandingRoutes = getIndexableListingLandings().map((landing) => ({
+      url: `${baseUrl}${landing.canonicalPath || `/listings/${landing.slug}`}`,
+      lastModified: new Date(),
+      changeFrequency: "daily" as const,
+      priority: 0.7,
+    }));
 
     const exclusiveRoutes = (exclusive.results || []).map((p: any) => ({
       url: `${baseUrl}/listing/${p.listing_key || p.ListingKey}`,
@@ -69,6 +76,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     return [
       ...staticRoutes,
+      ...seoLandingRoutes,
       ...exclusiveRoutes,
       ...leaseRoutes,
       ...preConnRoutes,

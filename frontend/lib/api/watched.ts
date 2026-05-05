@@ -20,9 +20,33 @@ export type WatchedHistoryRow = {
   viewed_at: string;
 };
 
+export type WatchedTouredRow = {
+  property_key: string;
+  property_snapshot_json: Record<string, unknown>;
+  toured_at: string;
+};
+
+export type WatchedFollowedAreaRow = {
+  area_key: string;
+  area_label: string;
+  area_kind: string;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type WatchedAlertPreferences = {
+  price_changes: boolean;
+  new_listings: boolean;
+  status_updates: boolean;
+  email_enabled: boolean;
+};
+
 export type WatchedOverviewPayload = {
   favorites: WatchedFavoriteRow[];
   history: WatchedHistoryRow[];
+  toured: WatchedTouredRow[];
+  followed_areas: WatchedFollowedAreaRow[];
+  alert_preferences: WatchedAlertPreferences;
 };
 
 /** Merge API row into a property-shaped object for cards and keys. */
@@ -93,6 +117,138 @@ export async function postWatchedFavoriteToggle(
     });
     if (!res.ok) return null;
     return (await res.json()) as { is_favorite: boolean };
+  } catch {
+    return null;
+  }
+}
+
+export async function postWatchedHistoryAdd(
+  propertyKey: string,
+  propertySnapshotJson: Record<string, unknown>,
+): Promise<boolean> {
+  const base = API_BASE_URL.replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${base}/api/mls/watched/history/add/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader(),
+      },
+      body: JSON.stringify({
+        property_key: propertyKey,
+        property_snapshot_json: propertySnapshotJson,
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function postWatchedTouredToggle(
+  propertyKey: string,
+  propertySnapshotJson: Record<string, unknown>,
+): Promise<{ is_toured: boolean } | null> {
+  const base = API_BASE_URL.replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${base}/api/mls/watched/toured/toggle/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader(),
+      },
+      body: JSON.stringify({
+        property_key: propertyKey,
+        property_snapshot_json: propertySnapshotJson,
+      }),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as { is_toured: boolean };
+  } catch {
+    return null;
+  }
+}
+
+export async function clearWatchedTouredServer(): Promise<boolean> {
+  const base = API_BASE_URL.replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${base}/api/mls/watched/toured/clear/`, {
+      method: "DELETE",
+      headers: { ...authHeader() },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function postFollowArea(payload: {
+  area_key: string;
+  area_label: string;
+  area_kind?: string;
+  metadata_json?: Record<string, unknown>;
+}): Promise<boolean> {
+  const base = API_BASE_URL.replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${base}/api/mls/watched/areas/follow/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader(),
+      },
+      body: JSON.stringify(payload),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function postUnfollowArea(areaKey: string): Promise<boolean> {
+  const base = API_BASE_URL.replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${base}/api/mls/watched/areas/unfollow/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader(),
+      },
+      body: JSON.stringify({ area_key: areaKey }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function clearWatchedAreasServer(): Promise<boolean> {
+  const base = API_BASE_URL.replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${base}/api/mls/watched/areas/clear/`, {
+      method: "DELETE",
+      headers: { ...authHeader() },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function putAlertPreferences(
+  payload: Partial<WatchedAlertPreferences>,
+): Promise<WatchedAlertPreferences | null> {
+  const base = API_BASE_URL.replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${base}/api/mls/watched/alerts/preferences/`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader(),
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as WatchedAlertPreferences;
   } catch {
     return null;
   }

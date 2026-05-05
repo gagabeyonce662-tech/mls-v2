@@ -32,6 +32,15 @@ export const HOMEPAGE_CATEGORY_DEFAULTS: HomepageCategoryConfigItem[] = [
     minCount: 1,
   },
   {
+    key: "community",
+    label: "Community Listings",
+    kind: "community",
+    route: "/community-listings",
+    order: 25,
+    enabled: true,
+    minCount: 1,
+  },
+  {
     key: "rental",
     label: "Rental Properties",
     kind: "rental",
@@ -163,7 +172,7 @@ export function mergeHomepageCategories(
       if (!cfg.enabled) return null;
 
       const threshold = Math.max(cfg.minCount, minCountThreshold);
-      const isAlwaysVisible = ["newly_listed", "exclusive", "rental", "precon"].includes(
+      const isAlwaysVisible = ["newly_listed", "exclusive", "community", "rental", "precon"].includes(
         cfg.key,
       );
       const hasCount = Number.isFinite(category.count);

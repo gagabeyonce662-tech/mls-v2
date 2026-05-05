@@ -198,6 +198,36 @@ class Property(models.Model):
     def __str__(self):
         return f"Property {self.listing_key} - {self.city}"
 
+
+class CommunityListing(models.Model):
+    property = models.ForeignKey(
+        Property,
+        related_name="community_listings",
+        on_delete=models.CASCADE,
+    )
+    community_name = models.CharField(max_length=255)
+    community_slug = models.SlugField(max_length=255, db_index=True)
+    badge = models.CharField(max_length=120, blank=True, default="")
+    rank = models.PositiveIntegerField(default=0, db_index=True)
+    is_published = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["rank", "-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["community_slug", "property"],
+                name="uniq_communitylisting_slug_property",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["community_slug", "is_published", "rank"]),
+        ]
+
+    def __str__(self):
+        return f"{self.community_name} -> {self.property.listing_key}"
+
 class Room(models.Model):
     property = models.ForeignKey(Property, related_name='rooms', on_delete=models.CASCADE)
     room_type = models.CharField(max_length=2000)
@@ -303,6 +333,86 @@ class UserHistory(models.Model):
 
     def __str__(self):
         return f"History<{self.user_id}:{self.property_key}>"
+
+
+class UserToured(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="watched_toured",
+    )
+    property_key = models.CharField(max_length=255)
+    property_snapshot_json = models.JSONField(default=dict, blank=True)
+    toured_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "property_key"],
+                name="unique_user_toured_property_key",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "-toured_at"]),
+            models.Index(fields=["property_key"]),
+        ]
+        ordering = ["-toured_at"]
+
+    def __str__(self):
+        return f"Toured<{self.user_id}:{self.property_key}>"
+
+
+class UserFollowedArea(models.Model):
+    AREA_KIND_CHOICES = [
+        ("community", "Community"),
+        ("neighborhood", "Neighborhood"),
+        ("region", "Region"),
+        ("city", "City"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="followed_areas",
+    )
+    area_key = models.CharField(max_length=255)
+    area_label = models.CharField(max_length=255)
+    area_kind = models.CharField(max_length=40, choices=AREA_KIND_CHOICES, default="community")
+    metadata_json = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "area_key"],
+                name="unique_user_followed_area_key",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "-created_at"]),
+            models.Index(fields=["area_key"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Area<{self.user_id}:{self.area_key}>"
+
+
+class UserAlertPreference(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="alert_preferences",
+    )
+    price_changes = models.BooleanField(default=True)
+    new_listings = models.BooleanField(default=True)
+    status_updates = models.BooleanField(default=True)
+    email_enabled = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"AlertPreferences<{self.user_id}>"
 
 
 class UserFeedback(models.Model):
@@ -470,3 +580,89 @@ class CensusFSA(models.Model):
 
     def __str__(self):
         return self.fsa
+
+
+class PropertySoldProxy(models.Model):
+    """
+    Internal sold-comp proxy: last list_price when listing left Active,
+    derived from PropertySnapshot transitions (no external sold feed).
+    """
+
+    listing_key = models.CharField(max_length=2000, unique=True, db_index=True)
+    last_list_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    sold_at_proxy = models.DateTimeField(null=True, blank=True, db_index=True)
+    fsa = models.CharField(max_length=3, blank=True, db_index=True)
+    latitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    bedrooms_total = models.IntegerField(null=True, blank=True)
+    bathrooms_total_integer = models.IntegerField(null=True, blank=True)
+    bathrooms_partial = models.IntegerField(null=True, blank=True)
+    bedrooms_below_grade = models.IntegerField(null=True, blank=True)
+    living_area = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    property_sub_type = models.CharField(max_length=2000, null=True, blank=True)
+    lot_size_area = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    frontage_length_numeric = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    parking_total = models.IntegerField(null=True, blank=True)
+    tax_annual_amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    city = models.CharField(max_length=2000, null=True, blank=True)
+    city_region = models.CharField(max_length=2000, null=True, blank=True)
+    unparsed_address = models.CharField(max_length=2000, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["fsa", "sold_at_proxy"]),
+            models.Index(fields=["latitude", "longitude"]),
+        ]
+
+    def __str__(self):
+        return f"SoldProxy<{self.listing_key}>"
+
+
+class Agent(models.Model):
+    """Local agent shown on valuation / contact flows."""
+
+    name = models.CharField(max_length=255)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    photo_url = models.URLField(blank=True, null=True, max_length=2000)
+    brokerage = models.CharField(max_length=255, blank=True)
+    bio = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class AgentServiceArea(models.Model):
+    KIND_FSA = "fsa"
+    KIND_CITY = "city"
+    KIND_REGION = "region"
+
+    KIND_CHOICES = [
+        (KIND_FSA, "FSA (first 3 of postal)"),
+        (KIND_CITY, "City"),
+        (KIND_REGION, "City region / board area"),
+    ]
+
+    agent = models.ForeignKey(Agent, related_name="service_areas", on_delete=models.CASCADE)
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, db_index=True)
+    key = models.CharField(
+        max_length=255,
+        db_index=True,
+        help_text="FSA code (3 chars), normalized city name, or region slug",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["agent", "kind", "key"], name="uniq_agent_service_area"),
+        ]
+        indexes = [
+            models.Index(fields=["kind", "key"]),
+        ]
+
+    def __str__(self):
+        return f"{self.agent_id}:{self.kind}:{self.key}"

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Pencil, X, Trash2, Loader2, SlidersHorizontal, ChevronRight } from "lucide-react";
 import SearchBox from "./SearchBox";
 import FilterBar from "./FilterBar";
+import { useWatched } from "@/contexts/WatchedContext";
 
 interface MapOverlayControlsProps {
   searchQuery: string;
@@ -41,6 +42,55 @@ export const MapOverlayControls = ({
 }: MapOverlayControlsProps) => {
   const [isOpen, setIsOpen] = useState(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const { followedAreas } = useWatched();
+
+  const toggleStatus = (status: "active" | "sold" | "de-listed") => {
+    setFilters((prev: any) => {
+      const current = Array.isArray(prev.statuses) ? prev.statuses : [];
+      const exists = current.includes(status);
+      const nextStatuses = exists
+        ? current.filter((x: string) => x !== status)
+        : [...current, status];
+      return { ...prev, statuses: nextStatuses };
+    });
+  };
+
+  const applyWatchedArea = (value: string) => {
+    if (!value) {
+      setFilters((prev: any) => ({
+        ...prev,
+        watched_area_key: "",
+        watched_area_city: "",
+        watched_area_community_slug: "",
+        watched_area_label: "",
+      }));
+      return;
+    }
+    const selected = followedAreas.find((area) => area.area_key === value);
+    const metadata =
+      selected && selected.metadata_json && typeof selected.metadata_json === "object"
+        ? (selected.metadata_json as Record<string, unknown>)
+        : {};
+    const city =
+      typeof metadata.city === "string"
+        ? metadata.city
+        : typeof metadata.city_name === "string"
+          ? metadata.city_name
+          : "";
+    const communitySlug =
+      typeof metadata.community_slug === "string"
+        ? metadata.community_slug
+        : typeof metadata.slug === "string"
+          ? metadata.slug
+          : "";
+    setFilters((prev: any) => ({
+      ...prev,
+      watched_area_key: value,
+      watched_area_city: city,
+      watched_area_community_slug: communitySlug,
+      watched_area_label: selected?.area_label ?? "",
+    }));
+  };
 
   // Auto-open is now handled by initial state to sync with left sidebar
 
@@ -66,6 +116,50 @@ export const MapOverlayControls = ({
         >
           <SlidersHorizontal className="w-5 h-5" />
         </button>
+      </div>
+
+      <div className="absolute top-20 left-3 right-3 z-[45] lg:hidden pointer-events-auto space-y-2">
+        <div className="rounded-xl border border-ds-card-border bg-white p-2 shadow-md">
+          <div className="flex gap-2">
+            {[
+              { key: "active", label: "Active" },
+              { key: "sold", label: "Sold" },
+              { key: "de-listed", label: "De-listed" },
+            ].map((item) => {
+              const selected = (filters.statuses ?? []).includes(item.key);
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => toggleStatus(item.key as "active" | "sold" | "de-listed")}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${selected
+                    ? "bg-ds-primary text-white border-ds-primary"
+                    : "bg-white text-ds-body border-ds-card-border"
+                    }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+          {(filters.statuses ?? []).includes("active") && (
+            <select
+              value={filters.active_listed_within ?? ""}
+              onChange={(e) =>
+                setFilters((prev: any) => ({
+                  ...prev,
+                  active_listed_within: e.target.value,
+                }))
+              }
+              className="mt-2 w-full text-xs rounded-lg border border-ds-card-border px-2 py-1.5"
+            >
+              <option value="">All active listings</option>
+              <option value="1">Listed in 24 hours</option>
+              <option value="7">Listed in 7 days</option>
+              <option value="30">Listed in 30 days</option>
+            </select>
+          )}
+        </div>
       </div>
 
       {/* Mobile filter bottom sheet */}
@@ -106,6 +200,25 @@ export const MapOverlayControls = ({
 
               {/* Filter content */}
               <div className="flex-1 overflow-y-auto no-scrollbar">
+                {followedAreas.length > 0 && (
+                  <div className="px-5 pt-4">
+                    <label className="text-[10px] font-bold text-ds-body uppercase tracking-widest pl-1 block mb-1.5">
+                      Watched Areas
+                    </label>
+                    <select
+                      value={filters.watched_area_key ?? ""}
+                      onChange={(e) => applyWatchedArea(e.target.value)}
+                      className="w-full rounded-xl border border-ds-card-border px-3 py-2 text-sm text-ds-heading"
+                    >
+                      <option value="">All areas</option>
+                      {followedAreas.map((area) => (
+                        <option key={area.area_key} value={area.area_key}>
+                          {area.area_label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <FilterBar
                   filters={filters}
                   setFilters={setFilters}
@@ -251,6 +364,63 @@ export const MapOverlayControls = ({
               </div>
 
               <div className="p-3 border-t border-ds-card-border flex flex-col gap-2">
+                <div className="rounded-xl border border-ds-card-border bg-ds-card/40 p-2">
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      { key: "active", label: "Active" },
+                      { key: "sold", label: "Sold" },
+                      { key: "de-listed", label: "De-listed" },
+                    ].map((item) => {
+                      const selected = (filters.statuses ?? []).includes(item.key);
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() =>
+                            toggleStatus(item.key as "active" | "sold" | "de-listed")
+                          }
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${selected
+                            ? "bg-ds-primary text-white border-ds-primary"
+                            : "bg-white text-ds-body border-ds-card-border"
+                            }`}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {(filters.statuses ?? []).includes("active") && (
+                    <select
+                      value={filters.active_listed_within ?? ""}
+                      onChange={(e) =>
+                        setFilters((prev: any) => ({
+                          ...prev,
+                          active_listed_within: e.target.value,
+                        }))
+                      }
+                      className="mt-2 w-full text-xs rounded-lg border border-ds-card-border px-2 py-1.5"
+                    >
+                      <option value="">All active listings</option>
+                      <option value="1">Listed in 24 hours</option>
+                      <option value="7">Listed in 7 days</option>
+                      <option value="30">Listed in 30 days</option>
+                    </select>
+                  )}
+                  {followedAreas.length > 0 && (
+                    <select
+                      value={filters.watched_area_key ?? ""}
+                      onChange={(e) => applyWatchedArea(e.target.value)}
+                      className="mt-2 w-full text-xs rounded-lg border border-ds-card-border px-2 py-1.5"
+                    >
+                      <option value="">All watched areas</option>
+                      {followedAreas.map((area) => (
+                        <option key={area.area_key} value={area.area_key}>
+                          {area.area_label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
                 {drawing ? (
                   <motion.button
                     whileHover={{ scale: 1.02 }}

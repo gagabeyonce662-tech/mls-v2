@@ -146,6 +146,11 @@ export interface BaseFilterParams {
   limit?: number;
   offset?: number;
   search?: string;
+  status_group?: string;
+  modified_within_days?: number;
+  parking_min?: number;
+  transaction_type?: "sale" | "rent";
+  community_slug?: string;
 }
 
 export interface PropertyFilterParams extends BaseFilterParams {
@@ -169,6 +174,11 @@ export interface PreConnPropertyFilterParams extends BaseFilterParams {
   // Currently identical to base but kept for domain clarity
 }
 
+export interface CommunityPropertyFilterParams extends BaseFilterParams {
+  community_slug?: string;
+  community_name?: string;
+}
+
 export interface PropertyTypeOption {
   value: string;
   label: string;
@@ -180,6 +190,7 @@ export type HomepageCategoryKind =
   | "exclusive"
   | "rental"
   | "precon"
+  | "community"
   | "property_type";
 
 export interface HomepageCategory {

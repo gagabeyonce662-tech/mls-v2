@@ -20,12 +20,15 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { colors } from "@/config/design-system";
+import { getIndexableListingLandings } from "@/lib/seo/listingLandingConfig";
+
+const popularSearches = getIndexableListingLandings().slice(0, 6);
 
 const Footer = () => {
   return (
     <footer style={{ backgroundColor: colors.primary, color: colors.cards }}>
       <div className="w-full px-4 lg:px-6 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8 mb-8">
           {/* Logo and Description */}
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
@@ -252,6 +255,25 @@ const Footer = () => {
                   <p className="leading-tight">100 Milverton Dr #610, Mississauga, ON L5R 4H1</p>
                 </div>
               </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-bold mb-4" style={{ color: colors.cards }}>
+              POPULAR SEARCHES
+            </h3>
+            <ul className="space-y-3">
+              {popularSearches.map((landing) => (
+                <li key={landing.slug}>
+                  <Link
+                    href={landing.canonicalPath || `/listings/${landing.slug}`}
+                    className="transition-colors text-sm hover:opacity-80"
+                    style={{ color: colors.cards, opacity: 0.8 }}
+                  >
+                    {landing.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         </div>

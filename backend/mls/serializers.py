@@ -2,11 +2,15 @@
 from rest_framework import serializers
 from mls.models import (
     Property,
+    CommunityListing,
     Room,
     Media,
     UserFeedback,
     UserFavorite,
     UserHistory,
+    UserToured,
+    UserFollowedArea,
+    UserAlertPreference,
     PropertyInquiry,
     PropertySnapshot,
 )
@@ -188,6 +192,31 @@ class UserHistorySerializer(serializers.ModelSerializer):
         fields = ["property_key", "property_snapshot_json", "viewed_at"]
 
 
+class UserTouredSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserToured
+        fields = ["property_key", "property_snapshot_json", "toured_at"]
+
+
+class FollowedAreaMutationSerializer(serializers.Serializer):
+    area_key = serializers.CharField(max_length=255)
+    area_label = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    area_kind = serializers.CharField(max_length=40, required=False, default="community")
+    metadata_json = serializers.JSONField(required=False, default=dict)
+
+
+class UserFollowedAreaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserFollowedArea
+        fields = ["area_key", "area_label", "area_kind", "metadata_json", "created_at"]
+
+
+class UserAlertPreferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserAlertPreference
+        fields = ["price_changes", "new_listings", "status_updates", "email_enabled"]
+
+
 class ListingViewBeaconSerializer(serializers.Serializer):
     listing_key = serializers.CharField(max_length=2000)
     session_key = serializers.CharField(max_length=64)
@@ -201,4 +230,21 @@ class PropertySnapshotSerializer(serializers.ModelSerializer):
             "standard_status",
             "source_modification_timestamp",
             "created_at",
+        ]
+
+
+class CommunityListingSerializer(serializers.ModelSerializer):
+    property = PropertySerializer(read_only=True)
+
+    class Meta:
+        model = CommunityListing
+        fields = [
+            "id",
+            "community_name",
+            "community_slug",
+            "badge",
+            "rank",
+            "is_published",
+            "updated_at",
+            "property",
         ]

@@ -33,6 +33,19 @@ import {
   Target,
   LineChart,
 } from "lucide-react";
+import { env } from "@/lib/env";
+import type {
+  ValuationEstimateResponse,
+  ValuationLookupPayload,
+} from "@/lib/api/valuation";
+import { ValuationSearch } from "@/components/valuation/ValuationSearch";
+import { ValuationInputForm } from "@/components/valuation/ValuationInputForm";
+import { BetaBanner } from "@/components/valuation/BetaBanner";
+import { EstimateRangeCard } from "@/components/valuation/EstimateRangeCard";
+import { BreakdownPanel } from "@/components/valuation/BreakdownPanel";
+import { TrendIndicator } from "@/components/valuation/TrendIndicator";
+import { ComparablesGrid } from "@/components/valuation/ComparablesGrid";
+import { AgentConnectivity } from "@/components/valuation/AgentConnectivity";
 
 /* ──────────────────────── hooks ──────────────────────── */
 
@@ -238,12 +251,30 @@ const faqs = [
 /* ──────────────────────── component ──────────────────────── */
 
 export default function HomeValuation() {
+  const valuationEngine =
+    env.NEXT_PUBLIC_ENABLE_VALUATION_ENGINE === "true";
+  const [engineQuery, setEngineQuery] = useState("");
+  const [lookupPayload, setLookupPayload] =
+    useState<ValuationLookupPayload | null>(null);
+  const [estimateResult, setEstimateResult] =
+    useState<ValuationEstimateResponse | null>(null);
+  const [engineBusy, setEngineBusy] = useState(false);
+
   const [propertyAddress, setPropertyAddress] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [comment, setComment] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const onLookupResolved = (payload: ValuationLookupPayload) => {
+    setLookupPayload(payload);
+    setEstimateResult(null);
+    if (payload.unparsed_address) {
+      setPropertyAddress(payload.unparsed_address);
+      setEngineQuery(payload.unparsed_address);
+    }
+  };
 
   // Scroll reveal refs for each section
   const howItWorksRef = useRevealOnScroll();
@@ -353,39 +384,52 @@ export default function HomeValuation() {
               className="max-w-2xl animate-fadeInUp"
               style={{ animationDelay: "300ms" }}
             >
-              <div
-                className="flex items-stretch rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md"
-                style={{
-                  backgroundColor: "rgba(255,255,255,0.95)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                }}
-              >
-                <div className="flex-1 flex items-center gap-3 px-5">
-                  <MapPin
-                    className="w-5 h-5 flex-shrink-0"
-                    style={{ color: colors.body }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Enter your property address..."
-                    value={propertyAddress}
-                    onChange={(e) => setPropertyAddress(e.target.value)}
-                    className="w-full py-4.5 focus:outline-none text-base bg-transparent"
-                    style={{ color: colors.heading }}
-                  />
-                </div>
-                <button
-                  className="px-8 py-4 font-semibold flex items-center gap-2 transition-all hover:opacity-90 hover:shadow-lg relative overflow-hidden group"
-                  style={{ backgroundColor: colors.icon, color: "#fff" }}
+              {valuationEngine ? (
+                <ValuationSearch
+                  value={engineQuery}
+                  onChange={setEngineQuery}
+                  onLookupResolved={onLookupResolved}
+                  onBusyChange={setEngineBusy}
+                />
+              ) : (
+                <div
+                  className="flex items-stretch rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md"
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.95)",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                  }}
                 >
-                  <Search className="w-5 h-5 relative z-10" />
-                  <span className="hidden sm:inline relative z-10">
-                    Get Estimate
-                  </span>
-                  {/* Button shimmer effect */}
-                  <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
-                </button>
-              </div>
+                  <div className="flex-1 flex items-center gap-3 px-5">
+                    <MapPin
+                      className="w-5 h-5 flex-shrink-0"
+                      style={{ color: colors.body }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Enter your property address..."
+                      value={propertyAddress}
+                      onChange={(e) => setPropertyAddress(e.target.value)}
+                      className="w-full py-4.5 focus:outline-none text-base bg-transparent"
+                      style={{ color: colors.heading }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="px-8 py-4 font-semibold flex items-center gap-2 transition-all hover:opacity-90 hover:shadow-lg relative overflow-hidden group"
+                    style={{ backgroundColor: colors.icon, color: "#fff" }}
+                  >
+                    <Search className="w-5 h-5 relative z-10" />
+                    <span className="hidden sm:inline relative z-10">
+                      Get Estimate
+                    </span>
+                    <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
+                  </button>
+                </div>
+              )}
+
+              {engineBusy ? (
+                <p className="mt-3 text-sm text-white/70">Loading…</p>
+              ) : null}
 
               {/* Quick stats under search */}
               <div className="flex items-center gap-6 mt-5 text-white/40 text-sm">
@@ -501,6 +545,26 @@ export default function HomeValuation() {
         </div>
       </section>
 
+      {valuationEngine ? (
+        <section
+          id="valuation-refine"
+          className="max-w-7xl mx-auto px-6 lg:px-8 py-16"
+        >
+          {lookupPayload ? (
+            <ValuationInputForm
+              lookup={lookupPayload}
+              onResult={setEstimateResult}
+              onBusyChange={setEngineBusy}
+            />
+          ) : (
+            <p className="text-center text-sm max-w-xl mx-auto" style={{ color: colors.body }}>
+              Search by address, street, or listing number above. We&apos;ll load MLS
+              fields so you can refine the estimate before running the model.
+            </p>
+          )}
+        </section>
+      ) : null}
+
       {/* ═══════════════════ ESTIMATED VALUE RANGE ═══════════════════ */}
       <section
         className="py-24 relative overflow-hidden"
@@ -538,100 +602,124 @@ export default function HomeValuation() {
               </p>
             </div>
 
-            {/* Value gauge visualization */}
-            <div className="max-w-3xl mx-auto mb-14">
-              <div
-                className="relative h-3 rounded-full overflow-hidden"
-                style={{ backgroundColor: `${colors.primary}10` }}
-              >
-                <div
-                  className="absolute left-[25%] right-[25%] h-full rounded-full"
-                  style={{
-                    background: `linear-gradient(90deg, #f59e0b, ${colors.primary}, #10b981)`,
-                  }}
-                />
-                {/* Marker for market value */}
-                <div
-                  className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full border-[3px] border-white shadow-lg animate-pulse-glow"
-                  style={{
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    backgroundColor: colors.primary,
-                  }}
-                />
-              </div>
-              <div
-                className="flex justify-between mt-3 text-xs font-medium"
-                style={{ color: colors.body }}
-              >
-                <span>$700K</span>
-                <span style={{ color: colors.primary, fontWeight: 700 }}>
-                  $807,000
-                </span>
-                <span>$950K</span>
-              </div>
-            </div>
-
-            <div className="stagger-children revealed grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {priceRanges.map((range, i) => (
-                <div
-                  key={i}
-                  className={`relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl overflow-hidden group ${
-                    range.featured ? "ring-2 ring-offset-2" : ""
-                  }`}
-                  style={{
-                    backgroundColor: "#ffffff",
-                    border: `1px solid ${colors.cardsBoarder}`,
-                    ...(range.featured ? { ringColor: colors.primary } : {}),
-                  }}
-                >
-                  {/* Top accent bar */}
-                  <div
-                    className="absolute top-0 left-0 right-0 h-1 transition-all duration-300 group-hover:h-1.5"
-                    style={{ backgroundColor: range.accent }}
-                  />
-
-                  {/* Featured label */}
-                  {range.featured && (
-                    <div
-                      className="absolute top-3 right-3 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-                      style={{
-                        backgroundColor: `${colors.primary}10`,
-                        color: colors.primary,
-                      }}
-                    >
-                      Best Estimate
-                    </div>
-                  )}
-
-                  <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110"
-                    style={{
-                      backgroundColor: `${range.accent}14`,
-                      color: range.accent,
-                    }}
-                  >
-                    {range.icon}
-                  </div>
-
+            {valuationEngine && estimateResult ? (
+              <>
+                <BetaBanner />
+                {estimateResult.sparse ? (
                   <p
-                    className="text-sm font-medium mb-1"
+                    className="text-center text-sm mb-8 max-w-2xl mx-auto"
                     style={{ color: colors.body }}
                   >
-                    {range.label}
+                    Few closed sales in our database matched this micro-location — we
+                    blended active listings where needed. Treat the bracket as
+                    indicative only until more sold history is captured.
                   </p>
-                  <p
-                    className="text-2xl lg:text-3xl font-bold mb-2"
-                    style={{ color: colors.heading }}
-                  >
-                    <AnimatedValue value={range.value} />
-                  </p>
-                  <p className="text-xs" style={{ color: colors.body }}>
-                    {range.description}
-                  </p>
+                ) : null}
+                <EstimateRangeCard estimate={estimateResult.estimate} />
+                <div className="max-w-3xl mx-auto">
+                  <BreakdownPanel rows={estimateResult.breakdown} />
+                  <TrendIndicator
+                    pct30d={estimateResult.trend.pct_30d}
+                    applied={estimateResult.trend.applied}
+                  />
                 </div>
-              ))}
-            </div>
+              </>
+            ) : valuationEngine ? (
+              <p className="text-center max-w-xl mx-auto" style={{ color: colors.body }}>
+                Run <strong>Sigma estimate</strong> after selecting a property to see
+                your value range, adjustment breakdown, and neighbourhood momentum.
+              </p>
+            ) : (
+              <>
+                {/* Value gauge visualization */}
+                <div className="max-w-3xl mx-auto mb-14">
+                  <div
+                    className="relative h-3 rounded-full overflow-hidden"
+                    style={{ backgroundColor: `${colors.primary}10` }}
+                  >
+                    <div
+                      className="absolute left-[25%] right-[25%] h-full rounded-full"
+                      style={{
+                        background: `linear-gradient(90deg, #f59e0b, ${colors.primary}, #10b981)`,
+                      }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full border-[3px] border-white shadow-lg animate-pulse-glow"
+                      style={{
+                        left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        backgroundColor: colors.primary,
+                      }}
+                    />
+                  </div>
+                  <div
+                    className="flex justify-between mt-3 text-xs font-medium"
+                    style={{ color: colors.body }}
+                  >
+                    <span>$700K</span>
+                    <span style={{ color: colors.primary, fontWeight: 700 }}>
+                      $807,000
+                    </span>
+                    <span>$950K</span>
+                  </div>
+                </div>
+
+                <div className="stagger-children revealed grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {priceRanges.map((range, i) => (
+                    <div
+                      key={i}
+                      className={`relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl overflow-hidden group ${
+                        range.featured ? "ring-2 ring-offset-2" : ""
+                      }`}
+                      style={{
+                        backgroundColor: "#ffffff",
+                        border: `1px solid ${colors.cardsBoarder}`,
+                      }}
+                    >
+                      <div
+                        className="absolute top-0 left-0 right-0 h-1 transition-all duration-300 group-hover:h-1.5"
+                        style={{ backgroundColor: range.accent }}
+                      />
+                      {range.featured && (
+                        <div
+                          className="absolute top-3 right-3 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
+                          style={{
+                            backgroundColor: `${colors.primary}10`,
+                            color: colors.primary,
+                          }}
+                        >
+                          Best Estimate
+                        </div>
+                      )}
+                      <div
+                        className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110"
+                        style={{
+                          backgroundColor: `${range.accent}14`,
+                          color: range.accent,
+                        }}
+                      >
+                        {range.icon}
+                      </div>
+                      <p
+                        className="text-sm font-medium mb-1"
+                        style={{ color: colors.body }}
+                      >
+                        {range.label}
+                      </p>
+                      <p
+                        className="text-2xl lg:text-3xl font-bold mb-2"
+                        style={{ color: colors.heading }}
+                      >
+                        <AnimatedValue value={range.value} />
+                      </p>
+                      <p className="text-xs" style={{ color: colors.body }}>
+                        {range.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -660,113 +748,102 @@ export default function HomeValuation() {
             </p>
           </div>
 
-          <div className="stagger-children revealed grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {comparableProperties.map((property, i) => (
-              <div
-                key={i}
-                className="group rounded-2xl overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl"
-                style={{
-                  backgroundColor: colors.cards,
-                  border: `1px solid ${colors.cardsBoarder}`,
-                }}
-              >
-                {/* Image with overlay */}
-                <div className="relative h-56 overflow-hidden">
-                  <Image
-                    src={property.image}
-                    alt={property.name}
-                    width={400}
-                    height={300}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
-
-                  {/* Sold badge */}
-                  <div className="absolute top-3 left-3">
-                    <span
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold backdrop-blur-md shadow-sm"
-                      style={{
-                        backgroundColor: "rgba(16, 185, 129, 0.9)",
-                        color: "#fff",
-                      }}
+          {valuationEngine && estimateResult ? (
+            <ComparablesGrid comps={estimateResult.comps} />
+          ) : valuationEngine ? (
+            <p className="text-center text-sm" style={{ color: colors.body }}>
+              Comparables from our catalog will appear here after you run an estimate.
+            </p>
+          ) : (
+            <div className="stagger-children revealed grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {comparableProperties.map((property, i) => (
+                <div
+                  key={i}
+                  className="group rounded-2xl overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl"
+                  style={{
+                    backgroundColor: colors.cards,
+                    border: `1px solid ${colors.cardsBoarder}`,
+                  }}
+                >
+                  <div className="relative h-56 overflow-hidden">
+                    <Image
+                      src={property.image}
+                      alt={property.name}
+                      width={400}
+                      height={300}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                    <div className="absolute top-3 left-3">
+                      <span
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold backdrop-blur-md shadow-sm"
+                        style={{
+                          backgroundColor: "rgba(16, 185, 129, 0.9)",
+                          color: "#fff",
+                        }}
+                      >
+                        ✓ Sold
+                      </span>
+                    </div>
+                    <div className="absolute top-3 right-3">
+                      <span
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium backdrop-blur-md"
+                        style={{
+                          backgroundColor: "rgba(0,0,0,0.4)",
+                          color: "rgba(255,255,255,0.9)",
+                        }}
+                      >
+                        {property.daysAgo}d ago
+                      </span>
+                    </div>
+                    <div className="absolute bottom-3 left-3">
+                      <p className="text-white text-xl font-bold drop-shadow-lg">
+                        {property.price}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    <h3
+                      className="font-bold mb-1"
+                      style={{ color: colors.heading }}
                     >
-                      ✓ Sold
-                    </span>
-                  </div>
-
-                  {/* Days ago */}
-                  <div className="absolute top-3 right-3">
-                    <span
-                      className="px-2.5 py-1 rounded-lg text-xs font-medium backdrop-blur-md"
-                      style={{
-                        backgroundColor: "rgba(0,0,0,0.4)",
-                        color: "rgba(255,255,255,0.9)",
-                      }}
-                    >
-                      {property.daysAgo}d ago
-                    </span>
-                  </div>
-
-                  {/* Price overlay at bottom */}
-                  <div className="absolute bottom-3 left-3">
-                    <p className="text-white text-xl font-bold drop-shadow-lg">
-                      {property.price}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Card content */}
-                <div className="p-5">
-                  <h3
-                    className="font-bold mb-1"
-                    style={{ color: colors.heading }}
-                  >
-                    {property.name}
-                  </h3>
-                  <p
-                    className="text-xs flex items-center gap-1 mb-4"
-                    style={{ color: colors.body }}
-                  >
-                    <MapPin className="w-3 h-3" />
-                    {property.city}
-                  </p>
-
-                  <div
-                    className="border-t pt-3"
-                    style={{ borderColor: colors.cardsBoarder }}
-                  >
-                    <div
-                      className="flex items-center gap-5 text-xs"
+                      {property.name}
+                    </h3>
+                    <p
+                      className="text-xs flex items-center gap-1 mb-4"
                       style={{ color: colors.body }}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <Bed className="w-3.5 h-3.5" />
-                        <span className="font-medium">
-                          {property.bedrooms}
-                        </span>{" "}
-                        Beds
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Bath className="w-3.5 h-3.5" />
-                        <span className="font-medium">
-                          {property.bathrooms}
-                        </span>{" "}
-                        Baths
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Ruler className="w-3.5 h-3.5" />
-                        <span className="font-medium">
-                          {property.sqft}
-                        </span>{" "}
-                        sqft
+                      <MapPin className="w-3 h-3" />
+                      {property.city}
+                    </p>
+                    <div
+                      className="border-t pt-3"
+                      style={{ borderColor: colors.cardsBoarder }}
+                    >
+                      <div
+                        className="flex items-center gap-5 text-xs"
+                        style={{ color: colors.body }}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Bed className="w-3.5 h-3.5" />
+                          <span className="font-medium">{property.bedrooms}</span> Beds
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Bath className="w-3.5 h-3.5" />
+                          <span className="font-medium">{property.bathrooms}</span> Baths
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Ruler className="w-3.5 h-3.5" />
+                          <span className="font-medium">{property.sqft}</span> sqft
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -787,6 +864,16 @@ export default function HomeValuation() {
 
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
           <div ref={formRef} className="reveal-on-scroll">
+            {valuationEngine && (
+              <div className="mb-12">
+                <AgentConnectivity agent={estimateResult?.agent ?? null}>
+                  <p className="text-sm text-white/80 leading-relaxed">
+                    Prefer a human? Use the consultation form on the right after
+                    you&apos;ve reviewed your Sigma estimate.
+                  </p>
+                </AgentConnectivity>
+              </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start">
               {/* Left — Form (glassmorphism) */}
               <div

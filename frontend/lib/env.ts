@@ -23,6 +23,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_ENABLE_DYNAMIC_HOMEPAGE_CATEGORIES: z
     .enum(["true", "false"])
     .optional(),
+  NEXT_PUBLIC_ENABLE_VALUATION_ENGINE: z.enum(["true", "false"]).optional(),
 });
 
 // Next.js client-side requires explicit destructuring of process.env keys at build time.
@@ -45,6 +46,9 @@ const _env = envSchema.safeParse({
   NEXT_PUBLIC_API_TOKEN: process.env.NEXT_PUBLIC_API_TOKEN,
   NEXT_PUBLIC_ENABLE_DYNAMIC_HOMEPAGE_CATEGORIES:
     process.env.NEXT_PUBLIC_ENABLE_DYNAMIC_HOMEPAGE_CATEGORIES || "false",
+  NEXT_PUBLIC_ENABLE_VALUATION_ENGINE:
+    process.env.NEXT_PUBLIC_ENABLE_VALUATION_ENGINE ||
+    (isDev ? "true" : "false"),
 });
 
 if (!_env.success) {

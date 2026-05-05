@@ -6,6 +6,7 @@ import {
   ExclusivePropertyFilterParams,
   LeasePropertyFilterParams,
   PreConnPropertyFilterParams,
+  CommunityPropertyFilterParams,
   NearestSchoolsResponse,
   PropertyTypeOption,
   HomepageCategory,
@@ -17,6 +18,7 @@ import {
   buildPropertyTypeCategoryKey,
   mergeHomepageCategories,
 } from "@/lib/homepage/categories";
+import { buildFilterSearchParams } from "./filterParams";
 
 const CLIENT_CACHE_PREFIX = "mls:api-cache:";
 const CLIENT_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -354,18 +356,7 @@ export async function fetchFilteredProperties(
   filters: Record<string, any>,
   requestOptions?: RequestInit,
 ): Promise<any> {
-  const params = new URLSearchParams();
-
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value === "" || value === null || value === undefined) return;
-
-    const queryKey = key === "property_sub_type" ? "property_type" : key;
-    if (typeof value === "boolean") {
-      if (value) params.append(queryKey, "true");
-    } else {
-      params.append(queryKey, String(value));
-    }
-  });
+  const params = buildFilterSearchParams(filters);
 
   const url = `${API_BASE_URL}/api/mls/properties/filter/?${params.toString()}`;
   const hasMapBounds =
@@ -413,7 +404,7 @@ const DEFAULT_PROPERTY_TYPES: PropertyTypeOption[] = [
  */
 export async function fetchPropertyTypes(params?: {
   province?: string;
-  listing_type?: "all" | "exclusive" | "lease" | "precon";
+  listing_type?: "all" | "exclusive" | "lease" | "precon" | "community";
 }): Promise<PropertyTypeOption[]> {
   try {
     const query = new URLSearchParams();
@@ -443,12 +434,14 @@ export async function fetchHomepageCategoryCatalog(): Promise<HomepageCategoryCa
       exclusiveResponse,
       rentalResponse,
       preconResponse,
+      communityResponse,
       newlyListedResponse,
       propertyTypes,
     ] = await Promise.all([
       fetchExclusiveProperties({ limit: 1, offset: 0 }),
       fetchLeaseProperties({ limit: 1, offset: 0 }),
       fetchPreConnProperties({ limit: 1, offset: 0 }),
+      fetchCommunityProperties({ limit: 1, offset: 0 }),
       fetchNewlyListedProperties({ limit: 1, offset: 0 }),
       fetchPropertyTypes({ listing_type: "exclusive" }),
     ]);
@@ -473,6 +466,16 @@ export async function fetchHomepageCategoryCatalog(): Promise<HomepageCategoryCa
         route: "/listing",
         source: "backend",
         order: 20,
+      },
+      {
+        key: "community",
+        kind: "community",
+        label: "Community Listings",
+        count: communityResponse.count || 0,
+        enabled: true,
+        route: "/community-listings",
+        source: "backend",
+        order: 25,
       },
       {
         key: "rental",
@@ -803,6 +806,53 @@ export async function fetchPreConnProperties(
   }
 }
 
+export async function fetchCommunityProperties(
+  filters?: CommunityPropertyFilterParams,
+): Promise<PaginatedPropertyResult> {
+  try {
+    const queryParams = new URLSearchParams();
+    const limit = filters?.limit || 12;
+    const offset = filters?.offset || 0;
+
+    queryParams.append("limit", limit.toString());
+    queryParams.append("offset", offset.toString());
+
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (key === "limit" || key === "offset") return;
+        if (value !== undefined && value !== null && value !== "") {
+          const queryKey = key === "property_sub_type" ? "property_type" : key;
+          if (typeof value === "boolean") {
+            queryParams.append(queryKey, value ? "true" : "false");
+          } else {
+            queryParams.append(queryKey, value.toString());
+          }
+        }
+      });
+    }
+
+    const url = `${API_BASE_URL}/api/mls/properties/community-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
+    const cacheKey = `community:${queryParams.toString()}`;
+    const cached = getClientCachedResponse<PaginatedPropertyResult>(cacheKey);
+    if (cached) return cached;
+
+    const response = await fetchAPI<PaginatedPropertyResult>(url, { cache: "no-store" });
+    setClientCachedResponse(cacheKey, response);
+    return response;
+  } catch (error) {
+    console.error("Error fetching community properties:", error);
+    return {
+      results: [],
+      count: 0,
+      next: null,
+      previous: null,
+      fallback_applied: false,
+      fallback_stage: null,
+      suggested_locations: [],
+    };
+  }
+}
+
 /**
  * Fetch all pre-construction properties
  */
@@ -1048,6 +1098,63 @@ export type CensusFsaProfileResponse = {
   source?: string;
 };
 
+export type ListingTrendsPoint = {
+  month: string;
+  median_list_price: number | null;
+  mean_list_price: number | null;
+  median_price_per_sqft: number | null;
+  new_listings: number;
+};
+
+export type ListingTrendsResponse = {
+  scope: { city: string | null; fsa: string | null };
+  window_months: number;
+  series: ListingTrendsPoint[];
+  subtype_distribution: Array<{ name: string; count: number }>;
+  sample_size: number;
+  velocity?: {
+    active_current: number;
+    active_delta_30d: number;
+    new_listings_30d: number;
+    modifications_30d: number;
+  };
+  pricing?: {
+    list_price_p25: number | null;
+    list_price_p50: number | null;
+    list_price_p75: number | null;
+    price_per_sqft_p25: number | null;
+    price_per_sqft_p50: number | null;
+    price_per_sqft_p75: number | null;
+    spread_index: number | null;
+  };
+  segmentation?: {
+    by_subtype: Array<{ name: string; count: number }>;
+    by_bedrooms: Array<{ name: string; count: number }>;
+    by_bathrooms: Array<{ name: string; count: number }>;
+    lease_vs_sale: Array<{ name: string; count: number }>;
+  };
+  behavior?: {
+    views_7d: number;
+    views_prev_7d: number;
+    views_delta_pct: number | null;
+    saves_30d: number;
+    rising_listings: Array<{
+      listing_key: string;
+      views_7d: number;
+      views_prev_7d: number;
+      delta: number;
+    }>;
+    note?: string;
+  };
+  confidence?: {
+    sample_size: number;
+    pct_with_living_area: number;
+    pct_with_list_price: number;
+    pct_recently_updated_30d: number;
+  };
+  disclaimer: string;
+};
+
 export async function fetchCensusFsaProfile(
   fsa: string,
 ): Promise<CensusFsaProfileResponse | null> {
@@ -1058,6 +1165,28 @@ export async function fetchCensusFsaProfile(
     );
     if (!res.ok) return null;
     return (await res.json()) as CensusFsaProfileResponse;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchListingTrends(params: {
+  city?: string;
+  fsa?: string;
+  window?: "3m" | "6m" | "12m" | "24m";
+}): Promise<ListingTrendsResponse | null> {
+  try {
+    const usp = new URLSearchParams();
+    if (params.city) usp.set("city", params.city);
+    if (params.fsa) usp.set("fsa", params.fsa);
+    usp.set("window", params.window || "12m");
+    const q = usp.toString();
+    if (!q) return null;
+    const res = await fetch(`${API_BASE_URL}/api/mls/trends/?${q}`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as ListingTrendsResponse;
   } catch {
     return null;
   }

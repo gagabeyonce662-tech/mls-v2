@@ -74,4 +74,24 @@ describe("mergeHomepageCategories", () => {
     assert.ok(exclusive);
     assert.equal("query" in exclusive, false);
   });
+
+  it("keeps community category as core section", () => {
+    const input: HomepageCategory[] = [
+      {
+        key: "community",
+        kind: "community",
+        label: "Community",
+        count: 2,
+        enabled: true,
+        route: "/community-listings",
+        source: "backend",
+        order: 250,
+      },
+    ];
+
+    const merged = mergeHomepageCategories(input);
+    const community = merged.find((item) => item.key === "community");
+    assert.ok(community);
+    assert.equal(community?.route, "/community-listings");
+  });
 });

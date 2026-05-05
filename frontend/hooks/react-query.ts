@@ -19,6 +19,7 @@ import {
   fetchPropertyByKey,
   fetchOntarioProperties,
   fetchPreConnProperties,
+  fetchCommunityProperties,
   fetchAllPreConnProperties,
   uploadPreConnProperties,
   fetchVlogPosts,
@@ -29,6 +30,7 @@ import {
   LeasePropertyFilterParams,
   fetchCompareProperties,
   PreConnPropertyFilterParams,
+  CommunityPropertyFilterParams,
   VlogPost,
   fetchNewlyListedProperties,
   ExclusivePropertiesResponse,
@@ -69,6 +71,13 @@ export const queryKeys = {
       ["properties", "pre-conn", "filters", filters] as const,
     infinite: (filters?: Omit<PreConnPropertyFilterParams, "offset">) =>
       ["properties", "pre-conn", "infinite", filters] as const,
+  },
+  community: {
+    all: ["properties", "community"] as const,
+    filters: (filters?: CommunityPropertyFilterParams) =>
+      ["properties", "community", "filters", filters] as const,
+    infinite: (filters?: Omit<CommunityPropertyFilterParams, "offset">) =>
+      ["properties", "community", "infinite", filters] as const,
   },
   property: {
     detail: (propertyKey?: string) =>
@@ -346,6 +355,35 @@ export const useAllPreConnProperties = (
   });
 };
 
+export const useInfiniteCommunityProperties = (
+  filters?: Omit<CommunityPropertyFilterParams, "offset">,
+  options?: Partial<
+    UseInfiniteQueryOptions<
+      PaginatedPropertyResult,
+      Error
+    >
+  >,
+) => {
+  const limit = filters?.limit || 12;
+
+  return useInfiniteQuery({
+    queryKey: queryKeys.community.infinite(filters),
+    queryFn: ({ pageParam = 0 }) =>
+      fetchCommunityProperties({
+        ...filters,
+        limit,
+        offset: pageParam as number,
+      }),
+    getNextPageParam: (lastPage, allPages) => {
+      const loadedItems = allPages.flatMap((page) => page.results).length;
+      return loadedItems < lastPage.count ? loadedItems : undefined;
+    },
+    initialPageParam: 0,
+    ...baseQueryOptions,
+    ...(options as any),
+  });
+};
+
 // React Query hook for individual property
 export const useProperty = (
   propertyKey?: string,
@@ -457,6 +495,7 @@ export const useInvalidateProperties = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.exclusive.all });
     queryClient.invalidateQueries({ queryKey: queryKeys.lease.all });
     queryClient.invalidateQueries({ queryKey: queryKeys.preConn.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.community.all });
   };
 };
 

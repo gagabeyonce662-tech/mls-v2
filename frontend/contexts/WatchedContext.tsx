@@ -9,22 +9,46 @@ import React, {
 } from "react";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import {
+  WatchedAlertPreferences,
+  WatchedFollowedAreaRow,
   buildPropertySnapshotJson,
+  clearWatchedAreasServer,
   clearWatchedFavoritesServer,
   clearWatchedHistoryServer,
+  clearWatchedTouredServer,
   fetchWatchedOverview,
   hydrateWatchedProperty,
+  postFollowArea,
   postWatchedFavoriteToggle,
+  postWatchedHistoryAdd,
+  postWatchedTouredToggle,
+  postUnfollowArea,
+  putAlertPreferences,
 } from "@/lib/api/watched";
 
 interface WatchedContextType {
   favoritesList: any[];
   historyList: any[];
+  touredList: any[];
+  followedAreas: WatchedFollowedAreaRow[];
+  alertPreferences: WatchedAlertPreferences;
   toggleFavorite: (property: any) => void;
   addToHistory: (property: any) => void;
+  toggleToured: (property: any) => void;
+  isToured: (propertyId: string) => boolean;
+  followArea: (area: {
+    area_key: string;
+    area_label: string;
+    area_kind?: string;
+    metadata_json?: Record<string, unknown>;
+  }) => void;
+  unfollowArea: (areaKey: string) => void;
+  updateAlertPrefs: (payload: Partial<WatchedAlertPreferences>) => Promise<void>;
   isFavorite: (propertyId: string) => boolean;
   clearFavorites: () => void;
   clearHistory: () => void;
+  clearToured: () => void;
+  clearFollowedAreas: () => void;
   getPropertyKey: (property: any) => string;
 }
 
@@ -52,8 +76,34 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { user, isLoading: authLoading } = useUserAuth();
-  const [favoritesList, setFavoritesList] = useState<any[]>([]);
-  const [historyList, setHistoryList] = useState<any[]>([]);
+  const [favoritesList, setFavoritesList] = useState<any[]>(() => {
+    if (typeof window === "undefined") return [];
+    const saved = localStorage.getItem("favorite_properties");
+    if (!saved) return [];
+    try {
+      return JSON.parse(saved);
+    } catch {
+      return [];
+    }
+  });
+  const [historyList, setHistoryList] = useState<any[]>(() => {
+    if (typeof window === "undefined") return [];
+    const saved = localStorage.getItem("history_properties");
+    if (!saved) return [];
+    try {
+      return JSON.parse(saved);
+    } catch {
+      return [];
+    }
+  });
+  const [touredList, setTouredList] = useState<any[]>([]);
+  const [followedAreas, setFollowedAreas] = useState<WatchedFollowedAreaRow[]>([]);
+  const [alertPreferences, setAlertPreferences] = useState<WatchedAlertPreferences>({
+    price_changes: true,
+    new_listings: true,
+    status_updates: true,
+    email_enabled: true,
+  });
 
   // Helper to get consistent keys
   const getPropertyKey = useCallback((property: any) => {
@@ -66,29 +116,6 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   }, []);
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedFavorites = localStorage.getItem("favorite_properties");
-      const savedHistory = localStorage.getItem("history_properties");
-
-      if (savedFavorites) {
-        try {
-          setFavoritesList(JSON.parse(savedFavorites));
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      if (savedHistory) {
-        try {
-          setHistoryList(JSON.parse(savedHistory));
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
-  }, []);
-
   useEffect(() => {
     if (authLoading || !user) return;
     if (typeof window === "undefined") return;
@@ -99,8 +126,12 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
       if (cancelled || !data) return;
       const fromFavs = (data.favorites || []).map(hydrateWatchedProperty);
       const fromHist = (data.history || []).map(hydrateWatchedProperty);
+      const fromToured = (data.toured || []).map(hydrateWatchedProperty);
       setFavoritesList((prev) => mergeServerFirst(fromFavs, prev, getPropertyKey));
       setHistoryList((prev) => mergeServerFirst(fromHist, prev, getPropertyKey));
+      setTouredList((prev) => mergeServerFirst(fromToured, prev, getPropertyKey));
+      setFollowedAreas(data.followed_areas || []);
+      if (data.alert_preferences) setAlertPreferences(data.alert_preferences);
     })();
     return () => {
       cancelled = true;
@@ -155,8 +186,100 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
         const filtered = prev.filter((p) => getPropertyKey(p) !== key);
         return [property, ...filtered].slice(0, 50); // Keep last 50
       });
+      if (
+        typeof window !== "undefined" &&
+        localStorage.getItem("access_token")
+      ) {
+        void postWatchedHistoryAdd(key, buildPropertySnapshotJson(property));
+      }
     },
     [getPropertyKey],
+  );
+
+  const isToured = useCallback(
+    (propertyId: string) => {
+      return touredList.some((p) => getPropertyKey(p) === propertyId);
+    },
+    [touredList, getPropertyKey],
+  );
+
+  const toggleToured = useCallback(
+    (property: any) => {
+      const key = getPropertyKey(property);
+      let wasToured = false;
+      setTouredList((prev) => {
+        wasToured = prev.some((p) => getPropertyKey(p) === key);
+        if (wasToured) {
+          return prev.filter((p) => getPropertyKey(p) !== key);
+        }
+        return [property, ...prev];
+      });
+      if (
+        typeof window !== "undefined" &&
+        localStorage.getItem("access_token")
+      ) {
+        void postWatchedTouredToggle(
+          key,
+          wasToured ? {} : buildPropertySnapshotJson(property),
+        );
+      }
+    },
+    [getPropertyKey],
+  );
+
+  const followArea = useCallback(
+    (area: {
+      area_key: string;
+      area_label: string;
+      area_kind?: string;
+      metadata_json?: Record<string, unknown>;
+    }) => {
+      if (!area.area_key) return;
+      setFollowedAreas((prev) => {
+        if (prev.some((x) => x.area_key === area.area_key)) return prev;
+        return [
+          {
+            area_key: area.area_key,
+            area_label: area.area_label,
+            area_kind: area.area_kind || "community",
+            metadata_json: area.metadata_json || {},
+            created_at: new Date().toISOString(),
+          },
+          ...prev,
+        ];
+      });
+      if (
+        typeof window !== "undefined" &&
+        localStorage.getItem("access_token")
+      ) {
+        void postFollowArea(area);
+      }
+    },
+    [],
+  );
+
+  const unfollowArea = useCallback((areaKey: string) => {
+    setFollowedAreas((prev) => prev.filter((x) => x.area_key !== areaKey));
+    if (
+      typeof window !== "undefined" &&
+      localStorage.getItem("access_token")
+    ) {
+      void postUnfollowArea(areaKey);
+    }
+  }, []);
+
+  const updateAlertPrefs = useCallback(
+    async (payload: Partial<WatchedAlertPreferences>) => {
+      setAlertPreferences((prev) => ({ ...prev, ...payload }));
+      if (
+        typeof window !== "undefined" &&
+        localStorage.getItem("access_token")
+      ) {
+        const next = await putAlertPreferences(payload);
+        if (next) setAlertPreferences(next);
+      }
+    },
+    [],
   );
 
   const clearFavorites = useCallback(() => {
@@ -179,16 +302,46 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  const clearToured = useCallback(() => {
+    setTouredList([]);
+    if (
+      typeof window !== "undefined" &&
+      localStorage.getItem("access_token")
+    ) {
+      void clearWatchedTouredServer();
+    }
+  }, []);
+
+  const clearFollowedAreas = useCallback(() => {
+    setFollowedAreas([]);
+    if (
+      typeof window !== "undefined" &&
+      localStorage.getItem("access_token")
+    ) {
+      void clearWatchedAreasServer();
+    }
+  }, []);
+
   return (
     <WatchedContext.Provider
       value={{
         favoritesList,
         historyList,
+        touredList,
+        followedAreas,
+        alertPreferences,
         toggleFavorite,
         addToHistory,
+        toggleToured,
+        isToured,
+        followArea,
+        unfollowArea,
+        updateAlertPrefs,
         isFavorite,
         clearFavorites,
         clearHistory,
+        clearToured,
+        clearFollowedAreas,
         getPropertyKey,
       }}
     >
