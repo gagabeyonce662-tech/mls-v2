@@ -44,7 +44,7 @@ export default function PropertyGalleryGrid({
       if (!bucket.has(category)) bucket.set(category, []);
       bucket.get(category)!.push(url);
     }
-    return [...bucket.entries()];
+    return Array.from(bucket.entries());
   }, [media]);
 
   const [activeCategory, setActiveCategory] = React.useState<string | null>(null);
