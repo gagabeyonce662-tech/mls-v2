@@ -149,9 +149,7 @@ function MapOnlyPageInner() {
   const initialSearchDone = useRef(false);
   const autoSelectAppliedRef = useRef(false);
   const previousZoomRef = useRef<number | null>(null);
-  const autoRefreshTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
-    null,
-  );
+  const autoRefreshTimerRef = useRef<number | null>(null);
   const handleSearchThisAreaRef = useRef<(mapRef: React.MutableRefObject<any>) => Promise<void>>(
     async () => {},
   );
