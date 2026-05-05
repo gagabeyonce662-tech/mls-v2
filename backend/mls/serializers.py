@@ -248,3 +248,31 @@ class CommunityListingSerializer(serializers.ModelSerializer):
             "updated_at",
             "property",
         ]
+
+
+class RecommendationItemSerializer(serializers.Serializer):
+    property = PropertySerializer()
+    score = serializers.FloatField()
+    content_score = serializers.FloatField()
+    personal_score = serializers.FloatField()
+    collab_score = serializers.FloatField()
+    freshness_score = serializers.FloatField()
+    why = serializers.ListField(child=serializers.CharField(), required=False)
+
+
+class ListingRecommendationsResponseSerializer(serializers.Serializer):
+    for_this_home = RecommendationItemSerializer(many=True)
+    based_on_your_history = RecommendationItemSerializer(many=True)
+    people_also_viewed = RecommendationItemSerializer(many=True)
+    fallback = RecommendationItemSerializer(many=True)
+    metadata = serializers.DictField()
+
+
+class RecommendationTrackSerializer(serializers.Serializer):
+    listing_key = serializers.CharField(max_length=2000)
+    session_key = serializers.CharField(max_length=64, required=False, allow_blank=True)
+    event_type = serializers.ChoiceField(
+        choices=["impression", "click", "detail_open", "save", "compare"]
+    )
+    section = serializers.CharField(max_length=64, required=False, allow_blank=True)
+    metadata = serializers.JSONField(required=False, default=dict)

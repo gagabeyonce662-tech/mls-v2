@@ -13,13 +13,13 @@ import {
   Building,
   Users,
 } from "lucide-react";
-import Image from "next/image";
 import Header from "@/components/Header";
 
 import Footer from "@/components/Footer";
 import PropertyGalleryGrid from "@/components/listing/PropertyGalleryGrid";
 import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
 import ListingAISummary from "@/components/listing/details/ListingAISummary";
+import SimilarProperties from "@/components/listing/SimilarProperties";
 import { ds } from "@/lib/design-system-utils";
 import { fetchPropertyByKey } from "@/lib/api";
 import { notFound } from "next/navigation";
@@ -286,7 +286,7 @@ export default async function RentalPropertyPage(
         {/* Grid gallery (client) */}
         {hasImages ? (
           <div className="mb-6">
-            <PropertyGalleryGrid images={propertyImages} />
+            <PropertyGalleryGrid images={propertyImages} statusLabel="For Rent" />
           </div>
         ) : (
           <div className="w-full h-96 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-6">
@@ -724,60 +724,10 @@ export default async function RentalPropertyPage(
           </div>
         </div>
 
-        {/* Similar Rental Properties */}
-        <div className="mt-16">
-          <h2 className={`${ds.h2} mb-8`}>Similar Rental Properties</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Placeholder similar rental properties */}
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-              >
-                <div className="relative h-48">
-                  <Image
-                    src={`https://images.unsplash.com/photo-1600577916048-804c9191e36c?w=400&h=300&fit=crop&auto=format&q=80`}
-                    alt={`Similar Rental ${i}`}
-                    width={400}
-                    height={300}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 left-3">
-                    <span className="px-2 py-1 bg-blue-600 text-white text-xs font-semibold rounded">
-                      For Rent
-                    </span>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className={`${ds.h4} text-ds-primary mb-2`}>
-                    $2,500/month
-                  </h3>
-                  <p className={`${ds.bodyRegular} text-ds-heading mb-1`}>
-                    {i === 1
-                      ? "Downtown Condo"
-                      : i === 2
-                        ? "Suburban House"
-                        : "Townhouse"}
-                  </p>
-                  <p className={`${ds.small} text-ds-body mb-1`}>
-                    {getCity()}, {property.StateOrProvince || "Ontario"}
-                  </p>
-                  <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                    <span className="flex items-center gap-1">
-                      <Bed className="w-3 h-3" /> {i + 1}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Bath className="w-3 h-3" /> {i}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Maximize className="w-3 h-3" /> {800 + i * 200} sq ft
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <SimilarProperties
+          property={property}
+          sectionTitle="Similar Rental Properties"
+        />
       </div>
 
       <Footer />

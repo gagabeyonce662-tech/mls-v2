@@ -217,8 +217,10 @@ export const PropertyCard = ({
                 }}
                 className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 shadow-md active:scale-95 text-ds-heading ${isSelected
                     ? "text-blue-600 bg-white"
-                    : "opacity-0 group-hover:opacity-100 hover:bg-white"
+                    : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-white"
                   }`}
+                aria-label={isSelected ? "Remove from Compare" : "Add to Compare"}
+                title={isSelected ? "Remove from Compare" : "Add to Compare"}
               >
                 {isSelected ? (
                   <Check className="w-4 h-4" />
@@ -242,7 +244,9 @@ export const PropertyCard = ({
                   e.stopPropagation();
                   onQuickView(property);
                 }}
-                className="absolute bottom-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 shadow-md active:scale-95 text-ds-heading opacity-0 group-hover:opacity-100 hover:bg-white"
+                className="absolute bottom-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 shadow-md active:scale-95 text-ds-heading opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto hover:bg-white"
+                aria-label="Quick View"
+                title="Quick View"
               >
                 <Eye className="w-4.5 h-4.5" />
               </button>

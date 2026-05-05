@@ -35,6 +35,8 @@ from mls.models import (
     UserFollowedArea,
     UserAlertPreference,
     ListingViewEvent,
+    UserPropertyInteraction,
+    SearchEvent,
     PropertyNote,
     PropertySnapshot,
     CensusFSA,
@@ -51,6 +53,8 @@ from .serializers import (
     FollowedAreaMutationSerializer,
     UserFollowedAreaSerializer,
     UserAlertPreferenceSerializer,
+    ListingRecommendationsResponseSerializer,
+    RecommendationTrackSerializer,
 )
 from mls.services.map_aggregates import get_resolution_for_zoom
 from mls.services.inquiry_ghl import sync_inquiry_to_ghl
@@ -60,6 +64,7 @@ from mls.services.ai_listing_summary import (
     generate_listing_summary,
     is_summary_complete,
 )
+from mls.services.recommendations import build_recommendation_payload
 
 logger = logging.getLogger(__name__)
 # Shared TTL for map bbox responses (aggregates + property filter). Override via env; default 15m fits ~24h listing refresh cadence.
@@ -68,6 +73,9 @@ MAP_VIEW_CACHE_TTL_SECONDS = int(
 )
 LISTING_CACHE_TTL_SECONDS = int(
     os.environ.get("LISTING_CACHE_TTL_SECONDS", "86400")
+)
+RECOMMENDATION_CACHE_TTL_SECONDS = int(
+    os.environ.get("RECOMMENDATION_CACHE_TTL_SECONDS", "300")
 )
 NEAREST_SCHOOL_CACHE_TTL_SECONDS = int(
     os.environ.get("NEAREST_SCHOOL_CACHE_TTL_SECONDS", "86400")
@@ -636,6 +644,18 @@ class PropertyInquiryAPIView(APIView):
         inquiry = serializer.save(
             user=request.user if request.user.is_authenticated else None,
         )
+        page_url = serializer.validated_data.get("page_url") or ""
+        listing_match = re.search(r"/listing/(?:rental/)?([^/?#]+)", page_url)
+        inferred_listing_key = listing_match.group(1) if listing_match else ""
+        if inferred_listing_key:
+            UserPropertyInteraction.objects.create(
+                listing_key=inferred_listing_key,
+                user=request.user if request.user.is_authenticated else None,
+                session_key=request.headers.get("X-Session-Key", "")[:64],
+                event_type=UserPropertyInteraction.EVENT_INQUIRY,
+                source="inquiry_form",
+                metadata={"page_url": page_url, "intent": serializer.validated_data.get("intent", "buy")},
+            )
         sync_inquiry_to_ghl(inquiry)
         send_inquiry_email_to_realtor(inquiry)
         return Response(
@@ -684,6 +704,13 @@ class WatchedFavoriteToggleAPIView(APIView):
         )
 
         if created:
+            UserPropertyInteraction.objects.create(
+                listing_key=property_key,
+                user=request.user,
+                event_type=UserPropertyInteraction.EVENT_FAVORITE,
+                source="watched",
+                metadata={"created": True},
+            )
             return Response({"is_favorite": True}, status=status.HTTP_200_OK)
 
         favorite.delete()
@@ -717,6 +744,12 @@ class WatchedHistoryAddAPIView(APIView):
         if stale_ids:
             UserHistory.objects.filter(id__in=stale_ids).delete()
 
+        UserPropertyInteraction.objects.create(
+            listing_key=property_key,
+            user=request.user,
+            event_type=UserPropertyInteraction.EVENT_HISTORY,
+            source="watched",
+        )
         return Response({"added": True}, status=status.HTTP_200_OK)
 
 
@@ -751,6 +784,13 @@ class WatchedTouredToggleAPIView(APIView):
             defaults={"property_snapshot_json": snapshot},
         )
         if created:
+            UserPropertyInteraction.objects.create(
+                listing_key=property_key,
+                user=request.user,
+                event_type=UserPropertyInteraction.EVENT_TOURED,
+                source="watched",
+                metadata={"created": True},
+            )
             return Response({"is_toured": True}, status=status.HTTP_200_OK)
 
         toured.delete()
@@ -820,6 +860,77 @@ class WatchedAlertPreferencesAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class WatchedAlertPreviewAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        days = int(request.query_params.get("days", "14") or 14)
+        days = max(1, min(days, 60))
+        since = timezone.now() - timedelta(days=days)
+
+        prefs, _ = UserAlertPreference.objects.get_or_create(user=request.user)
+        if not prefs.email_enabled:
+            return Response(
+                {"events": [], "message": "Email alerts are disabled."},
+                status=status.HTTP_200_OK,
+            )
+
+        favorite_keys = list(
+            UserFavorite.objects.filter(user=request.user).values_list("property_key", flat=True)[:500]
+        )
+        if not favorite_keys:
+            return Response({"events": []}, status=status.HTTP_200_OK)
+
+        events = []
+        for listing_key in favorite_keys:
+            snapshots = list(
+                PropertySnapshot.objects.filter(
+                    listing_key=listing_key,
+                    created_at__gte=since,
+                )
+                .order_by("-created_at")[:2]
+            )
+            if len(snapshots) < 2:
+                continue
+
+            latest, previous = snapshots[0], snapshots[1]
+            latest_price = float(latest.list_price) if latest.list_price is not None else None
+            previous_price = float(previous.list_price) if previous.list_price is not None else None
+            latest_status = (latest.standard_status or "").strip()
+            previous_status = (previous.standard_status or "").strip()
+
+            if prefs.price_changes and latest_price is not None and previous_price is not None and latest_price != previous_price:
+                events.append(
+                    {
+                        "type": "price_change",
+                        "listing_key": listing_key,
+                        "old_price": previous_price,
+                        "new_price": latest_price,
+                        "changed_at": latest.created_at,
+                    }
+                )
+            if prefs.status_updates and latest_status and previous_status and latest_status != previous_status:
+                events.append(
+                    {
+                        "type": "status_change",
+                        "listing_key": listing_key,
+                        "old_status": previous_status,
+                        "new_status": latest_status,
+                        "changed_at": latest.created_at,
+                    }
+                )
+
+        events.sort(key=lambda item: item.get("changed_at") or timezone.now(), reverse=True)
+        return Response(
+            {
+                "events": events[:50],
+                "window_days": days,
+                "favorites_checked": len(favorite_keys),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class DDFAPIClient:
@@ -893,7 +1004,100 @@ class PropertyFilterView(APIView):
             **fallback_meta,
         }
         cache.set(filter_cache_key, payload, MAP_VIEW_CACHE_TTL_SECONDS)
+        query = (request.GET.get("search") or "").strip()
+        city = (request.GET.get("city") or "").strip()
+        if query or city:
+            SearchEvent.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                session_key=(request.headers.get("X-Session-Key", "") or request.GET.get("session_key", ""))[:64],
+                query=query[:255],
+                city=city[:255],
+                filters_json={k: v for k, v in request.GET.items() if k != "session_key"},
+                result_count=paginator.count,
+            )
         return Response(payload)
+
+
+class PropertyRecommendationsAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, listing_key):
+        listing_key = (listing_key or "").strip()
+        if not listing_key:
+            return Response({"error": "listing_key is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        prop = Property.objects.filter(listing_key=listing_key).first()
+        if not prop:
+            return Response({"error": "Property not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        limit = max(2, min(int(request.query_params.get("limit", "6")), 12))
+        session_key = (request.query_params.get("session_key") or request.headers.get("X-Session-Key") or "")[:64]
+        segment = f"user:{request.user.id}" if request.user.is_authenticated else f"session:{session_key or 'anon'}"
+        cache_key = f"recommendations:{listing_key}:{segment}:l{limit}"
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload, status=status.HTTP_200_OK)
+
+        rec_payload = build_recommendation_payload(
+            target_property=prop,
+            user=request.user if request.user.is_authenticated else None,
+            session_key=session_key,
+            limit_per_section=limit,
+        )
+
+        sections = rec_payload.get("sections", {})
+        response_payload = {
+            "for_this_home": sections.get("for_this_home", []),
+            "based_on_your_history": sections.get("based_on_your_history", []),
+            "people_also_viewed": sections.get("people_also_viewed", []),
+            "fallback": rec_payload.get("fallback", {}).get("rows", []),
+            "metadata": {
+                **rec_payload.get("metadata", {}),
+                "fallback_applied": rec_payload.get("fallback", {}).get("applied", False),
+            },
+        }
+        serializer = ListingRecommendationsResponseSerializer(data=response_payload)
+        serializer.is_valid(raise_exception=True)
+        final_payload = serializer.data
+        cache.set(cache_key, final_payload, RECOMMENDATION_CACHE_TTL_SECONDS)
+        return Response(final_payload, status=status.HTTP_200_OK)
+
+
+class RecommendationTrackAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    EVENT_TYPE_MAP = {
+        "impression": UserPropertyInteraction.EVENT_VIEW,
+        "click": UserPropertyInteraction.EVENT_DETAIL_OPEN,
+        "detail_open": UserPropertyInteraction.EVENT_DETAIL_OPEN,
+        "save": UserPropertyInteraction.EVENT_FAVORITE,
+        "compare": UserPropertyInteraction.EVENT_HISTORY,
+    }
+
+    def post(self, request):
+        serializer = RecommendationTrackSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        event_type = serializer.validated_data["event_type"]
+        listing_key = serializer.validated_data["listing_key"]
+        session_key = (
+            serializer.validated_data.get("session_key")
+            or request.headers.get("X-Session-Key", "")
+        )[:64]
+        metadata = serializer.validated_data.get("metadata", {}) or {}
+        section = serializer.validated_data.get("section") or ""
+        if section:
+            metadata["section"] = section
+        metadata["event_type_raw"] = event_type
+
+        UserPropertyInteraction.objects.create(
+            listing_key=listing_key,
+            session_key=session_key,
+            user=request.user if request.user.is_authenticated else None,
+            event_type=self.EVENT_TYPE_MAP.get(event_type, UserPropertyInteraction.EVENT_VIEW),
+            source="recommendation",
+            metadata=metadata,
+        )
+        return Response({"ok": True}, status=status.HTTP_201_CREATED)
 
 
 class PropertyTypesAPIView(APIView):
@@ -1803,6 +2007,88 @@ class NearestSchoolAPIView(APIView):
         return r * c  # Distance in kilometers
 
 
+class NearbyAmenitiesAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        lat = request.query_params.get("lat")
+        lon = request.query_params.get("lon")
+        radius = request.query_params.get("radius", "1500")
+        if not lat or not lon:
+            return Response({"error": "lat and lon are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            lat = float(lat)
+            lon = float(lon)
+            radius = int(radius)
+        except ValueError:
+            return Response({"error": "lat/lon/radius must be numeric"}, status=status.HTTP_400_BAD_REQUEST)
+
+        radius = max(200, min(radius, 5000))
+        cache_key = f"nearby-amenities:{round(lat, 4)}:{round(lon, 4)}:{radius}"
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload, status=status.HTTP_200_OK)
+
+        overpass_query = (
+            f"[out:json][timeout:25];("
+            f'node(around:{radius},{lat},{lon})["shop"="supermarket"];'
+            f'node(around:{radius},{lat},{lon})["amenity"="cafe"];'
+            f'node(around:{radius},{lat},{lon})["amenity"="restaurant"];'
+            f'node(around:{radius},{lat},{lon})["leisure"="park"];'
+            f'node(around:{radius},{lat},{lon})["highway"="bus_stop"];'
+            f'node(around:{radius},{lat},{lon})["railway"="station"];'
+            f");out body;"
+        )
+        headers = {
+            "User-Agent": "mls-v2-backend/1.0 (nearby-amenities; +https://vsell4u.ca)",
+            "Accept": "application/json",
+        }
+        try:
+            response = requests.post(
+                "https://overpass-api.de/api/interpreter",
+                data={"data": overpass_query},
+                headers=headers,
+                timeout=30,
+            )
+            response.raise_for_status()
+        except requests.exceptions.RequestException as exc:
+            return Response(
+                {"error": f"Failed to query OpenStreetMap amenities: {str(exc)}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        grouped = {"groceries": [], "cafes": [], "parks": [], "transit": []}
+        for element in response.json().get("elements", []):
+            if element.get("type") != "node":
+                continue
+            tags = element.get("tags", {}) or {}
+            row = {
+                "name": tags.get("name", "Unnamed"),
+                "lat": element.get("lat"),
+                "lon": element.get("lon"),
+                "osm_id": element.get("id"),
+                "address": ", ".join(
+                    [v for v in [tags.get("addr:street"), tags.get("addr:city")] if v]
+                ),
+            }
+            if tags.get("shop") == "supermarket":
+                grouped["groceries"].append(row)
+            elif tags.get("amenity") in {"cafe", "restaurant"}:
+                grouped["cafes"].append(row)
+            elif tags.get("leisure") == "park":
+                grouped["parks"].append(row)
+            elif tags.get("highway") == "bus_stop" or tags.get("railway") == "station":
+                grouped["transit"].append(row)
+
+        payload = {
+            "origin": {"lat": lat, "lon": lon},
+            "radius_m": radius,
+            "categories": grouped,
+        }
+        cache.set(cache_key, payload, 86400)
+        return Response(payload, status=status.HTTP_200_OK)
+
 
 class NewlyListedPropertiesAPIView(APIView):
     def get(self, request):
@@ -2256,6 +2542,13 @@ class ListingViewBeaconAPIView(APIView):
             listing_key=lk,
             session_key=sk,
             user=user,
+        )
+        UserPropertyInteraction.objects.create(
+            listing_key=lk,
+            session_key=sk,
+            user=user,
+            event_type=UserPropertyInteraction.EVENT_VIEW,
+            source="beacon",
         )
         return Response({"ok": True}, status=status.HTTP_201_CREATED)
 

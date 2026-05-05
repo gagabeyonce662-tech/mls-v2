@@ -18,12 +18,17 @@ const envSchema = z.object({
     .string()
     .min(1, "Admin passphrase cannot be empty"),
   NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().optional(),
+  NEXT_PUBLIC_FACEBOOK_APP_ID: z.string().optional(),
+  NEXT_PUBLIC_FACEBOOK_REDIRECT_URI: z.string().url().optional(),
+  NEXT_PUBLIC_FACEBOOK_GRAPH_VERSION: z.string().optional(),
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
   NEXT_PUBLIC_API_TOKEN: z.string().optional(),
   NEXT_PUBLIC_ENABLE_DYNAMIC_HOMEPAGE_CATEGORIES: z
     .enum(["true", "false"])
     .optional(),
   NEXT_PUBLIC_ENABLE_VALUATION_ENGINE: z.enum(["true", "false"]).optional(),
+  NEXT_PUBLIC_SCHEDULE_VIEWING_URL: z.string().url().optional(),
+  NEXT_PUBLIC_ENABLE_LICENSED_DATA_BADGES: z.enum(["true", "false"]).optional(),
 });
 
 // Next.js client-side requires explicit destructuring of process.env keys at build time.
@@ -40,6 +45,11 @@ const _env = envSchema.safeParse({
     process.env.NEXT_PUBLIC_ADMIN_PASSPHRASE ||
     (isDev ? "dev-admin-passphrase" : undefined),
   NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+  NEXT_PUBLIC_FACEBOOK_APP_ID: process.env.NEXT_PUBLIC_FACEBOOK_APP_ID,
+  NEXT_PUBLIC_FACEBOOK_REDIRECT_URI:
+    process.env.NEXT_PUBLIC_FACEBOOK_REDIRECT_URI,
+  NEXT_PUBLIC_FACEBOOK_GRAPH_VERSION:
+    process.env.NEXT_PUBLIC_FACEBOOK_GRAPH_VERSION,
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
     (isDev ? "dev-maps-key" : undefined),
@@ -49,6 +59,11 @@ const _env = envSchema.safeParse({
   NEXT_PUBLIC_ENABLE_VALUATION_ENGINE:
     process.env.NEXT_PUBLIC_ENABLE_VALUATION_ENGINE ||
     (isDev ? "true" : "false"),
+  NEXT_PUBLIC_SCHEDULE_VIEWING_URL:
+    process.env.NEXT_PUBLIC_SCHEDULE_VIEWING_URL,
+  NEXT_PUBLIC_ENABLE_LICENSED_DATA_BADGES:
+    process.env.NEXT_PUBLIC_ENABLE_LICENSED_DATA_BADGES ||
+    (isDev ? "false" : "false"),
 });
 
 if (!_env.success) {

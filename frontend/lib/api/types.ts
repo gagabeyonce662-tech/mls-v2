@@ -267,6 +267,42 @@ export interface NearestSchoolsResponse {
   search_radius_m: number;
 }
 
+export interface NearbyAmenity {
+  name: string;
+  lat: number;
+  lon: number;
+  osm_id: number;
+  address: string;
+}
+
+export interface NearbyAmenitiesResponse {
+  origin: { lat: number; lon: number };
+  radius_m: number;
+  categories: {
+    groceries: NearbyAmenity[];
+    cafes: NearbyAmenity[];
+    parks: NearbyAmenity[];
+    transit: NearbyAmenity[];
+  };
+}
+
+export interface WatchedAlertPreviewEvent {
+  type: "price_change" | "status_change";
+  listing_key: string;
+  changed_at: string;
+  old_price?: number;
+  new_price?: number;
+  old_status?: string;
+  new_status?: string;
+}
+
+export interface WatchedAlertPreviewResponse {
+  events: WatchedAlertPreviewEvent[];
+  window_days?: number;
+  favorites_checked?: number;
+  message?: string;
+}
+
 export interface MapAggregateCell {
   h3_index: string;
   resolution: number;
@@ -282,6 +318,24 @@ export interface MapAggregatesResponse {
   count?: number;
   results: MapAggregateCell[];
   message?: string;
+}
+
+export interface RecommendationItem {
+  property: Property;
+  score: number;
+  content_score: number;
+  personal_score: number;
+  collab_score: number;
+  freshness_score: number;
+  why?: string[];
+}
+
+export interface ListingRecommendationsResponse {
+  for_this_home: RecommendationItem[];
+  based_on_your_history: RecommendationItem[];
+  people_also_viewed: RecommendationItem[];
+  fallback: RecommendationItem[];
+  metadata: Record<string, unknown>;
 }
 
 export interface VlogCategory {

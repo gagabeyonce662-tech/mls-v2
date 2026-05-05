@@ -1,5 +1,5 @@
 import React from "react";
-import { fetchSimilarProperties } from "@/lib/api";
+import { fetchRecommendationsForListing } from "@/lib/api";
 import SimilarPropertiesClient from "@/components/listing/SimilarPropertiesClient";
 import { ds } from "@/lib/design-system-utils";
 import type { Property } from "@/lib/api";
@@ -14,9 +14,14 @@ export default async function SimilarProperties({
   property,
   sectionTitle,
 }: SimilarPropertiesProps) {
-  const similarProperties = await fetchSimilarProperties(property, 3);
+  const recommendations = await fetchRecommendationsForListing(property, 4);
+  const hasAny =
+    recommendations.for_this_home.length > 0 ||
+    recommendations.based_on_your_history.length > 0 ||
+    recommendations.people_also_viewed.length > 0 ||
+    recommendations.fallback.length > 0;
 
-  if (similarProperties.length === 0) {
+  if (!hasAny) {
     return null;
   }
 
@@ -25,7 +30,30 @@ export default async function SimilarProperties({
       <h2 className={`${ds.h2} mb-8`}>
         {sectionTitle ?? "Similar Properties"}
       </h2>
-      <SimilarPropertiesClient properties={similarProperties} />
+      <SimilarPropertiesClient
+        sections={[
+          {
+            key: "for_this_home",
+            title: "For This Home",
+            items: recommendations.for_this_home,
+          },
+          {
+            key: "based_on_your_history",
+            title: "Based on Your History",
+            items: recommendations.based_on_your_history,
+          },
+          {
+            key: "people_also_viewed",
+            title: "People Also Viewed",
+            items: recommendations.people_also_viewed,
+          },
+          {
+            key: "fallback",
+            title: "More Homes You May Like",
+            items: recommendations.fallback,
+          },
+        ]}
+      />
     </section>
   );
 }

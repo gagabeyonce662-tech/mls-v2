@@ -6,6 +6,7 @@ const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  outputFileTracingRoot: path.resolve(__dirname, ".."),
 
   images: {
     remotePatterns: [
@@ -53,7 +54,7 @@ const nextConfig = {
 
   reactStrictMode: true,
   turbopack: {
-    root: path.resolve(__dirname),
+    root: path.resolve(__dirname, ".."),
   },
 };
 

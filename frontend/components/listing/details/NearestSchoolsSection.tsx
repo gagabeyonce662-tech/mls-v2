@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { GraduationCap, Info, MapPin } from "lucide-react";
 import { School } from "@/lib/api";
 import { ds } from "@/lib/design-system-utils";
+import { env } from "@/lib/env";
 
 interface NearestSchoolsSectionProps {
   schools: School[];
@@ -41,6 +42,7 @@ export default function NearestSchoolsSection({
   hasCoordinates,
   isUnavailable = false,
 }: NearestSchoolsSectionProps) {
+  const licensedBadgesEnabled = env.NEXT_PUBLIC_ENABLE_LICENSED_DATA_BADGES === "true";
   const [showAll, setShowAll] = useState(false);
 
   const sortedSchools = useMemo(
@@ -83,7 +85,7 @@ export default function NearestSchoolsSection({
         <span className="inline-flex items-center gap-1">
           <Info className="h-3.5 w-3.5" />
           Source: OpenStreetMap / Overpass; optional ratings from bundled public-data
-          lookup (not live paid APIs).
+          lookup {licensedBadgesEnabled ? "(licensed sources enabled)." : "(no paid API sources enabled)."}
         </span>
       </div>
 

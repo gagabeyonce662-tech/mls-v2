@@ -252,6 +252,17 @@ AUTH_USER_MODEL = 'accounts.User'
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '909407398208-ftdd1k2p9lr6rk2t7ivop3bbfp8q6b7o.apps.googleusercontent.com')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 
+# Facebook OAuth (Login with Facebook — authorization code flow)
+FACEBOOK_APP_ID = os.environ.get('FACEBOOK_APP_ID', '').strip()
+FACEBOOK_APP_SECRET = os.environ.get('FACEBOOK_APP_SECRET', '').strip()
+FACEBOOK_REDIRECT_URI = os.environ.get(
+    'FACEBOOK_REDIRECT_URI',
+    'http://localhost:3000/auth/facebook/callback',
+).strip()
+FACEBOOK_GRAPH_VERSION = os.environ.get('FACEBOOK_GRAPH_VERSION', 'v19.0').strip().lstrip('/')
+# Comma-separated list of extra redirect URIs allowed when client sends redirect_uri (e.g. staging + prod)
+FACEBOOK_ALLOWED_REDIRECT_URIS = os.environ.get('FACEBOOK_ALLOWED_REDIRECT_URIS', '').strip()
+
 # GoHighLevel
 GHL_API_KEY = os.environ.get('GHL_API_KEY', '')
 GHL_LOCATION_ID = os.environ.get('GHL_LOCATION_ID', '')

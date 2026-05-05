@@ -10,6 +10,7 @@ interface MapSidebarProps {
   onViewOnMap: (property: PropertyMarker) => void;
   onViewStreetView: (property: PropertyMarker) => void;
   loading?: boolean;
+  emptyMessage?: string;
 }
 
 export const MapSidebar = ({
@@ -18,10 +19,11 @@ export const MapSidebar = ({
   onViewOnMap,
   onViewStreetView,
   loading = false,
+  emptyMessage,
 }: MapSidebarProps) => {
   const [mobileExpanded, setMobileExpanded] = useState(false);
 
-  if (!loading && apiMarkers.length === 0) return null;
+  if (!loading && apiMarkers.length === 0 && !emptyMessage) return null;
 
   return (
     <>
@@ -37,7 +39,11 @@ export const MapSidebar = ({
             Properties in View
           </h2>
           <p className="text-sm text-ds-body">
-            {loading ? "Loading properties…" : `Showing ${apiMarkers.length} matching homes`}
+            {loading
+              ? "Loading properties…"
+              : apiMarkers.length > 0
+                ? `Showing ${apiMarkers.length} matching homes`
+                : (emptyMessage ?? "No properties currently shown")}
           </p>
         </div>
 
@@ -52,15 +58,21 @@ export const MapSidebar = ({
               </div>
             ))
           ) : (
-            apiMarkers.map((property) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-                onViewOnMap={() => onViewOnMap(property)}
-                onViewStreetView={() => onViewStreetView(property)}
-                isSelected={selectedPropertyId === property.id}
-              />
-            ))
+            apiMarkers.length > 0 ? (
+              apiMarkers.map((property) => (
+                <PropertyCard
+                  key={property.id}
+                  property={property}
+                  onViewOnMap={() => onViewOnMap(property)}
+                  onViewStreetView={() => onViewStreetView(property)}
+                  isSelected={selectedPropertyId === property.id}
+                />
+              ))
+            ) : (
+              <div className="rounded-xl border border-ds-card-border bg-ds-card p-4 text-sm text-ds-body">
+                {emptyMessage ?? "No properties in this view yet."}
+              </div>
+            )
           )}
         </div>
       </motion.aside>
@@ -83,7 +95,11 @@ export const MapSidebar = ({
                 <div className="flex items-center gap-2">
                   <Home className="w-4 h-4 text-ds-primary" />
                   <span className="text-sm font-bold text-ds-heading">
-                    {loading ? "Finding properties…" : `${apiMarkers.length} Properties Found`}
+                    {loading
+                      ? "Finding properties…"
+                      : apiMarkers.length > 0
+                        ? `${apiMarkers.length} Properties Found`
+                        : "No properties shown"}
                   </span>
                 </div>
                 {mobileExpanded ? (
@@ -113,18 +129,24 @@ export const MapSidebar = ({
                         </div>
                       ))
                     ) : (
-                      apiMarkers.map((property) => (
-                        <PropertyCard
-                          key={property.id}
-                          property={property}
-                          onViewOnMap={() => {
-                            onViewOnMap(property);
-                            setMobileExpanded(false);
-                          }}
-                          onViewStreetView={() => onViewStreetView(property)}
-                          isSelected={selectedPropertyId === property.id}
-                        />
-                      ))
+                      apiMarkers.length > 0 ? (
+                        apiMarkers.map((property) => (
+                          <PropertyCard
+                            key={property.id}
+                            property={property}
+                            onViewOnMap={() => {
+                              onViewOnMap(property);
+                              setMobileExpanded(false);
+                            }}
+                            onViewStreetView={() => onViewStreetView(property)}
+                            isSelected={selectedPropertyId === property.id}
+                          />
+                        ))
+                      ) : (
+                        <div className="rounded-xl border border-ds-card-border bg-ds-card p-4 text-sm text-ds-body">
+                          {emptyMessage ?? "No properties in this view yet."}
+                        </div>
+                      )
                     )}
                   </div>
                 </motion.div>

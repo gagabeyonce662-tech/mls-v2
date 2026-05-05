@@ -73,15 +73,10 @@ export function PropertyCardImage({
         </div>
       )}
 
-      {/* Bottom gradient overlay */}
-      <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
-
-      {/* Status pill stays bottom-left */}
-
-      {/* Bottom-left status pill — glass effect */}
-      <div className="absolute bottom-3 left-3 z-10">
+      {/* Top-left status pill */}
+      <div className="absolute left-3 top-3 z-10">
         <span
-          className="px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm"
+          className="rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm"
           style={{
             backgroundColor: `${statusColor}dd`,
             color: "#ffffff",
@@ -91,9 +86,9 @@ export function PropertyCardImage({
         </span>
       </div>
 
-      {/* Top-right listing date — offset to make room for action icons */}
+      {/* Top-right listing date */}
       {variant === "new" && (
-        <div className="absolute top-3 right-12 z-10 flex items-center gap-1 text-white text-[10px] font-medium bg-black/20 backdrop-blur-md px-2 py-1 rounded-lg">
+        <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-lg bg-black/30 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-md">
           <Calendar className="w-3 h-3" />
           {listingDate}
         </div>

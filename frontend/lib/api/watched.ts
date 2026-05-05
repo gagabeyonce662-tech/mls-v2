@@ -51,7 +51,7 @@ export type WatchedOverviewPayload = {
 
 /** Merge API row into a property-shaped object for cards and keys. */
 export function hydrateWatchedProperty(
-  row: WatchedFavoriteRow | WatchedHistoryRow,
+  row: WatchedFavoriteRow | WatchedHistoryRow | WatchedTouredRow,
 ): Record<string, unknown> {
   const snap = { ...(row.property_snapshot_json || {}) };
   const key = row.property_key;

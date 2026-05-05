@@ -64,6 +64,7 @@ const Tooltip = dynamic(() => import("react-leaflet").then((m) => m.Tooltip), {
 const DEFAULT_CENTER: [number, number] = [43.65, -79.385];
 const DEFAULT_ZOOM = 9;
 const FALLBACK_PARAM_ZOOM = 14;
+const AUTO_ZOOM_OUT_REFRESH_DEBOUNCE_MS = 700;
 
 function LoadingShell() {
   return (
@@ -147,6 +148,19 @@ function MapOnlyPageInner() {
   const inputRef = useRef<HTMLInputElement>(null);
   const initialSearchDone = useRef(false);
   const autoSelectAppliedRef = useRef(false);
+  const previousZoomRef = useRef<number | null>(null);
+  const autoRefreshTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
+    null,
+  );
+  const handleSearchThisAreaRef = useRef<(mapRef: React.MutableRefObject<any>) => Promise<void>>(
+    async () => {},
+  );
+  const interactionStateRef = useRef({
+    loadingApi: false,
+    drawing: false,
+    hasActiveShape: false,
+    mapDataMode: "listings" as "aggregates" | "listings",
+  });
   const [selectedAggregateId, setSelectedAggregateId] = useState<string | null>(
     null,
   );
@@ -207,8 +221,10 @@ function MapOnlyPageInner() {
 
   const {
     searchQuery,
+    searching,
     searchResults,
     searchResult,
+    searchError,
     resultsOpen,
     anchorRect,
     onInputChange,
@@ -307,6 +323,28 @@ function MapOnlyPageInner() {
     clearShape,
   } = useMapDrawing(mapRef, L, onFinishDrawing);
 
+  useEffect(() => {
+    handleSearchThisAreaRef.current = handleSearchThisArea;
+  }, [handleSearchThisArea]);
+
+  useEffect(() => {
+    interactionStateRef.current = {
+      loadingApi,
+      drawing,
+      hasActiveShape,
+      mapDataMode,
+    };
+  }, [loadingApi, drawing, hasActiveShape, mapDataMode]);
+
+  useEffect(() => {
+    return () => {
+      if (autoRefreshTimerRef.current) {
+        window.clearTimeout(autoRefreshTimerRef.current);
+        autoRefreshTimerRef.current = null;
+      }
+    };
+  }, []);
+
   // Lifecycles
   useEffect(() => {
     setMounted(true);
@@ -380,15 +418,52 @@ function MapOnlyPageInner() {
       // Pan/zoom alone does NOT call the backend — only reveals "Properties in this area".
       // Data loads on initial handleSearchThisArea, that button click, or aggregate drill moveend.
       map.on("moveend", () => {
-        if (!loadingApi && !drawing && !hasActiveShape) setShowSearchThisArea(true);
+        const state = interactionStateRef.current;
+        if (!state.loadingApi && !state.drawing && !state.hasActiveShape) {
+          setShowSearchThisArea(true);
+        }
       });
       map.on("zoomend", () => {
-        if (!loadingApi && !drawing && !hasActiveShape) setShowSearchThisArea(true);
+        const currentZoom = map.getZoom?.() ?? DEFAULT_ZOOM;
+        const previousZoom = previousZoomRef.current;
+        previousZoomRef.current = currentZoom;
+        const state = interactionStateRef.current;
+
+        if (!state.loadingApi && !state.drawing && !state.hasActiveShape) {
+          setShowSearchThisArea(true);
+        }
+
+        const zoomedOut = previousZoom !== null && currentZoom < previousZoom;
+        const droppedBelowListingZoom = currentZoom < LISTING_ZOOM_MIN;
+        const shouldAutoRefreshToAggregates =
+          zoomedOut &&
+          droppedBelowListingZoom &&
+          state.mapDataMode === "listings" &&
+          !state.loadingApi &&
+          !state.drawing &&
+          !state.hasActiveShape;
+
+        if (!shouldAutoRefreshToAggregates) return;
+
+        if (autoRefreshTimerRef.current) {
+          window.clearTimeout(autoRefreshTimerRef.current);
+        }
+        autoRefreshTimerRef.current = window.setTimeout(() => {
+          const latestState = interactionStateRef.current;
+          if (
+            latestState.loadingApi ||
+            latestState.drawing ||
+            latestState.hasActiveShape
+          ) {
+            return;
+          }
+          void handleSearchThisAreaRef.current(mapRef);
+        }, AUTO_ZOOM_OUT_REFRESH_DEBOUNCE_MS);
       });
       // Auto-load properties for the initial viewport — only once
       if (!initialSearchDone.current) {
         initialSearchDone.current = true;
-        handleSearchThisArea({ current: map });
+        void handleSearchThisAreaRef.current({ current: map });
       }
     } catch {}
   };
@@ -507,7 +582,27 @@ function MapOnlyPageInner() {
             <SearchThisAreaButton
               loading={loadingApi}
               onClick={() => handleSearchThisArea(mapRef)}
+              visible={showSearchThisArea}
             />
+            {(apiError || searchError || searching) && (
+              <div className="absolute top-32 lg:top-20 left-3 right-3 lg:left-4 lg:right-[400px] z-[46] lg:z-[1002] space-y-2 pointer-events-none">
+                {searching ? (
+                  <div className="pointer-events-auto rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm">
+                    Looking up locations...
+                  </div>
+                ) : null}
+                {searchError ? (
+                  <div className="pointer-events-auto rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 shadow-sm">
+                    {searchError}
+                  </div>
+                ) : null}
+                {apiError ? (
+                  <div className="pointer-events-auto rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-sm">
+                    Could not update listings right now. Please try “Properties in this area” again.
+                  </div>
+                ) : null}
+              </div>
+            )}
             {drawing && drawingMode === "polygon" && (
               <div className="absolute top-32 lg:top-20 left-0 right-0 lg:right-[380px] xl:left-[380px] z-[45] lg:z-[1001] flex justify-center pointer-events-none">
                 <button
@@ -630,6 +725,11 @@ function MapOnlyPageInner() {
               onViewOnMap={handleViewOnMap}
               onViewStreetView={handleViewStreetView}
               loading={loadingApi}
+              emptyMessage={
+                mapDataMode === "aggregates"
+                  ? "Zoom in to explore individual listings in this area."
+                  : undefined
+              }
             />
           </div>
         </div>

@@ -4,12 +4,15 @@ import { Button } from "@/components/ui/button";
 interface SearchThisAreaButtonProps {
   loading: boolean;
   onClick: () => void;
+  visible?: boolean;
 }
 
 export const SearchThisAreaButton = ({
   loading,
   onClick,
+  visible = true,
 }: SearchThisAreaButtonProps) => {
+  if (!visible) return null;
   return (
     <div className="absolute top-20 lg:top-8 left-0 right-0 lg:right-[380px] xl:left-[380px] z-[39] lg:z-[999] flex justify-center pointer-events-none">
       <Button

@@ -8,9 +8,12 @@ import {
   PreConnPropertyFilterParams,
   CommunityPropertyFilterParams,
   NearestSchoolsResponse,
+  NearbyAmenitiesResponse,
   PropertyTypeOption,
   HomepageCategory,
   HomepageCategoryCatalog,
+  WatchedAlertPreviewResponse,
+  ListingRecommendationsResponse,
 } from "./types";
 import { PropertyResponseSchema } from "./propertySchema";
 import { fetchWPPreconPropertyAction } from "../actions/wp-precon";
@@ -942,6 +945,32 @@ export async function fetchNearestSchools(
   }
 }
 
+export async function fetchNearbyAmenities(
+  lat: number,
+  lon: number,
+  radius: number = 1500,
+): Promise<NearbyAmenitiesResponse | null> {
+  try {
+    const url = `${API_BASE_URL}/api/mls/nearby-amenities/?lat=${lat}&lon=${lon}&radius=${radius}`;
+    return await fetchAPI<NearbyAmenitiesResponse>(url, { cache: "no-store" });
+  } catch (error) {
+    console.error("Error fetching nearby amenities:", error);
+    return null;
+  }
+}
+
+export async function fetchWatchedAlertPreview(
+  days: number = 14,
+): Promise<WatchedAlertPreviewResponse | null> {
+  try {
+    const url = `${API_BASE_URL}/api/mls/watched/alerts/preview/?days=${days}`;
+    return await fetchAPI<WatchedAlertPreviewResponse>(url, { cache: "no-store" });
+  } catch (error) {
+    console.error("Error fetching watched alert preview:", error);
+    return null;
+  }
+}
+
 /**
  * Fetch similar properties based on city, price range, and property type
  */
@@ -1034,6 +1063,53 @@ export async function fetchSimilarProperties(
   } catch (error) {
     console.error("Error fetching similar properties:", error);
     return [];
+  }
+}
+
+export async function fetchRecommendationsForListing(
+  property: Property,
+  limit: number = 6,
+): Promise<ListingRecommendationsResponse> {
+  const listingKey = property.listing_key || property.ListingKey || property.PropertyKey;
+  if (!listingKey) {
+    return {
+      for_this_home: [],
+      based_on_your_history: [],
+      people_also_viewed: [],
+      fallback: [],
+      metadata: { fallback_applied: true, reason: "missing_listing_key" },
+    };
+  }
+
+  try {
+    const url = `${API_BASE_URL}/api/mls/properties/${encodeURIComponent(String(listingKey))}/recommendations/?limit=${limit}`;
+    const response = await fetchAPI<ListingRecommendationsResponse>(url, {
+      cache: "no-store",
+    });
+    const normalize = (rows?: any[]) =>
+      Array.isArray(rows)
+        ? rows.map((row) => ({
+            ...row,
+            property: mapPropertyFromAPI(row.property),
+          }))
+        : [];
+
+    return {
+      for_this_home: normalize(response.for_this_home),
+      based_on_your_history: normalize(response.based_on_your_history),
+      people_also_viewed: normalize(response.people_also_viewed),
+      fallback: normalize(response.fallback),
+      metadata: response.metadata || {},
+    };
+  } catch (error) {
+    console.error("Error fetching listing recommendations:", error);
+    return {
+      for_this_home: [],
+      based_on_your_history: [],
+      people_also_viewed: [],
+      fallback: [],
+      metadata: { fallback_applied: true, reason: "request_failed" },
+    };
   }
 }
 

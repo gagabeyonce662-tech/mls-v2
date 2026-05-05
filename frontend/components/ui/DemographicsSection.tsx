@@ -94,14 +94,16 @@ export function DemographicsSection({
                   {demographics.employmentRate}
                 </TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell className="font-medium text-gray-700">
-                  Language Spoken
-                </TableCell>
-                <TableCell className="text-gray-900">
-                  {demographics.languageSpoken}
-                </TableCell>
-              </TableRow>
+              {/*
+                <TableRow>
+                  <TableCell className="font-medium text-gray-700">
+                    Language Spoken
+                  </TableCell>
+                  <TableCell className="text-gray-900">
+                    {demographics.languageSpoken}
+                  </TableCell>
+                </TableRow>
+              */}
             </TableBody>
           </Table>
         </CardContent>

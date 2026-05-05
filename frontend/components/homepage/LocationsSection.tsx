@@ -1,10 +1,9 @@
 "use client";
 import Image from "next/image";
-import Link from "next/link";
 import { useRef, useState, useEffect } from "react";
 import { useSearch } from "@/contexts/SearchContext";
 import { Search } from "lucide-react";
-import { openInNewTab } from "@/lib/navigation/openInNewTab";
+import { useRouter } from "next/navigation";
 
 interface Location {
   id: number;
@@ -46,7 +45,8 @@ const LOCATIONS: Location[] = [
 ];
 
 export default function LocationsSection() {
-  const { setSearchQuery, clearSearch } = useSearch();
+  const { setSearchQuery } = useSearch();
+  const router = useRouter();
   const trackRef = useRef<HTMLDivElement>(null);
 
   // Drag state
@@ -125,7 +125,7 @@ export default function LocationsSection() {
     dragDelta.current = e.clientX - startX.current;
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging.current) return;
     isDragging.current = false;
 
@@ -146,12 +146,25 @@ export default function LocationsSection() {
     // Reset timing so there's no jump when animation resumes
     lastTimeRef.current = null;
     pausedRef.current = false;
+
+    // Because the track uses pointer capture for drag, regular card onClick can be
+    // swallowed on some browsers. Trigger location search directly on tap/click.
+    if (!wasDrag.current) {
+      const element = document.elementFromPoint(e.clientX, e.clientY);
+      const locationCard = element?.closest("[data-location-name]") as
+        | HTMLElement
+        | null;
+      const locationName = locationCard?.dataset.locationName;
+      if (locationName) {
+        handleLocationClick(locationName);
+      }
+    }
   };
 
-  const handleLocationClick = async (locationName: string) => {
+  const handleLocationClick = (locationName: string) => {
     setSearchQuery(locationName);
-    const target = `/listing?city=${encodeURIComponent(locationName)}`;
-    openInNewTab(target);
+    const target = `/search-results?city=${encodeURIComponent(locationName)}`;
+    router.push(target);
   };
 
   const marqueeLocations = [
@@ -183,6 +196,7 @@ export default function LocationsSection() {
           {marqueeLocations.map((location, i) => (
             <div
               key={`${location.id}-${i}`}
+              data-location-name={location.name}
               className="relative h-72 w-64 rounded-xl overflow-hidden shadow-lg group flex-shrink-0 cursor-pointer"
               // Direct click handler that respects drag state
               onClick={() => {

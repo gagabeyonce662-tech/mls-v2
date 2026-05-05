@@ -265,6 +265,8 @@ export const propertyCard = {
     padding: "p-4",
     gap: "gap-6", // grid gap
     gridCols: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+    contentPadding: "px-4 pt-4 pb-3",
+    actionHeight: "h-10",
   },
 
   /** Animation timing */
@@ -273,6 +275,31 @@ export const propertyCard = {
     durationMs: 400, // fadeInUp duration
     hoverScale: "group-hover:scale-110", // image zoom on hover
     hoverLift: "hover:-translate-y-1", // card lift on hover
+  },
+
+  /** Card surface and text style tokens */
+  surface: {
+    cardBg: colors.cards,
+    borderColor: colors.cardsBoarder,
+    shadow: shadows.md,
+    hoverShadow: shadows.lg,
+    sectionDivider: colors.cardsBoarder,
+  },
+
+  typography: {
+    title: "text-[23px] font-semibold leading-snug",
+    address: "text-xs font-normal leading-snug",
+    addedDate: "text-xs font-medium leading-snug",
+    stat: "text-sm font-semibold",
+    price: "text-[30px] font-bold leading-none",
+    action: "text-xs font-medium",
+  },
+
+  actionIcons: {
+    save: "Heart",
+    compare: "GitCompare",
+    images: "ImageIcon",
+    videos: "Video",
   },
 
   /** Badge variants */

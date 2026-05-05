@@ -9,6 +9,7 @@ import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
 import { ds } from "@/lib/design-system-utils";
 import {
   fetchNearestSchools,
+  fetchNearbyAmenities,
   fetchPropertyByKey,
   fetchListingCatalogStats,
   fetchPropertySnapshots,
@@ -32,6 +33,9 @@ import ListingDemographicsSection from "@/components/listing/details/ListingDemo
 import PropertyNotesPanel from "@/components/listing/details/PropertyNotesPanel";
 import { MortgageCalculator } from "@/components/ui/MortgageCalculator";
 import { CashflowCalculator } from "@/components/calculators/CashflowCalculator";
+import ClosingCostsEstimator from "@/components/listing/details/ClosingCostsEstimator";
+import ListingAmenitiesSection from "@/components/listing/details/ListingAmenitiesSection";
+import ListingFeatureStatusSection from "@/components/listing/details/ListingFeatureStatusSection";
 import {
   getAnnualTaxDisplayWithYear,
   getBathroomDisplayLabel,
@@ -52,7 +56,6 @@ import {
   getPropertyHistorySource,
 } from "@/lib/listingDisplay";
 import { getTranslations } from "next-intl/server";
-import { ListingLocaleSwitcher } from "@/components/listing/ListingLocaleSwitcher";
 
 /** One property fetch per request (shared by generateMetadata + page). */
 const getCachedPropertyByKey = cache(fetchPropertyByKey);
@@ -248,6 +251,7 @@ export default async function ListingPage(props: ListingPageProps) {
 
   const schoolRadiusMeters = 5000;
   let nearestSchoolsData: Awaited<ReturnType<typeof fetchNearestSchools>> = null;
+  let nearbyAmenities: Awaited<ReturnType<typeof fetchNearbyAmenities>> = null;
   let schoolFetchFailed = false;
 
   if (hasValidCoordinates) {
@@ -257,6 +261,7 @@ export default async function ListingPage(props: ListingPageProps) {
         longitude,
         schoolRadiusMeters,
       );
+      nearbyAmenities = await fetchNearbyAmenities(latitude, longitude, 1800);
     } catch (error) {
       console.error("Failed to fetch nearest schools:", error);
       schoolFetchFailed = true;
@@ -269,9 +274,6 @@ export default async function ListingPage(props: ListingPageProps) {
       <PropertyViewerTracker property={property} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-700">
-        <div className="mb-6 flex justify-end">
-          <ListingLocaleSwitcher />
-        </div>
         <PropertyHeader
           propertyType={uiPropertyType}
           city={getCity()}
@@ -284,7 +286,17 @@ export default async function ListingPage(props: ListingPageProps) {
 
         {propertyImages.length > 0 ? (
           <div className="mb-10">
-            <PropertyGalleryGrid images={propertyImages} />
+            <PropertyGalleryGrid
+              images={propertyImages}
+              media={property.media || property.Media || []}
+              statusLabel="For Sale"
+              tourUrl={
+                property.virtual_tour_url ||
+                property.VirtualTourURL ||
+                property.video_tour_url ||
+                null
+              }
+            />
           </div>
         ) : (
           <div className="w-full h-96 bg-ds-card border border-ds-card-border rounded-2xl flex items-center justify-center mb-10">
@@ -350,6 +362,31 @@ export default async function ListingPage(props: ListingPageProps) {
               hasCoordinates={hasValidCoordinates}
               isUnavailable={schoolFetchFailed || (!nearestSchoolsData && hasValidCoordinates)}
             />
+            <ListingAmenitiesSection amenities={nearbyAmenities} />
+            <ListingFeatureStatusSection
+              rows={[
+                {
+                  feature: "Structured gallery categories",
+                  status: "Available",
+                  dependency: "Local media metadata",
+                },
+                {
+                  feature: "Nearby amenities",
+                  status: "Available",
+                  dependency: "OpenStreetMap Overpass (free)",
+                },
+                {
+                  feature: "Live mortgage rates",
+                  status: "Planned",
+                  dependency: "External/public rate source",
+                },
+                {
+                  feature: "Official school rankings",
+                  status: "Partial",
+                  dependency: "Bundled public dataset",
+                },
+              ]}
+            />
 
             <section>
               <h2 className={`${ds.h3} mb-4`}>{t("aboutTitle")}</h2>
@@ -379,6 +416,8 @@ export default async function ListingPage(props: ListingPageProps) {
                 </div>
               </div>
             </section>
+
+            <ClosingCostsEstimator price={currentListNumeric > 0 ? currentListNumeric : null} />
 
             <section className="bg-white border border-ds-card-border rounded-2xl p-8 shadow-sm">
               <h2 className={`${ds.h3} mb-4 text-2xl`}>

@@ -15,6 +15,8 @@ import { useCompare } from "@/contexts/CompareContext";
 import { useWatched } from "@/contexts/WatchedContext";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { submitPropertyInquiry, type PropertyInquiryIntent } from "@/lib/api";
+import { fetchWatchedAlertPreview } from "@/lib/api/properties";
+import { env } from "@/lib/env";
 import { getDetailUrl } from "@/lib/propertyUtils";
 import {
   getDisplayAddress,
@@ -41,7 +43,7 @@ export default function PropertySidebar({
     isPropertySelected,
     getPropertyKey,
   } = useCompare();
-  const { toggleFavorite, isFavorite } = useWatched();
+  const { toggleFavorite, isFavorite, updateAlertPrefs, alertPreferences } = useWatched();
 
   const propertyKey = getPropertyKey(property);
   const isSelected = isPropertySelected(propertyKey);
@@ -58,6 +60,7 @@ export default function PropertySidebar({
   const [shareStatus, setShareStatus] = useState<"" | "copied" | "shared" | "failed">(
     "",
   );
+  const [alertPreviewText, setAlertPreviewText] = useState("");
 
   const inferredIntent = useMemo<PropertyInquiryIntent>(() => {
     const leaseAmount = Number(property?.lease_amount ?? 0);
@@ -174,6 +177,24 @@ export default function PropertySidebar({
     return () => window.clearTimeout(timer);
   }, [shareStatus]);
 
+  const scheduleUrl = env.NEXT_PUBLIC_SCHEDULE_VIEWING_URL || "";
+
+  const enableAlerts = async () => {
+    await updateAlertPrefs({
+      email_enabled: true,
+      price_changes: true,
+      status_updates: true,
+    });
+    const preview = await fetchWatchedAlertPreview(14);
+    if (preview?.events?.length) {
+      setAlertPreviewText(`${preview.events.length} alert-worthy update(s) in last ${preview.window_days || 14} days.`);
+    } else if (preview?.message) {
+      setAlertPreviewText(preview.message);
+    } else {
+      setAlertPreviewText("Alerts are enabled. You'll receive updates when watched listings change.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Map Section */}
@@ -247,12 +268,33 @@ export default function PropertySidebar({
           Get in touch with an expert about this property.
         </p>
         {!isInquiryOpen ? (
-          <button
-            onClick={() => setIsInquiryOpen(true)}
-            className="w-full py-3 bg-white text-ds-primary font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            Request Information
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => setIsInquiryOpen(true)}
+              className="w-full py-3 bg-white text-ds-primary font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              Request Information
+            </button>
+            {scheduleUrl ? (
+              <a
+                href={scheduleUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full inline-flex items-center justify-center py-3 bg-white/15 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/25 transition-colors"
+              >
+                Schedule a Viewing
+              </a>
+            ) : null}
+            <button
+              onClick={enableAlerts}
+              className="w-full py-3 bg-white/15 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/25 transition-colors"
+            >
+              {alertPreferences.email_enabled ? "Alerts Enabled" : "Notify Me"}
+            </button>
+            {alertPreviewText ? (
+              <p className="text-[11px] text-white/85">{alertPreviewText}</p>
+            ) : null}
+          </div>
         ) : (
           <form onSubmit={handleInquirySubmit} className="space-y-3">
             <input
@@ -315,15 +357,19 @@ export default function PropertySidebar({
         )}
       </div>
 
-      {/* Share / Save Actions */}
-      <div className="flex gap-2">
+      {/* Secondary actions */}
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ds-body/70">
+          More actions
+        </p>
+        <div className="flex gap-2">
         <button
           onClick={() =>
             isSelected ? removeFromCompare(propertyKey) : addToCompare(property)
           }
-          className={`flex-1 flex flex-col items-center justify-center py-3 text-[10px] font-bold border rounded-xl transition-all ${isSelected
+          className={`flex-1 flex flex-col items-center justify-center py-2.5 text-[10px] font-bold border rounded-xl transition-all ${isSelected
               ? "bg-blue-50 border-blue-200 text-blue-700 shadow-inner"
-              : "bg-white border-ds-card-border text-ds-body hover:bg-gray-50 shadow-sm"
+              : "bg-white border-ds-card-border text-ds-body/90 hover:bg-gray-50 shadow-sm"
             }`}
         >
           {isSelected ? (
@@ -335,9 +381,9 @@ export default function PropertySidebar({
         </button>
         <button
           onClick={() => toggleFavorite(property)}
-          className={`flex-1 flex flex-col items-center justify-center py-3 text-[10px] font-bold border rounded-xl transition-all ${isSaved
+          className={`flex-1 flex flex-col items-center justify-center py-2.5 text-[10px] font-bold border rounded-xl transition-all ${isSaved
               ? "bg-red-50 border-red-200 text-red-600 shadow-inner"
-              : "bg-white border-ds-card-border text-ds-body hover:bg-gray-50 shadow-sm"
+              : "bg-white border-ds-card-border text-ds-body/90 hover:bg-gray-50 shadow-sm"
             }`}
         >
           <Heart className={`w-4 h-4 mb-1 ${isSaved ? "fill-current" : ""}`} />
@@ -346,11 +392,12 @@ export default function PropertySidebar({
         <button
           onClick={handleShare}
           aria-label="Share listing"
-          className="flex-1 flex flex-col items-center justify-center py-3 text-[10px] font-bold bg-white border border-ds-card-border rounded-xl text-ds-body hover:bg-gray-50 shadow-sm transition-all"
+          className="flex-1 flex flex-col items-center justify-center py-2.5 text-[10px] font-bold bg-white border border-ds-card-border rounded-xl text-ds-body/90 hover:bg-gray-50 shadow-sm transition-all"
         >
           <Share2 className="w-4 h-4 mb-1" />
           Share
         </button>
+      </div>
       </div>
       {shareStatus ? (
         <p className="text-[11px] text-ds-body">

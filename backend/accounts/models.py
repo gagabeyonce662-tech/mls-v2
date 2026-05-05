@@ -9,6 +9,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=150, blank=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     google_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
+    facebook_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
     ghl_contact_id = models.CharField(max_length=255, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

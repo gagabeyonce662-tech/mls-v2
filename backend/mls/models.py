@@ -529,6 +529,70 @@ class ListingViewEvent(models.Model):
         ]
 
 
+class UserPropertyInteraction(models.Model):
+    EVENT_VIEW = "view"
+    EVENT_FAVORITE = "favorite"
+    EVENT_HISTORY = "history"
+    EVENT_TOURED = "toured"
+    EVENT_INQUIRY = "inquiry_click"
+    EVENT_DETAIL_OPEN = "detail_open"
+    EVENT_CHOICES = [
+        (EVENT_VIEW, "View"),
+        (EVENT_FAVORITE, "Favorite"),
+        (EVENT_HISTORY, "History"),
+        (EVENT_TOURED, "Toured"),
+        (EVENT_INQUIRY, "Inquiry Click"),
+        (EVENT_DETAIL_OPEN, "Detail Open"),
+    ]
+
+    listing_key = models.CharField(max_length=2000, db_index=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="property_interactions",
+    )
+    session_key = models.CharField(max_length=64, blank=True, db_index=True)
+    event_type = models.CharField(max_length=32, choices=EVENT_CHOICES, db_index=True)
+    source = models.CharField(max_length=64, blank=True, default="web")
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["event_type", "created_at"]),
+            models.Index(fields=["user", "event_type", "created_at"]),
+            models.Index(fields=["session_key", "event_type", "created_at"]),
+            models.Index(fields=["listing_key", "event_type", "created_at"]),
+        ]
+
+
+class SearchEvent(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="search_events",
+    )
+    session_key = models.CharField(max_length=64, blank=True, db_index=True)
+    query = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=255, blank=True)
+    filters_json = models.JSONField(default=dict, blank=True)
+    result_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["session_key", "created_at"]),
+            models.Index(fields=["city", "created_at"]),
+        ]
+
+
 class PropertyNote(models.Model):
     """Private per-user notes on a listing (by MLS listing key)."""
 

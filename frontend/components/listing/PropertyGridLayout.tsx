@@ -1,5 +1,5 @@
-import React, { useRef, useCallback, useEffect, useState } from "react";
-import { PropertyCard } from "@/components/listing/PropertyCard";
+import React, { useRef, useCallback } from "react";
+import PropertyCard from "@/components/PropertyCard";
 import { Property } from "@/lib/api";
 import { getPropertyKey } from "@/lib/propertyUtils";
 import { colors } from "@/config/design-system";
@@ -24,118 +24,11 @@ export function PropertyGridLayout({
   isFetchingNextPage,
   hasNextPage,
   fetchNextPage,
-  isLoggedIn,
   interactions,
-  currentCity,
   emptyMessage,
   variant = "grid",
 }: PropertyGridLayoutProps) {
-  const [loadedCards, setLoadedCards] = useState<Set<string>>(new Set());
-  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
-
-  const {
-    clickedProperty,
-    selectedProperty,
-    handlePropertyClick,
-    handleToggleCompare,
-    handleQuickView,
-  } = interactions;
-
-  // Gradually load cards with staggered animation
-  useEffect(() => {
-    if (!isLoading && properties.length > 0) {
-      const timer = setTimeout(() => {
-        const keysToLoad = properties
-          .map((p) => getPropertyKey(p) || (p as any).listing_key)
-          .filter(Boolean);
-
-        keysToLoad.forEach((propertyKey, index) => {
-          setTimeout(
-            () => {
-              setLoadedCards((prev) => {
-                const newSet = new Set(prev);
-                newSet.add(propertyKey);
-                return newSet;
-              });
-            },
-            50 + index * 50,
-          );
-        });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [properties, isLoading]);
-
-  const handleImageLoad = useCallback((propertyKey: string) => {
-    setLoadedImages((prev) => {
-      const newSet = new Set(prev);
-      newSet.add(propertyKey);
-      return newSet;
-    });
-  }, []);
-
-  const handleImageError = useCallback(
-    (propertyKey: string, e: React.SyntheticEvent<HTMLImageElement>) => {
-      handleImageLoad(propertyKey);
-    },
-    [handleImageLoad],
-  );
-
-  const getPropertyImageUrl = (property: any) => {
-    try {
-      const candidates = [
-        property?.media,
-        property?.Media,
-        property?.photos,
-        property?.Photos,
-      ];
-
-      for (const field of candidates) {
-        if (!field) continue;
-        if (Array.isArray(field) && field.length > 0) {
-          const first = field[0];
-          if (first && typeof first === "object") {
-            if (first.media_url) return first.media_url;
-            if (first.MediaURL) return first.MediaURL;
-            if (first.PhotoURL) return first.PhotoURL;
-          }
-          if (typeof first === "string") return first;
-        } else if (typeof field === "object") {
-          if (field.media_url) return field.media_url;
-          if (field.MediaURL) return field.MediaURL;
-        }
-      }
-
-      const fallbackFields = [
-        property?.photo_url,
-        property?.thumbnail_url,
-        property?.image_url,
-      ].filter(Boolean);
-
-      if (fallbackFields.length > 0) {
-        return fallbackFields[0];
-      }
-      return null;
-    } catch (error) {
-      return null;
-    }
-  };
-
-  const formatPrice = (price: any) => {
-    const numPrice =
-      typeof price === "string"
-        ? parseFloat(price.replace(/[^0-9.-]+/g, ""))
-        : price || 0;
-
-    if (numPrice === 0) return "Price on Request";
-
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(numPrice);
-  };
+  const handleQuickView = interactions?.handleQuickView;
 
   const renderSkeletons = () => {
     return Array.from({ length: 8 }).map((_, index) => (
@@ -227,23 +120,9 @@ export function PropertyGridLayout({
                 >
                   <PropertyCard
                     property={property}
-                    propertyKey={propertyKey}
-                    isLoggedIn={isLoggedIn}
-                    isLocked={false}
-                    isSelected={
-                      interactions.isPropertySelected?.(propertyKey) ?? false
-                    }
-                    imageUrl={getPropertyImageUrl(property)}
-                    imageLoaded={loadedImages.has(propertyKey)}
-                    cardLoaded={loadedCards.has(propertyKey)}
-                    isClicked={clickedProperty === propertyKey}
-                    onCardClick={() => handlePropertyClick(property)}
-                    onMouseEnter={() => { }} // We might not need prefetch if quick view is handling it
-                    onCompare={() => handleToggleCompare(property)}
-                    onQuickView={() => handleQuickView(property)}
-                    onImageLoad={() => handleImageLoad(propertyKey)}
-                    onImageError={(key, e) => handleImageError(key, e)}
-                    formatPrice={formatPrice}
+                    variant="featured"
+                    index={index}
+                    onQuickView={handleQuickView}
                   />
                 </div>
               );

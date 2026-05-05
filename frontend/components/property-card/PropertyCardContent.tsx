@@ -1,112 +1,156 @@
 "use client";
 
-import { Bed, Bath, Ruler, MapPin, CalendarDays } from "lucide-react";
-import { colors } from "@/config/design-system";
+import { Bed, Bath, CalendarDays, MapPin, Ruler } from "lucide-react";
+import { colors, propertyCard } from "@/config/design-system";
 import {
-  getPrice,
-  formatPrice,
-  getCity,
-  getPropertyType,
-  getBedrooms,
   getBathrooms,
-  getAddress,
+  getBedrooms,
+  getCity,
+  getFullAddress,
+  getListingDate,
+  getPrice,
+  getPropertyType,
+  getProvince,
   getSqft,
-  getYearBuilt,
-  getParkingSpaces,
+  formatPrice,
 } from "@/lib/propertyUtils";
 import type { Property } from "@/lib/api";
 
 interface PropertyCardContentProps {
   property: Property;
+  showFooterDivider?: boolean;
 }
 
-export function PropertyCardContent({ property }: PropertyCardContentProps) {
-  // Extract data from Utils
+const getListingContact = (property: Property): string => {
+  const candidateKeys = [
+    "list_agent_full_name",
+    "ListAgentFullName",
+    "list_agent_name",
+    "ListAgentName",
+    "co_list_agent_full_name",
+    "CoListAgentFullName",
+    "list_office_name",
+    "ListOfficeName",
+    "brokerage_name",
+    "BrokerageName",
+  ] as const;
+
+  for (const key of candidateKeys) {
+    const value = (property as Record<string, unknown>)[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return "MLS Verified Listing";
+};
+
+const getInitials = (value: string): string => {
+  const parts = value.split(" ").filter(Boolean);
+  if (parts.length === 0) return "ML";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+};
+
+export function PropertyCardContent({
+  property,
+  showFooterDivider = true,
+}: PropertyCardContentProps) {
   const price = getPrice(property);
-  const city = getCity(property);
   const type = getPropertyType(property);
   const beds = getBedrooms(property);
   const baths = getBathrooms(property);
-  const address = getAddress(property);
+  const address = getFullAddress(property);
   const sqft = getSqft(property);
-  const yearBuilt = getYearBuilt(property);
-  const parkingSpaces = getParkingSpaces(property);
+  const city = getCity(property);
+  const province = getProvince(property);
+  const listedOn = getListingDate(property);
+  const contact = getListingContact(property);
+  const initials = getInitials(contact);
 
   return (
-    <div className="p-4">
-      {/* Price */}
-      <p
-        className="text-lg font-bold mb-1"
-        style={{ color: price > 0 ? colors.primary : colors.body }}
-      >
-        {formatPrice(price)}
-      </p>
-
-      {/* Title */}
+    <div className={propertyCard.layout.contentPadding}>
       <h3
-        className="font-semibold text-sm truncate mb-1"
+        className={`${propertyCard.typography.title} truncate`}
         style={{ color: colors.heading }}
         title={property.project_name || `${type} in ${city}`}
       >
         {property.project_name ? property.project_name : `${type} in ${city}`}
       </h3>
 
-      {/* Address */}
       {address && (
         <p
-          className="text-xs truncate flex items-center gap-1 mb-3"
+          className={`${propertyCard.typography.address} mt-2 flex items-start gap-1.5 line-clamp-1`}
           style={{ color: colors.body }}
+          title={address}
         >
-          <MapPin className="w-3 h-3 flex-shrink-0" />
-          {address}
+          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{address}</span>
         </p>
       )}
 
-      {/* Divider */}
-      <div
-        className="border-t my-2"
-        style={{ borderColor: colors.cardsBoarder }}
-      />
+      <p
+        className={`${propertyCard.typography.addedDate} mt-1 flex items-center gap-1.5`}
+        style={{ color: colors.bodyLight }}
+      >
+        <CalendarDays className="h-3.5 w-3.5" />
+        Added: {listedOn}
+      </p>
 
-      {/* Features row */}
       <div
-        className="flex items-center gap-4 text-xs"
+        className="mt-2 grid grid-cols-3 items-center gap-2"
         style={{ color: colors.body }}
       >
-        {beds > 0 && (
-          <div className="flex items-center gap-1">
-            <Bed className="w-3.5 h-3.5" />
-            <span>
-              {beds} {beds === 1 ? "Bed" : "Beds"}
-            </span>
-          </div>
-        )}
-        {baths > 0 && (
-          <div className="flex items-center gap-1">
-            <Bath className="w-3.5 h-3.5" />
-            <span>
-              {baths} {baths === 1 ? "Bath" : "Baths"}
-            </span>
-          </div>
-        )}
-        {sqft && (
-          <div className="flex items-center gap-1">
-            <Ruler className="w-3.5 h-3.5" />
-            <span>{sqft.toLocaleString("en-US")} sqft</span>
-          </div>
-        )}
-        {parkingSpaces !== null && parkingSpaces > 0 && (
-          <div className="flex items-center gap-1">
-            <span>{parkingSpaces} Parking</span>
-          </div>
-        )}
-        {yearBuilt && (
-          <div className="flex items-center gap-1 ml-auto">
-            <CalendarDays className="w-3.5 h-3.5" />
-            <span>{yearBuilt}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-1.5">
+          <Bed className="h-3.5 w-3.5" />
+          <span className={propertyCard.typography.stat}>{beds || 0}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Bath className="h-3.5 w-3.5" />
+          <span className={propertyCard.typography.stat}>{baths || 0}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Ruler className="h-3.5 w-3.5" />
+          <span className={`${propertyCard.typography.stat} truncate`}>
+            {sqft ? `${sqft.toLocaleString("en-US")} sq ft` : province || "N/A"}
+          </span>
+        </div>
       </div>
+
+      <div
+        className="my-3 border-t"
+        style={{ borderColor: propertyCard.surface.sectionDivider }}
+      />
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+            style={{ backgroundColor: "#efeafc", color: colors.primary }}
+          >
+            {initials}
+          </div>
+          <span
+            className="truncate text-sm font-semibold"
+            style={{ color: colors.heading }}
+            title={contact}
+          >
+            {contact}
+          </span>
+        </div>
+        <p
+          className={propertyCard.typography.price}
+          style={{ color: price > 0 ? colors.primary : colors.body }}
+        >
+          {formatPrice(price)}
+        </p>
+      </div>
+
+      {showFooterDivider && (
+        <div
+          className="mt-3 border-t"
+          style={{ borderColor: propertyCard.surface.sectionDivider }}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,30 @@
 import { useState, useRef } from "react";
 import { NominatimResult } from "@/components/map/types";
 
+const ALLOWED_COUNTRY_CODES = new Set(["ca", "us"]);
+/**
+ * Domain coverage envelope:
+ * - Full Canada
+ * - Partial US near the northern border where listings may exist
+ */
+const DOMAIN_BOUNDS = {
+  minLat: 24,
+  maxLat: 84,
+  minLng: -141,
+  maxLng: -50,
+};
+
+const isWithinDomainBounds = (lat: number, lon: number) =>
+  lat >= DOMAIN_BOUNDS.minLat &&
+  lat <= DOMAIN_BOUNDS.maxLat &&
+  lon >= DOMAIN_BOUNDS.minLng &&
+  lon <= DOMAIN_BOUNDS.maxLng;
+
+const isAllowedCountry = (result: NominatimResult) => {
+  const code = (result.country_code ?? result.address?.country_code ?? "").toLowerCase();
+  return ALLOWED_COUNTRY_CODES.has(code);
+};
+
 export const useGeocoding = (
   inputRef: React.RefObject<HTMLInputElement | null>,
   onSelectCallback?: (result: {
@@ -26,13 +50,30 @@ export const useGeocoding = (
     setSearchError(null);
     setSearchResults([]);
     try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=0`;
+      const url =
+        `https://nominatim.openstreetmap.org/search` +
+        `?q=${encodeURIComponent(q)}` +
+        `&format=json` +
+        `&limit=10` +
+        `&addressdetails=1` +
+        `&countrycodes=ca,us`;
       const res = await fetch(url, { headers: { "Accept-Language": "en" } });
       if (!res.ok) throw new Error(`Geocoding error: ${res.status}`);
       const data = (await res.json()) as NominatimResult[];
-      setSearchResults(data ?? []);
+      const filtered = (data ?? [])
+        .filter((item) => {
+          const lat = Number(item.lat);
+          const lon = Number(item.lon);
+          if (Number.isNaN(lat) || Number.isNaN(lon)) return false;
+          if (!isWithinDomainBounds(lat, lon)) return false;
+          return isAllowedCountry(item);
+        })
+        .slice(0, 5);
+      setSearchResults(filtered);
       setResultsOpen(true);
-      if (!data || data.length === 0) setSearchError("No results found.");
+      if (!filtered || filtered.length === 0) {
+        setSearchError("No results found in our service area (Canada + supported US locations).");
+      }
       setAnchorRect(inputRef.current?.getBoundingClientRect() ?? null);
     } catch (err) {
       console.error(err);
@@ -74,6 +115,10 @@ export const useGeocoding = (
     const lon = Number(r.lon);
     if (Number.isNaN(lat) || Number.isNaN(lon)) {
       setSearchError("Invalid coordinates from geocoder");
+      return;
+    }
+    if (!isAllowedCountry(r) || !isWithinDomainBounds(lat, lon)) {
+      setSearchError("That location is outside our service area.");
       return;
     }
 
