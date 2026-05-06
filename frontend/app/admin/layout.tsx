@@ -8,8 +8,8 @@ import {
   LayoutDashboard,
   Home,
   LogOut,
-  Settings,
   PlusCircle,
+  Building2,
 } from "lucide-react";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { colors } from "@/config/design-system";
@@ -87,6 +87,18 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
             >
               <PlusCircle className="w-5 h-5" />
               Add Listing
+            </Link>
+
+            <Link
+              href="/admin/estate-properties"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                pathname.startsWith("/admin/estate-properties")
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              <Building2 className="w-5 h-5" />
+              Estate Properties
             </Link>
           </nav>
 

@@ -1,12 +1,16 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path,include
+from rest_framework.routers import DefaultRouter
 from .views import *
 from .views_valuation import (
     ValuationAutocompleteAPIView,
     ValuationLookupAPIView,
     ValuationEstimateAPIView,
 )
+
+router = DefaultRouter()
+router.register(r"estate-properties", EstatePropertyViewSet, basename="estate-properties")
 
 urlpatterns = [
     path('valuation/autocomplete/', ValuationAutocompleteAPIView.as_view(), name='valuation-autocomplete'),
@@ -52,6 +56,7 @@ urlpatterns = [
     path('properties/<str:listing_key>/snapshots/', PropertySnapshotsAPIView.as_view(), name='property-snapshots'),
     path('property-notes/', PropertyNoteAPIView.as_view(), name='property-notes'),
     path('properties/<str:PropertyKey>/', PropertyDetailView.as_view(), name='property_detail_path'),
+    path("", include(router.urls)),
 ]
 
 if settings.DEBUG:

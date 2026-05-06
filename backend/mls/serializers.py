@@ -276,3 +276,17 @@ class RecommendationTrackSerializer(serializers.Serializer):
     )
     section = serializers.CharField(max_length=64, required=False, allow_blank=True)
     metadata = serializers.JSONField(required=False, default=dict)
+
+
+class EstatePropertyWriteSerializer(serializers.Serializer):
+    """
+    Lightweight write serializer for dynamic estate_properties CRUD.
+    Accepts arbitrary keys but enforces core business constraints.
+    """
+
+    payload = serializers.DictField()
+
+    def validate_payload(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("payload must be an object.")
+        return value

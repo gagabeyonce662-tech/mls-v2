@@ -8,6 +8,7 @@ import { PropertyGridLayout } from "@/components/listing/PropertyGridLayout";
 import { usePropertyInteractions } from "@/hooks/usePropertyInteractions";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { fetchPreConnProperties } from "@/lib/api/properties";
+import { fetchEstateProperties } from "@/lib/api/admin";
 import { Property } from "@/lib/api/types";
 import { SlidersHorizontal, HardHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,11 +46,59 @@ export default function PreConstructionPageClient() {
 
   React.useEffect(() => {
     let mounted = true;
+
+    const mapEstateToProperty = (row: any): Property => {
+      const key = `estate_${row?.id}`;
+      const candidateMediaUrl = row?.media_url || row?.primary_image_url || "";
+      const isLikelyImageUrl =
+        typeof candidateMediaUrl === "string" &&
+        /^https?:\/\//i.test(candidateMediaUrl) &&
+        /\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i.test(candidateMediaUrl);
+      const mediaUrl = isLikelyImageUrl
+        ? candidateMediaUrl
+        : "https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png";
+
+      return {
+        ...row,
+        listing_key: key,
+        listing_id: row?.listing_id || key,
+        ListingKey: key,
+        PropertyKey: key,
+        address: row?.unparsed_address || "",
+        city: row?.city || "Pre-Construction",
+        City: row?.city || "Pre-Construction",
+        list_price: row?.list_price,
+        ListPrice: row?.list_price,
+        bedrooms_total: row?.bedrooms_total,
+        bathrooms_total_integer: row?.bathrooms_total_integer,
+        building_area_total: row?.building_area_total,
+        standard_status: row?.standard_status || "Pre-Construction",
+        StandardStatus: row?.standard_status || "Pre-Construction",
+        property_sub_type: row?.property_sub_type || "Pre-Construction",
+        PropertySubType: row?.property_sub_type || "Pre-Construction",
+        public_remarks: row?.public_remarks || "",
+        PublicRemarks: row?.public_remarks || "",
+        media: [{ media_url: mediaUrl, is_preferred: true, order: 1 } as any],
+        project_name:
+          row?.project_name ||
+          row?.unparsed_address ||
+          row?.listing_key ||
+          "Estate Project",
+      };
+    };
+
     const fetchPrecons = async () => {
       setIsLoading(true);
       try {
-        const data = await fetchPreConnProperties({ limit: 100 });
-        if (mounted) setProperties(data.results || []);
+        const [preConnData, estateData] = await Promise.all([
+          fetchPreConnProperties({ limit: 100 }),
+          fetchEstateProperties({ page_size: 100 }),
+        ]);
+
+        const estateMapped = (estateData?.results || []).map(mapEstateToProperty);
+        const merged = [...(preConnData?.results || []), ...estateMapped];
+
+        if (mounted) setProperties(merged);
       } catch (err) {
         console.error(err);
       } finally {

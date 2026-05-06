@@ -169,10 +169,10 @@ export default async function ListingPage(props: ListingPageProps) {
   const currentHistoryRow = {
     date: property.ModificationTimestamp
       ? new Date(property.ModificationTimestamp).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
       : "Recent",
     event: property.StandardStatus || property.standard_status || "Listed",
     price: displayPrice,

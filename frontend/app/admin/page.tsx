@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { useRouter } from "next/navigation";
 import { Lock, ArrowRight, AlertCircle } from "lucide-react";
@@ -9,8 +9,14 @@ import { colors } from "@/config/design-system";
 export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login } = useAdminAuth();
+  const { login, isAuthenticated, isLoading } = useAdminAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace("/admin/dashboard");
+    }
+  }, [isAuthenticated, isLoading, router]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

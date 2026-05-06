@@ -161,6 +161,31 @@ export function mapPropertyFromAPI(prop: any): Property {
   }
 }
 
+function mapEstatePropertyFromAPI(prop: any, id?: string): Property {
+  const key = `estate_${id || prop?.id || prop?.listing_key || "unknown"}`;
+  return {
+    ...prop,
+    listing_key: key,
+    listing_id: prop?.listing_id || prop?.listing_key || key,
+    ListingKey: key,
+    PropertyKey: key,
+    address: prop?.unparsed_address || "",
+    city: prop?.city || "Pre-Construction",
+    City: prop?.city || "Pre-Construction",
+    list_price: prop?.list_price,
+    ListPrice: prop?.list_price,
+    standard_status: prop?.standard_status || "Pre-Construction",
+    StandardStatus: prop?.standard_status || "Pre-Construction",
+    property_sub_type: prop?.property_sub_type || "Pre-Construction",
+    PropertySubType: prop?.property_sub_type || "Pre-Construction",
+    public_remarks: prop?.public_remarks || "",
+    PublicRemarks: prop?.public_remarks || "",
+    media: prop?.media || [],
+    project_name:
+      prop?.project_name || prop?.unparsed_address || prop?.listing_key || "Estate Project",
+  };
+}
+
 /**
  * Search properties by query string (city, address, postal code, keywords)
  */
@@ -592,13 +617,42 @@ export async function fetchPropertyByKey(
       return null;
     }
 
+    if (propertyKey.startsWith("estate_")) {
+      const idStr = propertyKey.replace("estate_", "");
+      const estateData = await fetchAPI<any>(
+        `${API_BASE_URL}/api/mls/estate-properties/${encodeURIComponent(idStr)}/`,
+        { cache: "no-store" },
+      );
+      return mapEstatePropertyFromAPI(estateData, idStr);
+    }
+
     // console.log("Fetching property by key:", propertyKey);
-    const data = await fetchAPI<any>(
-      `${API_BASE_URL}/api/mls/properties/${propertyKey}/`,
-      {
+    let data: any;
+    try {
+      data = await fetchAPI<any>(`${API_BASE_URL}/api/mls/properties/${propertyKey}/`, {
         next: { revalidate: 300 }, // Cache for 5 minutes
-      },
-    );
+      });
+    } catch (mlsError: any) {
+      const mlsErrorMsg = String(mlsError?.message || "");
+      const isInvalidPrimaryKey =
+        mlsErrorMsg.includes("API_ERROR:400") &&
+        mlsErrorMsg.toLowerCase().includes("primary key is invalid");
+
+      // Fallback: key may be estate listing_key (e.g. EST-2026-0001) not prefixed in URL.
+      if (isInvalidPrimaryKey) {
+        const estateList = await fetchAPI<any>(
+          `${API_BASE_URL}/api/mls/estate-properties/?search=${encodeURIComponent(propertyKey)}&page_size=5`,
+          { cache: "no-store" },
+        );
+        const exact =
+          (estateList?.results || []).find((r: any) => r?.listing_key === propertyKey) ||
+          (estateList?.results || [])[0];
+        if (exact) {
+          return mapEstatePropertyFromAPI(exact, String(exact?.id || ""));
+        }
+      }
+      throw mlsError;
+    }
     // #region agent log
     fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
       method: "POST",
@@ -688,8 +742,12 @@ export async function fetchCompareProperties(propertyKeys: string[]): Promise<{
 
     // Partition keys into pre-construction and MLS keys
     const preConKeys = propertyKeys.filter((k) => k.startsWith("precon_"));
+    const estateKeys = propertyKeys.filter((k) => k.startsWith("estate_"));
     const mlsKeys = propertyKeys.filter(
-      (k) => !k.startsWith("precon_") && !k.startsWith("property-"),
+      (k) =>
+        !k.startsWith("precon_") &&
+        !k.startsWith("estate_") &&
+        !k.startsWith("property-"),
     );
 
     // Fetch pre-con ones locally via new WP fetch
@@ -698,6 +756,23 @@ export async function fetchCompareProperties(propertyKeys: string[]): Promise<{
         preConKeys.map(async (k) => {
           const idStr = k.replace("precon_", "");
           return await fetchWPPreconPropertyAction(idStr);
+        }),
+      )
+    ).filter(Boolean) as Property[];
+
+    const estateResults = (
+      await Promise.all(
+        estateKeys.map(async (k) => {
+          const idStr = k.replace("estate_", "");
+          try {
+            const data = await fetchAPI<any>(
+              `${API_BASE_URL}/api/mls/estate-properties/${encodeURIComponent(idStr)}/`,
+              { cache: "no-store" },
+            );
+            return mapEstatePropertyFromAPI(data, idStr);
+          } catch {
+            return null;
+          }
         }),
       )
     ).filter(Boolean) as Property[];
@@ -743,7 +818,7 @@ export async function fetchCompareProperties(propertyKeys: string[]): Promise<{
       }
     }
 
-    const finalResults = [...preConResults, ...mlsResults];
+    const finalResults = [...preConResults, ...estateResults, ...mlsResults];
 
     return { results: finalResults, count: finalResults.length };
   } catch (error) {
@@ -1081,6 +1156,21 @@ export async function fetchRecommendationsForListing(
     };
   }
 
+  // Recommendations endpoint currently supports MLS listing keys.
+  // Estate/precon synthetic keys should skip this call to avoid noisy 404s.
+  if (
+    String(listingKey).startsWith("estate_") ||
+    String(listingKey).startsWith("precon_")
+  ) {
+    return {
+      for_this_home: [],
+      based_on_your_history: [],
+      people_also_viewed: [],
+      fallback: [],
+      metadata: { fallback_applied: true, reason: "unsupported_listing_type" },
+    };
+  }
+
   try {
     const url = `${API_BASE_URL}/api/mls/properties/${encodeURIComponent(String(listingKey))}/recommendations/?limit=${limit}`;
     const response = await fetchAPI<ListingRecommendationsResponse>(url, {
@@ -1101,7 +1191,17 @@ export async function fetchRecommendationsForListing(
       fallback: normalize(response.fallback),
       metadata: response.metadata || {},
     };
-  } catch (error) {
+  } catch (error: any) {
+    const msg = String(error?.message || "");
+    if (msg.includes("API_ERROR:404")) {
+      return {
+        for_this_home: [],
+        based_on_your_history: [],
+        people_also_viewed: [],
+        fallback: [],
+        metadata: { fallback_applied: true, reason: "listing_not_found" },
+      };
+    }
     console.error("Error fetching listing recommendations:", error);
     return {
       for_this_home: [],

@@ -17,7 +17,7 @@ const AdminAuthContext = createContext<AdminAuthContextType | undefined>(
 
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -36,6 +36,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const login = (password: string) => {
     if (password === ADMIN_PASSPHRASE) {
       localStorage.setItem("admin_session", "true");
+      localStorage.setItem("admin_session_at", String(Date.now()));
       setIsAuthenticated(true);
       return true;
     }

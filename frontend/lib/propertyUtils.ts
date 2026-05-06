@@ -323,12 +323,42 @@ export const isRental = (property: Property): boolean => {
   );
 };
 
+const isPreConstruction = (property: Property): boolean => {
+  const type = String(
+    property.property_sub_type || property.PropertySubType || property.PropertyType || "",
+  ).toLowerCase();
+  const status = String(
+    property.standard_status || property.StandardStatus || "",
+  ).toLowerCase();
+  const city = String(property.city || property.City || "").toLowerCase();
+  const key = String(property.listing_key || property.PropertyKey || "").toLowerCase();
+  const rawKey = String(property.listing_key || property.PropertyKey || "").trim();
+
+  return (
+    key.startsWith("precon_") ||
+    type.includes("pre-construction") ||
+    type.includes("pre construction") ||
+    status.includes("pre-construction") ||
+    status.includes("pre construction") ||
+    city === "pre-construction" ||
+    // WP precon ids are numeric; normalize them into precon_<id> routes.
+    (/^\d+$/.test(rawKey) &&
+      (type.includes("pre") || status.includes("pre") || city.includes("pre")))
+  );
+};
+
 /**
  * Returns the canonical detail page URL for a property.
  */
 export const getDetailUrl = (property: Property): string => {
-  const key = getPropertyKey(property);
+  let key = getPropertyKey(property);
   const rental = isRental(property);
+  const isEstate = String(key).startsWith("estate_");
+  // Estate listings have their own detail pipeline. Do not re-prefix as precon.
+  if (isEstate) return `/estate-listing/${key}`;
+  if (isPreConstruction(property) && !String(key).startsWith("precon_")) {
+    key = `precon_${key}`;
+  }
   return rental ? `/listing/rental/${key}` : `/listing/${key}`;
 };
 

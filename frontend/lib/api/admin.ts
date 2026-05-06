@@ -183,3 +183,93 @@ export async function deleteProperty(listingKey: string): Promise<boolean> {
     return false;
   }
 }
+
+export type EstatePropertyRecord = Record<string, any>;
+
+export interface EstatePropertyListResponse {
+  count: number;
+  page: number;
+  page_size: number;
+  results: EstatePropertyRecord[];
+}
+
+export async function fetchEstatePropertySchema(): Promise<{
+  table: string;
+  columns: Array<{
+    column_name: string;
+    data_type: string;
+    is_nullable: string;
+    column_default: string | null;
+  }>;
+}> {
+  const url = `${API_BASE_URL}/api/mls/estate-properties/schema/`;
+  const res = await fetch(url, { method: "GET", credentials: "include" });
+  if (!res.ok) throw new Error(`Failed to load schema: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchEstateProperties(params?: {
+  page?: number;
+  page_size?: number;
+  search?: string;
+  city?: string;
+  standard_status?: string;
+  publish_status?: string;
+  expires_from?: string;
+  expires_to?: string;
+}): Promise<EstatePropertyListResponse> {
+  const sp = new URLSearchParams();
+  if (params?.page) sp.set("page", String(params.page));
+  if (params?.page_size) sp.set("page_size", String(params.page_size));
+  if (params?.search) sp.set("search", params.search);
+  if (params?.city) sp.set("city", params.city);
+  if (params?.standard_status) sp.set("standard_status", params.standard_status);
+  if (params?.publish_status) sp.set("publish_status", params.publish_status);
+  if (params?.expires_from) sp.set("expires_from", params.expires_from);
+  if (params?.expires_to) sp.set("expires_to", params.expires_to);
+  const query = sp.toString();
+  const url = `${API_BASE_URL}/api/mls/estate-properties/${query ? `?${query}` : ""}`;
+  const res = await fetch(url, { method: "GET", credentials: "include" });
+  if (!res.ok) throw new Error(`Failed to load estate properties: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchEstatePropertyById(id: string | number): Promise<EstatePropertyRecord> {
+  const url = `${API_BASE_URL}/api/mls/estate-properties/${id}/`;
+  const res = await fetch(url, { method: "GET", credentials: "include" });
+  if (!res.ok) throw new Error(`Failed to load estate property: ${res.status}`);
+  return res.json();
+}
+
+export async function createEstateProperty(payload: EstatePropertyRecord): Promise<EstatePropertyRecord> {
+  const url = `${API_BASE_URL}/api/mls/estate-properties/`;
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function updateEstateProperty(
+  id: string | number,
+  payload: EstatePropertyRecord,
+): Promise<EstatePropertyRecord> {
+  const url = `${API_BASE_URL}/api/mls/estate-properties/${id}/`;
+  const res = await fetch(url, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function deleteEstateProperty(id: string | number): Promise<void> {
+  const url = `${API_BASE_URL}/api/mls/estate-properties/${id}/`;
+  const res = await fetch(url, { method: "DELETE", credentials: "include" });
+  if (!res.ok) throw new Error(await res.text());
+}
