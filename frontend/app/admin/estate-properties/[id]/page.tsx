@@ -1,3 +1,5 @@
+// frontend/app/admin/estate-properties/[id]/page.tsx
+
 "use client";
 
 import { useEffect, useState } from "react";
