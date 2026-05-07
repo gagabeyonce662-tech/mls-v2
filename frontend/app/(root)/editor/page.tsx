@@ -3,7 +3,9 @@
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 
-import MyNextEditor from "@/components/Editor";
+const MyNextEditor = dynamic(() => import('@/components/Editor'), {
+    ssr: false,
+});
 
 export default function EditorPage() {
     return (
