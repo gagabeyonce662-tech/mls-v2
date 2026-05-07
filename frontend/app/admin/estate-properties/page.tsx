@@ -16,6 +16,13 @@ export default function EstatePropertiesPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  // Helper to extract a readable message from various error formats
+  const getErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "string") return error;
+    return fallback;
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -25,10 +32,10 @@ export default function EstatePropertiesPage() {
         page_size: 30,
       });
       setRows(data.results || []);
-    } catch {
+    } catch (err) {
       toast({
-        title: "Error",
-        description: "Failed to load estate properties.",
+        title: "Load Failed",
+        description: getErrorMessage(err, "Could not connect to the server. Please try again."),
         variant: "destructive",
       });
     } finally {
@@ -41,19 +48,25 @@ export default function EstatePropertiesPage() {
   }, [load]);
 
   const onDelete = async (id: number) => {
-    if (!confirm("Delete this estate property?")) return;
+    if (!confirm("Are you sure you want to delete this property? This action cannot be undone.")) return;
+    
     try {
       await deleteEstateProperty(id);
       setRows((prev) => prev.filter((x) => x.id !== id));
-    } catch {
       toast({
-        title: "Error",
-        description: "Delete failed.",
+        title: "Success",
+        description: "Property deleted successfully.",
+      });
+    } catch (err) {
+      toast({
+        title: "Delete Error",
+        description: getErrorMessage(err, "The property could not be deleted. It may be linked to other records."),
         variant: "destructive",
       });
     }
   };
 
+  
   return (
     <div className="space-y-4">
       <div className="bg-white border rounded-xl p-4 flex items-center justify-between">

@@ -2,6 +2,24 @@
 import { API_BASE_URL } from "./client";
 
 /**
+ * Shared helper to extract error messages from a response
+ */
+async function handleResponseError(res: Response, fallbackTitle: string) {
+  let errorMessage = fallbackTitle;
+  try {
+    const data = await res.json();
+    // Common API error structures: { detail: "..." } or { error: "..." } or { field: ["error"] }
+    if (data.detail) errorMessage = data.detail;
+    else if (data.error) errorMessage = data.error;
+    else if (typeof data === 'object') errorMessage = JSON.stringify(data);
+  } catch {
+    const text = await res.text();
+    errorMessage = text || `${res.status} ${res.statusText}`;
+  }
+  throw new Error(errorMessage);
+}
+
+/**
  * Upload pre-construction properties via CSV
  */
 export async function uploadPreConnProperties(
@@ -19,6 +37,8 @@ export async function uploadPreConnProperties(
   const useGet = options?.useGet ?? false;
 
   const urlBase = `${API_BASE_URL}/api/mls/properties/upload-pre-conn/`;
+
+  if (!file) throw new Error("No file provided");
 
   if (useGet && file) {
     try {
