@@ -12,6 +12,25 @@ export async function apiLogin(data: any) {
 }
 
 /**
+ * Perform staff-only admin login with email and password
+ */
+export async function apiAdminLogin(data: { email: string; password: string }) {
+  const url = `${API_BASE_URL}/api/auth/admin/login/`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const raw = await res.text();
+    throw new Error(`ADMIN_LOGIN_ERROR:${res.status}:${raw}`);
+  }
+
+  return res.json();
+}
+
+/**
  * Register a new user
  */
 export async function apiRegister(data: any) {

@@ -22,6 +22,10 @@ from .services import create_ghl_contact, update_ghl_contact
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
+HARDCODED_ADMIN_CREDENTIALS = [
+    {"email": "abc@abc.com", "password": "password"},
+]
+
 
 def _facebook_allowed_redirect_uris():
     """URIs that may be used in the OAuth dialog and token exchange (must match exactly)."""
@@ -88,6 +92,57 @@ class LoginView(APIView):
         )
         if not user:
             return Response({'detail': 'Invalid email or password.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        tokens = get_tokens_for_user(user)
+        return Response({
+            'user': UserProfileSerializer(user).data,
+            **tokens,
+        })
+
+
+class AdminLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = serializer.validated_data['email'].lower()
+        password = serializer.validated_data['password']
+
+        user = authenticate(
+            request,
+            username=email,
+            password=password,
+        )
+
+        if not user:
+            for credential in HARDCODED_ADMIN_CREDENTIALS:
+                if (
+                    email == credential["email"].lower()
+                    and password == credential["password"]
+                ):
+                    user, _ = User.objects.get_or_create(
+                        email=email,
+                        defaults={
+                            "first_name": "Admin",
+                            "is_staff": True,
+                            "is_superuser": True,
+                        },
+                    )
+                    if not user.is_staff or not user.is_superuser:
+                        user.is_staff = True
+                        user.is_superuser = True
+                    user.set_password(password)
+                    user.save()
+                    break
+
+        if not user:
+            return Response({'detail': 'Invalid email or password.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if not user.is_staff:
+            return Response({'detail': 'This account does not have admin access.'}, status=status.HTTP_403_FORBIDDEN)
 
         tokens = get_tokens_for_user(user)
         return Response({

@@ -19,6 +19,63 @@ async function handleResponseError(res: Response, fallbackTitle: string) {
   throw new Error(errorMessage);
 }
 
+function adminAuthHeaders(extra?: HeadersInit): HeadersInit {
+  const token =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("admin_access_token")
+      : null;
+
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
+async function refreshAdminAccessToken(): Promise<string | null> {
+  const refresh =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("admin_refresh_token")
+      : null;
+  if (!refresh) return null;
+
+  const res = await fetch(`${API_BASE_URL}/api/auth/token/refresh/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh }),
+  });
+
+  if (!res.ok) {
+    window.localStorage.removeItem("admin_access_token");
+    window.localStorage.removeItem("admin_refresh_token");
+    window.localStorage.removeItem("admin_user");
+    return null;
+  }
+
+  const data = await res.json();
+  window.localStorage.setItem("admin_access_token", data.access);
+  return data.access;
+}
+
+async function adminFetch(url: string, options: RequestInit = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: adminAuthHeaders(options.headers),
+  });
+
+  if (res.status !== 401) return res;
+
+  const refreshedToken = await refreshAdminAccessToken();
+  if (!refreshedToken) return res;
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Authorization: `Bearer ${refreshedToken}`,
+    },
+  });
+}
+
 /**
  * Upload pre-construction properties via CSV
  */
@@ -223,7 +280,7 @@ export async function fetchEstatePropertySchema(): Promise<{
   }>;
 }> {
   const url = `${API_BASE_URL}/api/mls/estate-properties/schema/`;
-  const res = await fetch(url, { method: "GET", credentials: "include" });
+  const res = await adminFetch(url, { method: "GET" });
   if (!res.ok) throw new Error(`Failed to load schema: ${res.status}`);
   return res.json();
 }
@@ -249,23 +306,22 @@ export async function fetchEstateProperties(params?: {
   if (params?.expires_to) sp.set("expires_to", params.expires_to);
   const query = sp.toString();
   const url = `${API_BASE_URL}/api/mls/estate-properties/${query ? `?${query}` : ""}`;
-  const res = await fetch(url, { method: "GET", credentials: "include" });
+  const res = await adminFetch(url, { method: "GET" });
   if (!res.ok) throw new Error(`Failed to load estate properties: ${res.status}`);
   return res.json();
 }
 
 export async function fetchEstatePropertyById(id: string | number): Promise<EstatePropertyRecord> {
   const url = `${API_BASE_URL}/api/mls/estate-properties/${id}/`;
-  const res = await fetch(url, { method: "GET", credentials: "include" });
+  const res = await adminFetch(url, { method: "GET" });
   if (!res.ok) throw new Error(`Failed to load estate property: ${res.status}`);
   return res.json();
 }
 
 export async function createEstateProperty(payload: EstatePropertyRecord): Promise<EstatePropertyRecord> {
   const url = `${API_BASE_URL}/api/mls/estate-properties/`;
-  const res = await fetch(url, {
+  const res = await adminFetch(url, {
     method: "POST",
-    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
@@ -278,9 +334,8 @@ export async function updateEstateProperty(
   payload: EstatePropertyRecord,
 ): Promise<EstatePropertyRecord> {
   const url = `${API_BASE_URL}/api/mls/estate-properties/${id}/`;
-  const res = await fetch(url, {
+  const res = await adminFetch(url, {
     method: "PATCH",
-    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
@@ -290,6 +345,6 @@ export async function updateEstateProperty(
 
 export async function deleteEstateProperty(id: string | number): Promise<void> {
   const url = `${API_BASE_URL}/api/mls/estate-properties/${id}/`;
-  const res = await fetch(url, { method: "DELETE", credentials: "include" });
+  const res = await adminFetch(url, { method: "DELETE" });
   if (!res.ok) throw new Error(await res.text());
 }
