@@ -3,6 +3,8 @@ from django.conf.urls.static import static
 from django.urls import path,include
 from rest_framework.routers import DefaultRouter
 from .views import *
+from .views_estate import EstatePropertyViewSet
+from .views_properties import PropertyFilterView
 from .views_valuation import (
     ValuationAutocompleteAPIView,
     ValuationLookupAPIView,
