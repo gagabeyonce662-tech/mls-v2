@@ -35,21 +35,24 @@ const envSchema = z.object({
 // We provide safe fallbacks for development to prevent locking out local developers,
 // but in production, missing these will throw loud errors.
 const isDev = process.env.NODE_ENV !== "production";
-const PUBLIC_BACKEND_URL = "https://staging.vsell4u.ca";
+const PUBLIC_BACKEND_URL = "https://mls-backend-v2.vercel.app";
 
 function normalizeApiUrl(rawUrl: string | undefined): string | undefined {
   if (!rawUrl) return rawUrl;
 
   try {
     const parsed = new URL(rawUrl);
-    // The Vercel deployment URL is protected in production, so prefer the
-    // public backend host when the configured origin points at vercel.app.
-    if (parsed.hostname.endsWith(".vercel.app")) {
+    // Prefer the real backend deployment whenever the configured origin still
+    // points at a stale staging or Vercel preview host.
+    if (
+      parsed.hostname === "staging.vsell4u.ca" ||
+      parsed.hostname.endsWith(".vercel.app")
+    ) {
       return PUBLIC_BACKEND_URL;
     }
-    return rawUrl;
+    return rawUrl.replace(/\/+$/, "");
   } catch {
-    return rawUrl;
+    return rawUrl.replace(/\/+$/, "");
   }
 }
 
@@ -57,7 +60,7 @@ const _env = envSchema.safeParse({
   NODE_ENV: process.env.NODE_ENV,
   NEXT_PUBLIC_API_URL: normalizeApiUrl(
     process.env.NEXT_PUBLIC_API_URL ||
-      (isDev ? "https://staging.vsell4u.ca" : undefined),
+      (isDev ? "https://mls-backend-v2.vercel.app" : undefined),
   ),
   NEXT_PUBLIC_ADMIN_PASSPHRASE:
     process.env.NEXT_PUBLIC_ADMIN_PASSPHRASE ||

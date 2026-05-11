@@ -47,6 +47,10 @@ const nextConfig = {
       },
       {
         protocol: "https",
+        hostname: "mls-backend-v2.vercel.app",
+      },
+      {
+        protocol: "https",
         hostname: "estate-4u.com",
       },
     ],
