@@ -7,6 +7,7 @@ import { ds } from "@/lib/design-system-utils";
 import Link from "next/link";
 import { getDetailUrl } from "@/lib/propertyUtils";
 import { openInNewTab } from "@/lib/navigation/openInNewTab";
+import { API_BASE_URL } from "@/lib/api/client";
 
 interface SimilarPropertiesProps {
   currentPropertyId: string;
@@ -79,7 +80,7 @@ export default function SimilarProperties({
           params.set("bedrooms_max", (bedrooms + 1).toString());
         }
 
-        const apiUrl = `http://https://staging.vsell4u.ca/api/mls/properties/exclusive-properties/?${params}`;
+        const apiUrl = `${API_BASE_URL}/api/mls/properties/exclusive-properties/?${params}`;
 
         console.log("Fetching similar properties from:", apiUrl);
 

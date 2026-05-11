@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { env } from "@/lib/env";
 
 export async function POST(req: NextRequest) {
   try {
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+    const apiBaseUrl = env.NEXT_PUBLIC_API_URL;
     if (!apiBaseUrl) {
       return NextResponse.json(
         {
