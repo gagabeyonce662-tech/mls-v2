@@ -223,6 +223,51 @@ class MapAggregationAndFilterTests(TestCase):
             self.assertNotEqual(row.get("listing_key"), "lease-only-1")
 
 
+class EstatePropertyAPITests(TestCase):
+    def test_estate_property_crud_is_public(self):
+        create_payload = {
+            "listing_key": "estate-public-1",
+            "property_title": "Public Estate Home",
+            "city": "Toronto",
+            "publish_status": "published",
+            "list_price": 1250000,
+        }
+
+        created = self.client.post(
+            "/api/mls/estate-properties/",
+            data=json.dumps(create_payload),
+            content_type="application/json",
+        )
+        self.assertEqual(created.status_code, 200)
+        created_json = created.json()
+        self.assertEqual(created_json["listing_key"], create_payload["listing_key"])
+        self.assertIsNotNone(created_json["id"])
+
+        estate_id = created_json["id"]
+
+        listed = self.client.get(
+            "/api/mls/estate-properties/",
+            {"search": create_payload["listing_key"], "page_size": 5},
+        )
+        self.assertEqual(listed.status_code, 200)
+        listed_json = listed.json()
+        self.assertGreaterEqual(listed_json["count"], 1)
+        self.assertTrue(
+            any(row["id"] == estate_id for row in listed_json["results"]),
+        )
+
+        updated = self.client.patch(
+            f"/api/mls/estate-properties/{estate_id}/",
+            data=json.dumps({"property_title": "Updated Public Estate Home"}),
+            content_type="application/json",
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json()["property_title"], "Updated Public Estate Home")
+
+        deleted = self.client.delete(f"/api/mls/estate-properties/{estate_id}/")
+        self.assertEqual(deleted.status_code, 204)
+
+
 class WatchedAPITests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(

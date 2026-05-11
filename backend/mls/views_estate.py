@@ -1,15 +1,14 @@
-from django.conf import settings
 from django.db import connection
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .serializers import EstatePropertyWriteSerializer
 
 
 class EstatePropertyViewSet(viewsets.ViewSet):
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
     table_name = "mls_estateproperty"
     wp_meta_column = "wp_meta_json"
     wp_terms_column = "wp_terms_json"
@@ -123,11 +122,6 @@ class EstatePropertyViewSet(viewsets.ViewSet):
         "building_area_total",
     }
     BOOLEAN_FIELDS = {"enable_price_placeholder", "is_featured"}
-
-    def get_permissions(self):
-        if settings.DEBUG:
-            return [AllowAny()]
-        return [IsAdminUser()]
 
     @staticmethod
     def _dictfetchall(cursor):
