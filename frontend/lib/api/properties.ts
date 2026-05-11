@@ -178,8 +178,8 @@ function mapEstatePropertyFromAPI(prop: any, id?: string): Property {
     StandardStatus: prop?.standard_status || "Pre-Construction",
     property_sub_type: prop?.property_sub_type || "Pre-Construction",
     PropertySubType: prop?.property_sub_type || "Pre-Construction",
-    public_remarks: prop?.public_remarks || "",
-    PublicRemarks: prop?.public_remarks || "",
+    public_remarks: prop?.property_description || prop?.public_remarks || "",
+    PublicRemarks: prop?.property_description || prop?.public_remarks || "",
     media: prop?.media || [],
     project_name:
       prop?.project_name || prop?.unparsed_address || prop?.listing_key || "Estate Project",

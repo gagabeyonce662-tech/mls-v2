@@ -6,6 +6,7 @@ import {
   getBathrooms,
   getBedrooms,
   getCity,
+  getDescription,
   getFullAddress,
   getListingDate,
   getPrice,
@@ -63,6 +64,7 @@ export function PropertyCardContent({
   const sqft = getSqft(property);
   const city = getCity(property);
   const province = getProvince(property);
+  const description = getDescription(property);
   const listedOn = getListingDate(property);
   const contact = getListingContact(property);
   const initials = getInitials(contact);
@@ -95,6 +97,15 @@ export function PropertyCardContent({
         <CalendarDays className="h-3.5 w-3.5" />
         Added: {listedOn}
       </p>
+
+      {description && (
+        <p
+          className="mt-2 text-sm leading-relaxed text-gray-600 line-clamp-3"
+          title={description}
+        >
+          {description}
+        </p>
+      )}
 
       <div
         className="mt-2 grid grid-cols-3 items-center gap-2"

@@ -10,6 +10,7 @@ import {
   getListingIsPrivileged,
   hasListPrice,
 } from "@/lib/listingDisplay";
+import { getDescription } from "@/lib/propertyUtils";
 
 interface ListingAISummaryProps {
   property: Property;
@@ -49,7 +50,7 @@ export default function ListingAISummary({ property }: ListingAISummaryProps) {
       property_sub_type: property.property_sub_type || property.PropertySubType || "",
       year_built: property.year_built ?? property.YearBuilt ?? null,
       standard_status: property.standard_status || property.StandardStatus || "",
-      public_remarks: property.public_remarks || property.PublicRemarks || "",
+      public_remarks: getDescription(property),
       parking_total: property.parking_total ?? property.ParkingTotal ?? null,
       lot_size_area: property.lot_size_area ?? property.LotSizeArea ?? null,
       appliances: property.appliances || property.Appliances || "",

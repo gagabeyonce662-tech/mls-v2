@@ -38,6 +38,7 @@ import ListingFeatureStatusSection from "@/components/listing/details/ListingFea
 import {
     getAnnualTaxDisplayWithYear,
     getBathroomDisplayLabel,
+    getDescription,
     getLivingAreaSummary,
     getLotSizeSummary,
     getParkingSummary,
@@ -82,8 +83,7 @@ export async function generateMetadata({
         getDisplayAddress(property, { isPrivileged: metaPriv }) || "Property Details";
 
     const description =
-        property.public_remarks ||
-        property.PublicRemarks ||
+        getDescription(property) ||
         `Check out this property at ${address}. View photos, details and more on Estate-4u.`;
 
     const images =
@@ -213,11 +213,11 @@ export default async function ListingPage(props: ListingPageProps) {
     const builtYear = property.year_built || property.YearBuilt;
 
     const description =
-        property.public_remarks ||
-        property.PublicRemarks ||
+        getDescription(property) ||
         property.PrivateRemarks ||
         property.Description ||
         `This ${uiPropertyType} is located in ${getCity()}, ${property.StateOrProvince || "Ontario"}${builtYear ? `. Built in ${builtYear}` : ""}${beds || baths ? `, this property features ${beds ? `${beds} bedrooms` : ""}${beds && baths ? " and " : ""}${baths ? `${baths} bathrooms` : ""}` : ""}${livingArea ? ` with ${livingArea} of living space` : ""}.`;
+    const aboutHtml = String((property as { property_description?: string }).property_description || "").trim();
 
     const quickFacts = [
         { label: t("lotSize"), value: getLotSizeSummary(property) },
@@ -389,8 +389,15 @@ export default async function ListingPage(props: ListingPageProps) {
 
                         <section>
                             <h2 className={`${ds.h3} mb-4`}>{t("aboutTitle")}</h2>
-                            <div className="bg-white rounded-2xl p-1">
-                                <OverviewExcerpt text={description} maxChars={400} />
+                            <div className="bg-white rounded-2xl p-6">
+                                {aboutHtml ? (
+                                    <div
+                                        className="prose prose-sm sm:prose-base max-w-none prose-headings:mt-4 prose-headings:mb-2 prose-p:my-3 prose-ul:my-3 prose-li:my-1 prose-a:text-ds-primary prose-a:underline"
+                                        dangerouslySetInnerHTML={{ __html: aboutHtml }}
+                                    />
+                                ) : (
+                                    <OverviewExcerpt text={description} maxChars={400} />
+                                )}
                             </div>
                         </section>
 

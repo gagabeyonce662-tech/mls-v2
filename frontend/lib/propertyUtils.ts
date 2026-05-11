@@ -277,8 +277,25 @@ export const getDaysOnMarket = (property: Property): number | null =>
 
 /* ──────────────────────────── Text ──────────────────────────── */
 
+const HTML_TAG_RE = /<[^>]*>/g;
+
+const normalizeRichText = (value: unknown): string => {
+  if (value == null) return "";
+  return String(value)
+    .replace(HTML_TAG_RE, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
 export const getDescription = (property: Property): string =>
-  property.public_remarks || property.PublicRemarks || "";
+  normalizeRichText(
+    property.property_description ||
+      property.PropertyDescription ||
+      property.public_remarks ||
+      property.PublicRemarks ||
+      "",
+  );
 
 export const getListingUrl = (property: Property): string | null =>
   property.listing_url || null;

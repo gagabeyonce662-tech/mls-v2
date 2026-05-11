@@ -1,7 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Editor as HugeRTEditor } from "@hugerte/hugerte-react";
 import type { EstatePropertyRecord } from "@/lib/api/admin";
+import "hugerte/hugerte";
+import "hugerte/models/dom";
+import "hugerte/themes/silver";
+import "hugerte/icons/default";
+import "hugerte/skins/ui/oxide/skin.js";
+import "hugerte/plugins/lists";
+import "hugerte/plugins/link";
+import "hugerte/plugins/image";
+import "hugerte/plugins/table";
+import "hugerte/plugins/code";
+import "hugerte/plugins/fullscreen";
+import "hugerte/plugins/help";
+import "hugerte/plugins/wordcount";
+import "hugerte/plugins/preview";
 
 type Column = {
   column_name: string;
@@ -356,17 +371,50 @@ export default function EstatePropertyForm({
                   </button>
                 </div>
               </div>
-              <textarea
-                rows={10}
-                value={String(form.property_description ?? "")}
-                onChange={(e) => handleChange("property_description", e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
-                placeholder={
-                  editorMode === "visual"
-                    ? "Enter project highlights and amenities..."
-                    : "<p>Enter formatted HTML content...</p>"
-                }
-              />
+              {editorMode === "visual" ? (
+                <div className="overflow-hidden rounded-lg border border-gray-200">
+                  <HugeRTEditor
+                    value={String(form.property_description ?? "")}
+                    init={{
+                      height: 420,
+                      menubar: true,
+                      plugins: [
+                        "lists",
+                        "link",
+                        "image",
+                        "table",
+                        "code",
+                        "fullscreen",
+                        "help",
+                        "wordcount",
+                        "preview",
+                      ],
+                      toolbar: `
+                        undo redo | formatselect |
+                        bold italic underline strikethrough |
+                        forecolor backcolor |
+                        alignleft aligncenter alignright alignjustify |
+                        bullist numlist outdent indent |
+                        removeformat | link image table | code fullscreen
+                      `,
+                      skin: "oxide",
+                      content_css: "default",
+                      branding: false,
+                    }}
+                    onEditorChange={(content: string) =>
+                      handleChange("property_description", content)
+                    }
+                  />
+                </div>
+              ) : (
+                <textarea
+                  rows={10}
+                  value={String(form.property_description ?? "")}
+                  onChange={(e) => handleChange("property_description", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                  placeholder="<p>Enter formatted HTML content...</p>"
+                />
+              )}
             </div>
           </div>
 
