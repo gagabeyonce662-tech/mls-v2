@@ -163,12 +163,23 @@ export function mapPropertyFromAPI(prop: any): Property {
 
 function mapEstatePropertyFromAPI(prop: any, id?: string): Property {
   const key = `estate_${id || prop?.id || prop?.listing_key || "unknown"}`;
+  const rawDescription =
+    prop?.property_description ||
+    prop?.property_description_html ||
+    prop?.public_remarks ||
+    prop?.PublicRemarks ||
+    "";
+  const plainDescription =
+    typeof rawDescription === "string"
+      ? rawDescription.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+      : "";
   return {
     ...prop,
     listing_key: key,
     listing_id: prop?.listing_id || prop?.listing_key || key,
     ListingKey: key,
     PropertyKey: key,
+    property_description: rawDescription,
     address: prop?.unparsed_address || "",
     city: prop?.city || "Pre-Construction",
     City: prop?.city || "Pre-Construction",
@@ -178,8 +189,8 @@ function mapEstatePropertyFromAPI(prop: any, id?: string): Property {
     StandardStatus: prop?.standard_status || "Pre-Construction",
     property_sub_type: prop?.property_sub_type || "Pre-Construction",
     PropertySubType: prop?.property_sub_type || "Pre-Construction",
-    public_remarks: prop?.public_remarks || "",
-    PublicRemarks: prop?.public_remarks || "",
+    public_remarks: plainDescription || prop?.public_remarks || "",
+    PublicRemarks: plainDescription || prop?.public_remarks || "",
     media: prop?.media || [],
     project_name:
       prop?.project_name || prop?.unparsed_address || prop?.listing_key || "Estate Project",

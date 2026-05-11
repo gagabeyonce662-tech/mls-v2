@@ -25,6 +25,7 @@ import PropertySidebar from "@/components/listing/details/PropertySidebar";
 import ListingAISummary from "@/components/listing/details/ListingAISummary";
 import NearestSchoolsSection from "../../../../components/listing/details/NearestSchoolsSection";
 import SimilarProperties from "@/components/listing/SimilarProperties";
+import EstatePropertyDescription from "@/components/listing/EstatePropertyDescription";
 import { PropertyViewerTracker } from "@/components/listing/PropertyViewerTracker";
 import ListingCatalogStatsSection from "@/components/listing/details/ListingCatalogStatsSection";
 import ListingEngagementMeter from "@/components/listing/details/ListingEngagementMeter";
@@ -229,6 +230,19 @@ export default async function ListingPage(props: ListingPageProps) {
         },
     ].filter((item) => item.value);
 
+    const estateDescriptionHtml =
+        (property as Record<string, any>).property_description ||
+        (property as Record<string, any>).PropertyDescription ||
+        "";
+    const estateCtaButtons =
+        (property as Record<string, any>).cta_buttons_json ||
+        (property as Record<string, any>).CtaButtonsJson ||
+        [];
+    const estatePropertyId =
+        (property as Record<string, any>).id ||
+        (property as Record<string, any>).ID ||
+        null;
+
     const parseCoordinate = (value: unknown): number | null => {
         if (typeof value === "number" && Number.isFinite(value)) return value;
         if (typeof value === "string") {
@@ -390,7 +404,16 @@ export default async function ListingPage(props: ListingPageProps) {
                         <section>
                             <h2 className={`${ds.h3} mb-4`}>{t("aboutTitle")}</h2>
                             <div className="bg-white rounded-2xl p-1">
-                                <OverviewExcerpt text={description} maxChars={400} />
+                                {estateDescriptionHtml ? (
+                                    <EstatePropertyDescription
+                                        html={estateDescriptionHtml}
+                                        ctaButtons={estateCtaButtons}
+                                        estatePropertyId={estatePropertyId}
+                                        className="p-6"
+                                    />
+                                ) : (
+                                    <OverviewExcerpt text={description} maxChars={400} />
+                                )}
                             </div>
                         </section>
 

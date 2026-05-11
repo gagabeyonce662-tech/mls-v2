@@ -10,6 +10,15 @@ type Column = {
   column_default: string | null;
 };
 
+type CtaButtonRecord = {
+  label: string;
+  url: string;
+  requires_phone_auth: boolean;
+  type: string;
+  open_in_new_tab: boolean;
+  order: number;
+};
+
 interface Props {
   columns: Column[];
   initialValues?: EstatePropertyRecord;
@@ -17,7 +26,7 @@ interface Props {
   submitLabel: string;
 }
 
-const HIDDEN_FIELDS = new Set(["id"]);
+const HIDDEN_FIELDS = new Set(["id", "cta_buttons_json"]);
 const CORE_FIELD_ORDER = [
   "listing_key",
   "property_title",
@@ -66,6 +75,8 @@ const CORE_FIELD_ORDER = [
   "wp_post_json",
   "wp_terms_json",
 ] as const;
+
+const CTA_TYPES = ["download", "brochure", "floor_plan", "external"] as const;
 
 const TAXONOMY_KEYS = [
   "type",
@@ -135,6 +146,30 @@ export default function EstatePropertyForm({
       ),
     [editableColumns],
   );
+  const ctaButtons = useMemo(() => {
+    const raw = form.cta_buttons_json;
+    const source = Array.isArray(raw) ? raw : typeof raw === "string" ? (() => {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    })() : [];
+
+    return source
+      .filter((item): item is Record<string, any> => Boolean(item) && typeof item === "object")
+      .map((item, index) => ({
+        label: String(item.label ?? "").trim(),
+        url: String(item.url ?? "").trim(),
+        requires_phone_auth: Boolean(item.requires_phone_auth),
+        type: String(item.type ?? "external").trim() || "external",
+        open_in_new_tab: item.open_in_new_tab !== false,
+        order: Number.isFinite(Number(item.order)) ? Number(item.order) : index + 1,
+      }))
+      .filter((item) => item.label || item.url)
+      .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
+  }, [form.cta_buttons_json]);
   const taxonomyState = useMemo(() => {
     const raw = form.wp_terms_json;
     if (!raw) return {};
@@ -158,8 +193,50 @@ export default function EstatePropertyForm({
       return next;
     });
   };
-  const setJsonField = (name: "wp_meta_json" | "wp_post_json" | "wp_terms_json", value: any) => {
+  const setJsonField = (
+    name: "wp_meta_json" | "wp_post_json" | "wp_terms_json" | "cta_buttons_json",
+    value: any,
+  ) => {
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+  const commitCtaButtons = (nextButtons: CtaButtonRecord[]) => {
+    setJsonField(
+      "cta_buttons_json",
+      nextButtons.map((button, index) => ({
+        ...button,
+        order: index + 1,
+      })),
+    );
+  };
+  const addCtaButton = () => {
+    commitCtaButtons([
+      ...ctaButtons,
+      {
+        label: "New Button",
+        url: "",
+        requires_phone_auth: true,
+        type: "external",
+        open_in_new_tab: true,
+        order: ctaButtons.length + 1,
+      },
+    ]);
+  };
+  const updateCtaButton = (index: number, patch: Partial<CtaButtonRecord>) => {
+    commitCtaButtons(
+      ctaButtons.map((button, currentIndex) =>
+        currentIndex === index ? { ...button, ...patch } : button,
+      ) as CtaButtonRecord[],
+    );
+  };
+  const removeCtaButton = (index: number) => {
+    commitCtaButtons(ctaButtons.filter((_, currentIndex) => currentIndex !== index));
+  };
+  const moveCtaButton = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= ctaButtons.length) return;
+    const next = [...ctaButtons];
+    [next[index], next[target]] = [next[target], next[index]];
+    commitCtaButtons(next as CtaButtonRecord[]);
   };
   const updateTaxonomySelection = (taxonomyKey: (typeof TAXONOMY_KEYS)[number], option: string) => {
     const current = taxonomyState[taxonomyKey];
@@ -223,13 +300,29 @@ export default function EstatePropertyForm({
         return;
       }
 
+      const parsedRecord = parsed as Record<string, any>;
+      const ctaButtonsPayload = parsedRecord.cta_buttons_json;
       const allowedFields = new Set(editableColumns.map((c) => c.column_name));
-      const entries = Object.entries(parsed);
+      const entries = Object.entries(parsedRecord).filter(([key]) => key !== "cta_buttons_json");
       const filtered = Object.fromEntries(entries.filter(([k]) => allowedFields.has(k)));
       const unmatched = Object.fromEntries(entries.filter(([k]) => !allowedFields.has(k)));
 
       setForm((prev) => {
         const next = { ...prev, ...filtered };
+        if (ctaButtonsPayload !== undefined) {
+          if (Array.isArray(ctaButtonsPayload)) {
+            next.cta_buttons_json = ctaButtonsPayload;
+          } else if (typeof ctaButtonsPayload === "string") {
+            try {
+              const parsedButtons = JSON.parse(ctaButtonsPayload);
+              if (Array.isArray(parsedButtons)) {
+                next.cta_buttons_json = parsedButtons;
+              }
+            } catch {
+              // Ignore malformed CTA JSON and leave the current value untouched.
+            }
+          }
+        }
         const nextTerms =
           typeof next.wp_terms_json === "object" && next.wp_terms_json !== null
             ? { ...next.wp_terms_json }
@@ -552,6 +645,123 @@ export default function EstatePropertyForm({
                 className="w-full rounded-lg border px-3 py-2 text-sm"
               />
             </label>
+          </div>
+
+          <div className="bg-white border rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold">CTA Buttons</h2>
+                <p className="text-xs text-gray-500">
+                  Add zero or more buttons for brochures, floor plans, or gated downloads.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addCtaButton}
+                className="px-3 py-2 rounded-lg border text-sm font-semibold"
+              >
+                Add Button
+              </button>
+            </div>
+
+            {ctaButtons.length === 0 ? (
+              <div className="rounded-lg border border-dashed px-3 py-4 text-sm text-gray-500">
+                No CTA buttons yet.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {ctaButtons.map((button, index) => (
+                  <div
+                    key={`${button.label || "cta"}-${index}`}
+                    className="rounded-xl border p-3 space-y-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold">Button {index + 1}</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => moveCtaButton(index, -1)}
+                          disabled={index === 0}
+                          className="px-2 py-1 rounded border text-xs disabled:opacity-40"
+                        >
+                          Up
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveCtaButton(index, 1)}
+                          disabled={index === ctaButtons.length - 1}
+                          className="px-2 py-1 rounded border text-xs disabled:opacity-40"
+                        >
+                          Down
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeCtaButton(index)}
+                          className="px-2 py-1 rounded border text-xs text-red-600"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <label className="space-y-1">
+                        <span className="text-xs font-semibold text-gray-600">Label</span>
+                        <input
+                          value={button.label}
+                          onChange={(e) => updateCtaButton(index, { label: e.target.value })}
+                          className="w-full rounded-lg border px-3 py-2 text-sm"
+                          placeholder="Download Floor Plans"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs font-semibold text-gray-600">Type</span>
+                        <select
+                          value={button.type}
+                          onChange={(e) => updateCtaButton(index, { type: e.target.value })}
+                          className="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+                        >
+                          {CTA_TYPES.map((type) => (
+                            <option key={type} value={type}>
+                              {type}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-1 md:col-span-2">
+                        <span className="text-xs font-semibold text-gray-600">URL</span>
+                        <input
+                          value={button.url}
+                          onChange={(e) => updateCtaButton(index, { url: e.target.value })}
+                          className="w-full rounded-lg border px-3 py-2 text-sm"
+                          placeholder="https://..."
+                        />
+                      </label>
+                      <label className="space-y-1 flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={button.requires_phone_auth}
+                          onChange={(e) =>
+                            updateCtaButton(index, { requires_phone_auth: e.target.checked })
+                          }
+                        />
+                        <span className="text-sm">Require phone access</span>
+                      </label>
+                      <label className="space-y-1 flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={button.open_in_new_tab}
+                          onChange={(e) =>
+                            updateCtaButton(index, { open_in_new_tab: e.target.checked })
+                          }
+                        />
+                        <span className="text-sm">Open in new tab</span>
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

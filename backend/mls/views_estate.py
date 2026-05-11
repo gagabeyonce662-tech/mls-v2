@@ -1,19 +1,20 @@
-from django.conf import settings
+import json
+
 from django.db import connection
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
 from .serializers import EstatePropertyWriteSerializer
 
 
 class EstatePropertyViewSet(viewsets.ViewSet):
-    permission_classes = [IsAdminUser]
     table_name = "mls_estateproperty"
     wp_meta_column = "wp_meta_json"
     wp_terms_column = "wp_terms_json"
     wp_post_column = "wp_post_json"
+    cta_buttons_column = "cta_buttons_json"
 
     # WordPress/Houzez keys that should map to first-class estate columns.
     WP_TO_CORE_FIELD_MAP = {
@@ -123,10 +124,14 @@ class EstatePropertyViewSet(viewsets.ViewSet):
         "building_area_total",
     }
     BOOLEAN_FIELDS = {"enable_price_placeholder", "is_featured"}
+    CTA_TYPE_DEFAULT = "external"
 
     def get_permissions(self):
-        if settings.DEBUG:
+        public_actions = {"list", "retrieve"}
+        if self.action in public_actions:
             return [AllowAny()]
+        if self.action == "resolve_cta":
+            return [IsAuthenticated()]
         return [IsAdminUser()]
 
     @staticmethod
@@ -179,6 +184,73 @@ class EstatePropertyViewSet(viewsets.ViewSet):
             normalized_key = cls._normalize_taxonomy_key(key)
             merged[normalized_key] = cls._to_string_array(value)
         return merged
+
+    @classmethod
+    def _normalize_cta_buttons(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return []
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                return []
+        if not isinstance(value, list):
+            return []
+
+        normalized = []
+        for index, item in enumerate(value):
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get("label", "")).strip()
+            url = str(item.get("url", "")).strip()
+            if not label and not url:
+                continue
+
+            button = {
+                "label": label,
+                "url": url,
+                "requires_phone_auth": bool(item.get("requires_phone_auth", False)),
+                "type": str(item.get("type", "")).strip() or cls.CTA_TYPE_DEFAULT,
+                "open_in_new_tab": bool(item.get("open_in_new_tab", True)),
+            }
+
+            order_value = item.get("order", index + 1)
+            try:
+                button["order"] = int(order_value)
+            except (TypeError, ValueError):
+                button["order"] = index + 1
+
+            button_id = str(item.get("id", "")).strip()
+            if button_id:
+                button["id"] = button_id
+
+            normalized.append(button)
+
+        normalized.sort(
+            key=lambda entry: (
+                entry.get("order", 0),
+                (entry.get("label") or "").lower(),
+            )
+        )
+        return normalized
+
+    def _serialize_row(self, row, redact_cta_urls=False):
+        data = dict(row)
+        buttons = self._normalize_cta_buttons(data.get(self.cta_buttons_column))
+        if redact_cta_urls:
+            redacted = []
+            for button in buttons:
+                safe_button = dict(button)
+                if safe_button.get("requires_phone_auth"):
+                    safe_button.pop("url", None)
+                redacted.append(safe_button)
+            data[self.cta_buttons_column] = redacted
+        else:
+            data[self.cta_buttons_column] = buttons
+        return data
 
     @classmethod
     def _normalize_mapped_value(cls, field_name, value):
@@ -254,6 +326,11 @@ class EstatePropertyViewSet(viewsets.ViewSet):
                 merged = wp_post
             mapped[self.wp_post_column] = merged
 
+        if self.cta_buttons_column in allowed and self.cta_buttons_column in payload:
+            mapped[self.cta_buttons_column] = self._normalize_cta_buttons(
+                payload.get(self.cta_buttons_column)
+            )
+
         return mapped
 
     @action(detail=False, methods=["get"])
@@ -326,8 +403,9 @@ class EstatePropertyViewSet(viewsets.ViewSet):
                 [*params, page_size, offset],
             )
             rows = self._dictfetchall(cursor)
-
-        return Response({"count": total, "page": page, "page_size": page_size, "results": rows})
+        redact_cta_urls = not bool(getattr(request.user, "is_staff", False))
+        results = [self._serialize_row(row, redact_cta_urls=redact_cta_urls) for row in rows]
+        return Response({"count": total, "page": page, "page_size": page_size, "results": results})
 
     def retrieve(self, request, pk=None):
         with connection.cursor() as cursor:
@@ -335,7 +413,8 @@ class EstatePropertyViewSet(viewsets.ViewSet):
             rows = self._dictfetchall(cursor)
         if not rows:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        return Response(rows[0])
+        redact_cta_urls = not bool(getattr(request.user, "is_staff", False))
+        return Response(self._serialize_row(rows[0], redact_cta_urls=redact_cta_urls))
 
     def create(self, request):
         serializer = EstatePropertyWriteSerializer(data={"payload": request.data})
@@ -392,3 +471,61 @@ class EstatePropertyViewSet(viewsets.ViewSet):
             if cursor.rowcount == 0:
                 return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"], url_path="cta/resolve")
+    def resolve_cta(self, request, pk=None):
+        serializer = EstatePropertyWriteSerializer(data={"payload": request.data})
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data.get("payload") or {}
+
+        button_index = payload.get("button_index")
+        try:
+            button_index = int(button_index)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "button_index is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT * FROM {self.table_name} WHERE id = %s", [pk])
+            rows = self._dictfetchall(cursor)
+
+        if not rows:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        row = rows[0]
+        buttons = self._normalize_cta_buttons(row.get(self.cta_buttons_column))
+        if button_index < 0 or button_index >= len(buttons):
+            return Response(
+                {"detail": "Button not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        button = buttons[button_index]
+        requires_phone = bool(button.get("requires_phone_auth"))
+        user_phone = str(getattr(request.user, "phone", "") or "").strip()
+        if requires_phone and not user_phone:
+            return Response(
+                {"detail": "Phone number is required to unlock this button."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        url = str(button.get("url", "") or "").strip()
+        if not url:
+            return Response(
+                {"detail": "Button URL is missing."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "button_index": button_index,
+                "label": button.get("label", ""),
+                "url": url,
+                "type": button.get("type", self.CTA_TYPE_DEFAULT),
+                "open_in_new_tab": bool(button.get("open_in_new_tab", True)),
+                "requires_phone_auth": requires_phone,
+                "order": button.get("order", button_index + 1),
+            }
+        )
