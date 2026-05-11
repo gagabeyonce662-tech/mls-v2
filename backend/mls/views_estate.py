@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import connection
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAdminUser, SAFE_METHODS
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -133,7 +133,7 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
     BOOLEAN_FIELDS = {"enable_price_placeholder", "is_featured"}
 
     def get_permissions(self):
-        if settings.DEBUG:
+        if self.request and self.request.method in SAFE_METHODS:
             return [AllowAny()]
         return [IsAdminUser()]
 
@@ -402,6 +402,7 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
 
 
 class EstatePropertyListCreateAPIView(EstatePropertyAPIViewMixinMethods, APIView):
+    permission_classes = [AllowAny]
     def get(self, request, *args, **kwargs):
         return self.list(request)
 

@@ -224,6 +224,7 @@ class MapAggregationAndFilterTests(TestCase):
 
 
 class EstatePropertyAPITests(TestCase):
+    @override_settings(DEBUG=False)
     def test_estate_property_schema_returns_table_metadata(self):
         response = self.client.get("/api/mls/estate-properties/schema/")
         self.assertEqual(response.status_code, 200)
@@ -233,7 +234,11 @@ class EstatePropertyAPITests(TestCase):
             any(col["column_name"] == "listing_key" for col in payload["columns"]),
         )
 
-    def test_estate_property_crud_is_public(self):
+    @override_settings(DEBUG=False)
+    def test_estate_property_get_is_public_but_writes_require_staff(self):
+        response = self.client.get("/api/mls/estate-properties/")
+        self.assertEqual(response.status_code, 200)
+
         create_payload = {
             "listing_key": "estate-public-1",
             "property_title": "Public Estate Home",
@@ -241,6 +246,20 @@ class EstatePropertyAPITests(TestCase):
             "publish_status": "published",
             "list_price": 1250000,
         }
+
+        denied_create = self.client.post(
+            "/api/mls/estate-properties/",
+            data=json.dumps(create_payload),
+            content_type="application/json",
+        )
+        self.assertIn(denied_create.status_code, {401, 403})
+
+        staff_user = get_user_model().objects.create_user(
+            email="estate-admin@example.com",
+            password="safe-password-123",
+            is_staff=True,
+        )
+        self.client.force_login(staff_user)
 
         created = self.client.post(
             "/api/mls/estate-properties/",
@@ -277,9 +296,9 @@ class EstatePropertyAPITests(TestCase):
         self.assertEqual(deleted.status_code, 204)
 
     @override_settings(DEBUG=False)
-    def test_estate_property_endpoints_require_admin_when_debug_off(self):
+    def test_estate_property_write_endpoints_require_admin_when_debug_off(self):
         response = self.client.get("/api/mls/estate-properties/")
-        self.assertIn(response.status_code, {401, 403})
+        self.assertEqual(response.status_code, 200)
 
         create_payload = {
             "listing_key": "estate-private-1",
