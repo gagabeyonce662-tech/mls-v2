@@ -106,7 +106,7 @@ export const PropertyResponseSchema = z
     public_remarks: z.string().nullable().optional(),
     PublicRemarks: z.string().nullable().optional(),
 
-    photos_count: z.number().optional(),
+    photos_count: z.number().nullable().optional(),
     listing_url: z.string().nullable().optional(),
 
     building_area_total: z

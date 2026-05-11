@@ -64,7 +64,7 @@ export interface Property {
   standard_status?: string;
   /** CREA DDF: whether street address may be shown (synced from InternetAddressDisplayYN). */
   internet_address_display_yn?: boolean | null;
-  photos_count?: number;
+  photos_count?: number | null;
   days_on_market?: number | null;
   modification_timestamp?: string;
 
