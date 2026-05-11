@@ -230,15 +230,18 @@ CORS_ALLOWED_ORIGINS = [
     f"http://{LOCAL_NETWORK_IP}:3000",
     "https://staging.vsell4u.ca",
     "http://staging.vsell4u.ca",
-    "https://mls-frontend-v2.vercel.app"
+    "https://mls-frontend-v2.vercel.app",
 ]
-CSRF_TRUSTED_ORIGINS  = [
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://(.+\.)?vercel\.app$",
+]
+CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     f"http://{LOCAL_NETWORK_IP}:3000",
     "https://staging.vsell4u.ca",
     "http://staging.vsell4u.ca",
-    "https://mls-frontend-v2.vercel.app"
+    "https://mls-frontend-v2.vercel.app",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
