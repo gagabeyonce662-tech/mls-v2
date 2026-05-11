@@ -1,14 +1,23 @@
+from django.conf import settings
 from django.db import connection
-from rest_framework import status, viewsets
-from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
+from rest_framework import status
+from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .serializers import EstatePropertyWriteSerializer
 
 
-class EstatePropertyViewSet(viewsets.ViewSet):
+class EstatePropertyAPIViewMixin:
     permission_classes = [AllowAny]
+    table_name = "mls_estateproperty"
+    wp_meta_column = "wp_meta_json"
+    wp_terms_column = "wp_terms_json"
+    wp_post_column = "wp_post_json"
+
+    
+class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
+    # WordPress/Houzez keys that should map to first-class estate columns.
     table_name = "mls_estateproperty"
     wp_meta_column = "wp_meta_json"
     wp_terms_column = "wp_terms_json"
@@ -122,6 +131,11 @@ class EstatePropertyViewSet(viewsets.ViewSet):
         "building_area_total",
     }
     BOOLEAN_FIELDS = {"enable_price_placeholder", "is_featured"}
+
+    def get_permissions(self):
+        if settings.DEBUG:
+            return [AllowAny()]
+        return [IsAdminUser()]
 
     @staticmethod
     def _dictfetchall(cursor):
@@ -250,7 +264,6 @@ class EstatePropertyViewSet(viewsets.ViewSet):
 
         return mapped
 
-    @action(detail=False, methods=["get"])
     def schema(self, request):
         return Response({"table": self.table_name, "columns": self._columns()})
 
@@ -386,3 +399,30 @@ class EstatePropertyViewSet(viewsets.ViewSet):
             if cursor.rowcount == 0:
                 return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class EstatePropertyListCreateAPIView(EstatePropertyAPIViewMixinMethods, APIView):
+    def get(self, request, *args, **kwargs):
+        return self.list(request)
+
+    def post(self, request, *args, **kwargs):
+        return self.create(request)
+
+
+class EstatePropertyDetailAPIView(EstatePropertyAPIViewMixinMethods, APIView):
+    def get(self, request, pk, *args, **kwargs):
+        return self.retrieve(request, pk=pk)
+
+    def put(self, request, pk, *args, **kwargs):
+        return self.update(request, pk=pk)
+
+    def patch(self, request, pk, *args, **kwargs):
+        return self.partial_update(request, pk=pk)
+
+    def delete(self, request, pk, *args, **kwargs):
+        return self.destroy(request, pk=pk)
+
+
+class EstatePropertySchemaAPIView(EstatePropertyAPIViewMixinMethods, APIView):
+    def get(self, request, *args, **kwargs):
+        return self.schema(request)

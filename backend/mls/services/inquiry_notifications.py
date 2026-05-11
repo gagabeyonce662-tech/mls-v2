@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def _admin_change_url(inquiry_id: int) -> str:
     base = getattr(settings, "PUBLIC_BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
-    return urljoin(base + "/", f"admin/mls/propertyinquiry/{inquiry_id}/change/")
+    return urljoin(base +  f"admin/mls/propertyinquiry/{inquiry_id}/change/")
 
 
 def send_inquiry_email_to_realtor(inquiry: PropertyInquiry) -> None:

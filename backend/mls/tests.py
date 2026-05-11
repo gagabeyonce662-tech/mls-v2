@@ -224,6 +224,15 @@ class MapAggregationAndFilterTests(TestCase):
 
 
 class EstatePropertyAPITests(TestCase):
+    def test_estate_property_schema_returns_table_metadata(self):
+        response = self.client.get("/api/mls/estate-properties/schema/")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["table"], "mls_estateproperty")
+        self.assertTrue(
+            any(col["column_name"] == "listing_key" for col in payload["columns"]),
+        )
+
     def test_estate_property_crud_is_public(self):
         create_payload = {
             "listing_key": "estate-public-1",
@@ -266,6 +275,24 @@ class EstatePropertyAPITests(TestCase):
 
         deleted = self.client.delete(f"/api/mls/estate-properties/{estate_id}/")
         self.assertEqual(deleted.status_code, 204)
+
+    @override_settings(DEBUG=False)
+    def test_estate_property_endpoints_require_admin_when_debug_off(self):
+        response = self.client.get("/api/mls/estate-properties/")
+        self.assertIn(response.status_code, {401, 403})
+
+        create_payload = {
+            "listing_key": "estate-private-1",
+            "property_title": "Private Estate Home",
+            "city": "Toronto",
+            "publish_status": "draft",
+        }
+        created = self.client.post(
+            "/api/mls/estate-properties/",
+            data=json.dumps(create_payload),
+            content_type="application/json",
+        )
+        self.assertIn(created.status_code, {401, 403})
 
 
 class WatchedAPITests(TestCase):

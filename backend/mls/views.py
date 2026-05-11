@@ -54,7 +54,6 @@ from .serializers import (
     ListingRecommendationsResponseSerializer,
     RecommendationTrackSerializer,
 )
-from .views_estate import EstatePropertyViewSet
 from mls.services.map_aggregates import get_resolution_for_zoom
 from mls.services.inquiry_ghl import sync_inquiry_to_ghl
 from mls.services.inquiry_notifications import send_inquiry_email_to_realtor
