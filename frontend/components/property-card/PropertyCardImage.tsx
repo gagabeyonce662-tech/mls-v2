@@ -25,12 +25,32 @@ export function PropertyCardImage({
 }: PropertyCardImageProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
 
+  const getImageName = (url: string): string => {
+    try {
+      const parsed = new URL(url, "https://placeholder.invalid");
+      const segments = parsed.pathname.split("/").filter(Boolean);
+      return decodeURIComponent(segments[segments.length - 1] || "");
+    } catch {
+      return "";
+    }
+  };
+
   // Extract from Utils (ensuring consistency)
   const thumbnail = getThumbnail(property);
   const city = getCity(property);
   const type = getPropertyType(property);
   const status = getStatus(property);
   const listingDate = getListingDate(property);
+  const imageName = (() => {
+    const primary =
+      (property as any).image_filename ||
+      ((property as any).image_names || [])[0] ||
+      ((property as any).media || [])[0]?.image_filename ||
+      ((property as any).Media || [])[0]?.image_filename ||
+      "";
+    if (typeof primary === "string" && primary.trim()) return primary.trim();
+    return thumbnail ? getImageName(thumbnail) : "";
+  })();
 
   const statusColor =
     propertyCard.statusColors[status] || propertyCard.statusColors.default;
@@ -91,6 +111,15 @@ export function PropertyCardImage({
         <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-lg bg-black/30 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-md">
           <Calendar className="w-3 h-3" />
           {listingDate}
+        </div>
+      )}
+
+      {imageName && (
+        <div
+          className="absolute left-3 bottom-3 z-10 max-w-[75%] truncate rounded-md bg-black/45 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm"
+          title={imageName}
+        >
+          {imageName}
         </div>
       )}
     </div>

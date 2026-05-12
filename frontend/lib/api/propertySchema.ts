@@ -148,14 +148,17 @@ export const PropertyResponseSchema = z
       .nullable()
       .optional(),
 
-    total_actual_rent: z.string().optional(),
+    total_actual_rent: z
+      .union([z.string(), z.number()])
+      .nullable()
+      .optional(),
 
     media: z.preprocess(mediaPreprocessor, z.array(z.any())).optional(),
     Media: z.preprocess(mediaPreprocessor, z.array(z.any())).optional(),
     Photos: z.array(z.any()).optional(),
 
-    rooms: z.array(z.any()).optional(),
-    Rooms: z.array(z.any()).optional(),
+    rooms: z.preprocess((v) => (v == null ? [] : v), z.array(z.any())).optional(),
+    Rooms: z.preprocess((v) => (v == null ? [] : v), z.array(z.any())).optional(),
   })
   .passthrough() // Keep any unstructured fields
   .transform((prop) => {
@@ -267,7 +270,8 @@ export const PropertyResponseSchema = z
         const v = prop.parking_features || prop.ParkingFeatures;
         return Array.isArray(v) ? v.join(", ") : v || "";
       })(),
-      total_actual_rent: prop.total_actual_rent,
+      total_actual_rent:
+        prop.total_actual_rent == null ? "" : String(prop.total_actual_rent),
 
       // Legacy Support
       Photos: resolvedMedia.map((m: any) => ({ PhotoURL: m.media_url })),

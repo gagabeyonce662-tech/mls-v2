@@ -22,6 +22,7 @@ import {
   mergeHomepageCategories,
 } from "@/lib/homepage/categories";
 import { buildFilterSearchParams } from "./filterParams";
+import { normalizeListingRecord } from "./listingNormalizer";
 
 const CLIENT_CACHE_PREFIX = "mls:api-cache:";
 const CLIENT_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -118,7 +119,7 @@ export function mapPreconToProperty(p: any): Property {
   const mainImage = p.yoast_head_json?.og_image?.[0]?.url || "";
   const projectName = p.title?.rendered || "";
 
-  return {
+  return normalizeListingRecord({
     listing_key: `precon_${p.id}`,
     listing_id: `precon_${p.id}`,
     ListingKey: `precon_${p.id}`,
@@ -141,49 +142,40 @@ export function mapPreconToProperty(p: any): Property {
     PublicRemarks: p.content?.rendered?.replace(/<[^>]*>?/gm, "").trim(),
     media: [{ media_url: mainImage, is_preferred: true, order: 1 } as any],
     project_name: projectName,
-  };
+  });
 }
 
 /**
  * Helper function to map API response to Property interface
  */
 export function mapPropertyFromAPI(prop: any): Property {
+  const normalized = normalizeListingRecord(prop);
   try {
-    return PropertyResponseSchema.parse(prop) as Property;
+    return PropertyResponseSchema.parse(normalized) as Property;
   } catch (error) {
     console.error(
       "Zod Schema Parsing Error for property:",
-      prop?.id || prop?.listing_key,
+      normalized?.id || normalized?.listing_key,
       error,
     );
     // Fallback simply returns the messy object if parsing critically fails
-    return prop as Property;
+    return normalized as Property;
   }
 }
 
-function mapEstatePropertyFromAPI(prop: any, id?: string): Property {
+export function mapEstatePropertyFromAPI(prop: any, id?: string): Property {
   const key = `estate_${id || prop?.id || prop?.listing_key || "unknown"}`;
-  return {
+  return mapPropertyFromAPI({
     ...prop,
     listing_key: key,
-    listing_id: prop?.listing_id || prop?.listing_key || key,
-    ListingKey: key,
-    PropertyKey: key,
-    address: prop?.unparsed_address || "",
-    city: prop?.city || "Pre-Construction",
-    City: prop?.city || "Pre-Construction",
-    list_price: prop?.list_price,
-    ListPrice: prop?.list_price,
-    standard_status: prop?.standard_status || "Pre-Construction",
-    StandardStatus: prop?.standard_status || "Pre-Construction",
+    standard_status: prop?.standard_status || prop?.publish_status || "Pre-Construction",
+    StandardStatus: prop?.standard_status || prop?.publish_status || "Pre-Construction",
     property_sub_type: prop?.property_sub_type || "Pre-Construction",
     PropertySubType: prop?.property_sub_type || "Pre-Construction",
-    public_remarks: prop?.property_description || prop?.public_remarks || "",
-    PublicRemarks: prop?.property_description || prop?.public_remarks || "",
-    media: prop?.media || [],
-    project_name:
-      prop?.project_name || prop?.unparsed_address || prop?.listing_key || "Estate Project",
-  };
+    city: prop?.city || "Pre-Construction",
+    City: prop?.city || "Pre-Construction",
+    project_name: prop?.project_name || prop?.property_title || "Estate Project",
+  });
 }
 
 /**
@@ -296,8 +288,12 @@ export async function fetchExclusiveProperties(
     if (cached) return cached;
 
     const response = await fetchAPI<ExclusivePropertiesResponse>(url, { cache: "no-store" });
-    setClientCachedResponse(cacheKey, response);
-    return response;
+    const normalizedResponse: ExclusivePropertiesResponse = {
+      ...response,
+      results: (response.results || []).map((row) => mapPropertyFromAPI(row)),
+    };
+    setClientCachedResponse(cacheKey, normalizedResponse);
+    return normalizedResponse;
   } catch (error) {
     console.error("Error fetching exclusive properties:", error);
     return {
@@ -364,8 +360,12 @@ export async function fetchLeaseProperties(
       next: number | null;
       previous: number | null;
     }>(url, { cache: "no-store" });
-    setClientCachedResponse(cacheKey, response);
-    return response;
+    const normalizedResponse = {
+      ...response,
+      results: (response.results || []).map((row) => mapPropertyFromAPI(row)),
+    };
+    setClientCachedResponse(cacheKey, normalizedResponse);
+    return normalizedResponse;
   } catch (error) {
     console.error("Error fetching lease properties:", error);
     return {
@@ -402,17 +402,21 @@ export async function fetchFilteredProperties(
   // console.log("FILTER URL →", url);
 
   try {
-    const response = await fetchAPI(url, {
+    const response = await fetchAPI<any>(url, {
       cache: "no-store",
       ...requestOptions,
     });
+    const normalizedResponse =
+      response && Array.isArray(response.results)
+        ? { ...response, results: response.results.map(mapPropertyFromAPI) }
+        : response;
     if (hasMapBounds) {
       mapFilterMemoryCache.set(mapCacheKey, {
         timestamp: Date.now(),
-        data: response,
+        data: normalizedResponse,
       });
     }
-    return response;
+    return normalizedResponse;
   } catch (error) {
     console.error("Filter API error:", error);
     return { results: [], count: 0 };
@@ -876,8 +880,12 @@ export async function fetchPreConnProperties(
       next: number | null;
       previous: number | null;
     }>(url, { cache: "no-store" });
-    setClientCachedResponse(cacheKey, response);
-    return response;
+    const normalizedResponse = {
+      ...response,
+      results: (response.results || []).map((row) => mapPropertyFromAPI(row)),
+    };
+    setClientCachedResponse(cacheKey, normalizedResponse);
+    return normalizedResponse;
   } catch (error) {
     console.error("Error fetching pre-construction properties:", error);
     return { results: [], count: 0, next: null, previous: null };
@@ -915,8 +923,12 @@ export async function fetchCommunityProperties(
     if (cached) return cached;
 
     const response = await fetchAPI<PaginatedPropertyResult>(url, { cache: "no-store" });
-    setClientCachedResponse(cacheKey, response);
-    return response;
+    const normalizedResponse: PaginatedPropertyResult = {
+      ...response,
+      results: (response.results || []).map((row) => mapPropertyFromAPI(row)),
+    };
+    setClientCachedResponse(cacheKey, normalizedResponse);
+    return normalizedResponse;
   } catch (error) {
     console.error("Error fetching community properties:", error);
     return {

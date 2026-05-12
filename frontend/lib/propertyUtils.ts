@@ -40,7 +40,10 @@ export const getCity = (property: Property): string =>
   property.city || property.City || "Unknown City";
 
 export const getProvince = (property: Property): string =>
-  property.province || property.StateOrProvince || "";
+  property.province ||
+  property.state_or_province ||
+  property.StateOrProvince ||
+  "";
 
 export const getPostalCode = (property: Property): string =>
   property.postal_code || property.PostalCode || "";
@@ -153,6 +156,10 @@ const MEDIA_URL_KEYS = [
   "src",
   "thumbnail",
   "thumbnailUrl",
+  "thumbnail_url",
+  "featured_image_url",
+  "primary_image_url",
+  "image_url",
   "ImageURL",
   "imageUrl",
 ] as const;
@@ -165,6 +172,10 @@ export const getThumbnail = (property: Property): string | null => {
     property.Media,
     (property as any).images,
     (property as any).Images,
+    (property as any).featured_image_url,
+    (property as any).primary_image_url,
+    (property as any).image_url,
+    (property as any).thumbnail_url,
   ];
 
   for (const field of candidates) {
@@ -199,6 +210,10 @@ export const getPhotos = (property: Property): string[] => {
     property.Media,
     (property as any).images,
     (property as any).Images,
+    (property as any).featured_image_url,
+    (property as any).primary_image_url,
+    (property as any).image_url,
+    (property as any).thumbnail_url,
   ];
 
   const allPhotos: string[] = [];
@@ -250,7 +265,9 @@ export const getListingDate = (property: Property): string => {
     (property as any).ListingDate,
     (property as any).list_date,
     (property as any).ListDate,
+    (property as any).modification_timestamp,
     property.ModificationTimestamp,
+    (property as any).updated_at,
     (property as any).created_at,
     (property as any).CreatedAt,
   ];
