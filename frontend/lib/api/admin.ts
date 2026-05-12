@@ -19,6 +19,12 @@ async function handleResponseError(res: Response, fallbackTitle: string) {
   throw new Error(errorMessage);
 }
 
+function authHeaders(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("access_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 /**
  * Upload pre-construction properties via CSV
  */
@@ -223,7 +229,11 @@ export async function fetchEstatePropertySchema(): Promise<{
   }>;
 }> {
   const url = `${API_BASE_URL}/api/mls/estate-properties/schema/`;
-  const res = await fetch(url, { method: "GET", credentials: "include" });
+  const res = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`Failed to load schema: ${res.status}`);
   return res.json();
 }
@@ -249,14 +259,22 @@ export async function fetchEstateProperties(params?: {
   if (params?.expires_to) sp.set("expires_to", params.expires_to);
   const query = sp.toString();
   const url = `${API_BASE_URL}/api/mls/estate-properties/${query ? `?${query}` : ""}`;
-  const res = await fetch(url, { method: "GET", credentials: "include" });
+  const res = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`Failed to load estate properties: ${res.status}`);
   return res.json();
 }
 
 export async function fetchEstatePropertyById(id: string | number): Promise<EstatePropertyRecord> {
   const url = `${API_BASE_URL}/api/mls/estate-properties/${id}/`;
-  const res = await fetch(url, { method: "GET", credentials: "include" });
+  const res = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(`Failed to load estate property: ${res.status}`);
   return res.json();
 }
@@ -266,7 +284,7 @@ export async function createEstateProperty(payload: EstatePropertyRecord): Promi
   const res = await fetch(url, {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(await res.text());
@@ -281,7 +299,7 @@ export async function updateEstateProperty(
   const res = await fetch(url, {
     method: "PATCH",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(await res.text());
@@ -290,6 +308,10 @@ export async function updateEstateProperty(
 
 export async function deleteEstateProperty(id: string | number): Promise<void> {
   const url = `${API_BASE_URL}/api/mls/estate-properties/${id}/`;
-  const res = await fetch(url, { method: "DELETE", credentials: "include" });
+  const res = await fetch(url, {
+    method: "DELETE",
+    credentials: "include",
+    headers: authHeaders(),
+  });
   if (!res.ok) throw new Error(await res.text());
 }

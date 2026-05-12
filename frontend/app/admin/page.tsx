@@ -7,8 +7,10 @@ import { Lock, ArrowRight, AlertCircle } from "lucide-react";
 import { colors } from "@/config/design-system";
 
 export default function AdminLoginPage() {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { login, isAuthenticated, isLoading } = useAdminAuth();
   const router = useRouter();
 
@@ -18,15 +20,17 @@ export default function AdminLoginPage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = login(password);
+    setIsSubmitting(true);
+    const success = await login(email, password);
     if (success) {
       router.push("/admin/dashboard");
     } else {
-      setError("Invalid passphrase. Check your credentials.");
+      setError("Invalid credentials or unauthorized account.");
       setPassword("");
     }
+    setIsSubmitting(false);
   };
 
   return (
@@ -39,15 +43,29 @@ export default function AdminLoginPage() {
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
             Admin Access
           </h1>
-          <p className="text-gray-500 text-sm">
-            Enter your secure passphrase to manage listings.
-          </p>
+          <p className="text-gray-500 text-sm">Sign in with your admin account.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-              Passphrase
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError("");
+              }}
+              placeholder="admin@example.com"
+              className="w-full h-11 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              Password
             </label>
             <input
               type="password"
@@ -70,11 +88,11 @@ export default function AdminLoginPage() {
 
           <button
             type="submit"
-            disabled={!password}
+            disabled={!email || !password || isSubmitting}
             className="w-full h-11 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ backgroundColor: colors.primary }}
           >
-            <span>Sign In</span>
+            <span>{isSubmitting ? "Signing In..." : "Sign In"}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
