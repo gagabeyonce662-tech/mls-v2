@@ -1,6 +1,9 @@
+import json
+
 from django.conf import settings
-from django.db import connection
+from django.db import DataError, IntegrityError, ProgrammingError, connection
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAdminUser, SAFE_METHODS
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -229,6 +232,11 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
         wp_meta = {}
         wp_terms = {}
         wp_post = {}
+        json_columns = {
+            self.wp_meta_column,
+            self.wp_terms_column,
+            self.wp_post_column,
+        }
 
         for key, value in payload.items():
             target_key = self.WP_TO_CORE_FIELD_MAP.get(key, key)
@@ -262,7 +270,40 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
                 merged = wp_post
             mapped[self.wp_post_column] = merged
 
+        invalid = {}
+        for key, value in mapped.items():
+            if key in json_columns:
+                continue
+            if isinstance(value, (list, tuple, set, dict)):
+                invalid[key] = "Expected a scalar value."
+        if invalid:
+            raise ValidationError(
+                {
+                    "detail": "Invalid payload field types.",
+                    "fields": invalid,
+                }
+            )
+
         return mapped
+
+    def _prepare_sql_payload(self, payload):
+        """
+        Convert Python container values for JSON columns into DB-bindable JSON text.
+        Raw cursor bindings do not auto-adapt dict/list to JSONB.
+        """
+        json_columns = {
+            self.wp_meta_column,
+            self.wp_terms_column,
+            self.wp_post_column,
+        }
+        prepared = {}
+        for key, value in payload.items():
+            if key in json_columns and isinstance(value, (dict, list, tuple, set)):
+                serializable = list(value) if isinstance(value, set) else value
+                prepared[key] = json.dumps(serializable)
+            else:
+                prepared[key] = value
+        return prepared
 
     def schema(self, request):
         return Response({"table": self.table_name, "columns": self._columns()})
@@ -349,6 +390,7 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
         serializer.is_valid(raise_exception=True)
         payload = dict(serializer.validated_data["payload"])
         payload = self._split_payload(payload)
+        payload = self._prepare_sql_payload(payload)
         payload.setdefault("is_featured", False)
         if not payload.get("listing_key"):
             return Response(
@@ -362,11 +404,16 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
         placeholders = ", ".join(["%s"] * len(keys))
 
         with connection.cursor() as cursor:
-            cursor.execute(
-                f"INSERT INTO {self.table_name} ({cols}) VALUES ({placeholders}) RETURNING id",
-                vals,
-            )
-            new_id = cursor.fetchone()[0]
+            try:
+                cursor.execute(
+                    f"INSERT INTO {self.table_name} ({cols}) VALUES ({placeholders}) RETURNING id",
+                    vals,
+                )
+                new_id = cursor.fetchone()[0]
+            except (DataError, IntegrityError, ProgrammingError) as exc:
+                raise ValidationError(
+                    {"detail": "Invalid payload for estate property create.", "error": str(exc)}
+                ) from exc
         return self.retrieve(request, pk=new_id)
 
     def update(self, request, pk=None):
@@ -380,15 +427,21 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
         serializer.is_valid(raise_exception=True)
         payload = dict(serializer.validated_data["payload"])
         payload = self._split_payload(payload)
+        payload = self._prepare_sql_payload(payload)
         if not payload:
             return Response({"detail": "No valid fields provided."}, status=status.HTTP_400_BAD_REQUEST)
 
         set_sql = ", ".join([f"{k} = %s" for k in payload.keys()])
         with connection.cursor() as cursor:
-            cursor.execute(
-                f"UPDATE {self.table_name} SET {set_sql} WHERE id = %s",
-                [*payload.values(), pk],
-            )
+            try:
+                cursor.execute(
+                    f"UPDATE {self.table_name} SET {set_sql} WHERE id = %s",
+                    [*payload.values(), pk],
+                )
+            except (DataError, IntegrityError, ProgrammingError) as exc:
+                raise ValidationError(
+                    {"detail": "Invalid payload for estate property update.", "error": str(exc)}
+                ) from exc
             if cursor.rowcount == 0:
                 return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         return self.retrieve(request, pk=pk)

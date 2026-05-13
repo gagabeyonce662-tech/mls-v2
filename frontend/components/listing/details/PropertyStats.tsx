@@ -8,6 +8,7 @@ interface PropertyStatsProps {
   sqft: string;
   type: string;
   year: string | number;
+  showPropertyType?: boolean;
 }
 
 export default function PropertyStats({
@@ -16,12 +17,15 @@ export default function PropertyStats({
   sqft,
   type,
   year,
+  showPropertyType = true,
 }: PropertyStatsProps) {
   const stats = [
     { label: "Bedrooms", value: beds, icon: Bed },
     { label: "Bathrooms", value: baths, icon: Bath },
     { label: "Living Area", value: sqft, icon: Maximize },
-    { label: "Property Type", value: type, icon: HomeIcon },
+    ...(showPropertyType
+      ? [{ label: "Property Type", value: type, icon: HomeIcon }]
+      : []),
     { label: "Year Built", value: year, icon: Calendar },
   ].filter((stat) => {
     const value = String(stat.value ?? "").trim().toLowerCase();

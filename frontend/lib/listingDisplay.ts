@@ -28,6 +28,7 @@ function parseListPrice(property: Property): number | null {
       ? parseFloat(String(raw).replace(/[^0-9.-]+/g, ""))
       : Number(raw);
   if (!Number.isFinite(n)) return null;
+  if (n <= 0) return null;
   return n;
 }
 

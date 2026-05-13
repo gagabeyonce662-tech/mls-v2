@@ -143,6 +143,16 @@ export default function EstatePropertyForm({
     () => new Set(editableColumns.map((c) => c.column_name)),
     [editableColumns],
   );
+  const columnTypeMap = useMemo(
+    () =>
+      new Map(
+        editableColumns.map((c) => [
+          c.column_name,
+          String(c.data_type || "").toLowerCase(),
+        ]),
+      ),
+    [editableColumns],
+  );
   const advancedColumns = useMemo(
     () =>
       editableColumns.filter(
@@ -206,6 +216,59 @@ export default function EstatePropertyForm({
     setSummaryErrors([]);
     setIsSaving(true);
     const normalizedPayload: EstatePropertyRecord = { ...payload };
+    delete normalizedPayload.id;
+    for (const [field, rawValue] of Object.entries(normalizedPayload)) {
+      const dataType = columnTypeMap.get(field) || "";
+      let value: any = rawValue;
+      if (Array.isArray(value) && !["json", "jsonb"].includes(dataType)) {
+        value = value.length > 0 ? value[0] : null;
+      }
+      if (
+        (dataType.includes("int") ||
+          dataType.includes("numeric") ||
+          dataType.includes("double") ||
+          dataType.includes("real")) &&
+        value === ""
+      ) {
+        value = null;
+      }
+      if (dataType.includes("int") && value != null) {
+        const parsed = Number.parseInt(String(value), 10);
+        value = Number.isFinite(parsed) ? parsed : null;
+      } else if (
+        (dataType.includes("numeric") ||
+          dataType.includes("double") ||
+          dataType.includes("real")) &&
+        value != null
+      ) {
+        const parsed = Number.parseFloat(String(value));
+        value = Number.isFinite(parsed) ? parsed : null;
+      } else if (dataType === "boolean" && value != null) {
+        if (typeof value === "string") {
+          const lowered = value.trim().toLowerCase();
+          value = ["1", "true", "yes", "y", "on"].includes(lowered);
+        } else {
+          value = Boolean(value);
+        }
+      } else if ((dataType === "json" || dataType === "jsonb") && typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) {
+          value = {};
+        } else {
+          try {
+            value = JSON.parse(trimmed);
+          } catch {
+            value = {};
+          }
+        }
+      } else if (
+        (dataType.includes("timestamp") || dataType.includes("date")) &&
+        value === ""
+      ) {
+        value = null;
+      }
+      normalizedPayload[field] = value;
+    }
     if (normalizedPayload.is_featured === undefined || normalizedPayload.is_featured === null) {
       normalizedPayload.is_featured = false;
     }

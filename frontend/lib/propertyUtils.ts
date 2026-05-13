@@ -465,10 +465,18 @@ export const getParkingSummary = (property: Property): string | null => {
 
 export const getLotSizeSummary = (property: Property): string | null => {
   const dimensions = toValue(
-    getRaw(property, "lot_size_dimensions", "LotSizeDimensions"),
+    getRaw(
+      property,
+      "lot_size_dimensions",
+      "LotSizeDimensions",
+      "lot_size",
+      "LotSize",
+    ),
   );
   if (dimensions) return dimensions;
-  const area = toValue(getRaw(property, "lot_size_area", "LotSizeArea"));
+  const area = toValue(
+    getRaw(property, "lot_size_area", "LotSizeArea", "land_area", "LandArea"),
+  );
   return area ? `${area} sq ft` : null;
 };
 
@@ -647,6 +655,11 @@ export const getPropertyDetailSections = (
     Number.isFinite(partialBathCount) && partialBathCount > 0
       ? toDetailItem("Partial bathrooms", String(partialBathCount))
       : null,
+    toDetailItem("Developer", toValue(getRaw(property, "developer", "Developer"))),
+    toDetailItem(
+      "Occupancy Year",
+      toValue(getRaw(property, "occupancy_year", "OccupancyYear")),
+    ),
   ]);
 
   pushSection("Location & access", [
@@ -739,11 +752,30 @@ export const getPropertyDetailSections = (
     ),
     toDetailItem(
       "Rooms Total",
-      toValue((property.rooms || property.Rooms || []).length || null),
+      toValue(
+        (property.rooms || property.Rooms || []).length ||
+          getRaw(property, "total_rooms", "rooms_total", "rooms", "Rooms"),
+      ),
     ),
     toDetailItem(
       "Zoning",
       toValue(getRaw(property, "zoning_description", "ZoningDescription", "zoning", "Zoning")),
+    ),
+    toDetailItem(
+      "Publish Status",
+      toValue(getRaw(property, "publish_status", "PublishStatus")),
+    ),
+    toDetailItem(
+      "Property ID",
+      toValue(getRaw(property, "property_id_code", "PropertyIdCode")),
+    ),
+    toDetailItem(
+      "Price Prefix",
+      toValue(getRaw(property, "price_prefix", "PricePrefix")),
+    ),
+    toDetailItem(
+      "Second Price",
+      formatCurrency(getRaw(property, "second_price", "SecondPrice")),
     ),
   ]);
 

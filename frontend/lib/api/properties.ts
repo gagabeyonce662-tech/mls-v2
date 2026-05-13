@@ -22,7 +22,10 @@ import {
   mergeHomepageCategories,
 } from "@/lib/homepage/categories";
 import { buildFilterSearchParams } from "./filterParams";
-import { normalizeListingRecord } from "./listingNormalizer";
+import {
+  normalizeEstateDetailRecord,
+  normalizeListingRecord,
+} from "./listingNormalizer";
 
 const CLIENT_CACHE_PREFIX = "mls:api-cache:";
 const CLIENT_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -31,7 +34,10 @@ const clientMemoryCache = new Map<
   string,
   { timestamp: number; data: unknown }
 >();
-const mapFilterMemoryCache = new Map<string, { timestamp: number; data: unknown }>();
+const mapFilterMemoryCache = new Map<
+  string,
+  { timestamp: number; data: unknown }
+>();
 
 export interface ListingFallbackMeta {
   fallback_applied?: boolean;
@@ -60,7 +66,9 @@ function getClientCachedResponse<T>(cacheKey: string): T | null {
   if (typeof window === "undefined") return null;
 
   try {
-    const raw = window.localStorage.getItem(`${CLIENT_CACHE_PREFIX}${cacheKey}`);
+    const raw = window.localStorage.getItem(
+      `${CLIENT_CACHE_PREFIX}${cacheKey}`,
+    );
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as { timestamp?: number; data?: T };
@@ -164,18 +172,15 @@ export function mapPropertyFromAPI(prop: any): Property {
 }
 
 export function mapEstatePropertyFromAPI(prop: any, id?: string): Property {
-  const key = `estate_${id || prop?.id || prop?.listing_key || "unknown"}`;
-  return mapPropertyFromAPI({
-    ...prop,
-    listing_key: key,
-    standard_status: prop?.standard_status || prop?.publish_status || "Pre-Construction",
-    StandardStatus: prop?.standard_status || prop?.publish_status || "Pre-Construction",
-    property_sub_type: prop?.property_sub_type || "Pre-Construction",
-    PropertySubType: prop?.property_sub_type || "Pre-Construction",
-    city: prop?.city || "Pre-Construction",
-    City: prop?.city || "Pre-Construction",
-    project_name: prop?.project_name || prop?.property_title || "Estate Project",
-  });
+  console.log(
+    "[estate-map] Debug: Raw data received in mapEstatePropertyFromAPI:",
+    prop,
+  );
+  const normalized = normalizeEstateDetailRecord(prop, id);
+  console.log("[estate-map] Debug: Data after normalization:", normalized);
+  const finalProperty = mapPropertyFromAPI(normalized);
+  console.log("[estate-map] Debug: Final property object:", finalProperty);
+  return finalProperty;
 }
 
 /**
@@ -284,10 +289,13 @@ export async function fetchExclusiveProperties(
 
     const url = `${API_BASE_URL}/api/mls/properties/exclusive-properties/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
     const cacheKey = `exclusive:${queryParams.toString()}`;
-    const cached = getClientCachedResponse<ExclusivePropertiesResponse>(cacheKey);
+    const cached =
+      getClientCachedResponse<ExclusivePropertiesResponse>(cacheKey);
     if (cached) return cached;
 
-    const response = await fetchAPI<ExclusivePropertiesResponse>(url, { cache: "no-store" });
+    const response = await fetchAPI<ExclusivePropertiesResponse>(url, {
+      cache: "no-store",
+    });
     const normalizedResponse: ExclusivePropertiesResponse = {
       ...response,
       results: (response.results || []).map((row) => mapPropertyFromAPI(row)),
@@ -452,7 +460,8 @@ export async function fetchPropertyTypes(params?: {
     if (results.length === 0) return DEFAULT_PROPERTY_TYPES;
 
     return results.filter(
-      (item) => !!item && typeof item.value === "string" && item.value.trim() !== "",
+      (item) =>
+        !!item && typeof item.value === "string" && item.value.trim() !== "",
     );
   } catch (error) {
     console.error("Error fetching property types:", error);
@@ -543,7 +552,10 @@ export async function fetchHomepageCategoryCatalog(): Promise<HomepageCategoryCa
       order: 100,
     }));
 
-    const categories = mergeHomepageCategories([...baseCategories, ...typeCategories]);
+    const categories = mergeHomepageCategories([
+      ...baseCategories,
+      ...typeCategories,
+    ]);
     return {
       categories,
       fetchedAt: new Date().toISOString(),
@@ -594,25 +606,10 @@ export async function fetchPropertyByKey(
   propertyKey: string,
 ): Promise<Property | null> {
   try {
-    // #region agent log
-    fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "db96a5",
-      },
-      body: JSON.stringify({
-        sessionId: "db96a5",
-        runId: "pre-fix",
-        hypothesisId: "H3",
-        location: "frontend/lib/api/properties.ts:560",
-        message: "fetchPropertyByKey entry",
-        data: { propertyKey },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-    if (propertyKey.startsWith("precon_") || propertyKey.startsWith("property-")) {
+    if (
+      propertyKey.startsWith("precon_") ||
+      propertyKey.startsWith("property-")
+    ) {
       if (propertyKey.startsWith("precon_")) {
         const idStr = propertyKey.replace("precon_", "");
         return await fetchWPPreconPropertyAction(idStr);
@@ -633,9 +630,12 @@ export async function fetchPropertyByKey(
     // console.log("Fetching property by key:", propertyKey);
     let data: any;
     try {
-      data = await fetchAPI<any>(`${API_BASE_URL}/api/mls/properties/${propertyKey}/`, {
-        next: { revalidate: 300 }, // Cache for 5 minutes
-      });
+      data = await fetchAPI<any>(
+        `${API_BASE_URL}/api/mls/properties/${propertyKey}/`,
+        {
+          next: { revalidate: 300 }, // Cache for 5 minutes
+        },
+      );
     } catch (mlsError: any) {
       const mlsErrorMsg = String(mlsError?.message || "");
       const isInvalidPrimaryKey =
@@ -649,37 +649,15 @@ export async function fetchPropertyByKey(
           { cache: "no-store" },
         );
         const exact =
-          (estateList?.results || []).find((r: any) => r?.listing_key === propertyKey) ||
-          (estateList?.results || [])[0];
+          (estateList?.results || []).find(
+            (r: any) => r?.listing_key === propertyKey,
+          ) || (estateList?.results || [])[0];
         if (exact) {
           return mapEstatePropertyFromAPI(exact, String(exact?.id || ""));
         }
       }
       throw mlsError;
     }
-    // #region agent log
-    fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "db96a5",
-      },
-      body: JSON.stringify({
-        sessionId: "db96a5",
-        runId: "pre-fix",
-        hypothesisId: "H3",
-        location: "frontend/lib/api/properties.ts:577",
-        message: "fetchPropertyByKey response received",
-        data: {
-          propertyKey,
-          apiListingKey: data?.listing_key ?? null,
-          hasData: Boolean(data),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-
     return {
       ...mapPropertyFromAPI(data),
       PropertyKey: data.listing_key || propertyKey,
@@ -687,27 +665,6 @@ export async function fetchPropertyByKey(
     };
   } catch (error: any) {
     const errorMsg = error.message || "";
-    // #region agent log
-    fetch("http://127.0.0.1:7349/ingest/3f08206e-1a73-4004-abc2-35f0c9af591f", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "db96a5",
-      },
-      body: JSON.stringify({
-        sessionId: "db96a5",
-        runId: "pre-fix",
-        hypothesisId: "H4",
-        location: "frontend/lib/api/properties.ts:587",
-        message: "fetchPropertyByKey error",
-        data: {
-          propertyKey,
-          errorMsg,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     // Check if it's a "Not Found" error (either status 404 or OData 404 wrapped in 400)
     if (
       errorMsg.includes(":404:") ||
@@ -721,6 +678,139 @@ export async function fetchPropertyByKey(
     }
 
     console.error(`Unexpected error fetching property ${propertyKey}:`, error);
+    return null;
+  }
+}
+
+export async function fetchEstatePropertyById(
+  estateIdOrKey: string,
+): Promise<Property | null> {
+  const raw = String(estateIdOrKey || "").trim();
+  if (!raw) {
+    console.log(
+      "[estate-fetch] Debug: estateIdOrKey is empty, returning null.",
+    );
+    return null;
+  }
+
+  const normalized = raw.replace(/^estate_/i, "");
+  const asNumericId = /^\d+$/.test(normalized) ? normalized : null;
+
+  console.log(
+    `[estate-fetch] Debug: Starting fetch for estate property. Raw key: "${raw}", Normalized: "${normalized}", Numeric ID: ${asNumericId}`,
+  );
+
+  const findBySearch = async (): Promise<Property | null> => {
+    const candidates = Array.from(
+      new Set([raw, normalized, `estate_${normalized}`].filter(Boolean)),
+    );
+    console.log("[estate-fetch] Debug: Search candidates:", candidates);
+
+    for (const candidate of candidates) {
+      if (process.env.NODE_ENV !== "production") {
+        console.info(
+          `[estate-fetch] search candidate=${candidate} url=${API_BASE_URL}/api/mls/estate-properties/?search=${encodeURIComponent(candidate)}&page_size=10`,
+        );
+      }
+      try {
+        const estateList = await fetchAPI<any>(
+          `${API_BASE_URL}/api/mls/estate-properties/?search=${encodeURIComponent(candidate)}&page_size=10`,
+          { cache: "no-store" },
+        );
+
+        console.log(
+          `[estate-fetch] Debug: API response for candidate "${candidate}":`,
+          estateList,
+        );
+
+        const rows = estateList?.results || [];
+        console.log(
+          `[estate-fetch] Debug: Found ${rows.length} rows for candidate "${candidate}".`,
+        );
+
+        const exact =
+          rows.find(
+            (r: any) =>
+              String(r?.listing_key || "").toLowerCase() ===
+                candidate.toLowerCase() ||
+              String(r?.listing_key || "").toLowerCase() ===
+                raw.toLowerCase() ||
+              String(r?.listing_key || "").toLowerCase() ===
+                `estate_${normalized}`.toLowerCase() ||
+              String(r?.id || "") === normalized,
+          ) || rows[0];
+
+        if (exact) {
+          console.log("[estate-fetch] Debug: Found an exact match.", exact);
+          return mapEstatePropertyFromAPI(
+            exact,
+            String(exact?.id || normalized),
+          );
+        }
+      } catch (error) {
+        console.error(
+          `[estate-fetch] Error fetching or processing candidate "${candidate}":`,
+          error,
+        );
+      }
+    }
+    console.log(
+      "[estate-fetch] Debug: No property found after trying all candidates.",
+    );
+    return null;
+  };
+
+  try {
+    if (asNumericId) {
+      try {
+        if (process.env.NODE_ENV !== "production") {
+          console.info(
+            `[estate-fetch] direct id=${asNumericId} url=${API_BASE_URL}/api/mls/estate-properties/${encodeURIComponent(asNumericId)}/`,
+          );
+        }
+        const estateData = await fetchAPI<any>(
+          `${API_BASE_URL}/api/mls/estate-properties/${encodeURIComponent(asNumericId)}/`,
+          { cache: "no-store" },
+        );
+        console.log(
+          `[estate-fetch] Debug: API response for direct ID fetch (id: ${asNumericId}):`,
+          estateData,
+        );
+        if (estateData && estateData.id) {
+          console.log(
+            `[estate-fetch] Debug: Found data for direct ID ${asNumericId}.`,
+          );
+          return mapEstatePropertyFromAPI(estateData, asNumericId);
+        }
+        console.log(
+          `[estate-fetch] Debug: No data or invalid data returned for direct ID ${asNumericId}.`,
+        );
+        // Fallback to search if direct fetch fails
+        return await findBySearch();
+      } catch (idError: any) {
+        const msg = String(idError?.message || "");
+        if (!msg.includes("API_ERROR:404")) {
+          console.error(
+            `[estate-fetch] Error fetching direct ID ${asNumericId}:`,
+            idError,
+          );
+          // Decide if you want to stop or fallback
+          // For now, we'll log the error and fallback to search
+        }
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            `[estate-fetch] direct 404 for id=${asNumericId} or other error; falling back to search`,
+          );
+        }
+      }
+    }
+
+    return await findBySearch();
+  } catch (error) {
+    console.error(
+      `Unexpected error fetching estate property ${estateIdOrKey}:`,
+      error,
+    );
     return null;
   }
 }
@@ -922,7 +1012,9 @@ export async function fetchCommunityProperties(
     const cached = getClientCachedResponse<PaginatedPropertyResult>(cacheKey);
     if (cached) return cached;
 
-    const response = await fetchAPI<PaginatedPropertyResult>(url, { cache: "no-store" });
+    const response = await fetchAPI<PaginatedPropertyResult>(url, {
+      cache: "no-store",
+    });
     const normalizedResponse: PaginatedPropertyResult = {
       ...response,
       results: (response.results || []).map((row) => mapPropertyFromAPI(row)),
@@ -1051,7 +1143,9 @@ export async function fetchWatchedAlertPreview(
 ): Promise<WatchedAlertPreviewResponse | null> {
   try {
     const url = `${API_BASE_URL}/api/mls/watched/alerts/preview/?days=${days}`;
-    return await fetchAPI<WatchedAlertPreviewResponse>(url, { cache: "no-store" });
+    return await fetchAPI<WatchedAlertPreviewResponse>(url, {
+      cache: "no-store",
+    });
   } catch (error) {
     console.error("Error fetching watched alert preview:", error);
     return null;
@@ -1157,7 +1251,8 @@ export async function fetchRecommendationsForListing(
   property: Property,
   limit: number = 6,
 ): Promise<ListingRecommendationsResponse> {
-  const listingKey = property.listing_key || property.ListingKey || property.PropertyKey;
+  const listingKey =
+    property.listing_key || property.ListingKey || property.PropertyKey;
   if (!listingKey) {
     return {
       for_this_home: [],
@@ -1246,10 +1341,9 @@ export async function fetchListingCatalogStats(params: {
     if (params.fsa) usp.set("fsa", params.fsa);
     const q = usp.toString();
     if (!q) return null;
-    const res = await fetch(
-      `${API_BASE_URL}/api/mls/catalog-stats/?${q}`,
-      { next: { revalidate: 300 } },
-    );
+    const res = await fetch(`${API_BASE_URL}/api/mls/catalog-stats/?${q}`, {
+      next: { revalidate: 300 },
+    });
     if (!res.ok) return null;
     return (await res.json()) as ListingCatalogStatsPayload;
   } catch {

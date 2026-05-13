@@ -44,8 +44,10 @@ const NEXT_ALLOWED_IMAGE_HOSTS = new Set([
   "staging.vsell4u.ca",
   "mls-backend-v2.vercel.app",
   "estate-4u.com",
+  "www.estate-4u.com",
+  "estate4u.ca",
+  "www.estate4u.ca",
 ]);
-
 function parseJsonLike(value: unknown): JsonMap {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     return value as JsonMap;
@@ -59,6 +61,91 @@ function parseJsonLike(value: unknown): JsonMap {
   } catch {
     return {};
   }
+}
+
+function unwrapMetaValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = unwrapMetaValue(item);
+      if (nested !== null && nested !== undefined && toCleanString(nested)) {
+        return nested;
+      }
+    }
+    return value.length > 0 ? value[0] : undefined;
+  }
+  return value;
+}
+
+function wpMetaValue(wpMeta: JsonMap, ...keys: string[]): unknown {
+  for (const key of keys) {
+    if (!(key in wpMeta)) continue;
+    let raw = unwrapMetaValue(wpMeta[key]);
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      const objectLike = raw as JsonMap;
+      raw =
+        objectLike.rendered ??
+        objectLike.value ??
+        objectLike.url ??
+        objectLike.name ??
+        undefined;
+    }
+    if (raw === null || raw === undefined) continue;
+    if (typeof raw === "string" && raw.trim() === "") continue;
+    return raw;
+  }
+  return undefined;
+}
+
+function taxonomyLabel(wpTerms: JsonMap, ...keys: string[]): string {
+  for (const key of keys) {
+    const raw = unwrapMetaValue(wpTerms[key]);
+    const value = toCleanString(raw);
+    if (value) return value;
+  }
+  return "";
+}
+
+function toNumberLoose(value: unknown): number | undefined {
+  if (value == null || value === "") return undefined;
+  if (typeof value === "number")
+    return Number.isFinite(value) ? value : undefined;
+  const parsed = Number(String(value).replace(/[^0-9.-]+/g, ""));
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseLatLngPair(value: unknown): { lat?: number; lng?: number } {
+  const text = toCleanString(unwrapMetaValue(value));
+  if (!text) return {};
+  const parts = text.split(/[,\s|]+/).filter(Boolean);
+  if (parts.length < 2) return {};
+  const lat = toNumberLoose(parts[0]);
+  const lng = toNumberLoose(parts[1]);
+  return { lat, lng };
+}
+
+function inferCityFromAddress(value: unknown): string {
+  const text = toCleanString(value);
+  if (!text) return "";
+  const parts = text
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return "";
+  return parts[parts.length - 2] || "";
+}
+
+function inferProvinceFromAddress(value: unknown): string {
+  const text = toCleanString(value);
+  if (!text) return "";
+  const parts = text
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return "";
+  const tail = parts[parts.length - 1];
+  const codeMatch = tail.match(/\b([A-Z]{2})\b/);
+  if (codeMatch?.[1]) return codeMatch[1];
+  return tail;
 }
 
 function toCleanString(value: unknown): string {
@@ -134,7 +221,11 @@ function filenameFromUrl(url: string): string | null {
   }
 }
 
-function extractCandidateStrings(value: unknown, out: string[], depth = 0): void {
+function extractCandidateStrings(
+  value: unknown,
+  out: string[],
+  depth = 0,
+): void {
   if (depth > 3 || value == null) return;
 
   if (typeof value === "string") {
@@ -172,7 +263,11 @@ function pickImageValue(item: unknown): string {
   return "";
 }
 
-function getRawMediaCandidates(prop: JsonMap, wpMeta: JsonMap, wpPost: JsonMap): string[] {
+function getRawMediaCandidates(
+  prop: JsonMap,
+  wpMeta: JsonMap,
+  wpPost: JsonMap,
+): string[] {
   const candidates: string[] = [];
   const push = (value: string) => {
     const cleaned = toCleanString(value);
@@ -252,6 +347,21 @@ function buildMedia(urls: string[]): PropertyMedia[] {
   })) as PropertyMedia[];
 }
 
+function normalizeRoomsArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export function normalizeListingRecord(
   rawProp: unknown,
   options: NormalizeListingOptions = {},
@@ -261,12 +371,13 @@ export function normalizeListingRecord(
   const wpPost = parseJsonLike(prop.wp_post_json);
 
   const normalizedCity =
-    firstString(prop.city, prop.City, prop.location, options.defaultCity) || "Unknown City";
+    firstString(prop.city, prop.City, prop.location, options.defaultCity) ||
+    "Unknown City";
   const normalizedProvince = firstString(
     prop.state_or_province,
     prop.StateOrProvince,
     prop.province,
-    wpMeta.fave_property_state,
+    wpMetaValue(wpMeta, "fave_property_state"),
   );
   const normalizedStatus =
     firstString(
@@ -281,7 +392,7 @@ export function normalizeListingRecord(
       prop.property_sub_type,
       prop.PropertySubType,
       prop.PropertyType,
-      wpMeta.fave_property_type,
+      wpMetaValue(wpMeta, "fave_property_type"),
       options.defaultType,
     ) || "Property";
 
@@ -325,17 +436,27 @@ export function normalizeListingRecord(
   const imageFilename = filenameFromUrl(primaryImage) || "";
 
   const rawPrice =
-    prop.list_price ?? prop.ListPrice ?? wpMeta.fave_property_price ?? wpMeta.sale_or_rent_price;
-  const rawBeds = prop.bedrooms_total ?? prop.BedroomsTotal ?? wpMeta.fave_property_bedrooms;
+    prop.list_price ??
+    prop.ListPrice ??
+    wpMetaValue(wpMeta, "fave_property_price", "sale_or_rent_price");
+  const rawBeds =
+    prop.bedrooms_total ??
+    prop.BedroomsTotal ??
+    wpMetaValue(wpMeta, "fave_property_bedrooms");
   const rawBaths =
     prop.bathrooms_total_integer ??
     prop.BathroomsTotalInteger ??
-    wpMeta.fave_property_bathrooms;
+    wpMetaValue(wpMeta, "fave_property_bathrooms");
   const rawSqft =
     prop.building_area_total ??
     prop.LivingArea ??
     prop.living_area ??
-    wpMeta.fave_property_size;
+    wpMetaValue(wpMeta, "fave_property_size");
+  const normalizedRooms = normalizeRoomsArray(prop.rooms);
+  const normalizedLegacyRooms = normalizeRoomsArray(prop.Rooms);
+  const resolvedRooms = normalizedRooms.length
+    ? normalizedRooms
+    : normalizedLegacyRooms;
 
   return {
     ...(prop as Property),
@@ -350,9 +471,30 @@ export function normalizeListingRecord(
     unparsed_address: firstString(prop.unparsed_address, prop.address, title),
     city: normalizedCity,
     City: normalizedCity,
-    state_or_province: firstString(prop.state_or_province, normalizedProvince),
-    StateOrProvince: firstString(prop.StateOrProvince, normalizedProvince),
+    state_or_province: firstString(
+      prop.state_or_province,
+      prop.StateOrProvince,
+      prop.province,
+      normalizedProvince,
+    ),
+    StateOrProvince: firstString(
+      prop.StateOrProvince,
+      prop.state_or_province,
+      prop.province,
+      normalizedProvince,
+    ),
     province: firstString(prop.province, normalizedProvince),
+    postal_code: firstString(
+      prop.postal_code,
+      prop.PostalCode,
+      prop.postalCode,
+    ),
+    PostalCode: firstString(
+      prop.PostalCode,
+      prop.postal_code,
+      prop.postalCode,
+    ),
+    location: firstString(prop.location, normalizedCity),
     standard_status: normalizedStatus,
     StandardStatus: normalizedStatus,
     property_sub_type: normalizedType,
@@ -365,20 +507,14 @@ export function normalizeListingRecord(
     BathroomsTotalInteger: toNumberSafe(rawBaths),
     building_area_total: toNumberOrOriginal(rawSqft),
     total_actual_rent:
-      prop.total_actual_rent == null ? undefined : String(prop.total_actual_rent),
+      prop.total_actual_rent == null
+        ? undefined
+        : String(prop.total_actual_rent),
     public_remarks: description,
     PublicRemarks: description,
     property_description: firstString(prop.property_description, description),
-    rooms: Array.isArray(prop.rooms)
-      ? prop.rooms
-      : Array.isArray(prop.Rooms)
-        ? prop.Rooms
-        : [],
-    Rooms: Array.isArray(prop.rooms)
-      ? prop.rooms
-      : Array.isArray(prop.Rooms)
-        ? prop.Rooms
-        : [],
+    rooms: resolvedRooms,
+    Rooms: resolvedRooms,
     media,
     Media: media,
     featured_image_url: firstString(prop.featured_image_url, primaryImage),
@@ -387,5 +523,309 @@ export function normalizeListingRecord(
     image_names: media
       .map((item) => (item as unknown as JsonMap).image_filename)
       .filter((x): x is string => typeof x === "string" && x.length > 0),
+    modification_timestamp: firstString(
+      prop.modification_timestamp,
+      prop.ModificationTimestamp,
+    ),
+    ModificationTimestamp: firstString(
+      prop.ModificationTimestamp,
+      prop.modification_timestamp,
+      new Date().toISOString(),
+    ),
   } as Property;
+}
+
+export function normalizeEstateDetailRecord(
+  rawProp: unknown,
+  id?: string,
+): Property {
+  const prop = ((rawProp as JsonMap) || {}) as JsonMap;
+  const key = `estate_${id || firstString(prop.id, prop.listing_key, prop.listing_id, "unknown")}`;
+
+  const wpMeta = parseJsonLike(prop.wp_meta_json);
+  const wpPost = parseJsonLike(prop.wp_post_json);
+  const wpTerms = parseJsonLike(prop.wp_terms_json);
+  const fallbackCoords = parseLatLngPair(
+    wpMetaValue(wpMeta, "fave_property_location"),
+  );
+  const fallbackType = taxonomyLabel(wpTerms, "type", "property_type");
+  const fallbackStatus = taxonomyLabel(wpTerms, "status", "property_status");
+  const fallbackCountry = taxonomyLabel(wpTerms, "country");
+  const fallbackAddress = firstString(
+    prop.unparsed_address,
+    prop.address,
+    wpMetaValue(wpMeta, "fave_property_address", "fave_property_map_address"),
+  );
+  const fallbackCity = inferCityFromAddress(fallbackAddress);
+  const fallbackProvince = inferProvinceFromAddress(fallbackAddress);
+  const fallbackTitle = firstString(
+    prop.property_title,
+    prop.project_name,
+    (wpPost.title as JsonMap | undefined)?.rendered,
+    wpMetaValue(wpMeta, "post_title", "title"),
+    prop.unparsed_address,
+    key,
+  );
+
+  const enriched = {
+    ...prop,
+    id: firstString(prop.id, id),
+    listing_key: key,
+    ListingKey: key,
+    PropertyKey: key,
+    project_name: firstString(
+      prop.project_name,
+      prop.property_title,
+      (wpPost.title as JsonMap | undefined)?.rendered,
+      wpMetaValue(wpMeta, "post_title", "title"),
+      prop.unparsed_address,
+      key,
+    ),
+    property_title: firstString(
+      prop.property_title,
+      prop.project_name,
+      (wpPost.title as JsonMap | undefined)?.rendered,
+      wpMetaValue(wpMeta, "post_title", "title"),
+      prop.unparsed_address,
+      key,
+    ),
+    title: firstString(
+      prop.title,
+      fallbackTitle,
+    ),
+    city: firstString(
+      prop.city,
+      prop.location,
+      wpMetaValue(wpMeta, "fave_property_city"),
+      taxonomyLabel(wpTerms, "city", "property_city"),
+      fallbackCity,
+    ),
+    City: firstString(
+      prop.City,
+      prop.city,
+      prop.location,
+      wpMetaValue(wpMeta, "fave_property_city"),
+      taxonomyLabel(wpTerms, "city", "property_city"),
+      fallbackCity,
+    ),
+    state_or_province: firstString(
+      prop.state_or_province,
+      prop.province,
+      wpMetaValue(wpMeta, "fave_property_state"),
+      prop.StateOrProvince,
+      taxonomyLabel(wpTerms, "state"),
+      fallbackProvince,
+    ),
+    StateOrProvince: firstString(
+      prop.StateOrProvince,
+      prop.state_or_province,
+      prop.province,
+      wpMetaValue(wpMeta, "fave_property_state"),
+      taxonomyLabel(wpTerms, "state"),
+      fallbackProvince,
+    ),
+    province: firstString(
+      prop.province,
+      prop.state_or_province,
+      prop.StateOrProvince,
+      wpMetaValue(wpMeta, "fave_property_state"),
+      taxonomyLabel(wpTerms, "state"),
+      fallbackProvince,
+    ),
+    standard_status: firstString(
+      prop.standard_status,
+      prop.publish_status,
+      fallbackStatus,
+      "For Sale",
+    ),
+    StandardStatus: firstString(
+      prop.StandardStatus,
+      prop.standard_status,
+      prop.publish_status,
+      fallbackStatus,
+      "For Sale",
+    ),
+    property_sub_type: firstString(
+      prop.property_sub_type,
+      prop.PropertySubType,
+      prop.PropertyType,
+      wpMetaValue(wpMeta, "fave_property_type"),
+      fallbackType,
+      "Property",
+    ),
+    PropertySubType: firstString(
+      prop.PropertySubType,
+      prop.property_sub_type,
+      prop.PropertyType,
+      wpMetaValue(wpMeta, "fave_property_type"),
+      fallbackType,
+      "Property",
+    ),
+    public_remarks: firstString(
+      prop.public_remarks,
+      prop.PublicRemarks,
+      prop.property_description,
+      wpMetaValue(wpMeta, "post_content", "description"),
+      (wpPost.content as JsonMap | undefined)?.rendered,
+      wpPost.excerpt,
+    ),
+    property_description: firstString(
+      prop.property_description,
+      prop.public_remarks,
+      prop.PublicRemarks,
+      wpMetaValue(wpMeta, "post_content", "description"),
+      (wpPost.content as JsonMap | undefined)?.rendered,
+      wpPost.excerpt,
+    ),
+    list_price:
+      prop.list_price ??
+      prop.ListPrice ??
+      wpMetaValue(wpMeta, "fave_property_price", "sale_or_rent_price") ??
+      prop.second_price,
+    second_price:
+      prop.second_price ??
+      wpMetaValue(wpMeta, "second_price", "fave_property_sec_price"),
+    bedrooms_total:
+      prop.bedrooms_total ??
+      prop.BedroomsTotal ??
+      wpMetaValue(wpMeta, "fave_property_bedrooms"),
+    bathrooms_total_integer:
+      prop.bathrooms_total_integer ??
+      prop.BathroomsTotalInteger ??
+      wpMetaValue(wpMeta, "fave_property_bathrooms"),
+    building_area_total:
+      prop.building_area_total ??
+      prop.living_area ??
+      prop.LivingArea ??
+      wpMetaValue(wpMeta, "fave_property_size"),
+    lot_size_dimensions: firstString(
+      prop.lot_size_dimensions,
+      prop.lot_size,
+      wpMetaValue(wpMeta, "fave_property_lot_size"),
+    ),
+    lot_size: firstString(
+      prop.lot_size,
+      wpMetaValue(wpMeta, "fave_property_lot_size"),
+    ),
+    land_area:
+      prop.land_area ?? wpMetaValue(wpMeta, "fave_property_land", "land_area"),
+    land_area_size_postfix: firstString(
+      prop.land_area_size_postfix,
+      wpMetaValue(wpMeta, "fave_property_land_postfix"),
+    ),
+    price_prefix: firstString(
+      prop.price_prefix,
+      wpMetaValue(wpMeta, "fave_property_size_prefix", "price_prefix"),
+    ),
+    size_postfix: firstString(
+      prop.size_postfix,
+      wpMetaValue(wpMeta, "fave_property_size_postfix", "size_postfix"),
+    ),
+    address: firstString(
+      prop.address,
+      prop.unparsed_address,
+      wpMetaValue(wpMeta, "fave_property_address", "fave_property_map_address"),
+    ),
+    unparsed_address: firstString(
+      prop.unparsed_address,
+      prop.address,
+      wpMetaValue(wpMeta, "fave_property_address", "fave_property_map_address"),
+    ),
+    postal_code: firstString(
+      prop.postal_code,
+      prop.PostalCode,
+      prop.postalCode,
+      wpMetaValue(wpMeta, "fave_property_zip"),
+    ),
+    PostalCode: firstString(
+      prop.PostalCode,
+      prop.postal_code,
+      prop.postalCode,
+      wpMetaValue(wpMeta, "fave_property_zip"),
+    ),
+    country: firstString(prop.country, fallbackCountry),
+    latitude:
+      prop.latitude ??
+      prop.Latitude ??
+      wpMetaValue(wpMeta, "houzez_geolocation_lat") ??
+      fallbackCoords.lat,
+    longitude:
+      prop.longitude ??
+      prop.Longitude ??
+      wpMetaValue(wpMeta, "houzez_geolocation_long") ??
+      fallbackCoords.lng,
+    listing_id: firstString(
+      prop.listing_id,
+      wpMetaValue(wpMeta, "fave_mls-id", "fave_property_id"),
+      key,
+    ),
+    property_id_code: firstString(
+      prop.property_id_code,
+      wpMetaValue(wpMeta, "fave_property_id", "property_id"),
+    ),
+    publish_status: firstString(prop.publish_status, wpPost.post_status),
+    listing_url: firstString(
+      prop.listing_url,
+      wpMetaValue(wpMeta, "permalink"),
+      wpPost.link,
+    ),
+    location: firstString(
+      prop.location,
+      prop.city,
+      prop.City,
+      fallbackCity,
+    ),
+    featured_image_url: firstString(
+      prop.featured_image_url,
+      wpMetaValue(wpMeta, "featured_image", "featured_image_url"),
+      wpPost.featured_image_url,
+    ),
+    developer: firstString(
+      prop.developer,
+      wpMetaValue(wpMeta, "fave_property_developer", "developer"),
+    ),
+    occupancy_year:
+      prop.occupancy_year ??
+      wpMetaValue(wpMeta, "fave_property_occupancy", "occupancy"),
+    year_built:
+      prop.year_built ?? prop.YearBuilt ?? wpMetaValue(wpMeta, "year_built"),
+    tax_annual_amount:
+      prop.tax_annual_amount ?? wpMetaValue(wpMeta, "fave_taxes"),
+    tax_year: prop.tax_year ?? wpMetaValue(wpMeta, "fave_tax-year"),
+    garages:
+      prop.garages ?? wpMetaValue(wpMeta, "fave_property_garage", "garages"),
+    garage_size:
+      prop.garage_size ??
+      wpMetaValue(wpMeta, "fave_property_garage_size", "garage_size"),
+    kitchens:
+      prop.kitchens ??
+      wpMetaValue(wpMeta, "fave_property_kitchens", "kitchens"),
+    rooms: prop.rooms ?? wpMetaValue(wpMeta, "fave_property_rooms"),
+    total_rooms:
+      prop.total_rooms ?? wpMetaValue(wpMeta, "fave_property_rooms", "rooms"),
+    basement: firstString(prop.basement, wpMetaValue(wpMeta, "fave_basement")),
+    exterior_features: firstString(
+      prop.exterior_features,
+      wpMetaValue(wpMeta, "fave_exterior"),
+    ),
+    video_tour_url: firstString(
+      prop.video_tour_url,
+      prop.virtual_tour_url,
+      wpMetaValue(wpMeta, "fave_video_url", "video_url"),
+    ),
+    modification_timestamp: firstString(
+      prop.modification_timestamp,
+      prop.ModificationTimestamp,
+      wpPost.modified,
+      wpPost.date,
+    ),
+  };
+
+  return normalizeListingRecord(enriched, {
+    forceListingKey: key,
+    defaultStatus: "For Sale",
+    defaultCity: "Unknown City",
+    defaultType: "Property",
+    defaultTitle: "Estate Listing",
+  });
 }

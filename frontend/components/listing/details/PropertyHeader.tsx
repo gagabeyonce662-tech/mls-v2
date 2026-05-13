@@ -2,6 +2,7 @@ import React from "react";
 import { ds } from "@/lib/design-system-utils";
 
 interface PropertyHeaderProps {
+  headline: string;
   propertyType: string;
   city: string;
   address: string;
@@ -10,6 +11,7 @@ interface PropertyHeaderProps {
 }
 
 export default function PropertyHeader({
+  headline,
   propertyType,
   city,
   address,
@@ -27,9 +29,7 @@ export default function PropertyHeader({
             {propertyType}
           </span>
         </div>
-        <h1 className={`${ds.h2} mb-2`}>
-          {propertyType} in {city}
-        </h1>
+        <h1 className={`${ds.h2} mb-2`}>{headline}</h1>
         <p className={`${ds.bodyRegular} text-ds-body flex items-center gap-2`}>
           {address}
         </p>
