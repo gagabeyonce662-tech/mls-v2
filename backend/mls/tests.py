@@ -313,6 +313,57 @@ class EstatePropertyAPITests(TestCase):
         )
         self.assertIn(created.status_code, {401, 403})
 
+    @override_settings(DEBUG=False)
+    def test_estate_property_multi_description_sections_syncs_legacy_field(self):
+        staff_user = get_user_model().objects.create_user(
+            email="estate-admin-sections@example.com",
+            password="safe-password-123",
+            is_staff=True,
+        )
+        self.client.force_login(staff_user)
+
+        create_payload = {
+            "listing_key": "estate-sections-1",
+            "property_title": "Sections Estate Home",
+            "city": "Toronto",
+            "publish_status": "draft",
+            "description_sections_json": [
+                {
+                    "id": "intro",
+                    "title": "Introduction",
+                    "body_html": "<p>Primary intro section</p>",
+                    "order": 0,
+                },
+                {
+                    "id": "community",
+                    "title": "Community",
+                    "body_html": "<p>Community details section</p>",
+                    "order": 1,
+                },
+            ],
+        }
+
+        created = self.client.post(
+            "/api/mls/estate-properties/",
+            data=json.dumps(create_payload),
+            content_type="application/json",
+        )
+        self.assertEqual(created.status_code, 200)
+        created_json = created.json()
+        self.assertEqual(created_json["property_description"], "<p>Primary intro section</p>")
+        self.assertEqual(len(created_json.get("description_sections_json") or []), 2)
+
+        estate_id = created_json["id"]
+        updated = self.client.patch(
+            f"/api/mls/estate-properties/{estate_id}/",
+            data=json.dumps({"description_sections_json": []}),
+            content_type="application/json",
+        )
+        self.assertEqual(updated.status_code, 200)
+        updated_json = updated.json()
+        self.assertEqual(updated_json.get("property_description"), "")
+        self.assertEqual(updated_json.get("description_sections_json"), [])
+
 
 class WatchedAPITests(TestCase):
     def setUp(self):

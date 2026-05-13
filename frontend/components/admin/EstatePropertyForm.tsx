@@ -32,12 +32,20 @@ interface Props {
   submitLabel: string;
 }
 
+type DescriptionSection = {
+  id: string;
+  title: string;
+  body_html: string;
+  order: number;
+};
+
 const HIDDEN_FIELDS = new Set(["id"]);
 const CORE_FIELD_ORDER = [
   "listing_key",
   "property_title",
   "property_slug",
   "property_description",
+  "description_sections_json",
   "listing_url",
   "publish_status",
   "expires_at",
@@ -128,6 +136,52 @@ const TAXONOMY_OPTIONS: Record<(typeof TAXONOMY_KEYS)[number], string[]> = {
   country: ["Canada", "USA"],
 };
 
+const DEFAULT_DESCRIPTION_SECTION_TITLE = "Overview";
+
+function createSectionId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `section-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
+function normalizeDescriptionSections(
+  raw: unknown,
+  legacyDescription: unknown,
+): DescriptionSection[] {
+  const asArray = Array.isArray(raw) ? raw : [];
+  const normalized = asArray
+    .map((item, idx): DescriptionSection | null => {
+      if (!item || typeof item !== "object") return null;
+      const typed = item as Record<string, unknown>;
+      return {
+        id: String(typed.id || `section-${idx + 1}`),
+        title: String(typed.title || ""),
+        body_html: String(typed.body_html || ""),
+        order:
+          typeof typed.order === "number"
+            ? typed.order
+            : Number.parseInt(String(typed.order ?? idx), 10) || idx,
+      };
+    })
+    .filter((item): item is DescriptionSection => item !== null)
+    .sort((a, b) => a.order - b.order);
+
+  if (normalized.length > 0) return normalized;
+
+  const legacy = String(legacyDescription ?? "").trim();
+  if (!legacy) return [];
+
+  return [
+    {
+      id: "legacy-overview",
+      title: DEFAULT_DESCRIPTION_SECTION_TITLE,
+      body_html: legacy,
+      order: 0,
+    },
+  ];
+}
+
 export default function EstatePropertyForm({
   columns,
   initialValues = {},
@@ -138,7 +192,9 @@ export default function EstatePropertyForm({
   const [isSaving, setIsSaving] = useState(false);
   const [jsonText, setJsonText] = useState("");
   const [jsonError, setJsonError] = useState("");
-  const [editorMode, setEditorMode] = useState<"visual" | "html">("visual");
+  const [sectionEditorModes, setSectionEditorModes] = useState<
+    Record<string, "visual" | "html">
+  >({});
   const [submitError, setSubmitError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [summaryErrors, setSummaryErrors] = useState<string[]>([]);
@@ -196,6 +252,14 @@ export default function EstatePropertyForm({
       return {};
     }
   }, [form.wp_terms_json]);
+  const descriptionSections = useMemo(
+    () =>
+      normalizeDescriptionSections(
+        form.description_sections_json,
+        form.property_description,
+      ),
+    [form.description_sections_json, form.property_description],
+  );
 
   const handleChange = (name: string, value: string) => {
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -212,6 +276,59 @@ export default function EstatePropertyForm({
   ) => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
+  const setDescriptionSections = (sections: DescriptionSection[]) => {
+    const normalized = sections.map((section, index) => ({
+      id: section.id || createSectionId(),
+      title: String(section.title || ""),
+      body_html: String(section.body_html || ""),
+      order: index,
+    }));
+    setForm((prev) => ({
+      ...prev,
+      description_sections_json: normalized,
+      property_description: normalized[0]?.body_html ?? "",
+    }));
+  };
+  const updateDescriptionSection = (
+    sectionId: string,
+    field: "title" | "body_html",
+    value: string,
+  ) => {
+    const next = descriptionSections.map((section) =>
+      section.id === sectionId ? { ...section, [field]: value } : section,
+    );
+    setDescriptionSections(next);
+  };
+  const addDescriptionSection = () => {
+    setDescriptionSections([
+      ...descriptionSections,
+      {
+        id: createSectionId(),
+        title: "",
+        body_html: "",
+        order: descriptionSections.length,
+      },
+    ]);
+  };
+  const removeDescriptionSection = (sectionId: string) => {
+    setDescriptionSections(
+      descriptionSections.filter((section) => section.id !== sectionId),
+    );
+    setSectionEditorModes((prev) => {
+      if (!prev[sectionId]) return prev;
+      const next = { ...prev };
+      delete next[sectionId];
+      return next;
+    });
+  };
+  const setSectionEditorMode = (
+    sectionId: string,
+    mode: "visual" | "html",
+  ) => {
+    setSectionEditorModes((prev) => ({ ...prev, [sectionId]: mode }));
+  };
+  const getSectionEditorMode = (sectionId: string): "visual" | "html" =>
+    sectionEditorModes[sectionId] || "visual";
   const updateTaxonomySelection = (
     taxonomyKey: (typeof TAXONOMY_KEYS)[number],
     option: string,
@@ -252,6 +369,22 @@ export default function EstatePropertyForm({
 
     setIsSaving(true);
     const normalizedPayload: EstatePropertyRecord = { ...payload };
+    const normalizedSections = normalizeDescriptionSections(
+      normalizedPayload.description_sections_json,
+      normalizedPayload.property_description,
+    );
+    if (normalizedSections.length > 0 || normalizedPayload.description_sections_json) {
+      normalizedPayload.description_sections_json = normalizedSections.map(
+        (section, index) => ({
+          id: section.id || createSectionId(),
+          title: String(section.title || ""),
+          body_html: String(section.body_html || ""),
+          order: index,
+        }),
+      );
+      normalizedPayload.property_description =
+        normalizedPayload.description_sections_json[0]?.body_html ?? "";
+    }
     delete normalizedPayload.id;
     for (const [field, rawValue] of Object.entries(normalizedPayload)) {
       const dataType = columnTypeMap.get(field) || "";
@@ -484,74 +617,121 @@ export default function EstatePropertyForm({
                 form.listing_url || "/estate/" + (form.property_slug || ""),
               )}
             </p>
-            <div className="space-y-1">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-gray-600">
-                  property_description
+                  description_sections
                 </span>
-                <div className="inline-flex gap-1 rounded border p-1">
-                  <button
-                    type="button"
-                    className={`px-2 py-1 text-xs rounded ${editorMode === "visual" ? "bg-gray-100" : ""}`}
-                    onClick={() => setEditorMode("visual")}
-                  >
-                    Visual
-                  </button>
-                  <button
-                    type="button"
-                    className={`px-2 py-1 text-xs rounded ${editorMode === "html" ? "bg-gray-100" : ""}`}
-                    onClick={() => setEditorMode("html")}
-                  >
-                    HTML
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={addDescriptionSection}
+                  className="px-2 py-1 text-xs rounded border"
+                >
+                  Add Section
+                </button>
               </div>
-              {editorMode === "visual" ? (
-                <div className="overflow-hidden rounded-lg border border-gray-200">
-                  <HugeRTEditor
-                    value={String(form.property_description ?? "")}
-                    init={{
-                      height: 420,
-                      menubar: true,
-                      plugins: [
-                        "lists",
-                        "link",
-                        "image",
-                        "table",
-                        "code",
-                        "fullscreen",
-                        "help",
-                        "wordcount",
-                        "preview",
-                      ],
-                      toolbar: `
-                        undo redo | formatselect |
-                        bold italic underline strikethrough |
-                        forecolor backcolor |
-                        alignleft aligncenter alignright alignjustify |
-                        bullist numlist outdent indent |
-                        removeformat | link image table | code fullscreen
-                      `,
-                      skin: "oxide",
-                      content_css: "default",
-                      branding: false,
-                    }}
-                    onEditorChange={(content: string) =>
-                      handleChange("property_description", content)
-                    }
-                  />
+              {descriptionSections.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-4 text-sm text-gray-500">
+                  No sections yet. Add one to start building the listing narrative.
                 </div>
-              ) : (
-                <textarea
-                  rows={10}
-                  value={String(form.property_description ?? "")}
-                  onChange={(e) =>
-                    handleChange("property_description", e.target.value)
-                  }
-                  className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
-                  placeholder="<p>Enter formatted HTML content...</p>"
-                />
-              )}
+              ) : null}
+              {descriptionSections.map((section, index) => {
+                const mode = getSectionEditorMode(section.id);
+                return (
+                  <div
+                    key={section.id || `section-${index}`}
+                    className="rounded-lg border p-3 space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-gray-600">
+                        Section {index + 1}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="inline-flex gap-1 rounded border p-1">
+                          <button
+                            type="button"
+                            className={`px-2 py-1 text-xs rounded ${mode === "visual" ? "bg-gray-100" : ""}`}
+                            onClick={() => setSectionEditorMode(section.id, "visual")}
+                          >
+                            Visual
+                          </button>
+                          <button
+                            type="button"
+                            className={`px-2 py-1 text-xs rounded ${mode === "html" ? "bg-gray-100" : ""}`}
+                            onClick={() => setSectionEditorMode(section.id, "html")}
+                          >
+                            HTML
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeDescriptionSection(section.id)}
+                          className="px-2 py-1 text-xs rounded border text-red-600"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    <label className="space-y-1 block">
+                      <span className="text-xs font-semibold text-gray-600">title</span>
+                      <input
+                        value={section.title}
+                        onChange={(e) =>
+                          updateDescriptionSection(section.id, "title", e.target.value)
+                        }
+                        className="w-full rounded-lg border px-3 py-2 text-sm"
+                        placeholder={DEFAULT_DESCRIPTION_SECTION_TITLE}
+                      />
+                    </label>
+                    {mode === "visual" ? (
+                      <div className="overflow-hidden rounded-lg border border-gray-200">
+                        <HugeRTEditor
+                          value={section.body_html}
+                          init={{
+                            height: 320,
+                            menubar: true,
+                            plugins: [
+                              "lists",
+                              "link",
+                              "image",
+                              "table",
+                              "code",
+                              "fullscreen",
+                              "help",
+                              "wordcount",
+                              "preview",
+                            ],
+                            toolbar: `
+                              undo redo | formatselect |
+                              bold italic underline strikethrough |
+                              forecolor backcolor |
+                              alignleft aligncenter alignright alignjustify |
+                              bullist numlist outdent indent |
+                              removeformat | link image table | code fullscreen
+                            `,
+                            skin: "oxide",
+                            content_css: "default",
+                            branding: false,
+                          }}
+                          onEditorChange={(content: string) =>
+                            updateDescriptionSection(section.id, "body_html", content)
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <textarea
+                        rows={10}
+                        value={section.body_html}
+                        onChange={(e) =>
+                          updateDescriptionSection(section.id, "body_html", e.target.value)
+                        }
+                        className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                        placeholder="<p>Enter formatted HTML content...</p>"
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

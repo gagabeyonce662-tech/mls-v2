@@ -368,9 +368,6 @@ export const PropertyQuickViewModal = ({
 
           {/* Description Snippet */}
           <div className="flex-1">
-            <h4 className="text-sm font-bold uppercase tracking-widest text-ds-body mb-3">
-              About this home
-            </h4>
             <p className="text-ds-body leading-relaxed text-sm mb-8 line-clamp-6 italic">
               {description
                 ? `"${description}"`

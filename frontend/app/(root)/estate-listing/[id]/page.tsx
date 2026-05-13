@@ -119,6 +119,15 @@ function getTemporaryEstateListing(id: string): Property {
       "Temporary hardcoded estate listing for UI validation while backend mapping is finalized.",
     property_description:
       "<p>Temporary hardcoded estate listing for UI validation while backend mapping is finalized.</p>",
+    description_sections_json: [
+      {
+        id: "legacy-overview",
+        title: "Overview",
+        body_html:
+          "<p>Temporary hardcoded estate listing for UI validation while backend mapping is finalized.</p>",
+        order: 0,
+      },
+    ],
     latitude: "43.6425",
     longitude: "-79.3684",
     ModificationTimestamp: new Date().toISOString(),
@@ -295,6 +304,46 @@ export default async function ListingPage(props: ListingPageProps) {
   const aboutHtml = String(
     (property as { property_description?: string }).property_description || "",
   ).trim();
+  const descriptionSections = (() => {
+    const source = (property as { description_sections_json?: unknown })
+      .description_sections_json;
+    let raw: unknown[] = [];
+    if (Array.isArray(source)) {
+      raw = source;
+    } else if (typeof source === "string") {
+      try {
+        const parsed = JSON.parse(source);
+        if (Array.isArray(parsed)) raw = parsed;
+      } catch {
+        raw = [];
+      }
+    }
+    return raw
+      .map((item, idx) => {
+        if (!item || typeof item !== "object") return null;
+        const typed = item as Record<string, unknown>;
+        return {
+          id: String(typed.id || `section-${idx + 1}`),
+          title: String(typed.title || "").trim(),
+          bodyHtml: String(typed.body_html || "").trim(),
+          order:
+            typeof typed.order === "number"
+              ? typed.order
+              : Number.parseInt(String(typed.order ?? idx), 10) || idx,
+        };
+      })
+      .filter(
+        (
+          section,
+        ): section is {
+          id: string;
+          title: string;
+          bodyHtml: string;
+          order: number;
+        } => Boolean(section && section.bodyHtml),
+      )
+      .sort((a, b) => a.order - b.order);
+  })();
 
   const parseCoordinate = (value: unknown): number | null => {
     if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -391,17 +440,35 @@ export default async function ListingPage(props: ListingPageProps) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             {/* 1. Description — first thing after gallery */}
-            <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
-              <h2 className={`${ds.h3} mb-3`}>{t("aboutTitle")}</h2>
-              {aboutHtml ? (
-                <div
-                  className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
-                  dangerouslySetInnerHTML={{ __html: aboutHtml }}
-                />
-              ) : (
-                <OverviewExcerpt text={description} maxChars={400} />
-              )}
-            </section>
+            {descriptionSections.length > 0 ? (
+              <div className="space-y-4">
+                {descriptionSections.map((section) => (
+                  <div key={section.id} className="space-y-2">
+                    <h4 className="text-sm font-bold uppercase tracking-widest text-ds-body mb-3">
+                      {section.title || t("aboutTitle")}
+                    </h4>
+                    <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
+                      <div
+                        className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
+                        dangerouslySetInnerHTML={{ __html: section.bodyHtml }}
+                      />
+                    </section>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
+                <h2 className={`${ds.h3} mb-3`}>{t("aboutTitle")}</h2>
+                {aboutHtml ? (
+                  <div
+                    className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
+                    dangerouslySetInnerHTML={{ __html: aboutHtml }}
+                  />
+                ) : (
+                  <OverviewExcerpt text={description} maxChars={400} />
+                )}
+              </section>
+            )}
 
             {/* 2. AI summary */}
             <ListingAISummary property={property} />

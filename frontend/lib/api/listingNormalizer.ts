@@ -63,6 +63,58 @@ function parseJsonLike(value: unknown): JsonMap {
   }
 }
 
+function parseDescriptionSections(value: unknown): Array<{
+  id: string;
+  title: string;
+  body_html: string;
+  order: number;
+}> {
+  let rawArray: unknown[] = [];
+  if (Array.isArray(value)) {
+    rawArray = value;
+  } else if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        rawArray = parsed;
+      }
+    } catch {
+      rawArray = [];
+    }
+  }
+
+  return rawArray
+    .map((item, idx) => {
+      if (!item || typeof item !== "object") return null;
+      const typed = item as JsonMap;
+      return {
+        id: toCleanString(typed.id) || `section-${idx + 1}`,
+        title: toCleanString(typed.title),
+        body_html: toCleanString(typed.body_html),
+        order:
+          typeof typed.order === "number"
+            ? typed.order
+            : Number.parseInt(String(typed.order ?? idx), 10) || idx,
+      };
+    })
+    .filter(
+      (
+        section,
+      ): section is {
+        id: string;
+        title: string;
+        body_html: string;
+        order: number;
+      } => Boolean(section),
+    )
+    .sort((a, b) => a.order - b.order);
+}
+
+function getFirstDescriptionSectionBody(value: unknown): string {
+  const sections = parseDescriptionSections(value);
+  return sections[0]?.body_html || "";
+}
+
 function unwrapMetaValue(value: unknown): unknown {
   if (Array.isArray(value)) {
     for (const item of value) {
@@ -422,6 +474,7 @@ export function normalizeListingRecord(
 
   const description = cleanHtml(
     firstString(
+      getFirstDescriptionSectionBody(prop.description_sections_json),
       prop.property_description,
       prop.public_remarks,
       prop.PublicRemarks,
@@ -512,7 +565,14 @@ export function normalizeListingRecord(
         : String(prop.total_actual_rent),
     public_remarks: description,
     PublicRemarks: description,
-    property_description: firstString(prop.property_description, description),
+    property_description: firstString(
+      prop.property_description,
+      getFirstDescriptionSectionBody(prop.description_sections_json),
+      description,
+    ),
+    description_sections_json: parseDescriptionSections(
+      prop.description_sections_json,
+    ),
     rooms: resolvedRooms,
     Rooms: resolvedRooms,
     media,
@@ -664,18 +724,23 @@ export function normalizeEstateDetailRecord(
     public_remarks: firstString(
       prop.public_remarks,
       prop.PublicRemarks,
+      getFirstDescriptionSectionBody(prop.description_sections_json),
       prop.property_description,
       wpMetaValue(wpMeta, "post_content", "description"),
       (wpPost.content as JsonMap | undefined)?.rendered,
       wpPost.excerpt,
     ),
     property_description: firstString(
+      getFirstDescriptionSectionBody(prop.description_sections_json),
       prop.property_description,
       prop.public_remarks,
       prop.PublicRemarks,
       wpMetaValue(wpMeta, "post_content", "description"),
       (wpPost.content as JsonMap | undefined)?.rendered,
       wpPost.excerpt,
+    ),
+    description_sections_json: parseDescriptionSections(
+      prop.description_sections_json,
     ),
     list_price:
       prop.list_price ??

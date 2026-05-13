@@ -17,6 +17,7 @@ class EstatePropertyAPIViewMixin:
     wp_meta_column = "wp_meta_json"
     wp_terms_column = "wp_terms_json"
     wp_post_column = "wp_post_json"
+    description_sections_column = "description_sections_json"
 
     
 class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
@@ -25,6 +26,7 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
     wp_meta_column = "wp_meta_json"
     wp_terms_column = "wp_terms_json"
     wp_post_column = "wp_post_json"
+    description_sections_column = "description_sections_json"
 
     # WordPress/Houzez keys that should map to first-class estate columns.
     WP_TO_CORE_FIELD_MAP = {
@@ -134,6 +136,8 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
         "building_area_total",
     }
     BOOLEAN_FIELDS = {"enable_price_placeholder", "is_featured"}
+    DESCRIPTION_SECTION_MAX_COUNT = 25
+    DESCRIPTION_TITLE_MAX_LEN = 255
 
     def get_permissions(self):
         if self.request and self.request.method in SAFE_METHODS:
@@ -221,6 +225,73 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
                 return value
         return value
 
+    @classmethod
+    def _normalize_description_sections(cls, value):
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValidationError(
+                {
+                    "detail": "Invalid description_sections_json payload.",
+                    "fields": {
+                        cls.description_sections_column: "Expected an array of section objects."
+                    },
+                }
+            )
+        if len(value) > cls.DESCRIPTION_SECTION_MAX_COUNT:
+            raise ValidationError(
+                {
+                    "detail": "Too many description sections.",
+                    "fields": {
+                        cls.description_sections_column: (
+                            f"Maximum {cls.DESCRIPTION_SECTION_MAX_COUNT} sections are allowed."
+                        )
+                    },
+                }
+            )
+
+        normalized = []
+        for idx, item in enumerate(value):
+            if not isinstance(item, dict):
+                raise ValidationError(
+                    {
+                        "detail": "Invalid description section item.",
+                        "fields": {
+                            f"{cls.description_sections_column}[{idx}]": "Expected an object."
+                        },
+                    }
+                )
+            section_id = str(item.get("id") or f"section-{idx + 1}").strip()
+            title = str(item.get("title") or "").strip()
+            body_html = str(item.get("body_html") or "").strip()
+            order = item.get("order", idx)
+            try:
+                order = int(order)
+            except (TypeError, ValueError):
+                order = idx
+
+            if len(title) > cls.DESCRIPTION_TITLE_MAX_LEN:
+                raise ValidationError(
+                    {
+                        "detail": "Description section title is too long.",
+                        "fields": {
+                            f"{cls.description_sections_column}[{idx}].title": (
+                                f"Must be <= {cls.DESCRIPTION_TITLE_MAX_LEN} characters."
+                            )
+                        },
+                    }
+                )
+
+            normalized.append(
+                {
+                    "id": section_id,
+                    "title": title,
+                    "body_html": body_html,
+                    "order": order,
+                }
+            )
+        return normalized
+
     def _split_payload(self, payload):
         """
         Returns:
@@ -236,6 +307,7 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
             self.wp_meta_column,
             self.wp_terms_column,
             self.wp_post_column,
+            self.description_sections_column,
         }
 
         for key, value in payload.items():
@@ -270,6 +342,31 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
                 merged = wp_post
             mapped[self.wp_post_column] = merged
 
+        if self.description_sections_column in allowed:
+            if self.description_sections_column in mapped:
+                sections = self._normalize_description_sections(
+                    mapped[self.description_sections_column]
+                )
+                mapped[self.description_sections_column] = sections
+                if "property_description" in allowed:
+                    mapped["property_description"] = (
+                        sections[0]["body_html"] if sections else ""
+                    )
+            elif "property_description" in mapped:
+                legacy_description = str(mapped.get("property_description") or "").strip()
+                mapped[self.description_sections_column] = (
+                    [
+                        {
+                            "id": "legacy-overview",
+                            "title": "Overview",
+                            "body_html": legacy_description,
+                            "order": 0,
+                        }
+                    ]
+                    if legacy_description
+                    else []
+                )
+
         invalid = {}
         for key, value in mapped.items():
             if key in json_columns:
@@ -295,6 +392,7 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
             self.wp_meta_column,
             self.wp_terms_column,
             self.wp_post_column,
+            self.description_sections_column,
         }
         prepared = {}
         for key, value in payload.items():
