@@ -101,7 +101,14 @@ const TAXONOMY_OPTIONS: Record<(typeof TAXONOMY_KEYS)[number], string[]> = {
     "Pre Construction",
     "Semi-Detached",
   ],
-  status: ["Assignments", "Coming Soon", "For Sale", "Leased", "Resale", "Sold Out"],
+  status: [
+    "Assignments",
+    "Coming Soon",
+    "For Sale",
+    "Leased",
+    "Resale",
+    "Sold Out",
+  ],
   features: [
     "Appliances Included",
     "Air-conditioning Unit",
@@ -110,7 +117,12 @@ const TAXONOMY_OPTIONS: Record<(typeof TAXONOMY_KEYS)[number], string[]> = {
     "Free Maintenance Fees",
     "Price Discount",
   ],
-  labels: ["$10K on Signing", "$20K on Signing", "$25K on Signing", "$30K on Signing"],
+  labels: [
+    "$10K on Signing",
+    "$20K on Signing",
+    "$25K on Signing",
+    "$30K on Signing",
+  ],
   city: ["Brampton", "Oakville", "Ajax", "Barrie", "Milton"],
   state: ["Ontario", "California", "Florida", "Illinois", "New York"],
   country: ["Canada", "USA"],
@@ -122,7 +134,7 @@ export default function EstatePropertyForm({
   onSubmit,
   submitLabel,
 }: Props) {
-  const [form, setForm] = useState<EstatePropertyRecord>(initialValues);
+  const [form, setForm] = useState<EstatePropertyRecord>({});
   const [isSaving, setIsSaving] = useState(false);
   const [jsonText, setJsonText] = useState("");
   const [jsonError, setJsonError] = useState("");
@@ -132,8 +144,15 @@ export default function EstatePropertyForm({
   const [summaryErrors, setSummaryErrors] = useState<string[]>([]);
 
   useEffect(() => {
-    setForm(initialValues || {});
-  }, [initialValues]);
+    setForm((prev) => {
+      // 🛡️ Never overwrite if user has edited more than initialValues provided
+      const initialKeys = Object.keys(initialValues || {});
+      if (Object.keys(prev).length > initialKeys.length) {
+        return prev; // Keep user's work
+      }
+      return initialValues || {};
+    });
+  }, [initialValues]); // Allow sync when switching to a DIFFERENT listing
 
   const editableColumns = useMemo(
     () => columns.filter((c) => !HIDDEN_FIELDS.has(c.column_name)),
@@ -156,14 +175,18 @@ export default function EstatePropertyForm({
   const advancedColumns = useMemo(
     () =>
       editableColumns.filter(
-        (c) => !CORE_FIELD_ORDER.includes(c.column_name as (typeof CORE_FIELD_ORDER)[number]),
+        (c) =>
+          !CORE_FIELD_ORDER.includes(
+            c.column_name as (typeof CORE_FIELD_ORDER)[number],
+          ),
       ),
     [editableColumns],
   );
   const taxonomyState = useMemo(() => {
     const raw = form.wp_terms_json;
     if (!raw) return {};
-    if (typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
+    if (typeof raw === "object" && !Array.isArray(raw))
+      return raw as Record<string, unknown>;
     try {
       const parsed = JSON.parse(String(raw));
       return parsed && typeof parsed === "object" && !Array.isArray(parsed)
@@ -183,17 +206,29 @@ export default function EstatePropertyForm({
       return next;
     });
   };
-  const setJsonField = (name: "wp_meta_json" | "wp_post_json" | "wp_terms_json", value: any) => {
+  const setJsonField = (
+    name: "wp_meta_json" | "wp_post_json" | "wp_terms_json",
+    value: any,
+  ) => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
-  const updateTaxonomySelection = (taxonomyKey: (typeof TAXONOMY_KEYS)[number], option: string) => {
+  const updateTaxonomySelection = (
+    taxonomyKey: (typeof TAXONOMY_KEYS)[number],
+    option: string,
+  ) => {
     const current = taxonomyState[taxonomyKey];
-    const selected = Array.isArray(current) ? current.map((x) => String(x)) : [];
+    const selected = Array.isArray(current)
+      ? current.map((x) => String(x))
+      : [];
     const exists = selected.includes(option);
-    const next = exists ? selected.filter((v) => v !== option) : [...selected, option];
+    const next = exists
+      ? selected.filter((v) => v !== option)
+      : [...selected, option];
     setJsonField("wp_terms_json", { ...taxonomyState, [taxonomyKey]: next });
   };
-  const getTaxonomySelection = (taxonomyKey: (typeof TAXONOMY_KEYS)[number]) => {
+  const getTaxonomySelection = (
+    taxonomyKey: (typeof TAXONOMY_KEYS)[number],
+  ) => {
     const current = taxonomyState[taxonomyKey];
     return Array.isArray(current) ? current.map((x) => String(x)) : [];
   };
@@ -214,6 +249,7 @@ export default function EstatePropertyForm({
     }
     setFieldErrors({});
     setSummaryErrors([]);
+
     setIsSaving(true);
     const normalizedPayload: EstatePropertyRecord = { ...payload };
     delete normalizedPayload.id;
@@ -287,7 +323,10 @@ export default function EstatePropertyForm({
   };
 
   const handleSaveDraft = async () => {
-    const draftPayload: EstatePropertyRecord = { ...form, publish_status: "draft" };
+    const draftPayload: EstatePropertyRecord = {
+      ...form,
+      publish_status: "draft",
+    };
     setForm(draftPayload);
     await submitWithValidation(draftPayload);
   };
@@ -303,8 +342,12 @@ export default function EstatePropertyForm({
 
       const allowedFields = new Set(editableColumns.map((c) => c.column_name));
       const entries = Object.entries(parsed);
-      const filtered = Object.fromEntries(entries.filter(([k]) => allowedFields.has(k)));
-      const unmatched = Object.fromEntries(entries.filter(([k]) => !allowedFields.has(k)));
+      const filtered = Object.fromEntries(
+        entries.filter(([k]) => allowedFields.has(k)),
+      );
+      const unmatched = Object.fromEntries(
+        entries.filter(([k]) => !allowedFields.has(k)),
+      );
 
       setForm((prev) => {
         const next = { ...prev, ...filtered };
@@ -318,21 +361,35 @@ export default function EstatePropertyForm({
             : {};
 
         for (const [k, v] of Object.entries(unmatched)) {
-          if (k.startsWith("taxonomy_") || TAXONOMY_KEYS.includes(k as (typeof TAXONOMY_KEYS)[number])) {
-            const normalized = k.startsWith("taxonomy_") ? k.replace("taxonomy_", "") : k;
+          if (
+            k.startsWith("taxonomy_") ||
+            TAXONOMY_KEYS.includes(k as (typeof TAXONOMY_KEYS)[number])
+          ) {
+            const normalized = k.startsWith("taxonomy_")
+              ? k.replace("taxonomy_", "")
+              : k;
             nextTerms[normalized] = Array.isArray(v) ? v : [String(v)];
           } else if (k.startsWith("post_")) {
             nextPost[k] = v;
           }
         }
-        if (Object.keys(nextTerms).length > 0 && allowedFields.has("wp_terms_json")) {
+        if (
+          Object.keys(nextTerms).length > 0 &&
+          allowedFields.has("wp_terms_json")
+        ) {
           next.wp_terms_json = nextTerms;
         }
-        if (Object.keys(nextPost).length > 0 && allowedFields.has("wp_post_json")) {
+        if (
+          Object.keys(nextPost).length > 0 &&
+          allowedFields.has("wp_post_json")
+        ) {
           next.wp_post_json = nextPost;
         }
 
-        if (allowedFields.has("wp_meta_json") && Object.keys(unmatched).length > 0) {
+        if (
+          allowedFields.has("wp_meta_json") &&
+          Object.keys(unmatched).length > 0
+        ) {
           const currentMeta =
             typeof next.wp_meta_json === "object" && next.wp_meta_json !== null
               ? next.wp_meta_json
@@ -376,7 +433,9 @@ export default function EstatePropertyForm({
           >
             Apply JSON
           </button>
-          {jsonError ? <span className="text-xs text-red-600">{jsonError}</span> : null}
+          {jsonError ? (
+            <span className="text-xs text-red-600">{jsonError}</span>
+          ) : null}
         </div>
       </div>
 
@@ -385,18 +444,24 @@ export default function EstatePropertyForm({
           <div className="bg-white border rounded-xl p-4 space-y-3">
             <h2 className="text-lg font-semibold">Information</h2>
             <label className="space-y-1 block">
-              <span className="text-xs font-semibold text-gray-600">listing_key *</span>
+              <span className="text-xs font-semibold text-gray-600">
+                listing_key *
+              </span>
               <input
                 value={String(form.listing_key ?? "")}
                 onChange={(e) => handleChange("listing_key", e.target.value)}
                 className="w-full rounded-lg border px-3 py-2 text-sm"
               />
               {fieldErrors.listing_key ? (
-                <span className="text-xs text-red-600">{fieldErrors.listing_key}</span>
+                <span className="text-xs text-red-600">
+                  {fieldErrors.listing_key}
+                </span>
               ) : null}
             </label>
             <label className="space-y-1 block">
-              <span className="text-xs font-semibold text-gray-600">property_title *</span>
+              <span className="text-xs font-semibold text-gray-600">
+                property_title *
+              </span>
               <input
                 value={String(form.property_title ?? "")}
                 onChange={(e) => handleChange("property_title", e.target.value)}
@@ -404,7 +469,9 @@ export default function EstatePropertyForm({
               />
             </label>
             <label className="space-y-1 block">
-              <span className="text-xs font-semibold text-gray-600">property_slug *</span>
+              <span className="text-xs font-semibold text-gray-600">
+                property_slug *
+              </span>
               <input
                 value={String(form.property_slug ?? "")}
                 onChange={(e) => handleChange("property_slug", e.target.value)}
@@ -412,11 +479,16 @@ export default function EstatePropertyForm({
               />
             </label>
             <p className="text-xs text-gray-500">
-              Permalink: {String(form.listing_url || "/estate/" + (form.property_slug || ""))}
+              Permalink:{" "}
+              {String(
+                form.listing_url || "/estate/" + (form.property_slug || ""),
+              )}
             </p>
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-600">property_description</span>
+                <span className="text-xs font-semibold text-gray-600">
+                  property_description
+                </span>
                 <div className="inline-flex gap-1 rounded border p-1">
                   <button
                     type="button"
@@ -473,7 +545,9 @@ export default function EstatePropertyForm({
                 <textarea
                   rows={10}
                   value={String(form.property_description ?? "")}
-                  onChange={(e) => handleChange("property_description", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("property_description", e.target.value)
+                  }
                   className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
                   placeholder="<p>Enter formatted HTML content...</p>"
                 />
@@ -524,7 +598,9 @@ export default function EstatePropertyForm({
                 .filter((key) => editableColumnNames.has(key))
                 .map((key) => (
                   <label key={key} className="space-y-1">
-                    <span className="text-xs font-semibold text-gray-600">{key}</span>
+                    <span className="text-xs font-semibold text-gray-600">
+                      {key}
+                    </span>
                     {key === "enable_price_placeholder" ? (
                       <select
                         value={String(form[key] ?? "false")}
@@ -551,10 +627,15 @@ export default function EstatePropertyForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {TAXONOMY_KEYS.map((key) => (
                 <div key={key} className="rounded-lg border p-3">
-                  <div className="font-medium text-sm mb-2 capitalize">{key}</div>
+                  <div className="font-medium text-sm mb-2 capitalize">
+                    {key}
+                  </div>
                   <div className="space-y-1 max-h-40 overflow-auto">
                     {TAXONOMY_OPTIONS[key].map((option) => (
-                      <label key={option} className="flex items-center gap-2 text-sm">
+                      <label
+                        key={option}
+                        className="flex items-center gap-2 text-sm"
+                      >
                         <input
                           type="checkbox"
                           checked={getTaxonomySelection(key).includes(option)}
@@ -572,7 +653,8 @@ export default function EstatePropertyForm({
           <div className="bg-white border rounded-xl p-4 space-y-3">
             <h2 className="text-lg font-semibold">Advanced Fields</h2>
             <p className="text-xs text-gray-500">
-              Remaining schema-backed fields are available here for full compatibility.
+              Remaining schema-backed fields are available here for full
+              compatibility.
             </p>
             <details>
               <summary className="cursor-pointer text-sm font-medium">
@@ -581,10 +663,14 @@ export default function EstatePropertyForm({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                 {advancedColumns.map((col) => (
                   <label key={col.column_name} className="space-y-1">
-                    <span className="text-xs font-semibold text-gray-600">{col.column_name}</span>
+                    <span className="text-xs font-semibold text-gray-600">
+                      {col.column_name}
+                    </span>
                     <input
                       value={String(form[col.column_name] ?? "")}
-                      onChange={(e) => handleChange(col.column_name, e.target.value)}
+                      onChange={(e) =>
+                        handleChange(col.column_name, e.target.value)
+                      }
                       className="w-full rounded-lg border px-3 py-2 text-sm"
                     />
                   </label>
@@ -598,7 +684,9 @@ export default function EstatePropertyForm({
           <div className="bg-white border rounded-xl p-4 space-y-3">
             <h2 className="text-base font-semibold">Publish</h2>
             <label className="space-y-1 block">
-              <span className="text-xs font-semibold text-gray-600">publish_status *</span>
+              <span className="text-xs font-semibold text-gray-600">
+                publish_status *
+              </span>
               <select
                 value={String(form.publish_status || "draft")}
                 onChange={(e) => handleChange("publish_status", e.target.value)}
@@ -611,7 +699,9 @@ export default function EstatePropertyForm({
               </select>
             </label>
             <label className="space-y-1 block">
-              <span className="text-xs font-semibold text-gray-600">expires_at</span>
+              <span className="text-xs font-semibold text-gray-600">
+                expires_at
+              </span>
               <input
                 type="datetime-local"
                 value={String(form.expires_at ?? "")}
@@ -624,20 +714,29 @@ export default function EstatePropertyForm({
           <div className="bg-white border rounded-xl p-4 space-y-3">
             <h2 className="text-base font-semibold">Media</h2>
             <label className="space-y-1 block">
-              <span className="text-xs font-semibold text-gray-600">featured_image_url</span>
+              <span className="text-xs font-semibold text-gray-600">
+                featured_image_url
+              </span>
               <input
                 value={String(form.featured_image_url ?? "")}
-                onChange={(e) => handleChange("featured_image_url", e.target.value)}
+                onChange={(e) =>
+                  handleChange("featured_image_url", e.target.value)
+                }
                 className="w-full rounded-lg border px-3 py-2 text-sm"
               />
             </label>
             <label className="space-y-1 block">
-              <span className="text-xs font-semibold text-gray-600">video_url</span>
+              <span className="text-xs font-semibold text-gray-600">
+                video_url
+              </span>
               <input
                 value={String((form.wp_meta_json?.video_url as string) ?? "")}
                 onChange={(e) =>
                   setJsonField("wp_meta_json", {
-                    ...(typeof form.wp_meta_json === "object" && form.wp_meta_json ? form.wp_meta_json : {}),
+                    ...(typeof form.wp_meta_json === "object" &&
+                      form.wp_meta_json
+                      ? form.wp_meta_json
+                      : {}),
                     video_url: e.target.value,
                   })
                 }
@@ -650,10 +749,17 @@ export default function EstatePropertyForm({
               </span>
               <textarea
                 rows={3}
-                value={Array.isArray(form.wp_meta_json?.gallery_image_urls) ? form.wp_meta_json.gallery_image_urls.join(", ") : ""}
+                value={
+                  Array.isArray(form.wp_meta_json?.gallery_image_urls)
+                    ? form.wp_meta_json.gallery_image_urls.join(", ")
+                    : ""
+                }
                 onChange={(e) =>
                   setJsonField("wp_meta_json", {
-                    ...(typeof form.wp_meta_json === "object" && form.wp_meta_json ? form.wp_meta_json : {}),
+                    ...(typeof form.wp_meta_json === "object" &&
+                      form.wp_meta_json
+                      ? form.wp_meta_json
+                      : {}),
                     gallery_image_urls: e.target.value
                       .split(",")
                       .map((x) => x.trim())
