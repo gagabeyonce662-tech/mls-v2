@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GraduationCap, Info, MapPin } from "lucide-react";
+import { ChevronDown, GraduationCap, Info, MapPin } from "lucide-react";
 import { School } from "@/lib/api";
 import { ds } from "@/lib/design-system-utils";
 import { env } from "@/lib/env";
@@ -43,6 +43,7 @@ export default function NearestSchoolsSection({
   isUnavailable = false,
 }: NearestSchoolsSectionProps) {
   const licensedBadgesEnabled = env.NEXT_PUBLIC_ENABLE_LICENSED_DATA_BADGES === "true";
+  const [isExpanded, setIsExpanded] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
   const sortedSchools = useMemo(
@@ -74,7 +75,12 @@ export default function NearestSchoolsSection({
 
   return (
     <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
-      <div className="flex items-start justify-between gap-3 mb-4">
+      <button
+        type="button"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        className="w-full flex items-start justify-between gap-3 mb-0 text-left"
+        aria-expanded={isExpanded}
+      >
         <div>
           <h2 className={`${ds.h3} flex items-center gap-2`}>
             <GraduationCap className="h-5 w-5 text-ds-primary" />
@@ -84,7 +90,12 @@ export default function NearestSchoolsSection({
             Nearby schools to help evaluate daily convenience and family fit.
           </p>
         </div>
-      </div>
+        <ChevronDown
+          className={`h-5 w-5 text-ds-body shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {isExpanded && <div className="mt-4">
 
       <div className="mb-4 rounded-xl border border-ds-card-border bg-ds-card/40 px-3 py-2 text-xs text-ds-body flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-1">
@@ -212,6 +223,7 @@ export default function NearestSchoolsSection({
           )}
         </>
       )}
+      </div>}
     </section>
   );
 }

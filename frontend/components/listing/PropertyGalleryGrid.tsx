@@ -87,7 +87,7 @@ export default function PropertyGalleryGrid({
           </a>
         ) : null}
         <div
-          className={`w-full aspect-[21/9] rounded-xl overflow-hidden cursor-pointer group ${className}`}
+          className={`w-full h-[min(480px,55vh)] rounded-xl overflow-hidden cursor-pointer group ${className}`}
           onClick={() => openAt(0)}
           role="button"
           tabIndex={0}
@@ -133,7 +133,7 @@ export default function PropertyGalleryGrid({
           </div>
         )}
         <div
-          className={`grid grid-cols-2 gap-4 w-full aspect-[21/9] rounded-xl overflow-hidden ${className}`}
+          className={`grid grid-cols-2 gap-4 w-full h-[min(480px,55vh)] rounded-xl overflow-hidden ${className}`}
         >
           {effectiveImages.map((src, i) => (
             <div
@@ -195,7 +195,7 @@ export default function PropertyGalleryGrid({
         </a>
       ) : null}
       <div
-        className={`w-full aspect-[21/9] grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-3 rounded-xl overflow-hidden ${className}`}
+        className={`w-full h-[min(500px,58vh)] grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-3 rounded-xl overflow-hidden ${className}`}
       >
         {/* Main image */}
         <div

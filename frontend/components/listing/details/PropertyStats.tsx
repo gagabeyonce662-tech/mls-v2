@@ -37,7 +37,7 @@ export default function PropertyStats({
       {stats.map((stat, index) => (
         <div
           key={index}
-          className="bg-ds-card border border-ds-card-border p-4 rounded-xl flex flex-col items-center text-center transition-all hover:shadow-md"
+          className="bg-ds-card border border-ds-card-border p-3 rounded-xl flex flex-col items-center text-center transition-all hover:shadow-md"
         >
           <stat.icon className="w-5 h-5 text-ds-primary mb-2 opacity-80" />
           <span className="text-xs text-ds-body font-medium uppercase tracking-tight mb-1">

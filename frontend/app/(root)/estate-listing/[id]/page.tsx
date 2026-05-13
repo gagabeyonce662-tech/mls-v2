@@ -31,19 +31,13 @@ import ListingCatalogStatsSection from "@/components/listing/details/ListingCata
 import ListingEngagementMeter from "@/components/listing/details/ListingEngagementMeter";
 import ListingDemographicsSection from "@/components/listing/details/ListingDemographicsSection";
 import PropertyNotesPanel from "@/components/listing/details/PropertyNotesPanel";
-import { MortgageCalculator } from "@/components/ui/MortgageCalculator";
-import { CashflowCalculator } from "@/components/calculators/CashflowCalculator";
-import ClosingCostsEstimator from "@/components/listing/details/ClosingCostsEstimator";
+import FinancialsPanel from "@/components/listing/details/FinancialsPanel";
 import ListingAmenitiesSection from "@/components/listing/details/ListingAmenitiesSection";
 import {
-  getAnnualTaxDisplayWithYear,
   getBathroomDisplayLabel,
   getDescription,
   getLivingAreaSummary,
-  getLotSizeSummary,
-  getParkingSummary,
   getPropertyType,
-  getTaxAnnualAmount,
   postalToFsa,
 } from "@/lib/propertyUtils";
 import ListingExternalLinks from "@/components/listing/ListingExternalLinks";
@@ -302,16 +296,6 @@ export default async function ListingPage(props: ListingPageProps) {
     (property as { property_description?: string }).property_description || "",
   ).trim();
 
-  const quickFacts = [
-    { label: t("lotSize"), value: getLotSizeSummary(property) },
-    { label: t("parking"), value: getParkingSummary(property) },
-    {
-      label: t("annualTaxes"),
-      value:
-        getAnnualTaxDisplayWithYear(property) || getTaxAnnualAmount(property),
-    },
-  ].filter((item) => item.value);
-
   const parseCoordinate = (value: unknown): number | null => {
     if (typeof value === "number" && Number.isFinite(value)) return value;
     if (typeof value === "string") {
@@ -368,7 +352,7 @@ export default async function ListingPage(props: ListingPageProps) {
           price={displayPrice}
         />
 
-        <div className="mb-8">
+        <div className="mb-4">
           <PropertyStats
             beds={beds || ""}
             baths={baths || ""}
@@ -380,7 +364,7 @@ export default async function ListingPage(props: ListingPageProps) {
         </div>
 
         {propertyImages.length > 0 ? (
-          <div className="mb-10">
+          <div className="mb-6">
             <PropertyGalleryGrid
               images={propertyImages}
               media={property.media || property.Media || []}
@@ -404,28 +388,31 @@ export default async function ListingPage(props: ListingPageProps) {
 
         <ListingExternalLinks property={property} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-2 space-y-12">
-            {quickFacts.length > 0 && (
-              <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
-                <h2 className={`${ds.h3} mb-4`}>{t("quickFacts")}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {quickFacts.map((fact) => (
-                    <div
-                      key={fact.label}
-                      className="rounded-xl border border-ds-card-border bg-ds-card/40 p-4"
-                    >
-                      <p className="text-xs uppercase tracking-wide text-ds-body mb-1">
-                        {fact.label}
-                      </p>
-                      <p className="text-sm font-semibold text-ds-heading">
-                        {fact.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            {/* 1. Description — first thing after gallery */}
+            <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
+              <h2 className={`${ds.h3} mb-3`}>{t("aboutTitle")}</h2>
+              {aboutHtml ? (
+                <div
+                  className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
+                  dangerouslySetInnerHTML={{ __html: aboutHtml }}
+                />
+              ) : (
+                <OverviewExcerpt text={description} maxChars={400} />
+              )}
+            </section>
+
+            {/* 2. AI summary */}
+            <ListingAISummary property={property} />
+
+            {/* 3. Property Records — detailed specs early in the flow */}
+            <PropertyDetailsGrid
+              property={property}
+              price={displayPrice}
+              type={uiPropertyType}
+              livingArea={livingArea}
+            />
 
             <ListingCatalogStatsSection
               stats={catalogStats}
@@ -441,6 +428,10 @@ export default async function ListingPage(props: ListingPageProps) {
               headingPrefix={t("demographicsTitle")}
             />
 
+            {/* 4. Listing activity history */}
+            <PropertyHistory history={history} />
+
+            {/* 5. Neighborhood — collapsible to reduce scroll fatigue */}
             <NearestSchoolsSection
               schools={nearestSchoolsData?.nearest_schools || []}
               radiusMeters={
@@ -454,61 +445,13 @@ export default async function ListingPage(props: ListingPageProps) {
             />
             <ListingAmenitiesSection amenities={nearbyAmenities} />
 
-            <section>
-              <h2 className={`${ds.h3} mb-4`}>{t("aboutTitle")}</h2>
-              <div className="bg-white rounded-2xl p-6">
-                {aboutHtml ? (
-                  <div
-                    className="prose prose-sm sm:prose-base max-w-none prose-headings:mt-4 prose-headings:mb-2 prose-p:my-3 prose-ul:my-3 prose-li:my-1 prose-a:text-ds-primary prose-a:underline"
-                    dangerouslySetInnerHTML={{ __html: aboutHtml }}
-                  />
-                ) : (
-                  <OverviewExcerpt text={description} maxChars={400} />
-                )}
-              </div>
-            </section>
-
-            <ListingAISummary property={property} />
-
-            <PropertyHistory history={history} />
-
-            {/* Mortgage Calculator Section */}
-            <section className="bg-white border border-ds-card-border rounded-2xl p-8 shadow-sm">
-              <div className="max-w-3xl">
-                <h2 className={`${ds.h3} mb-6 text-2xl`}>
-                  {t("mortgageCalculatorTitle")}
-                </h2>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 items-start">
-                  <div className="xl:col-span-2">
-                    <MortgageCalculator
-                      initialPrice={getMortgageInitialPrice(property, {
-                        isPrivileged,
-                      })}
-                    />
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <ClosingCostsEstimator
-              price={currentListNumeric > 0 ? currentListNumeric : null}
-            />
-
-            <section className="bg-white border border-ds-card-border rounded-2xl p-8 shadow-sm">
-              <h2 className={`${ds.h3} mb-4 text-2xl`}>
-                {t("cashFlowEstimatorTitle")}
-              </h2>
-              <p className="text-sm text-ds-body mb-6 max-w-3xl">
-                {t("cashFlowDisclaimer")}
-              </p>
-              <CashflowCalculator {...cashflowInitials} />
-            </section>
-
-            <PropertyDetailsGrid
-              property={property}
-              price={displayPrice}
-              type={uiPropertyType}
-              livingArea={livingArea}
+            {/* 6. Financials — single tabbed panel replaces three stacked sections */}
+            <FinancialsPanel
+              mortgageInitialPrice={getMortgageInitialPrice(property, { isPrivileged })}
+              closingCostsPrice={currentListNumeric > 0 ? currentListNumeric : null}
+              cashflowInitials={cashflowInitials}
+              cashflowDisclaimer={t("cashFlowDisclaimer")}
+              mortgageTitle={t("mortgageCalculatorTitle")}
             />
           </div>
 
