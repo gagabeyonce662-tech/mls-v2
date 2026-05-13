@@ -10,7 +10,19 @@ export * from "./api/properties";
 export * from "./api/feedback";
 export * from "./api/inquiries";
 export * from "./api/vlogs";
-export * from "./api/admin";
+export {
+  uploadPreConnProperties,
+  createProperty,
+  updateProperty,
+  deleteProperty,
+  fetchEstatePropertySchema,
+  fetchEstateProperties,
+  fetchEstatePropertyById as fetchAdminEstatePropertyById,
+  createEstateProperty,
+  updateEstateProperty,
+  deleteEstateProperty,
+} from "./api/admin";
+export type { EstatePropertyRecord, EstatePropertyListResponse } from "./api/admin";
 export * from "./api/testing";
 export * from "./api/wordpress";
 export * from "./api/auth";
