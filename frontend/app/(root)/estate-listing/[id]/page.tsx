@@ -352,7 +352,7 @@ export default async function ListingPage(props: ListingPageProps) {
           price={displayPrice}
         />
 
-        <div className="mb-4">
+        {/*<div className="mb-4">
           <PropertyStats
             beds={beds || ""}
             baths={baths || ""}
@@ -361,7 +361,7 @@ export default async function ListingPage(props: ListingPageProps) {
             year={builtYear || ""}
             showPropertyType={false}
           />
-        </div>
+        </div>*/}
 
         {propertyImages.length > 0 ? (
           <div className="mb-6">
@@ -447,8 +447,12 @@ export default async function ListingPage(props: ListingPageProps) {
 
             {/* 6. Financials — single tabbed panel replaces three stacked sections */}
             <FinancialsPanel
-              mortgageInitialPrice={getMortgageInitialPrice(property, { isPrivileged })}
-              closingCostsPrice={currentListNumeric > 0 ? currentListNumeric : null}
+              mortgageInitialPrice={getMortgageInitialPrice(property, {
+                isPrivileged,
+              })}
+              closingCostsPrice={
+                currentListNumeric > 0 ? currentListNumeric : null
+              }
               cashflowInitials={cashflowInitials}
               cashflowDisclaimer={t("cashFlowDisclaimer")}
               mortgageTitle={t("mortgageCalculatorTitle")}
