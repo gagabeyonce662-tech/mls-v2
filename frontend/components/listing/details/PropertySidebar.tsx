@@ -197,71 +197,7 @@ export default function PropertySidebar({
 
   return (
     <div className="space-y-6">
-      {/* Map Section */}
-      <div className="bg-ds-card border border-ds-card-border rounded-xl p-4 shadow-sm">
-        <h3 className="text-sm font-bold text-ds-heading mb-4">Location</h3>
-        <div className="h-64 rounded-lg overflow-hidden border border-ds-card-border relative bg-gray-100">
-          {lat && lon ? (
-            <iframe
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              scrolling="no"
-              marginHeight={0}
-              marginWidth={0}
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(lon) - 0.005},${parseFloat(lat) - 0.005},${parseFloat(lon) + 0.005},${parseFloat(lat) + 0.005}&layer=mapnik&marker=${lat},${lon}`}
-              style={{ border: "none" }}
-            ></iframe>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center p-4 text-center">
-              <MapPin className="w-8 h-8 text-ds-body opacity-30 mb-2" />
-              <p className="text-sm text-ds-body">
-                Location details pinning...
-              </p>
-              <p className="text-xs text-ds-body/70 mt-1">
-                {city}, {property.StateOrProvince || "Ontario"}
-              </p>
-            </div>
-          )}
-        </div>
-        {lat && lon && (
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1.5 py-2 px-3 text-[11px] font-semibold bg-gray-50 border border-ds-card-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-ds-body"
-            >
-              <Navigation className="w-3 h-3 text-ds-primary" />
-              Google Maps
-            </a>
-            <Link
-              href={`/map-search?lat=${lat}&lng=${lon}&zoom=15${
-                property?.listing_key
-                  ? `&id=${encodeURIComponent(property.listing_key)}`
-                  : ""
-              }`}
-              className="flex items-center justify-center gap-1.5 py-2 px-3 text-[11px] font-semibold bg-gray-50 border border-ds-card-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-ds-body"
-            >
-              <ExternalLink className="w-3 h-3 text-ds-primary" />
-              Explore Area
-            </Link>
-          </div>
-        )}
-
-        <div className="mt-4 flex items-center gap-2 text-[10px] text-ds-body font-mono">
-          <MapPin className="w-3 h-3" />
-          {lat && lon ? (
-            <span>
-              {lat}, {lon}
-            </span>
-          ) : (
-            <span>Coordinates not available</span>
-          )}
-        </div>
-      </div>
-
-      {/* Inquiry Form Placeholder */}
+      {/* Interested? CTA — primary lead-gen goal, topmost */}
       <div className="bg-ds-primary text-white rounded-xl p-6 shadow-xl shadow-ds-primary/10">
         <h3 className="text-lg font-bold mb-2 text-white ">Interested?</h3>
         <p className="text-sm text-white/80 mb-6">
@@ -355,6 +291,70 @@ export default function PropertySidebar({
             </div>
           </form>
         )}
+      </div>
+
+      {/* Map Section */}
+      <div className="bg-ds-card border border-ds-card-border rounded-xl p-4 shadow-sm">
+        <h3 className="text-sm font-bold text-ds-heading mb-4">Location</h3>
+        <div className="h-64 rounded-lg overflow-hidden border border-ds-card-border relative bg-gray-100">
+          {lat && lon ? (
+            <iframe
+              width="100%"
+              height="100%"
+              frameBorder="0"
+              scrolling="no"
+              marginHeight={0}
+              marginWidth={0}
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(lon) - 0.005},${parseFloat(lat) - 0.005},${parseFloat(lon) + 0.005},${parseFloat(lat) + 0.005}&layer=mapnik&marker=${lat},${lon}`}
+              style={{ border: "none" }}
+            ></iframe>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center p-4 text-center">
+              <MapPin className="w-8 h-8 text-ds-body opacity-30 mb-2" />
+              <p className="text-sm text-ds-body">
+                Location details pinning...
+              </p>
+              <p className="text-xs text-ds-body/70 mt-1">
+                {city}, {property.StateOrProvince || "Ontario"}
+              </p>
+            </div>
+          )}
+        </div>
+        {lat && lon && (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 py-2 px-3 text-[11px] font-semibold bg-gray-50 border border-ds-card-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-ds-body"
+            >
+              <Navigation className="w-3 h-3 text-ds-primary" />
+              Google Maps
+            </a>
+            <Link
+              href={`/map-search?lat=${lat}&lng=${lon}&zoom=15${
+                property?.listing_key
+                  ? `&id=${encodeURIComponent(property.listing_key)}`
+                  : ""
+              }`}
+              className="flex items-center justify-center gap-1.5 py-2 px-3 text-[11px] font-semibold bg-gray-50 border border-ds-card-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-ds-body"
+            >
+              <ExternalLink className="w-3 h-3 text-ds-primary" />
+              Explore Area
+            </Link>
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center gap-2 text-[10px] text-ds-body font-mono">
+          <MapPin className="w-3 h-3" />
+          {lat && lon ? (
+            <span>
+              {lat}, {lon}
+            </span>
+          ) : (
+            <span>Coordinates not available</span>
+          )}
+        </div>
       </div>
 
       {/* Secondary actions */}

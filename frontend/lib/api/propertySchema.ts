@@ -220,6 +220,7 @@ export const PropertyResponseSchema = z
 
     // 4. Create Standardized Object
     return {
+      ...prop, // Retain source fields, then override with canonical normalized fields.
       PropertyKey: bestKey,
       ListingKey: bestKey,
       list_price: prop.list_price,
@@ -297,7 +298,5 @@ export const PropertyResponseSchema = z
       Longitude: prop.longitude,
       Description: prop.public_remarks || prop.PublicRemarks,
       PropertyType: resolvedSubType,
-
-      ...prop, // Retain any leftover fields
     };
   });

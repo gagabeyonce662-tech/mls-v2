@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { ds } from "@/lib/design-system-utils";
 import type { NearbyAmenitiesResponse } from "@/lib/api";
 
@@ -18,6 +19,8 @@ export default function ListingAmenitiesSection({
 }: {
   amenities: NearbyAmenitiesResponse | null;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const sections = useMemo(() => {
     if (!amenities) return [];
     const categories = amenities.categories;
@@ -34,36 +37,51 @@ export default function ListingAmenitiesSection({
 
   return (
     <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
-      <h2 className={`${ds.h3} mb-2`}>Nearby amenities</h2>
-      <p className="text-xs text-ds-body mb-4">
-        OpenStreetMap points-of-interest around this listing.
-      </p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {sections.map((section) => (
-          <div
-            key={section.key}
-            className="rounded-xl border border-ds-card-border bg-ds-card/30 p-4"
-          >
-            <h3 className="text-sm font-semibold text-ds-heading mb-2">
-              {section.label}
-            </h3>
-            {section.items.length === 0 ? (
-              <p className="text-xs text-ds-body">No data in this radius.</p>
-            ) : (
-              <ul className="space-y-1">
-                {section.items.map((item) => (
-                  <li key={`${section.key}-${item.osm_id}`} className="text-xs">
-                    <span className="font-medium text-ds-heading">{item.name}</span>
-                    {item.address ? (
-                      <span className="text-ds-body"> - {item.address}</span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
-      </div>
+      <button
+        type="button"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        className="w-full flex items-start justify-between gap-3 text-left"
+        aria-expanded={isExpanded}
+      >
+        <div>
+          <h2 className={`${ds.h3}`}>Nearby amenities</h2>
+          <p className="text-xs text-ds-body mt-1">
+            OpenStreetMap points-of-interest around this listing.
+          </p>
+        </div>
+        <ChevronDown
+          className={`h-5 w-5 text-ds-body shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {isExpanded && (
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {sections.map((section) => (
+            <div
+              key={section.key}
+              className="rounded-xl border border-ds-card-border bg-ds-card/30 p-4"
+            >
+              <h3 className="text-sm font-semibold text-ds-heading mb-2">
+                {section.label}
+              </h3>
+              {section.items.length === 0 ? (
+                <p className="text-xs text-ds-body">No data in this radius.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {section.items.map((item) => (
+                    <li key={`${section.key}-${item.osm_id}`} className="text-xs">
+                      <span className="font-medium text-ds-heading">{item.name}</span>
+                      {item.address ? (
+                        <span className="text-ds-body"> - {item.address}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

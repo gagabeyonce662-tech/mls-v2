@@ -53,6 +53,18 @@ const nextConfig = {
         protocol: "https",
         hostname: "estate-4u.com",
       },
+      {
+        protocol: "https",
+        hostname: "www.estate-4u.com",
+      },
+      {
+        protocol: "https",
+        hostname: "estate4u.ca",
+      },
+      {
+        protocol: "https",
+        hostname: "www.estate4u.ca",
+      },
     ],
   },
 

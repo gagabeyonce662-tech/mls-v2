@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GraduationCap, Info, MapPin } from "lucide-react";
+import { ChevronDown, GraduationCap, Info, MapPin } from "lucide-react";
 import { School } from "@/lib/api";
 import { ds } from "@/lib/design-system-utils";
 import { env } from "@/lib/env";
@@ -43,6 +43,7 @@ export default function NearestSchoolsSection({
   isUnavailable = false,
 }: NearestSchoolsSectionProps) {
   const licensedBadgesEnabled = env.NEXT_PUBLIC_ENABLE_LICENSED_DATA_BADGES === "true";
+  const [isExpanded, setIsExpanded] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
   const sortedSchools = useMemo(
@@ -62,10 +63,24 @@ export default function NearestSchoolsSection({
   const visibleSchools = showAll
     ? sortedSchools
     : sortedSchools.slice(0, MAX_VISIBLE_BY_DEFAULT);
+  const hasPublicDataColumn = sortedSchools.some((school) => {
+    const en = school.enrichment;
+    const eqao = en?.eqao_rating_band ?? en?.eqao_band ?? null;
+    const fraser =
+      en?.fraser_rank != null && String(en.fraser_rank).trim() !== ""
+        ? String(en.fraser_rank)
+        : null;
+    return Boolean(eqao || fraser);
+  });
 
   return (
     <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
-      <div className="flex items-start justify-between gap-3 mb-4">
+      <button
+        type="button"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        className="w-full flex items-start justify-between gap-3 mb-0 text-left"
+        aria-expanded={isExpanded}
+      >
         <div>
           <h2 className={`${ds.h3} flex items-center gap-2`}>
             <GraduationCap className="h-5 w-5 text-ds-primary" />
@@ -75,7 +90,12 @@ export default function NearestSchoolsSection({
             Nearby schools to help evaluate daily convenience and family fit.
           </p>
         </div>
-      </div>
+        <ChevronDown
+          className={`h-5 w-5 text-ds-body shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {isExpanded && <div className="mt-4">
 
       <div className="mb-4 rounded-xl border border-ds-card-border bg-ds-card/40 px-3 py-2 text-xs text-ds-body flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-1">
@@ -103,9 +123,17 @@ export default function NearestSchoolsSection({
         </div>
       ) : (
         <>
-          <div className="hidden sm:grid sm:grid-cols-[1fr_minmax(0,9rem)_4.5rem] gap-2 px-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-ds-body">
+          <div
+            className={`hidden sm:grid gap-2 px-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-ds-body ${
+              hasPublicDataColumn
+                ? "sm:grid-cols-[1fr_minmax(0,9rem)_4.5rem]"
+                : "sm:grid-cols-[1fr_4.5rem]"
+            }`}
+          >
             <span>School</span>
-            <span className="text-center">Public data</span>
+            {hasPublicDataColumn ? (
+              <span className="text-center">Public data</span>
+            ) : null}
             <span className="text-right">Dist.</span>
           </div>
           <div className="space-y-3">
@@ -125,7 +153,13 @@ export default function NearestSchoolsSection({
                   key={`${school.osm_id}-${school.name}`}
                   className="rounded-xl border border-ds-card-border bg-ds-card/30 p-4"
                 >
-                  <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_minmax(0,9rem)_4.5rem] sm:items-start sm:gap-2">
+                  <div
+                    className={`flex flex-col gap-3 sm:grid sm:items-start sm:gap-2 ${
+                      hasPublicDataColumn
+                        ? "sm:grid-cols-[1fr_minmax(0,9rem)_4.5rem]"
+                        : "sm:grid-cols-[1fr_4.5rem]"
+                    }`}
+                  >
                     <div className="min-w-0">
                       <div className="flex items-start gap-1.5">
                         <h3 className="text-sm font-semibold text-ds-heading">
@@ -155,18 +189,20 @@ export default function NearestSchoolsSection({
                         {en?.notes ? <p>{en.notes}</p> : null}
                       </div>
                     </div>
-                    <div className="hidden sm:block text-center text-xs text-ds-heading leading-snug px-1">
-                      {eqao || fraser ? (
-                        <>
-                          {eqao ? <p className="font-medium">{eqao}</p> : null}
-                          {fraser ? (
-                            <p className="text-ds-body text-[11px] mt-0.5">{fraser}</p>
-                          ) : null}
-                        </>
-                      ) : (
-                        <span className="text-ds-body">—</span>
-                      )}
-                    </div>
+                    {hasPublicDataColumn ? (
+                      <div className="hidden sm:block text-center text-xs text-ds-heading leading-snug px-1">
+                        {eqao || fraser ? (
+                          <>
+                            {eqao ? <p className="font-medium">{eqao}</p> : null}
+                            {fraser ? (
+                              <p className="text-ds-body text-[11px] mt-0.5">{fraser}</p>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="text-ds-body">—</span>
+                        )}
+                      </div>
+                    ) : null}
                     <div className="text-xs font-semibold text-ds-primary sm:text-right shrink-0 sm:pt-0.5">
                       {formatDistanceMeters(school.distance_meters)}
                     </div>
@@ -187,6 +223,7 @@ export default function NearestSchoolsSection({
           )}
         </>
       )}
+      </div>}
     </section>
   );
 }

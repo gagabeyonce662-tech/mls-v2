@@ -8,6 +8,7 @@ interface PropertyStatsProps {
   sqft: string;
   type: string;
   year: string | number;
+  showPropertyType?: boolean;
 }
 
 export default function PropertyStats({
@@ -16,12 +17,15 @@ export default function PropertyStats({
   sqft,
   type,
   year,
+  showPropertyType = true,
 }: PropertyStatsProps) {
   const stats = [
     { label: "Bedrooms", value: beds, icon: Bed },
     { label: "Bathrooms", value: baths, icon: Bath },
     { label: "Living Area", value: sqft, icon: Maximize },
-    { label: "Property Type", value: type, icon: HomeIcon },
+    ...(showPropertyType
+      ? [{ label: "Property Type", value: type, icon: HomeIcon }]
+      : []),
     { label: "Year Built", value: year, icon: Calendar },
   ].filter((stat) => {
     const value = String(stat.value ?? "").trim().toLowerCase();
@@ -33,7 +37,7 @@ export default function PropertyStats({
       {stats.map((stat, index) => (
         <div
           key={index}
-          className="bg-ds-card border border-ds-card-border p-4 rounded-xl flex flex-col items-center text-center transition-all hover:shadow-md"
+          className="bg-ds-card border border-ds-card-border p-3 rounded-xl flex flex-col items-center text-center transition-all hover:shadow-md"
         >
           <stat.icon className="w-5 h-5 text-ds-primary mb-2 opacity-80" />
           <span className="text-xs text-ds-body font-medium uppercase tracking-tight mb-1">

@@ -287,7 +287,7 @@ export async function createEstateProperty(payload: EstatePropertyRecord): Promi
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await handleResponseError(res, "Failed to create estate property.");
   return res.json();
 }
 
@@ -302,7 +302,7 @@ export async function updateEstateProperty(
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) await handleResponseError(res, "Failed to update estate property.");
   return res.json();
 }
 

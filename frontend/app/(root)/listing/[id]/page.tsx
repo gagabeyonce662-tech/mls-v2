@@ -80,7 +80,8 @@ export async function generateMetadata({
 
   const metaPriv = getListingIsPrivileged();
   const address =
-    getDisplayAddress(property, { isPrivileged: metaPriv }) || "Property Details";
+    getDisplayAddress(property, { isPrivileged: metaPriv }) ||
+    "Property Details";
 
   const description =
     property.public_remarks ||
@@ -90,9 +91,9 @@ export async function generateMetadata({
   const images =
     property.media && property.media.length > 0
       ? property.media
-        .map((m: any) => m.media_url)
-        .filter(Boolean)
-        .slice(0, 5)
+          .map((m: any) => m.media_url)
+          .filter(Boolean)
+          .slice(0, 5)
       : ["https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"];
 
   return {
@@ -129,9 +130,16 @@ export default async function ListingPage(props: ListingPageProps) {
     isPrivileged,
   });
 
-  const cityRaw = () => property.city || property.City || "N/A";
-  const cityForStats =
-    cityRaw() === "N/A" ? "" : String(cityRaw()).trim();
+  const getResolvedCity = () => {
+    const rawCity = String(
+      property.city || property.City || property.location || "",
+    ).trim();
+    if (!rawCity) return "";
+    const normalized = rawCity.toLowerCase();
+    if (normalized === "unknown city" || normalized === "n/a") return "";
+    return rawCity;
+  };
+  const cityForStats = getResolvedCity();
   const postal =
     (property.postal_code as string | undefined) ||
     (property as { PostalCode?: string }).PostalCode ||
@@ -160,19 +168,28 @@ export default async function ListingPage(props: ListingPageProps) {
     property.bedrooms_total || property.BedroomsTotal || null;
   const getBathCount = () =>
     property.bathrooms_total_integer || property.BathroomsTotalInteger || null;
-  const getCity = () => property.city || property.City || "N/A";
+  const getCity = () => getResolvedCity() || "N/A";
 
   const uiPropertyType = getPropertyType(property);
+  const headline =
+    String(
+      property.project_name ||
+        property.property_title ||
+        property.title ||
+        property.unparsed_address ||
+        property.address ||
+        `${uiPropertyType}${cityForStats ? ` in ${cityForStats}` : ""}`,
+    ).trim() || "Listing";
 
   const livingArea = getLivingAreaSummary(property);
 
   const currentHistoryRow = {
     date: property.ModificationTimestamp
       ? new Date(property.ModificationTimestamp).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
       : "Recent",
     event: property.StandardStatus || property.standard_status || "Listed",
     price: displayPrice,
@@ -250,7 +267,8 @@ export default async function ListingPage(props: ListingPageProps) {
     longitude <= 180;
 
   const schoolRadiusMeters = 5000;
-  let nearestSchoolsData: Awaited<ReturnType<typeof fetchNearestSchools>> = null;
+  let nearestSchoolsData: Awaited<ReturnType<typeof fetchNearestSchools>> =
+    null;
   let nearbyAmenities: Awaited<ReturnType<typeof fetchNearbyAmenities>> = null;
   let schoolFetchFailed = false;
 
@@ -275,6 +293,7 @@ export default async function ListingPage(props: ListingPageProps) {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-700">
         <PropertyHeader
+          headline={headline}
           propertyType={uiPropertyType}
           city={getCity()}
           address={displayAddress}
@@ -360,7 +379,10 @@ export default async function ListingPage(props: ListingPageProps) {
                 nearestSchoolsData?.search_radius_m || schoolRadiusMeters
               }
               hasCoordinates={hasValidCoordinates}
-              isUnavailable={schoolFetchFailed || (!nearestSchoolsData && hasValidCoordinates)}
+              isUnavailable={
+                schoolFetchFailed ||
+                (!nearestSchoolsData && hasValidCoordinates)
+              }
             />
             <ListingAmenitiesSection amenities={nearbyAmenities} />
             <ListingFeatureStatusSection
@@ -417,7 +439,9 @@ export default async function ListingPage(props: ListingPageProps) {
               </div>
             </section>
 
-            <ClosingCostsEstimator price={currentListNumeric > 0 ? currentListNumeric : null} />
+            <ClosingCostsEstimator
+              price={currentListNumeric > 0 ? currentListNumeric : null}
+            />
 
             <section className="bg-white border border-ds-card-border rounded-2xl p-8 shadow-sm">
               <h2 className={`${ds.h3} mb-4 text-2xl`}>
