@@ -35,6 +35,7 @@ import FinancialsPanel from "@/components/listing/details/FinancialsPanel";
 import ListingAmenitiesSection from "@/components/listing/details/ListingAmenitiesSection";
 import {
   getBathroomDisplayLabel,
+  getBedroomDisplayLabel,
   getDescription,
   getGarageDisplayLabel,
   getLivingAreaSummary,
@@ -291,7 +292,7 @@ export default async function ListingPage(props: ListingPageProps) {
     isPrivileged,
   });
 
-  const beds = getBedCount();
+  const beds = getBedroomDisplayLabel(property) || getBedCount();
   const baths =
     getBathroomDisplayLabel(property) ||
     (getBathCount() != null ? String(getBathCount()) : "");
