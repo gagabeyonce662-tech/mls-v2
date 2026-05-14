@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   deleteEstateProperty,
   fetchEstateProperties,
@@ -66,6 +67,18 @@ export default function EstatePropertiesPage() {
     }
   };
 
+  const resolveThumb = (row: EstatePropertyRecord): string => {
+    if (row.featured_image_url) return String(row.featured_image_url);
+    const post = row.wp_post_json;
+    if (post && typeof post === "object") {
+      const images = (post as any).images;
+      if (Array.isArray(images) && images.length > 0) {
+        return String(images[0] || "");
+      }
+    }
+    return "";
+  };
+
   
   return (
     <div className="space-y-4">
@@ -115,6 +128,7 @@ export default function EstatePropertiesPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
+                <th className="text-left px-4 py-2">Image</th>
                 <th className="text-left px-4 py-2">Title</th>
                 <th className="text-left px-4 py-2">Listing Key</th>
                 <th className="text-left px-4 py-2">Address</th>
@@ -127,6 +141,20 @@ export default function EstatePropertiesPage() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className="border-t">
+                  <td className="px-4 py-2">
+                    {resolveThumb(r) ? (
+                      <div className="relative h-12 w-16 overflow-hidden rounded border">
+                        <Image
+                          src={resolveThumb(r)}
+                          alt="Estate"
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">No image</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2">{r.property_title ?? "-"}</td>
                   <td className="px-4 py-2">{r.listing_key ?? "-"}</td>
                   <td className="px-4 py-2">{r.unparsed_address ?? "-"}</td>
@@ -151,7 +179,7 @@ export default function EstatePropertiesPage() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                     No results
                   </td>
                 </tr>

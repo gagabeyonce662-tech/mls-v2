@@ -2,6 +2,20 @@ const path = require("path");
 const createNextIntlPlugin = require("next-intl/plugin");
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+let apiRemotePattern = null;
+try {
+  if (apiUrl) {
+    const parsed = new URL(apiUrl);
+    apiRemotePattern = {
+      protocol: parsed.protocol.replace(":", ""),
+      hostname: parsed.hostname,
+      ...(parsed.port ? { port: parsed.port } : {}),
+    };
+  }
+} catch {
+  apiRemotePattern = null;
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -65,6 +79,11 @@ const nextConfig = {
         protocol: "https",
         hostname: "www.estate4u.ca",
       },
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+      },
+      ...(apiRemotePattern ? [apiRemotePattern] : []),
     ],
   },
 
