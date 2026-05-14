@@ -199,6 +199,82 @@ class Property(models.Model):
         return f"Property {self.listing_key} - {self.city}"
 
 
+class EstateProperty(models.Model):
+    """
+    ORM representation of the existing `mls_estateproperty` table.
+
+    The table already exists in production from earlier SQL-first migrations.
+    Keep this model unmanaged so Django does not try to create/alter/drop it
+    automatically, while still giving us a first-class model contract.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    listing_key = models.CharField(max_length=2000, unique=True)
+    listing_id = models.CharField(max_length=2000, null=True, blank=True)
+
+    property_title = models.TextField(null=True, blank=True)
+    property_slug = models.CharField(max_length=255, null=True, blank=True)
+    publish_status = models.CharField(max_length=32, default="draft", null=True, blank=True)
+    property_description = models.TextField(null=True, blank=True)
+    featured_image_url = models.TextField(null=True, blank=True)
+    listing_url = models.URLField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    list_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    second_price = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    enable_price_placeholder = models.BooleanField(default=False)
+    price_placeholder = models.CharField(max_length=255, null=True, blank=True)
+    price_prefix = models.CharField(max_length=255, null=True, blank=True)
+    after_price = models.CharField(max_length=255, null=True, blank=True)
+
+    building_area_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    size_postfix = models.CharField(max_length=64, null=True, blank=True)
+    land_area = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    land_area_size_postfix = models.CharField(max_length=64, null=True, blank=True)
+
+    bedrooms_total = models.IntegerField(null=True, blank=True)
+    rooms = models.IntegerField(null=True, blank=True)
+    bathrooms_total_integer = models.IntegerField(null=True, blank=True)
+    garages = models.IntegerField(null=True, blank=True)
+    garage_size = models.CharField(max_length=128, null=True, blank=True)
+    year_built = models.IntegerField(null=True, blank=True)
+    property_id_code = models.CharField(max_length=128, null=True, blank=True)
+    max_bedrooms = models.IntegerField(null=True, blank=True)
+    developer = models.TextField(null=True, blank=True)
+    occupancy_year = models.IntegerField(null=True, blank=True)
+    signing_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    lot_size = models.CharField(max_length=128, null=True, blank=True)
+    kitchens = models.IntegerField(null=True, blank=True)
+    tax_annual_amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    tax_year = models.IntegerField(null=True, blank=True)
+    basement = models.TextField(null=True, blank=True)
+    exterior_features = models.TextField(null=True, blank=True)
+
+    unparsed_address = models.CharField(max_length=2000, null=True, blank=True)
+    city = models.CharField(max_length=2000, null=True, blank=True)
+    state_or_province = models.CharField(max_length=2000, null=True, blank=True)
+    postal_code = models.CharField(max_length=20, null=True, blank=True)
+    country = models.CharField(max_length=50, null=True, blank=True)
+    latitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+
+    standard_status = models.CharField(max_length=50, null=True, blank=True)
+    modification_timestamp = models.DateTimeField(null=True, blank=True)
+    is_featured = models.BooleanField(default=False)
+
+    wp_meta_json = models.JSONField(default=dict, blank=True)
+    wp_terms_json = models.JSONField(default=dict, blank=True)
+    wp_post_json = models.JSONField(default=dict, blank=True)
+    description_sections_json = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        db_table = "mls_estateproperty"
+        managed = False
+
+    def __str__(self):
+        return f"EstateProperty<{self.listing_key}>"
+
+
 class CommunityListing(models.Model):
     property = models.ForeignKey(
         Property,

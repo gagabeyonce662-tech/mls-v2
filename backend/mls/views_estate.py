@@ -1,14 +1,23 @@
 import json
+import logging
+import os
+from uuid import uuid4
 
-from django.conf import settings
-from django.db import DataError, IntegrityError, ProgrammingError, connection
+from django.core.files.storage import default_storage
+from django.utils import timezone
+from django.db import DataError, DatabaseError, IntegrityError
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAdminUser, SAFE_METHODS
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .models import EstateProperty
 from .serializers import EstatePropertyWriteSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class EstatePropertyAPIViewMixin:
@@ -17,6 +26,7 @@ class EstatePropertyAPIViewMixin:
     wp_meta_column = "wp_meta_json"
     wp_terms_column = "wp_terms_json"
     wp_post_column = "wp_post_json"
+    description_sections_column = "description_sections_json"
 
     
 class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
@@ -134,34 +144,70 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
         "building_area_total",
     }
     BOOLEAN_FIELDS = {"enable_price_placeholder", "is_featured"}
+    DESCRIPTION_SECTION_MAX_COUNT = 25
+    DESCRIPTION_TITLE_MAX_LEN = 255
+    MAX_MEDIA_UPLOAD_FILES = 30
+    MAX_MEDIA_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024
 
     def get_permissions(self):
         if self.request and self.request.method in SAFE_METHODS:
             return [AllowAny()]
         return [IsAdminUser()]
 
-    @staticmethod
-    def _dictfetchall(cursor):
-        columns = [col[0] for col in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    @classmethod
+    def _db_data_type(cls, field):
+        internal = field.get_internal_type()
+        if internal in {"CharField", "SlugField", "URLField"}:
+            return "character varying"
+        if internal in {"TextField"}:
+            return "text"
+        if internal in {"BooleanField", "NullBooleanField"}:
+            return "boolean"
+        if internal in {"JSONField"}:
+            return "jsonb"
+        if internal in {"DateTimeField"}:
+            return "timestamp with time zone"
+        if internal in {"DateField"}:
+            return "date"
+        if internal in {"DecimalField"}:
+            return "numeric"
+        if internal in {"IntegerField", "PositiveIntegerField", "PositiveSmallIntegerField"}:
+            return "integer"
+        if internal in {"BigIntegerField", "BigAutoField"}:
+            return "bigint"
+        if internal in {"AutoField"}:
+            return "integer"
+        return internal.lower()
 
     @classmethod
     def _columns(cls):
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT column_name, data_type, is_nullable, column_default
-                FROM information_schema.columns
-                WHERE table_name = %s
-                ORDER BY ordinal_position
-                """,
-                [cls.table_name],
+        cols = []
+        for field in EstateProperty._meta.concrete_fields:
+            if not field.has_default():
+                default_value = None
+            else:
+                default = field.default
+                if callable(default):
+                    default_value = None
+                elif default is None:
+                    default_value = None
+                else:
+                    default_value = default
+            if default_value is None:
+                default_value = None
+            cols.append(
+                {
+                    "column_name": field.column,
+                    "data_type": cls._db_data_type(field),
+                    "is_nullable": "YES" if field.null else "NO",
+                    "column_default": default_value,
+                }
             )
-            return cls._dictfetchall(cursor)
+        return cols
 
     @classmethod
     def _column_names(cls):
-        return [c["column_name"] for c in cls._columns()]
+        return [f.column for f in EstateProperty._meta.concrete_fields]
 
     @classmethod
     def _normalize_taxonomy_key(cls, key):
@@ -182,6 +228,113 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
             return list(dict.fromkeys(out))
         text = str(value).strip()
         return [text] if text else []
+
+    @staticmethod
+    def _parse_json_object(value):
+        if isinstance(value, dict):
+            return dict(value)
+        if not isinstance(value, str):
+            return {}
+        text = value.strip()
+        if not text:
+            return {}
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            return {}
+        return {}
+
+    @staticmethod
+    def _looks_like_http_url(value):
+        text = str(value or "").strip()
+        return text.startswith("http://") or text.startswith("https://")
+
+    @classmethod
+    def _normalize_image_urls(cls, value):
+        if value is None:
+            return []
+        raw_items = []
+        if isinstance(value, (list, tuple, set)):
+            raw_items.extend(list(value))
+        elif isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return []
+            if text.startswith("[") and text.endswith("]"):
+                try:
+                    parsed = json.loads(text)
+                    if isinstance(parsed, list):
+                        raw_items.extend(parsed)
+                    else:
+                        raw_items.append(text)
+                except Exception:
+                    raw_items.append(text)
+            else:
+                raw_items.extend([chunk.strip() for chunk in text.split(",")])
+        else:
+            raw_items.append(value)
+
+        deduped = []
+        seen = set()
+        for item in raw_items:
+            url = str(item or "").strip()
+            if not url or not cls._looks_like_http_url(url):
+                continue
+            if url in seen:
+                continue
+            seen.add(url)
+            deduped.append(url)
+        return deduped
+
+    @classmethod
+    def _extract_gallery_urls_from_payload(cls, payload):
+        if not isinstance(payload, dict):
+            return [], False
+
+        provided = False
+        candidate_urls = []
+
+        for key in ("image_urls", "images", "gallery_image_urls"):
+            if key in payload:
+                provided = True
+                candidate_urls.extend(cls._normalize_image_urls(payload.get(key)))
+
+        wp_post = cls._parse_json_object(payload.get("wp_post_json"))
+        if "images" in wp_post:
+            provided = True
+            candidate_urls.extend(cls._normalize_image_urls(wp_post.get("images")))
+        if "gallery" in wp_post:
+            provided = True
+            candidate_urls.extend(cls._normalize_image_urls(wp_post.get("gallery")))
+
+        wp_meta = cls._parse_json_object(payload.get("wp_meta_json"))
+        if "gallery_image_urls" in wp_meta:
+            provided = True
+            candidate_urls.extend(
+                cls._normalize_image_urls(wp_meta.get("gallery_image_urls"))
+            )
+
+        return cls._normalize_image_urls(candidate_urls), provided
+
+    @classmethod
+    def _apply_gallery_urls(cls, mapped_payload, gallery_urls):
+        urls = cls._normalize_image_urls(gallery_urls)
+        wp_post = mapped_payload.get(cls.wp_post_column)
+        if not isinstance(wp_post, dict):
+            wp_post = {}
+        wp_meta = mapped_payload.get(cls.wp_meta_column)
+        if not isinstance(wp_meta, dict):
+            wp_meta = {}
+
+        wp_post = {**wp_post, "images": urls, "gallery": urls}
+        wp_meta = {**wp_meta, "gallery_image_urls": urls}
+
+        mapped_payload[cls.wp_post_column] = wp_post
+        mapped_payload[cls.wp_meta_column] = wp_meta
+        mapped_payload["featured_image_url"] = urls[0] if urls else ""
+        return mapped_payload
 
     @classmethod
     def _merge_taxonomy_terms(cls, existing_terms, incoming_terms):
@@ -236,6 +389,7 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
             self.wp_meta_column,
             self.wp_terms_column,
             self.wp_post_column,
+            self.description_sections_column,
         }
 
         for key, value in payload.items():
@@ -288,19 +442,24 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
 
     def _prepare_sql_payload(self, payload):
         """
-        Convert Python container values for JSON columns into DB-bindable JSON text.
-        Raw cursor bindings do not auto-adapt dict/list to JSONB.
+        Prepare normalized payload for ORM write.
+        Keep JSON columns as Python dict/list; coerce sets/tuples to lists.
         """
         json_columns = {
             self.wp_meta_column,
             self.wp_terms_column,
             self.wp_post_column,
+            self.description_sections_column,
         }
         prepared = {}
         for key, value in payload.items():
             if key in json_columns and isinstance(value, (dict, list, tuple, set)):
-                serializable = list(value) if isinstance(value, set) else value
-                prepared[key] = json.dumps(serializable)
+                if isinstance(value, set):
+                    prepared[key] = list(value)
+                elif isinstance(value, tuple):
+                    prepared[key] = list(value)
+                else:
+                    prepared[key] = value
             else:
                 prepared[key] = value
         return prepared
@@ -333,64 +492,66 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
         order_key = ordering.lstrip("-")
         if order_key not in allowed_order:
             order_key = "modification_timestamp"
-        order_sql = f"{order_key} DESC" if ordering.startswith("-") else f"{order_key} ASC"
+        order_expr = f"-{order_key}" if ordering.startswith("-") else order_key
 
-        where = []
-        params = []
+        queryset = EstateProperty.objects.all()
+
         if search:
-            where.append(
-                "(COALESCE(unparsed_address,'') ILIKE %s OR COALESCE(listing_key,'') ILIKE %s OR COALESCE(city,'') ILIKE %s OR COALESCE(property_title,'') ILIKE %s OR COALESCE(property_description,'') ILIKE %s OR COALESCE(property_slug,'') ILIKE %s)"
+            queryset = queryset.filter(
+                Q(unparsed_address__icontains=search)
+                | Q(listing_key__icontains=search)
+                | Q(city__icontains=search)
+                | Q(property_title__icontains=search)
+                | Q(property_description__icontains=search)
+                | Q(property_slug__icontains=search)
             )
-            q = f"%{search}%"
-            params.extend([q, q, q, q, q, q])
         if city:
-            where.append("city ILIKE %s")
-            params.append(f"%{city}%")
+            queryset = queryset.filter(city__icontains=city)
         if status_value:
-            where.append("standard_status = %s")
-            params.append(status_value)
+            queryset = queryset.filter(standard_status=status_value)
         if publish_status:
-            where.append("publish_status = %s")
-            params.append(publish_status)
+            queryset = queryset.filter(publish_status=publish_status)
         if expires_from:
-            where.append("expires_at >= %s")
-            params.append(expires_from)
+            queryset = queryset.filter(expires_at__gte=expires_from)
         if expires_to:
-            where.append("expires_at <= %s")
-            params.append(expires_to)
+            queryset = queryset.filter(expires_at__lte=expires_to)
 
-        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
-
-        with connection.cursor() as cursor:
-            cursor.execute(f"SELECT COUNT(*) FROM {self.table_name} {where_sql}", params)
-            total = cursor.fetchone()[0]
-            cursor.execute(
-                f"""
-                SELECT * FROM {self.table_name}
-                {where_sql}
-                ORDER BY {order_sql}
-                LIMIT %s OFFSET %s
-                """,
-                [*params, page_size, offset],
+        total = queryset.count()
+        rows = list(
+            queryset.order_by(order_expr)[offset : offset + page_size].values(
+                *self._column_names()
             )
-            rows = self._dictfetchall(cursor)
+        )
 
         return Response({"count": total, "page": page, "page_size": page_size, "results": rows})
 
     def retrieve(self, request, pk=None):
-        with connection.cursor() as cursor:
-            cursor.execute(f"SELECT * FROM {self.table_name} WHERE id = %s", [pk])
-            rows = self._dictfetchall(cursor)
-        if not rows:
+        row = EstateProperty.objects.filter(id=pk).values(*self._column_names()).first()
+        if not row:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        return Response(rows[0])
+        return Response(row)
 
     def create(self, request):
         serializer = EstatePropertyWriteSerializer(data={"payload": request.data})
         serializer.is_valid(raise_exception=True)
-        payload = dict(serializer.validated_data["payload"])
-        payload = self._split_payload(payload)
+        raw_payload = dict(serializer.validated_data["payload"])
+        logger.warning(
+            "[estate:create] request payload keys=%s",
+            sorted(raw_payload.keys()),
+        )
+        gallery_urls, gallery_provided = self._extract_gallery_urls_from_payload(
+            raw_payload
+        )
+
+        payload = self._split_payload(raw_payload)
+        if gallery_provided:
+            payload = self._apply_gallery_urls(payload, gallery_urls)
         payload = self._prepare_sql_payload(payload)
+        logger.warning(
+            "[estate:create] normalized payload keys=%s gallery_count=%s",
+            sorted(payload.keys()),
+            len(gallery_urls),
+        )
         payload.setdefault("is_featured", False)
         if not payload.get("listing_key"):
             return Response(
@@ -398,23 +559,14 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        keys = list(payload.keys())
-        vals = [payload[k] for k in keys]
-        cols = ", ".join(keys)
-        placeholders = ", ".join(["%s"] * len(keys))
-
-        with connection.cursor() as cursor:
-            try:
-                cursor.execute(
-                    f"INSERT INTO {self.table_name} ({cols}) VALUES ({placeholders}) RETURNING id",
-                    vals,
-                )
-                new_id = cursor.fetchone()[0]
-            except (DataError, IntegrityError, ProgrammingError) as exc:
-                raise ValidationError(
-                    {"detail": "Invalid payload for estate property create.", "error": str(exc)}
-                ) from exc
-        return self.retrieve(request, pk=new_id)
+        try:
+            created = EstateProperty.objects.create(**payload)
+        except (DataError, IntegrityError, DatabaseError, TypeError, ValueError) as exc:
+            logger.exception("[estate:create] failed")
+            raise ValidationError(
+                {"detail": "Invalid payload for estate property create.", "error": str(exc)}
+            ) from exc
+        return self.retrieve(request, pk=created.id)
 
     def update(self, request, pk=None):
         return self._update_internal(request, pk)
@@ -425,32 +577,61 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
     def _update_internal(self, request, pk):
         serializer = EstatePropertyWriteSerializer(data={"payload": request.data})
         serializer.is_valid(raise_exception=True)
-        payload = dict(serializer.validated_data["payload"])
-        payload = self._split_payload(payload)
-        payload = self._prepare_sql_payload(payload)
+        raw_payload = dict(serializer.validated_data["payload"])
+        logger.warning(
+            "[estate:update] pk=%s request payload keys=%s",
+            pk,
+            sorted(raw_payload.keys()),
+        )
+        try:
+            gallery_urls, gallery_provided = self._extract_gallery_urls_from_payload(
+                raw_payload
+            )
+
+            payload = self._split_payload(raw_payload)
+            if gallery_provided:
+                payload = self._apply_gallery_urls(payload, gallery_urls)
+            payload = self._prepare_sql_payload(payload)
+        except ValidationError:
+            logger.exception("[estate:update] pk=%s normalization validation failed", pk)
+            raise
+        except Exception as exc:
+            logger.exception("[estate:update] pk=%s normalization failed", pk)
+            return Response(
+                {
+                    "detail": "Estate payload normalization failed.",
+                    "error": str(exc),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        logger.warning(
+            "[estate:update] pk=%s normalized payload keys=%s gallery_count=%s",
+            pk,
+            sorted(payload.keys()),
+            len(gallery_urls),
+        )
         if not payload:
             return Response({"detail": "No valid fields provided."}, status=status.HTTP_400_BAD_REQUEST)
 
-        set_sql = ", ".join([f"{k} = %s" for k in payload.keys()])
-        with connection.cursor() as cursor:
-            try:
-                cursor.execute(
-                    f"UPDATE {self.table_name} SET {set_sql} WHERE id = %s",
-                    [*payload.values(), pk],
-                )
-            except (DataError, IntegrityError, ProgrammingError) as exc:
-                raise ValidationError(
-                    {"detail": "Invalid payload for estate property update.", "error": str(exc)}
-                ) from exc
-            if cursor.rowcount == 0:
-                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        instance = EstateProperty.objects.filter(id=pk).first()
+        if not instance:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        for key, value in payload.items():
+            setattr(instance, key, value)
+        try:
+            instance.save(update_fields=list(payload.keys()))
+        except (DataError, IntegrityError, DatabaseError, TypeError, ValueError) as exc:
+            logger.exception("[estate:update] pk=%s failed", pk)
+            raise ValidationError(
+                {"detail": "Invalid payload for estate property update.", "error": str(exc)}
+            ) from exc
         return self.retrieve(request, pk=pk)
 
     def destroy(self, request, pk=None):
-        with connection.cursor() as cursor:
-            cursor.execute(f"DELETE FROM {self.table_name} WHERE id = %s", [pk])
-            if cursor.rowcount == 0:
-                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        deleted_count, _ = EstateProperty.objects.filter(id=pk).delete()
+        if deleted_count == 0:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -480,3 +661,88 @@ class EstatePropertyDetailAPIView(EstatePropertyAPIViewMixinMethods, APIView):
 class EstatePropertySchemaAPIView(EstatePropertyAPIViewMixinMethods, APIView):
     def get(self, request, *args, **kwargs):
         return self.schema(request)
+
+
+class EstatePropertyMediaUploadAPIView(EstatePropertyAPIViewMixinMethods, APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, *args, **kwargs):
+        files = request.FILES.getlist("images")
+        logger.warning(
+            "[estate:media-upload] incoming files=%s storage_backend=%s",
+            len(files),
+            f"{default_storage.__class__.__module__}.{default_storage.__class__.__name__}",
+        )
+        if not files:
+            return Response(
+                {"detail": "No files provided. Use multipart field name 'images'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(files) > self.MAX_MEDIA_UPLOAD_FILES:
+            return Response(
+                {
+                    "detail": (
+                        f"Too many files. Maximum {self.MAX_MEDIA_UPLOAD_FILES} "
+                        "images per request."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        uploaded = []
+        for index, file_obj in enumerate(files):
+            content_type = str(getattr(file_obj, "content_type", "") or "")
+            if not content_type.startswith("image/"):
+                return Response(
+                    {
+                        "detail": (
+                            f"Invalid file type for item #{index + 1}. "
+                            "Only image uploads are allowed."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            file_size = int(getattr(file_obj, "size", 0) or 0)
+            if file_size > self.MAX_MEDIA_UPLOAD_SIZE_BYTES:
+                return Response(
+                    {
+                        "detail": (
+                            f"File too large for item #{index + 1}. "
+                            f"Max size is {self.MAX_MEDIA_UPLOAD_SIZE_BYTES // (1024 * 1024)}MB."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            original_name = str(getattr(file_obj, "name", "") or "image")
+            base_name = os.path.basename(original_name).replace(" ", "_")
+            stamped_name = (
+                f"estate-properties/{timezone.now():%Y/%m}/"
+                f"{uuid4().hex}-{base_name}"
+            )
+            stored_path = default_storage.save(stamped_name, file_obj)
+            raw_url = default_storage.url(stored_path)
+            file_url = (
+                raw_url
+                if str(raw_url).startswith("http://")
+                or str(raw_url).startswith("https://")
+                else request.build_absolute_uri(raw_url)
+            )
+            logger.warning(
+                "[estate:media-upload] saved filename=%s storage_key=%s url=%s",
+                original_name,
+                stored_path,
+                file_url,
+            )
+
+            uploaded.append(
+                {
+                    "url": file_url,
+                    "storage_key": stored_path,
+                    "filename": original_name,
+                    "content_type": content_type,
+                    "size": file_size,
+                }
+            )
+
+        return Response({"count": len(uploaded), "results": uploaded})
