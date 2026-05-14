@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Editor as HugeRTEditor } from "@hugerte/hugerte-react";
-import type { EstatePropertyRecord } from "@/lib/api/admin";
+import {
+  uploadEstatePropertyMedia,
+  type EstatePropertyRecord,
+} from "@/lib/api/admin";
+import LocationPicker from "@/components/admin/LocationPicker";
 import "hugerte/hugerte";
 import "hugerte/models/dom";
 import "hugerte/themes/silver";
@@ -28,7 +32,10 @@ type Column = {
 interface Props {
   columns: Column[];
   initialValues?: EstatePropertyRecord;
-  onSubmit: (payload: EstatePropertyRecord) => Promise<void>;
+  onSubmit: (
+    payload: EstatePropertyRecord,
+    options?: { stayOnPage?: boolean; isDraft?: boolean },
+  ) => Promise<void>;
   submitLabel: string;
 }
 
@@ -137,6 +144,7 @@ const TAXONOMY_OPTIONS: Record<(typeof TAXONOMY_KEYS)[number], string[]> = {
 };
 
 const DEFAULT_DESCRIPTION_SECTION_TITLE = "Overview";
+const MAX_LOCAL_MEDIA_FILES = 30;
 
 function createSectionId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -182,6 +190,72 @@ function normalizeDescriptionSections(
   ];
 }
 
+function parseJsonObject(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== "string") return {};
+  const text = value.trim();
+  if (!text) return {};
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeImageUrls(value: unknown): string[] {
+  if (!value) return [];
+  const raw: unknown[] = [];
+
+  if (Array.isArray(value)) {
+    raw.push(...value);
+  } else if (typeof value === "string") {
+    const text = value.trim();
+    if (!text) return [];
+    if (text.startsWith("[") && text.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) raw.push(...parsed);
+        else raw.push(text);
+      } catch {
+        raw.push(...text.split(","));
+      }
+    } else {
+      raw.push(...text.split(","));
+    }
+  } else {
+    raw.push(value);
+  }
+
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+  raw.forEach((item) => {
+    const url = String(item ?? "").trim();
+    if (!url || (!url.startsWith("http://") && !url.startsWith("https://"))) {
+      return;
+    }
+    if (seen.has(url)) return;
+    seen.add(url);
+    deduped.push(url);
+  });
+  return deduped;
+}
+
+function extractGalleryUrls(record: EstatePropertyRecord): string[] {
+  const wpPost = parseJsonObject(record?.wp_post_json);
+  const wpMeta = parseJsonObject(record?.wp_meta_json);
+
+  return normalizeImageUrls([
+    ...(normalizeImageUrls(wpPost["images"]) || []),
+    ...(normalizeImageUrls(wpPost["gallery"]) || []),
+    ...(normalizeImageUrls(wpMeta["gallery_image_urls"]) || []),
+    record?.featured_image_url,
+  ]);
+}
 export default function EstatePropertyForm({
   columns,
   initialValues = {},
@@ -198,6 +272,11 @@ export default function EstatePropertyForm({
   const [submitError, setSubmitError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [summaryErrors, setSummaryErrors] = useState<string[]>([]);
+  const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
+  const [galleryUrlInput, setGalleryUrlInput] = useState("");
+  const [pendingUploads, setPendingUploads] = useState<File[]>([]);
+  const [mediaError, setMediaError] = useState("");
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
 
   useEffect(() => {
     setForm((prev) => {
@@ -208,6 +287,10 @@ export default function EstatePropertyForm({
       }
       return initialValues || {};
     });
+    setGalleryUrls(extractGalleryUrls(initialValues || {}));
+    setGalleryUrlInput("");
+    setPendingUploads([]);
+    setMediaError("");
   }, [initialValues]); // Allow sync when switching to a DIFFERENT listing
 
   const editableColumns = useMemo(
@@ -350,7 +433,63 @@ export default function EstatePropertyForm({
     return Array.isArray(current) ? current.map((x) => String(x)) : [];
   };
 
-  const submitWithValidation = async (payload: EstatePropertyRecord) => {
+  const addGalleryUrl = () => {
+    const candidate = galleryUrlInput.trim();
+    setMediaError("");
+    if (!candidate) return;
+
+    try {
+      const parsed = new URL(candidate);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        setMediaError("Image URL must start with http:// or https://");
+        return;
+      }
+    } catch {
+      setMediaError("Please enter a valid image URL.");
+      return;
+    }
+
+    setGalleryUrls((prev) => normalizeImageUrls([...prev, candidate]));
+    setGalleryUrlInput("");
+  };
+
+  const removeGalleryUrl = (index: number) => {
+    setGalleryUrls((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const moveGalleryUrl = (index: number, direction: -1 | 1) => {
+    setGalleryUrls((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      const [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      return next;
+    });
+  };
+
+  const handleLocalUploads = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setMediaError("");
+    const next = [...pendingUploads, ...Array.from(files)];
+    if (next.length > MAX_LOCAL_MEDIA_FILES) {
+      setMediaError(
+        `You can queue up to ${MAX_LOCAL_MEDIA_FILES} images per save.`,
+      );
+      setPendingUploads(next.slice(0, MAX_LOCAL_MEDIA_FILES));
+      return;
+    }
+    setPendingUploads(next);
+  };
+
+  const removePendingUpload = (index: number) => {
+    setPendingUploads((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const submitWithValidation = async (
+    payload: EstatePropertyRecord,
+    options?: { stayOnPage?: boolean; isDraft?: boolean },
+  ) => {
     setSubmitError("");
     const nextFieldErrors: Record<string, string> = {};
     const nextSummaryErrors: string[] = [];
@@ -368,6 +507,25 @@ export default function EstatePropertyForm({
     setSummaryErrors([]);
 
     setIsSaving(true);
+    let uploadedUrls: string[] = [];
+    if (pendingUploads.length > 0) {
+      setIsUploadingMedia(true);
+      try {
+        const uploaded = await uploadEstatePropertyMedia(pendingUploads);
+        uploadedUrls = normalizeImageUrls(uploaded.map((item) => item.url));
+      } catch (err: any) {
+        setSubmitError(err?.message || "Unable to upload images.");
+        setIsSaving(false);
+        setIsUploadingMedia(false);
+        return;
+      } finally {
+        setIsUploadingMedia(false);
+      }
+    }
+
+    // Put newly uploaded media first so users immediately see the latest upload
+    // as the featured image unless they reorder manually.
+    const finalGalleryUrls = normalizeImageUrls([...uploadedUrls, ...galleryUrls]);
     const normalizedPayload: EstatePropertyRecord = { ...payload };
     const normalizedSections = normalizeDescriptionSections(
       normalizedPayload.description_sections_json,
@@ -385,6 +543,18 @@ export default function EstatePropertyForm({
       normalizedPayload.property_description =
         normalizedPayload.description_sections_json[0]?.body_html ?? "";
     }
+    const existingWpPost = parseJsonObject(normalizedPayload.wp_post_json);
+    const existingWpMeta = parseJsonObject(normalizedPayload.wp_meta_json);
+    normalizedPayload.wp_post_json = {
+      ...existingWpPost,
+      images: finalGalleryUrls,
+      gallery: finalGalleryUrls,
+    };
+    normalizedPayload.wp_meta_json = {
+      ...existingWpMeta,
+      gallery_image_urls: finalGalleryUrls,
+    };
+    normalizedPayload.featured_image_url = finalGalleryUrls[0] ?? "";
     delete normalizedPayload.id;
     for (const [field, rawValue] of Object.entries(normalizedPayload)) {
       const dataType = columnTypeMap.get(field) || "";
@@ -442,7 +612,11 @@ export default function EstatePropertyForm({
       normalizedPayload.is_featured = false;
     }
     try {
-      await onSubmit(normalizedPayload);
+      await onSubmit(normalizedPayload, options);
+      if (uploadedUrls.length > 0) {
+        setGalleryUrls(finalGalleryUrls);
+        setPendingUploads([]);
+      }
     } catch (err: any) {
       setSubmitError(err?.message || "Unable to save estate property.");
     } finally {
@@ -452,7 +626,7 @@ export default function EstatePropertyForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await submitWithValidation(form);
+    await submitWithValidation(form, { stayOnPage: false, isDraft: false });
   };
 
   const handleSaveDraft = async () => {
@@ -461,7 +635,10 @@ export default function EstatePropertyForm({
       publish_status: "draft",
     };
     setForm(draftPayload);
-    await submitWithValidation(draftPayload);
+    await submitWithValidation(draftPayload, {
+      stayOnPage: true,
+      isDraft: true,
+    });
   };
 
   const applyJsonPayload = () => {
@@ -539,6 +716,10 @@ export default function EstatePropertyForm({
         }
         return next;
       });
+      const parsedGallery = extractGalleryUrls(parsed as EstatePropertyRecord);
+      if (parsedGallery.length > 0) {
+        setGalleryUrls(parsedGallery);
+      }
     } catch {
       setJsonError("Invalid JSON format.");
     }
@@ -737,6 +918,23 @@ export default function EstatePropertyForm({
 
           <div className="bg-white border rounded-xl p-4">
             <h2 className="text-lg font-semibold mb-3">Property Settings</h2>
+            {editableColumnNames.has("latitude") &&
+            editableColumnNames.has("longitude") ? (
+              <div className="mb-4">
+                <LocationPicker
+                  latitude={form.latitude}
+                  longitude={form.longitude}
+                  address={String(form.unparsed_address ?? "")}
+                  onCoordinatesChange={(nextLat, nextLng) => {
+                    handleChange("latitude", nextLat);
+                    handleChange("longitude", nextLng);
+                  }}
+                  onAddressChange={(nextAddress) =>
+                    handleChange("unparsed_address", nextAddress)
+                  }
+                />
+              </div>
+            ) : null}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 "list_price",
@@ -772,8 +970,6 @@ export default function EstatePropertyForm({
                 "state_or_province",
                 "postal_code",
                 "country",
-                "latitude",
-                "longitude",
               ]
                 .filter((key) => editableColumnNames.has(key))
                 .map((key) => (
@@ -893,18 +1089,117 @@ export default function EstatePropertyForm({
 
           <div className="bg-white border rounded-xl p-4 space-y-3">
             <h2 className="text-base font-semibold">Media</h2>
-            <label className="space-y-1 block">
+            <p className="text-xs text-gray-500">
+              Add images by URL or upload. Uploaded files are stored through the
+              backend storage (Cloudinary when configured). The first image is
+              used as <code>featured_image_url</code>.
+            </p>
+            <div className="space-y-2">
               <span className="text-xs font-semibold text-gray-600">
-                featured_image_url
+                Add image URL
+              </span>
+              <div className="flex items-center gap-2">
+                <input
+                  value={galleryUrlInput}
+                  onChange={(e) => setGalleryUrlInput(e.target.value)}
+                  placeholder="https://example.com/property-photo.jpg"
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={addGalleryUrl}
+                  className="px-3 py-2 rounded-lg border text-sm font-medium"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-gray-600">
+                Upload images
               </span>
               <input
-                value={String(form.featured_image_url ?? "")}
-                onChange={(e) =>
-                  handleChange("featured_image_url", e.target.value)
-                }
-                className="w-full rounded-lg border px-3 py-2 text-sm"
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={(e) => handleLocalUploads(e.target.files)}
+                className="w-full rounded-lg border px-3 py-2 text-sm bg-white"
               />
-            </label>
+              {pendingUploads.length > 0 ? (
+                <div className="rounded-lg border p-2 space-y-1">
+                  <p className="text-xs font-semibold text-gray-600">
+                    Pending upload ({pendingUploads.length})
+                  </p>
+                  <ul className="space-y-1">
+                    {pendingUploads.map((file, idx) => (
+                      <li
+                        key={`${file.name}-${idx}`}
+                        className="flex items-center justify-between gap-2 text-xs"
+                      >
+                        <span className="truncate">
+                          {file.name} ({Math.max(1, Math.round(file.size / 1024))}KB)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removePendingUpload(idx)}
+                          className="px-2 py-1 rounded border"
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-gray-600">
+                Final gallery order ({galleryUrls.length + pendingUploads.length})
+              </span>
+              {galleryUrls.length > 0 ? (
+                <ul className="space-y-2">
+                  {galleryUrls.map((url, idx) => (
+                    <li key={`${url}-${idx}`} className="rounded-lg border p-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-gray-600">
+                          {idx + 1}. {idx === 0 ? "Featured image" : "Gallery image"}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveGalleryUrl(idx, -1)}
+                            disabled={idx === 0}
+                            className="px-2 py-1 rounded border text-xs disabled:opacity-40"
+                          >
+                            Up
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveGalleryUrl(idx, 1)}
+                            disabled={idx === galleryUrls.length - 1}
+                            className="px-2 py-1 rounded border text-xs disabled:opacity-40"
+                          >
+                            Down
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeGalleryUrl(idx)}
+                            className="px-2 py-1 rounded border text-xs"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-700 break-all">{url}</p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="rounded-lg border border-dashed p-3 text-xs text-gray-500">
+                  No URL images added yet.
+                </div>
+              )}
+            </div>
             <label className="space-y-1 block">
               <span className="text-xs font-semibold text-gray-600">
                 video_url
@@ -923,32 +1218,9 @@ export default function EstatePropertyForm({
                 className="w-full rounded-lg border px-3 py-2 text-sm"
               />
             </label>
-            <label className="space-y-1 block">
-              <span className="text-xs font-semibold text-gray-600">
-                gallery_image_urls (comma-separated)
-              </span>
-              <textarea
-                rows={3}
-                value={
-                  Array.isArray(form.wp_meta_json?.gallery_image_urls)
-                    ? form.wp_meta_json.gallery_image_urls.join(", ")
-                    : ""
-                }
-                onChange={(e) =>
-                  setJsonField("wp_meta_json", {
-                    ...(typeof form.wp_meta_json === "object" &&
-                      form.wp_meta_json
-                      ? form.wp_meta_json
-                      : {}),
-                    gallery_image_urls: e.target.value
-                      .split(",")
-                      .map((x) => x.trim())
-                      .filter(Boolean),
-                  })
-                }
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
-            </label>
+            {mediaError ? (
+              <p className="text-xs text-red-600">{mediaError}</p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -976,14 +1248,14 @@ export default function EstatePropertyForm({
           disabled={isSaving}
           className="px-4 py-2 rounded-lg border text-sm font-semibold disabled:opacity-60"
         >
-          {isSaving ? "Saving..." : "Save Draft"}
+          {isSaving ? (isUploadingMedia ? "Uploading..." : "Saving...") : "Save Draft"}
         </button>
         <button
           type="submit"
           disabled={isSaving}
           className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
         >
-          {isSaving ? "Saving..." : submitLabel}
+          {isSaving ? (isUploadingMedia ? "Uploading..." : "Saving...") : submitLabel}
         </button>
       </div>
     </form>

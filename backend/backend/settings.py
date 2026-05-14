@@ -19,9 +19,15 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load env values from backend/.env.local, then repo root .env.local.
-load_dotenv(BASE_DIR / ".env.local")
-load_dotenv(BASE_DIR.parent / ".env.local")
+# Load env values from local-first files, then .env fallback files.
+# Keep override=False so real environment variables retain highest priority.
+for _env_path in (
+    BASE_DIR / ".env.local",
+    BASE_DIR.parent / ".env.local",
+    BASE_DIR / ".env",
+    BASE_DIR.parent / ".env",
+):
+    load_dotenv(_env_path, override=False)
 
 
 # Quick-start development settings - unsuitable for production
@@ -192,7 +198,24 @@ _cloudinary_complete = all(
         (os.environ.get("CLOUDINARY_API_SECRET") or "").strip(),
     ]
 )
+if IS_VERCEL:
+    _staticfiles_backend = "whitenoise.storage.CompressedStaticFilesStorage"
+    WHITENOISE_USE_FINDERS = True
+else:
+    _staticfiles_backend = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": _staticfiles_backend,
+    },
+}
+
 if _cloudinary_url or _cloudinary_complete:
+    STORAGES["default"]["BACKEND"] = "cloudinary_storage.storage.MediaCloudinaryStorage"
+    # Keep compatibility with codepaths still checking this setting.
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
 STATIC_URL = "/static/"
@@ -200,16 +223,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")] 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# Simplified static file serving.
-# On Vercel serverless, collectstatic output is often unavailable at runtime.
-# Using non-manifest storage avoids hard failures (500) on admin/template static lookups.
-if IS_VERCEL:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
-    WHITENOISE_USE_FINDERS = True
-else:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
 
 # path inside MEDIA_ROOT where ckeditor uploads go
 CKEDITOR_UPLOAD_PATH = "uploads/"

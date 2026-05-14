@@ -2,6 +2,7 @@ import json
 from datetime import timedelta
 from decimal import Decimal
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -364,6 +365,68 @@ class EstatePropertyAPITests(TestCase):
         self.assertEqual(updated_json.get("property_description"), "")
         self.assertEqual(updated_json.get("description_sections_json"), [])
 
+    @override_settings(DEBUG=False)
+    def test_estate_property_create_syncs_gallery_fields(self):
+        staff_user = get_user_model().objects.create_user(
+            email="estate-admin-gallery@example.com",
+            password="safe-password-123",
+            is_staff=True,
+        )
+        self.client.force_login(staff_user)
+
+        image_urls = [
+            "https://res.cloudinary.com/demo/image/upload/sample-1.jpg",
+            "https://res.cloudinary.com/demo/image/upload/sample-2.jpg",
+        ]
+        payload = {
+            "listing_key": "estate-gallery-1",
+            "property_title": "Gallery Estate Home",
+            "city": "Toronto",
+            "publish_status": "draft",
+            "image_urls": image_urls,
+        }
+        response = self.client.post(
+            "/api/mls/estate-properties/",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data.get("featured_image_url"), image_urls[0])
+        self.assertEqual((data.get("wp_post_json") or {}).get("images"), image_urls)
+        self.assertEqual((data.get("wp_post_json") or {}).get("gallery"), image_urls)
+        self.assertEqual(
+            (data.get("wp_meta_json") or {}).get("gallery_image_urls"),
+            image_urls,
+        )
+
+    @override_settings(DEBUG=False)
+    def test_estate_property_media_upload_accepts_multiple_images(self):
+        staff_user = get_user_model().objects.create_user(
+            email="estate-admin-upload@example.com",
+            password="safe-password-123",
+            is_staff=True,
+        )
+        self.client.force_login(staff_user)
+
+        gif_bytes = (
+            b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!"
+            b"\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00"
+            b"\x00\x02\x02D\x01\x00;"
+        )
+        file_a = SimpleUploadedFile("a.gif", gif_bytes, content_type="image/gif")
+        file_b = SimpleUploadedFile("b.gif", gif_bytes, content_type="image/gif")
+
+        response = self.client.post(
+            "/api/mls/estate-properties/media-upload/",
+            data={"images": [file_a, file_b]},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload.get("count"), 2)
+        self.assertEqual(len(payload.get("results") or []), 2)
+        for row in payload.get("results") or []:
+            self.assertTrue(str(row.get("url") or ""))
 
 class WatchedAPITests(TestCase):
     def setUp(self):

@@ -1,4 +1,5 @@
 import type { Property, PropertyMedia } from "./types";
+import { API_BASE_URL } from "./client";
 
 type JsonMap = Record<string, unknown>;
 
@@ -47,7 +48,20 @@ const NEXT_ALLOWED_IMAGE_HOSTS = new Set([
   "www.estate-4u.com",
   "estate4u.ca",
   "www.estate4u.ca",
+  "res.cloudinary.com",
 ]);
+
+try {
+  const apiUrl = String(API_BASE_URL || "").trim();
+  if (apiUrl) {
+    const parsed = new URL(apiUrl);
+    if (parsed.hostname) {
+      NEXT_ALLOWED_IMAGE_HOSTS.add(parsed.hostname);
+    }
+  }
+} catch {
+  // Ignore malformed API base URL and continue with static allowlist.
+}
 function parseJsonLike(value: unknown): JsonMap {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     return value as JsonMap;
@@ -202,7 +216,13 @@ function inferProvinceFromAddress(value: unknown): string {
 
 function toCleanString(value: unknown): string {
   if (value == null) return "";
-  return String(value).trim();
+  const text = String(value).trim();
+  if (!text) return "";
+  if (text.startsWith("/media/")) {
+    const base = String(API_BASE_URL || "").trim().replace(/\/+$/, "");
+    return base ? `${base}${text}` : text;
+  }
+  return text;
 }
 
 function firstString(...values: unknown[]): string {

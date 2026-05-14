@@ -6,15 +6,21 @@ import { API_BASE_URL } from "./client";
  */
 async function handleResponseError(res: Response, fallbackTitle: string) {
   let errorMessage = fallbackTitle;
-  try {
-    const data = await res.json();
-    // Common API error structures: { detail: "..." } or { error: "..." } or { field: ["error"] }
-    if (data.detail) errorMessage = data.detail;
-    else if (data.error) errorMessage = data.error;
-    else if (typeof data === 'object') errorMessage = JSON.stringify(data);
-  } catch {
-    const text = await res.text();
-    errorMessage = text || `${res.status} ${res.statusText}`;
+  const rawText = await res.text();
+
+  if (rawText) {
+    try {
+      const data = JSON.parse(rawText);
+      // Common API error structures: { detail: "..." } or { error: "..." } or { field: ["error"] }
+      if (data?.detail) errorMessage = String(data.detail);
+      else if (data?.error) errorMessage = String(data.error);
+      else if (typeof data === "object") errorMessage = JSON.stringify(data);
+      else errorMessage = String(data);
+    } catch {
+      errorMessage = rawText;
+    }
+  } else {
+    errorMessage = `${res.status} ${res.statusText}`;
   }
   throw new Error(errorMessage);
 }
@@ -219,6 +225,14 @@ export interface EstatePropertyListResponse {
   results: EstatePropertyRecord[];
 }
 
+export interface EstatePropertyUploadedMedia {
+  url: string;
+  storage_key?: string;
+  filename?: string;
+  content_type?: string;
+  size?: number;
+}
+
 export async function fetchEstatePropertySchema(): Promise<{
   table: string;
   columns: Array<{
@@ -304,6 +318,29 @@ export async function updateEstateProperty(
   });
   if (!res.ok) await handleResponseError(res, "Failed to update estate property.");
   return res.json();
+}
+
+export async function uploadEstatePropertyMedia(
+  files: File[],
+): Promise<EstatePropertyUploadedMedia[]> {
+  if (!Array.isArray(files) || files.length === 0) return [];
+
+  const url = `${API_BASE_URL}/api/mls/estate-properties/media-upload/`;
+  const form = new FormData();
+  files.forEach((file) => form.append("images", file));
+
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: authHeaders(),
+    body: form,
+  });
+  if (!res.ok) {
+    await handleResponseError(res, "Failed to upload estate media.");
+  }
+  const payload = await res.json();
+  const rows = Array.isArray(payload?.results) ? payload.results : [];
+  return rows.filter((item: any) => typeof item?.url === "string");
 }
 
 export async function deleteEstateProperty(id: string | number): Promise<void> {

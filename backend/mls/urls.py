@@ -5,6 +5,7 @@ from .views import *
 from .views_estate import (
     EstatePropertyDetailAPIView,
     EstatePropertyListCreateAPIView,
+    EstatePropertyMediaUploadAPIView,
     EstatePropertySchemaAPIView,
 )
 from .views_properties import PropertyFilterView
@@ -59,6 +60,7 @@ urlpatterns = [
     path('property-notes/', PropertyNoteAPIView.as_view(), name='property-notes'),
     path('properties/<str:PropertyKey>/', PropertyDetailView.as_view(), name='property_detail_path'),
     path('estate-properties/schema/', EstatePropertySchemaAPIView.as_view(), name='estate-property-schema'),
+    path('estate-properties/media-upload/', EstatePropertyMediaUploadAPIView.as_view(), name='estate-property-media-upload'),
     path('estate-properties/<int:pk>/', EstatePropertyDetailAPIView.as_view(), name='estate-property-detail'),
     path('estate-properties/', EstatePropertyListCreateAPIView.as_view(), name='estate-property-list'),
 ]

@@ -45,9 +45,17 @@ export default function EditEstatePropertyPage() {
       );
   }, [id, toast]);
 
-  const onSubmit = async (payload: EstatePropertyRecord) => {
+  const onSubmit = async (
+    payload: EstatePropertyRecord,
+    options?: { stayOnPage?: boolean; isDraft?: boolean },
+  ) => {
     try {
       await updateEstateProperty(id, payload);
+      if (options?.stayOnPage) {
+        toast({ title: "Draft Saved", description: "Draft saved successfully." });
+        router.refresh();
+        return;
+      }
       toast({ title: "Updated", description: "Estate property updated." });
       router.push("/admin/estate-properties");
     } catch (e: any) {
