@@ -34,9 +34,20 @@ export default function NewEstatePropertyPage() {
       );
   }, [toast]);
 
-  const onSubmit = async (payload: EstatePropertyRecord) => {
+  const onSubmit = async (
+    payload: EstatePropertyRecord,
+    options?: { stayOnPage?: boolean; isDraft?: boolean },
+  ) => {
     try {
-      await createEstateProperty(payload);
+      const created = await createEstateProperty(payload);
+      if (options?.stayOnPage) {
+        toast({ title: "Draft Saved", description: "Draft saved successfully." });
+        if (created?.id) {
+          router.replace(`/admin/estate-properties/${created.id}`);
+        }
+        router.refresh();
+        return;
+      }
       toast({ title: "Created", description: "Estate property created." });
       router.push("/admin/estate-properties");
     } catch (e: any) {

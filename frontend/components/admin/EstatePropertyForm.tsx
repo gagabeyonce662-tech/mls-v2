@@ -32,7 +32,10 @@ type Column = {
 interface Props {
   columns: Column[];
   initialValues?: EstatePropertyRecord;
-  onSubmit: (payload: EstatePropertyRecord) => Promise<void>;
+  onSubmit: (
+    payload: EstatePropertyRecord,
+    options?: { stayOnPage?: boolean; isDraft?: boolean },
+  ) => Promise<void>;
   submitLabel: string;
 }
 
@@ -413,7 +416,10 @@ export default function EstatePropertyForm({
     setPendingUploads((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const submitWithValidation = async (payload: EstatePropertyRecord) => {
+  const submitWithValidation = async (
+    payload: EstatePropertyRecord,
+    options?: { stayOnPage?: boolean; isDraft?: boolean },
+  ) => {
     setSubmitError("");
     const nextFieldErrors: Record<string, string> = {};
     const nextSummaryErrors: string[] = [];
@@ -538,7 +544,7 @@ export default function EstatePropertyForm({
       normalizedPayload.is_featured = false;
     }
     try {
-      await onSubmit(normalizedPayload);
+      await onSubmit(normalizedPayload, options);
       if (uploadedUrls.length > 0) {
         setGalleryUrls(finalGalleryUrls);
         setPendingUploads([]);
@@ -552,7 +558,7 @@ export default function EstatePropertyForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await submitWithValidation(form);
+    await submitWithValidation(form, { stayOnPage: false, isDraft: false });
   };
 
   const handleSaveDraft = async () => {
@@ -561,7 +567,10 @@ export default function EstatePropertyForm({
       publish_status: "draft",
     };
     setForm(draftPayload);
-    await submitWithValidation(draftPayload);
+    await submitWithValidation(draftPayload, {
+      stayOnPage: true,
+      isDraft: true,
+    });
   };
 
   const applyJsonPayload = () => {
