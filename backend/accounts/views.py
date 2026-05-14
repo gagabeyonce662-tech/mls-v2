@@ -9,6 +9,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
 from django.conf import settings
+try:
+    from twilio.rest import Client as TwilioClient
+    from twilio.base.exceptions import TwilioRestException
+    _twilio_available = True
+except ImportError:
+    _twilio_available = False
 
 from .serializers import (
     RegisterSerializer,
@@ -342,6 +348,74 @@ class FacebookAuthView(APIView):
                 **tokens,
             }
         )
+
+
+def _get_twilio_client():
+    sid = getattr(settings, 'TWILIO_ACCOUNT_SID', '')
+    token = getattr(settings, 'TWILIO_AUTH_TOKEN', '')
+    service = getattr(settings, 'TWILIO_VERIFY_SERVICE_SID', '')
+    if not (sid and token and service):
+        return None, None
+    if not _twilio_available:
+        return None, None
+    return TwilioClient(sid, token), service
+
+
+class SendOtpView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        phone = (request.data.get('phone') or '').strip()
+        if not phone:
+            return Response({'detail': 'Phone number is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        client, service_sid = _get_twilio_client()
+        if not client:
+            return Response({'detail': 'SMS service is not configured.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        try:
+            client.verify.v2.services(service_sid).verifications.create(
+                to=phone,
+                channel='sms',
+            )
+        except TwilioRestException as e:
+            logger.warning('Twilio send OTP failed for %s: %s', phone, e)
+            return Response({'detail': str(e.msg)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'detail': 'Verification code sent.'})
+
+
+class VerifyOtpView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        phone = (request.data.get('phone') or '').strip()
+        code = (request.data.get('code') or '').strip()
+        if not phone or not code:
+            return Response({'detail': 'Phone and code are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        client, service_sid = _get_twilio_client()
+        if not client:
+            return Response({'detail': 'SMS service is not configured.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        try:
+            check = client.verify.v2.services(service_sid).verification_checks.create(
+                to=phone,
+                code=code,
+            )
+        except TwilioRestException as e:
+            logger.warning('Twilio verify OTP failed for %s: %s', phone, e)
+            return Response({'detail': str(e.msg)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if check.status != 'approved':
+            return Response({'detail': 'Invalid or expired code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        user.phone = phone
+        user.phone_verified = True
+        user.save(update_fields=['phone', 'phone_verified'])
+
+        return Response(UserProfileSerializer(user).data)
 
 
 class ProfileView(APIView):

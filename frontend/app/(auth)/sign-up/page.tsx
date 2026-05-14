@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Mail, Lock, User, Eye, EyeOff, Phone } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +31,8 @@ type SignUpValues = z.infer<typeof signUpSchema>;
 
 export default function SignUpPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next") || "/";
   const { register: registerUser } = useUserAuth();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
@@ -56,7 +59,7 @@ export default function SignUpPage() {
         title: "Account created!",
         description: "Welcome to Estate-4u. Your account is ready.",
       });
-      router.push("/");
+      router.push(nextPath);
     } catch (error) {
       toast({
         variant: "destructive",

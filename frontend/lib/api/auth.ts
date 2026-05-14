@@ -79,3 +79,19 @@ export async function apiGetProfile() {
     method: "GET",
   });
 }
+
+export async function apiSendOtp(phone: string) {
+  const url = `${API_BASE_URL}/api/auth/send-otp/`;
+  return fetchAPI<any>(url, {
+    method: "POST",
+    body: JSON.stringify({ phone }),
+  });
+}
+
+export async function apiVerifyOtp(phone: string, code: string) {
+  const url = `${API_BASE_URL}/api/auth/verify-otp/`;
+  return fetchAPI<any>(url, {
+    method: "POST",
+    body: JSON.stringify({ phone, code }),
+  });
+}

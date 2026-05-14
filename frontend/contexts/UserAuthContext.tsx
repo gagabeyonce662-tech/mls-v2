@@ -9,6 +9,8 @@ import {
   apiGoogleAuth,
   apiGoogleAuthCode,
   apiFacebookAuthCode,
+  apiSendOtp,
+  apiVerifyOtp,
 } from "@/lib/api/auth";
 
 interface User {
@@ -16,6 +18,7 @@ interface User {
   name: string;
   email: string;
   phone?: string;
+  phone_verified?: boolean;
   avatar?: string;
 }
 
@@ -28,6 +31,9 @@ interface UserAuthContextType {
   facebookLoginWithCode: (code: string, redirectUri?: string) => Promise<void>;
   register: (data: { name: string; email: string; password: string; phone: string }) => Promise<void>;
   logout: () => void;
+  sendOtp: (phone: string) => Promise<void>;
+  verifyOtp: (phone: string, code: string) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const UserAuthContext = createContext<UserAuthContextType | undefined>(
@@ -174,6 +180,21 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshProfile = useCallback(async () => {
+    const userData = await apiGetProfile();
+    setUser(userData);
+    localStorage.setItem("user_session", JSON.stringify(userData));
+  }, []);
+
+  const sendOtp = async (phone: string) => {
+    await apiSendOtp(phone);
+  };
+
+  const verifyOtp = async (phone: string, code: string) => {
+    await apiVerifyOtp(phone, code);
+    await refreshProfile();
+  };
+
   return (
     <UserAuthContext.Provider
       value={{
@@ -185,6 +206,9 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
         facebookLoginWithCode,
         register,
         logout,
+        sendOtp,
+        verifyOtp,
+        refreshProfile,
       }}
     >
       {children}

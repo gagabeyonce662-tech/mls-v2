@@ -4,7 +4,7 @@ import { Metadata } from "next";
 import { Home as HomeIcon } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import PropertyGalleryGrid from "@/components/listing/PropertyGalleryGrid";
+import GalleryGateWrapper from "@/components/listing/GalleryGateWrapper";
 import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
 import { ds } from "@/lib/design-system-utils";
 import {
@@ -171,15 +171,17 @@ export default async function ListingPage(props: ListingPageProps) {
   const getCity = () => getResolvedCity() || "N/A";
 
   const uiPropertyType = getPropertyType(property);
+  // Normalizer sets all address/title fields to the listing_key as last resort,
+  // so filter out purely-numeric values (those are listing IDs, not display text).
+  const _nn = (v: unknown) => { const s = String(v ?? "").trim(); return !s || /^\d+$/.test(s) ? "" : s; };
   const headline =
-    String(
-      property.project_name ||
-        property.property_title ||
-        property.title ||
-        property.unparsed_address ||
-        property.address ||
-        `${uiPropertyType}${cityForStats ? ` in ${cityForStats}` : ""}`,
-    ).trim() || "Listing";
+    _nn(property.project_name) ||
+    _nn(property.property_title) ||
+    _nn(property.title) ||
+    _nn(property.unparsed_address) ||
+    _nn(property.address) ||
+    `${uiPropertyType}${cityForStats ? ` in ${cityForStats}` : ""}` ||
+    "Listing";
 
   const livingArea = getLivingAreaSummary(property);
 
@@ -305,7 +307,7 @@ export default async function ListingPage(props: ListingPageProps) {
 
         {propertyImages.length > 0 ? (
           <div className="mb-10">
-            <PropertyGalleryGrid
+            <GalleryGateWrapper
               images={propertyImages}
               media={property.media || property.Media || []}
               statusLabel="For Sale"

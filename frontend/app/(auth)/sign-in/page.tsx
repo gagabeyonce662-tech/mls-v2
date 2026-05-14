@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +43,8 @@ const FACEBOOK_OAUTH_MESSAGE_SOURCE = "facebook-oauth";
 
 export default function SignInPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next") || "/";
   const { login, googleLoginWithCode, facebookLoginWithCode } = useUserAuth();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
@@ -69,7 +72,7 @@ export default function SignInPage() {
         title: "Welcome back!",
         description: "You have successfully signed in.",
       });
-      router.push("/");
+      router.push(nextPath);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -141,7 +144,7 @@ export default function SignInPage() {
               title: "Welcome!",
               description: "You have signed in with Google.",
             });
-            router.push("/");
+            router.push(nextPath);
           } catch (error) {
             toast({
               variant: "destructive",
@@ -231,7 +234,7 @@ export default function SignInPage() {
             title: "Welcome!",
             description: "You have signed in with Facebook.",
           });
-          router.push("/");
+          router.push(nextPath);
         } catch {
           toast({
             variant: "destructive",

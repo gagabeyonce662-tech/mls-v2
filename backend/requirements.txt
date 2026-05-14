@@ -63,3 +63,4 @@ dj-database-url==2.1.0
 cloudinary==1.42.1
 django-cloudinary-storage==0.3.0
 h3
+twilio>=9.0.0
