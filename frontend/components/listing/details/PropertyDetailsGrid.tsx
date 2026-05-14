@@ -5,6 +5,9 @@ import { ds } from "@/lib/design-system-utils";
 import type { Property } from "@/lib/api";
 import { Home, Building2, BedDouble, Bath, Ruler } from "lucide-react";
 import {
+  getBathroomDisplayLabel,
+  getGarageDisplayLabel,
+  getBedroomDisplayLabel,
   getFormattedRoomDimensions,
   getPropertyDetailSections,
 } from "@/lib/propertyUtils";
@@ -59,20 +62,23 @@ export default function PropertyDetailsGrid({
         },
         {
           label: "Bedrooms",
-          value:
-            String(property.BedroomsTotal ?? property.bedrooms_total ?? "Not provided"),
+          value: getBedroomDisplayLabel(property) || "Not provided",
           icon: BedDouble,
         },
         {
           label: "Bathrooms",
-          value:
-            String(property.BathroomsTotalInteger ?? property.bathrooms_total ?? "Not provided"),
+          value: getBathroomDisplayLabel(property) || "Not provided",
           icon: Bath,
         },
         {
           label: "Living Area",
           value: livingArea || "Not provided",
           icon: Ruler,
+        },
+        {
+          label: "Garages",
+          value: getGarageDisplayLabel(property) || "Not provided",
+          icon: Building2,
         },
       ].filter((fact) => fact.value && String(fact.value).trim().length > 0),
     [price, type, livingArea, property],

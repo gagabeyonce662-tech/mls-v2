@@ -256,6 +256,16 @@ function extractGalleryUrls(record: EstatePropertyRecord): string[] {
     record?.featured_image_url,
   ]);
 }
+
+function parseNumericRange(value: unknown): { min: number; max: number } | null {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+  if (!match) return null;
+  const min = Number.parseInt(match[1], 10);
+  const max = Number.parseInt(match[2], 10);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max < min) return null;
+  return { min, max };
+}
 export default function EstatePropertyForm({
   columns,
   initialValues = {},
@@ -285,7 +295,15 @@ export default function EstatePropertyForm({
       if (Object.keys(prev).length > initialKeys.length) {
         return prev; // Keep user's work
       }
-      return initialValues || {};
+      const seeded = { ...(initialValues || {}) };
+      const wpMeta = parseJsonObject(seeded.wp_meta_json);
+      if (seeded.max_bathrooms === undefined && wpMeta.max_bathrooms != null) {
+        seeded.max_bathrooms = String(wpMeta.max_bathrooms);
+      }
+      if (seeded.max_garages === undefined && wpMeta.max_garages != null) {
+        seeded.max_garages = String(wpMeta.max_garages);
+      }
+      return seeded;
     });
     setGalleryUrls(extractGalleryUrls(initialValues || {}));
     setGalleryUrlInput("");
@@ -555,6 +573,58 @@ export default function EstatePropertyForm({
       gallery_image_urls: finalGalleryUrls,
     };
     normalizedPayload.featured_image_url = finalGalleryUrls[0] ?? "";
+
+    // Allow admin shorthand like "3-5" in bedrooms_total by splitting into
+    // min bedrooms + max_bedrooms (when schema supports max_bedrooms).
+    const bedroomRange = parseNumericRange(normalizedPayload.bedrooms_total);
+    if (bedroomRange) {
+      normalizedPayload.bedrooms_total = bedroomRange.min;
+      if (editableColumnNames.has("max_bedrooms")) {
+        normalizedPayload.max_bedrooms = bedroomRange.max;
+      }
+    }
+
+    // Bathrooms range support via virtual max_bathrooms field + wp_meta_json fallback.
+    const bathroomRange = parseNumericRange(normalizedPayload.bathrooms_total_integer);
+    const explicitMaxBathrooms = Number.parseInt(
+      String(normalizedPayload.max_bathrooms ?? "").trim(),
+      10,
+    );
+    if (bathroomRange) {
+      normalizedPayload.bathrooms_total_integer = bathroomRange.min;
+      normalizedPayload.wp_meta_json = {
+        ...parseJsonObject(normalizedPayload.wp_meta_json),
+        max_bathrooms: bathroomRange.max,
+      };
+    } else if (Number.isFinite(explicitMaxBathrooms) && explicitMaxBathrooms > 0) {
+      normalizedPayload.wp_meta_json = {
+        ...parseJsonObject(normalizedPayload.wp_meta_json),
+        max_bathrooms: explicitMaxBathrooms,
+      };
+    }
+
+    // Garages range support via virtual max_garages field + wp_meta_json fallback.
+    const garageRange = parseNumericRange(normalizedPayload.garages);
+    const explicitMaxGarages = Number.parseInt(
+      String(normalizedPayload.max_garages ?? "").trim(),
+      10,
+    );
+    if (garageRange) {
+      normalizedPayload.garages = garageRange.min;
+      normalizedPayload.wp_meta_json = {
+        ...parseJsonObject(normalizedPayload.wp_meta_json),
+        max_garages: garageRange.max,
+      };
+    } else if (Number.isFinite(explicitMaxGarages) && explicitMaxGarages > 0) {
+      normalizedPayload.wp_meta_json = {
+        ...parseJsonObject(normalizedPayload.wp_meta_json),
+        max_garages: explicitMaxGarages,
+      };
+    }
+
+    delete normalizedPayload.max_bathrooms;
+    delete normalizedPayload.max_garages;
+
     delete normalizedPayload.id;
     for (const [field, rawValue] of Object.entries(normalizedPayload)) {
       const dataType = columnTypeMap.get(field) || "";
@@ -935,6 +1005,30 @@ export default function EstatePropertyForm({
                 />
               </div>
             ) : null}
+            <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="space-y-1">
+                <span className="text-xs font-semibold text-gray-600">
+                  max_bathrooms (range upper bound)
+                </span>
+                <input
+                  value={String(form.max_bathrooms ?? "")}
+                  onChange={(e) => handleChange("max_bathrooms", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  placeholder="e.g. 4"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-semibold text-gray-600">
+                  max_garages (range upper bound)
+                </span>
+                <input
+                  value={String(form.max_garages ?? "")}
+                  onChange={(e) => handleChange("max_garages", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  placeholder="e.g. 3"
+                />
+              </label>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 "list_price",

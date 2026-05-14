@@ -449,6 +449,32 @@ const formatList = (value: unknown): string | null => {
   return compact.length ? compact.join(", ") : null;
 };
 
+const normalizeRangeText = (value: unknown): string | null => {
+  const text = toValue(value);
+  if (!text) return null;
+  if (!/^\d+(\.\d+)?\s*[-–]\s*\d+(\.\d+)?$/.test(text)) return null;
+  return text.replace(/[–]/g, "-").replace(/\s+/g, "");
+};
+
+const getWpMetaField = (property: Property, key: string): string | null => {
+  const rawMeta = (property as Record<string, unknown>).wp_meta_json;
+  if (rawMeta && typeof rawMeta === "object" && !Array.isArray(rawMeta)) {
+    const value = (rawMeta as Record<string, unknown>)[key];
+    return toValue(value);
+  }
+  if (typeof rawMeta === "string") {
+    try {
+      const parsed = JSON.parse(rawMeta);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return toValue((parsed as Record<string, unknown>)[key]);
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 export const getTaxAnnualAmount = (property: Property): string | null => {
   const raw = getRaw(property, "tax_annual_amount", "TaxAnnualAmount");
   return formatCurrency(raw);
@@ -506,6 +532,11 @@ export const getLivingAreaSummary = (property: Property): string => {
 export const getBathroomDisplayLabel = (property: Property): string | null => {
   const totalRaw =
     property.bathrooms_total_integer ?? property.BathroomsTotalInteger ?? null;
+  const directRange = normalizeRangeText(totalRaw);
+  if (directRange) {
+    return directRange;
+  }
+  const maxFromMeta = Number(getWpMetaField(property, "max_bathrooms"));
   const partialRaw =
     property.bathrooms_partial ?? property.BathroomsPartial ?? null;
   const t =
@@ -521,10 +552,55 @@ export const getBathroomDisplayLabel = (property: Property): string | null => {
         ? parseInt(partialRaw, 10)
         : Number(partialRaw);
   if (!Number.isFinite(t) || t <= 0) return null;
+  if (Number.isFinite(maxFromMeta) && maxFromMeta > t) {
+    return `${t}-${maxFromMeta}`;
+  }
   if (Number.isFinite(p) && p > 0) {
     return `${t} (${p} partial)`;
   }
   return String(t);
+};
+
+/** Quick facts / stats: bedrooms count, preserving ranges (e.g. "3-5"). */
+export const getBedroomDisplayLabel = (property: Property): string | null => {
+  const minRaw = getRaw(property, "bedrooms_total", "BedroomsTotal");
+  const maxRaw = getRaw(property, "max_bedrooms", "MaxBedrooms");
+
+  const directRange = normalizeRangeText(minRaw);
+  if (directRange) {
+    return directRange;
+  }
+
+  const minText = toValue(minRaw);
+  const minNum = Number(minText);
+  const maxNum = Number(toValue(maxRaw));
+  const hasMin = Number.isFinite(minNum) && minNum > 0;
+  const hasMax = Number.isFinite(maxNum) && maxNum > 0;
+
+  if (hasMin && hasMax && maxNum > minNum) {
+    return `${minNum}-${maxNum}`;
+  }
+  if (hasMin) return String(minNum);
+  if (hasMax) return String(maxNum);
+  return minText || null;
+};
+
+/** Quick facts / stats: garages count, preserving ranges (e.g. "1-3"). */
+export const getGarageDisplayLabel = (property: Property): string | null => {
+  const minRaw = getRaw(property, "garages", "Garages");
+  const directRange = normalizeRangeText(minRaw);
+  if (directRange) return directRange;
+
+  const minText = toValue(minRaw);
+  const minNum = Number(minText);
+  const maxFromMeta = Number(getWpMetaField(property, "max_garages"));
+  const hasMin = Number.isFinite(minNum) && minNum > 0;
+  const hasMax = Number.isFinite(maxFromMeta) && maxFromMeta > 0;
+
+  if (hasMin && hasMax && maxFromMeta > minNum) return `${minNum}-${maxFromMeta}`;
+  if (hasMin) return String(minNum);
+  if (hasMax) return String(maxFromMeta);
+  return minText || null;
 };
 
 /** Annual tax amount with tax year when available (e.g. MLS TaxAnnualAmount + TaxYear). */
