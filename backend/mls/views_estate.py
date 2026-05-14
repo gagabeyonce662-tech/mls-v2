@@ -3,6 +3,7 @@ import logging
 import os
 from uuid import uuid4
 
+from cloudinary.exceptions import Error as CloudinaryError
 from django.core.files.storage import default_storage
 from django.utils import timezone
 from django.db import DataError, DatabaseError, IntegrityError
@@ -720,7 +721,38 @@ class EstatePropertyMediaUploadAPIView(EstatePropertyAPIViewMixinMethods, APIVie
                 f"estate-properties/{timezone.now():%Y/%m}/"
                 f"{uuid4().hex}-{base_name}"
             )
-            stored_path = default_storage.save(stamped_name, file_obj)
+            try:
+                stored_path = default_storage.save(stamped_name, file_obj)
+            except CloudinaryError:
+                logger.exception(
+                    "[estate:media-upload] provider_error filename=%s backend=%s",
+                    original_name,
+                    f"{default_storage.__class__.__module__}.{default_storage.__class__.__name__}",
+                )
+                return Response(
+                    {
+                        "detail": "Image upload provider rejected the upload.",
+                        "error": (
+                            "Cloudinary upload failed. Check CLOUDINARY_URL, "
+                            "CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, and "
+                            "CLOUDINARY_CLOUD_NAME."
+                        ),
+                    },
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            except Exception:
+                logger.exception(
+                    "[estate:media-upload] storage_error filename=%s backend=%s",
+                    original_name,
+                    f"{default_storage.__class__.__module__}.{default_storage.__class__.__name__}",
+                )
+                return Response(
+                    {
+                        "detail": "Failed to store uploaded image.",
+                        "error": "Unexpected storage error while uploading image.",
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
             raw_url = default_storage.url(stored_path)
             file_url = (
                 raw_url
