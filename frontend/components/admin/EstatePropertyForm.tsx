@@ -6,6 +6,7 @@ import {
   uploadEstatePropertyMedia,
   type EstatePropertyRecord,
 } from "@/lib/api/admin";
+import LocationPicker from "@/components/admin/LocationPicker";
 import "hugerte/hugerte";
 import "hugerte/models/dom";
 import "hugerte/themes/silver";
@@ -793,6 +794,23 @@ export default function EstatePropertyForm({
 
           <div className="bg-white border rounded-xl p-4">
             <h2 className="text-lg font-semibold mb-3">Property Settings</h2>
+            {editableColumnNames.has("latitude") &&
+            editableColumnNames.has("longitude") ? (
+              <div className="mb-4">
+                <LocationPicker
+                  latitude={form.latitude}
+                  longitude={form.longitude}
+                  address={String(form.unparsed_address ?? "")}
+                  onCoordinatesChange={(nextLat, nextLng) => {
+                    handleChange("latitude", nextLat);
+                    handleChange("longitude", nextLng);
+                  }}
+                  onAddressChange={(nextAddress) =>
+                    handleChange("unparsed_address", nextAddress)
+                  }
+                />
+              </div>
+            ) : null}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 "list_price",
@@ -828,8 +846,6 @@ export default function EstatePropertyForm({
                 "state_or_province",
                 "postal_code",
                 "country",
-                "latitude",
-                "longitude",
               ]
                 .filter((key) => editableColumnNames.has(key))
                 .map((key) => (
