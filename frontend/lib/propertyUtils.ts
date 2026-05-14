@@ -500,10 +500,13 @@ export const getLotSizeSummary = (property: Property): string | null => {
     ),
   );
   if (dimensions) return dimensions;
-  const area = toValue(
+  const areaRaw = toValue(
     getRaw(property, "lot_size_area", "LotSizeArea", "land_area", "LandArea"),
   );
-  return area ? `${area} sq ft` : null;
+  if (!areaRaw) return null;
+  const areaNum = Number(String(areaRaw).replace(/,/g, ""));
+  const area = Number.isFinite(areaNum) ? areaNum.toLocaleString("en-US") : areaRaw;
+  return `${area} sq ft`;
 };
 
 /** Prefer living area min–max range when both exist (matches DDF LivingAreaMinimum / Maximum). */
@@ -520,12 +523,14 @@ export const getLivingAreaSummary = (property: Property): string => {
     if (minN === maxN) return `${minN.toLocaleString("en-US")} sq ft`;
     return `${minN.toLocaleString("en-US")} - ${maxN.toLocaleString("en-US")} sq ft`;
   }
-  const single =
+  const singleRaw =
     toValue(getRaw(property, "building_area_total", "BuildingAreaTotal")) ||
     toValue(getRaw(property, "living_area", "LivingArea")) ||
     (Number.isFinite(minN) ? minN.toLocaleString("en-US") : "");
-  if (single) return `${single} sq ft`;
-  return "";
+  if (!singleRaw) return "";
+  const singleNum = Number(String(singleRaw).replace(/,/g, ""));
+  const single = Number.isFinite(singleNum) ? singleNum.toLocaleString("en-US") : singleRaw;
+  return `${single} sq ft`;
 };
 
 /** Quick facts / stats: total baths plus partial count when present. */

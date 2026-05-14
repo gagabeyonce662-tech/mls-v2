@@ -36,6 +36,7 @@ import ListingAmenitiesSection from "@/components/listing/details/ListingAmeniti
 import {
   getBathroomDisplayLabel,
   getDescription,
+  getGarageDisplayLabel,
   getLivingAreaSummary,
   getPropertyType,
   postalToFsa,
@@ -401,16 +402,17 @@ export default async function ListingPage(props: ListingPageProps) {
           price={displayPrice}
         />
 
-        {/*<div className="mb-4">
+        <div className="mb-6">
           <PropertyStats
             beds={beds || ""}
             baths={baths || ""}
             sqft={livingArea}
             type={uiPropertyType}
             year={builtYear || ""}
+            garages={getGarageDisplayLabel(property) || undefined}
             showPropertyType={false}
           />
-        </div>*/}
+        </div>
 
         {propertyImages.length > 0 ? (
           <div className="mb-6">

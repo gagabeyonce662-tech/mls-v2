@@ -1,6 +1,5 @@
 import React from "react";
 import { Bed, Bath, Maximize, Calendar, Home as HomeIcon } from "lucide-react";
-import { ds } from "@/lib/design-system-utils";
 
 interface PropertyStatsProps {
   beds: string | number;
@@ -8,6 +7,7 @@ interface PropertyStatsProps {
   sqft: string;
   type: string;
   year: string | number;
+  garages?: string;
   showPropertyType?: boolean;
 }
 
@@ -17,6 +17,7 @@ export default function PropertyStats({
   sqft,
   type,
   year,
+  garages,
   showPropertyType = true,
 }: PropertyStatsProps) {
   const stats = [
@@ -27,25 +28,19 @@ export default function PropertyStats({
       ? [{ label: "Property Type", value: type, icon: HomeIcon }]
       : []),
     { label: "Year Built", value: year, icon: Calendar },
+    { label: "Garages", value: garages ?? "", icon: HomeIcon },
   ].filter((stat) => {
     const value = String(stat.value ?? "").trim().toLowerCase();
     return value && value !== "n/a" && value !== "null";
   });
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 py-2">
       {stats.map((stat, index) => (
-        <div
-          key={index}
-          className="bg-ds-card border border-ds-card-border p-3 rounded-xl flex flex-col items-center text-center transition-all hover:shadow-md"
-        >
-          <stat.icon className="w-5 h-5 text-ds-primary mb-2 opacity-80" />
-          <span className="text-xs text-ds-body font-medium uppercase tracking-tight mb-1">
-            {stat.label}
-          </span>
-          <span className={`${ds.body} font-bold text-ds-heading`}>
-            {stat.value}
-          </span>
+        <div key={index} className="flex items-center gap-1.5 text-sm">
+          <stat.icon className="w-3.5 h-3.5 text-ds-primary shrink-0" />
+          <span className="text-ds-body">{stat.label}:</span>
+          <span className="font-semibold text-ds-heading">{stat.value}</span>
         </div>
       ))}
     </div>
