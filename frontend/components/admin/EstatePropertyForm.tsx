@@ -55,6 +55,8 @@ const CORE_FIELD_ORDER = [
   "description_sections_json",
   "listing_url",
   "publish_status",
+  "is_featured",
+  "custom_tags",
   "expires_at",
   "list_price",
   "second_price",
@@ -245,6 +247,23 @@ function normalizeImageUrls(value: unknown): string[] {
   return deduped;
 }
 
+function normalizeCustomTags(value: unknown): string {
+  const raw = Array.isArray(value) ? value.map(String) : String(value ?? "").split(/[,\n|]/g);
+  const cleaned = raw
+    .map((item) => item.trim().replace(/\s+/g, " "))
+    .filter(Boolean)
+    .filter((item) => item.toLowerCase() !== "featured");
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+  for (const tag of cleaned) {
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(tag);
+  }
+  return deduped.join(", ");
+}
+
 function extractGalleryUrls(record: EstatePropertyRecord): string[] {
   const wpPost = parseJsonObject(record?.wp_post_json);
   const wpMeta = parseJsonObject(record?.wp_meta_json);
@@ -364,6 +383,15 @@ export default function EstatePropertyForm({
 
   const handleChange = (name: string, value: string) => {
     setForm((prev) => ({ ...prev, [name]: value }));
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
+  const handleBooleanChange = (name: string, checked: boolean) => {
+    setForm((prev) => ({ ...prev, [name]: checked }));
     setFieldErrors((prev) => {
       if (!prev[name]) return prev;
       const next = { ...prev };
@@ -545,6 +573,10 @@ export default function EstatePropertyForm({
     // as the featured image unless they reorder manually.
     const finalGalleryUrls = normalizeImageUrls([...uploadedUrls, ...galleryUrls]);
     const normalizedPayload: EstatePropertyRecord = { ...payload };
+    normalizedPayload.custom_tags = normalizeCustomTags(normalizedPayload.custom_tags);
+    if (normalizedPayload.custom_tags === "") {
+      normalizedPayload.custom_tags = null;
+    }
     const normalizedSections = normalizeDescriptionSections(
       normalizedPayload.description_sections_json,
       normalizedPayload.property_description,
@@ -1179,6 +1211,38 @@ export default function EstatePropertyForm({
                 className="w-full rounded-lg border px-3 py-2 text-sm"
               />
             </label>
+            {editableColumnNames.has("is_featured") ? (
+              <label className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.is_featured)}
+                  onChange={(e) =>
+                    handleBooleanChange("is_featured", e.target.checked)
+                  }
+                />
+                <span className="text-sm font-semibold text-amber-800">
+                  Featured Tag
+                </span>
+              </label>
+            ) : null}
+            {editableColumnNames.has("custom_tags") ? (
+              <label className="space-y-1 block">
+                <span className="text-xs font-semibold text-gray-600">
+                  custom_tags
+                </span>
+                <input
+                  value={String(form.custom_tags ?? "")}
+                  onChange={(e) =>
+                    handleChange("custom_tags", normalizeCustomTags(e.target.value))
+                  }
+                  placeholder="Luxury, Waterfront, Corner Lot"
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                />
+                <span className="text-[11px] text-gray-500">
+                  Comma-separated tags. “Featured” is controlled by the checkbox above.
+                </span>
+              </label>
+            ) : null}
           </div>
 
           <div className="bg-white border rounded-xl p-4 space-y-3">

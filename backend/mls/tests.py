@@ -234,6 +234,9 @@ class EstatePropertyAPITests(TestCase):
         self.assertTrue(
             any(col["column_name"] == "listing_key" for col in payload["columns"]),
         )
+        self.assertTrue(
+            any(col["column_name"] == "custom_tags" for col in payload["columns"]),
+        )
 
     @override_settings(DEBUG=False)
     def test_estate_property_get_is_public_but_writes_require_staff(self):
@@ -246,6 +249,8 @@ class EstatePropertyAPITests(TestCase):
             "city": "Toronto",
             "publish_status": "published",
             "list_price": 1250000,
+            "is_featured": True,
+            "custom_tags": "Waterfront, Luxury",
         }
 
         denied_create = self.client.post(
@@ -271,6 +276,8 @@ class EstatePropertyAPITests(TestCase):
         created_json = created.json()
         self.assertEqual(created_json["listing_key"], create_payload["listing_key"])
         self.assertIsNotNone(created_json["id"])
+        self.assertEqual(created_json["is_featured"], True)
+        self.assertEqual(created_json["custom_tags"], "Waterfront, Luxury")
 
         estate_id = created_json["id"]
 

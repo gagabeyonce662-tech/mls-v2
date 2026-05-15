@@ -1,5 +1,6 @@
 import React from "react";
 import { ds } from "@/lib/design-system-utils";
+import { cn } from "@/lib/utils";
 
 interface PropertyHeaderProps {
   headline: string;
@@ -8,6 +9,11 @@ interface PropertyHeaderProps {
   address: string;
   status: string;
   price: string;
+  isFeaturedTag?: boolean;
+  customTags?: string[];
+  priceLabel?: string;
+  priceClassName?: string;
+  rightActions?: React.ReactNode;
 }
 
 export default function PropertyHeader({
@@ -17,14 +23,33 @@ export default function PropertyHeader({
   address,
   status,
   price,
+  isFeaturedTag = false,
+  customTags = [],
+  priceLabel = "List Price",
+  priceClassName,
+  rightActions,
 }: PropertyHeaderProps) {
   return (
     <div className="flex flex-col md:flex-row items-start justify-between mb-8 gap-4">
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <span className="px-3 py-1 bg-ds-primary/10 text-ds-primary text-xs font-bold rounded-full uppercase tracking-wider">
-            {status}
-          </span>
+          {isFeaturedTag ? (
+            <span className="px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-extrabold rounded-full uppercase tracking-wider shadow-sm">
+              Featured
+            </span>
+          ) : (
+            <span className="px-3 py-1 bg-ds-primary/10 text-ds-primary text-xs font-bold rounded-full uppercase tracking-wider">
+              {status}
+            </span>
+          )}
+          {customTags.map((tag) => (
+            <span
+              key={tag}
+              className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-semibold rounded-full tracking-wide"
+            >
+              {tag}
+            </span>
+          ))}
           <span className="text-ds-body text-sm font-medium">
             {propertyType}
           </span>
@@ -35,8 +60,9 @@ export default function PropertyHeader({
         </p>
       </div>
       <div className="md:text-right">
-        <p className="text-sm text-ds-body font-medium mb-1">List Price</p>
-        <p className={`${ds.h1} text-ds-primary`}>{price}</p>
+        <p className="text-sm text-ds-body font-medium mb-1">{priceLabel}</p>
+        <p className={cn(ds.h1, "text-ds-primary", priceClassName)}>{price}</p>
+        {rightActions ? <div className="mt-3 md:ml-auto md:max-w-sm">{rightActions}</div> : null}
       </div>
     </div>
   );

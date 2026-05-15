@@ -261,6 +261,7 @@ class EstateProperty(models.Model):
     standard_status = models.CharField(max_length=50, null=True, blank=True)
     modification_timestamp = models.DateTimeField(null=True, blank=True)
     is_featured = models.BooleanField(default=False)
+    custom_tags = models.TextField(null=True, blank=True)
 
     wp_meta_json = models.JSONField(default=dict, blank=True)
     wp_terms_json = models.JSONField(default=dict, blank=True)
