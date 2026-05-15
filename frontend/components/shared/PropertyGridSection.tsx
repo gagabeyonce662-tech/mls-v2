@@ -24,6 +24,7 @@ interface PropertyGridSectionProps {
   /** Enforces that only one row of properties is displayed regardless of screen width */
   oneRowOnly?: boolean;
   onViewAllClick?: () => void;
+  cardLayout?: "default" | "compact";
 }
 
 export function PropertyGridSection({
@@ -42,6 +43,7 @@ export function PropertyGridSection({
   limit = 8,
   oneRowOnly = false,
   onViewAllClick,
+  cardLayout = "compact",
 }: PropertyGridSectionProps) {
   const displayProperties = properties.slice(0, limit);
   const showLoadingSkeletons = isLoading;
@@ -142,6 +144,7 @@ export function PropertyGridSection({
                   <PropertyCard
                     property={property}
                     variant={variant as any}
+                    layoutMode={cardLayout}
                     index={index}
                     onQuickView={onQuickView}
                   />

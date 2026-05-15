@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { apiGetProfile, apiLogin } from "@/lib/api/auth";
+import { getJwtExpiryMs, isJwtExpired } from "@/lib/auth/jwt";
 
 interface AdminAuthContextType {
   isAuthenticated: boolean;
@@ -21,11 +22,27 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  const logout = useCallback(() => {
+    localStorage.removeItem("admin_session");
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    setIsAuthenticated(false);
+    router.push("/admin");
+  }, [router]);
+
   useEffect(() => {
     const hydrateSession = async () => {
       const adminSession = localStorage.getItem("admin_session");
       const token = localStorage.getItem("access_token");
       if (adminSession !== "true" || !token) {
+        setIsLoading(false);
+        return;
+      }
+      if (isJwtExpired(token)) {
+        localStorage.removeItem("admin_session");
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        setIsAuthenticated(false);
         setIsLoading(false);
         return;
       }
@@ -46,6 +63,30 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     hydrateSession();
   }, []);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    const expiryMs = getJwtExpiryMs(token);
+    if (!expiryMs) {
+      logout();
+      return;
+    }
+
+    const delayMs = expiryMs - Date.now();
+    if (delayMs <= 0) {
+      logout();
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      logout();
+    }, delayMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isAuthenticated, logout]);
+
   const login = async (email: string, password: string) => {
     try {
       const data = await apiLogin({ email, password });
@@ -62,14 +103,6 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       setIsAuthenticated(false);
       return false;
     }
-  };
-
-  const logout = () => {
-    localStorage.removeItem("admin_session");
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    setIsAuthenticated(false);
-    router.push("/admin");
   };
 
   // Protect routes
