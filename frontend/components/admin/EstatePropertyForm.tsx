@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Editor as HugeRTEditor } from "@hugerte/hugerte-react";
 import {
+  fetchEstateCloudinaryAssets,
   uploadEstatePropertyMedia,
+  type EstatePropertyCloudinaryAsset,
   type EstatePropertyRecord,
 } from "@/lib/api/admin";
 import {
@@ -16,6 +18,13 @@ import {
   type PropertyDetailBlockLayoutItem,
 } from "@/lib/propertyUtils";
 import LocationPicker from "@/components/admin/LocationPicker";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import "hugerte/hugerte";
 import "hugerte/models/dom";
 import "hugerte/themes/silver";
@@ -162,6 +171,7 @@ const TAXONOMY_OPTIONS: Record<(typeof TAXONOMY_KEYS)[number], string[]> = {
 
 const DEFAULT_DESCRIPTION_SECTION_TITLE = "Overview";
 const MAX_LOCAL_MEDIA_FILES = 30;
+const CLOUDINARY_PICK_PAGE_SIZE = 30;
 const DEFAULT_DETAIL_BLOCK_TITLES: Record<string, string> = {
   financial_information: "Financial Information",
   building_facts: "Building Facts",
@@ -409,6 +419,24 @@ export default function EstatePropertyForm({
   const [pendingUploads, setPendingUploads] = useState<File[]>([]);
   const [mediaError, setMediaError] = useState("");
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [isCloudinaryPickerOpen, setIsCloudinaryPickerOpen] = useState(false);
+  const [cloudinaryAssets, setCloudinaryAssets] = useState<
+    EstatePropertyCloudinaryAsset[]
+  >([]);
+  const [cloudinaryNextCursor, setCloudinaryNextCursor] = useState<string | null>(
+    null,
+  );
+  const [cloudinaryPageIndex, setCloudinaryPageIndex] = useState(0);
+  const [cloudinaryPageCursors, setCloudinaryPageCursors] = useState<(string | null)[]>(
+    [null],
+  );
+  const [cloudinaryLoading, setCloudinaryLoading] = useState(false);
+  const [cloudinaryError, setCloudinaryError] = useState("");
+  const [cloudinaryPrefixInput, setCloudinaryPrefixInput] = useState("");
+  const [cloudinaryResolvedPrefix, setCloudinaryResolvedPrefix] = useState("");
+  const [selectedCloudinaryUrls, setSelectedCloudinaryUrls] = useState<string[]>(
+    [],
+  );
   const pendingUploadPreviews = useMemo(
     () =>
       pendingUploads.map((file, idx) => ({
@@ -859,6 +887,107 @@ export default function EstatePropertyForm({
 
   const removePendingUpload = (index: number) => {
     setPendingUploads((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const toggleCloudinarySelection = (url: string) => {
+    setSelectedCloudinaryUrls((prev) =>
+      prev.includes(url) ? prev.filter((item) => item !== url) : [...prev, url],
+    );
+  };
+
+  const buildCloudinaryPreviewUrl = (url: string): string => {
+    const raw = String(url || "").trim();
+    if (!raw) return "";
+    const marker = "/upload/";
+    const markerIndex = raw.indexOf(marker);
+    if (markerIndex === -1) return raw;
+    const transformed = "f_auto,q_auto,c_fill,w_320,h_220";
+    return `${raw.slice(0, markerIndex + marker.length)}${transformed}/${raw.slice(
+      markerIndex + marker.length,
+    )}`;
+  };
+
+  const loadCloudinaryAssetsPage = async ({
+    pageIndex,
+    requestCursor,
+    resetSelection = false,
+  }: {
+    pageIndex: number;
+    requestCursor: string | null;
+    resetSelection?: boolean;
+  }) => {
+    if (cloudinaryLoading) return;
+    setCloudinaryLoading(true);
+    setCloudinaryError("");
+    try {
+      const payload = await fetchEstateCloudinaryAssets({
+        max_results: CLOUDINARY_PICK_PAGE_SIZE,
+        next_cursor: requestCursor || undefined,
+        prefix: cloudinaryPrefixInput.trim() || undefined,
+      });
+      setCloudinaryResolvedPrefix(payload.prefix || "");
+      setCloudinaryNextCursor(payload.next_cursor);
+      setCloudinaryAssets(payload.results);
+      setCloudinaryPageIndex(pageIndex);
+      setCloudinaryPageCursors((prev) => {
+        const next = prev.slice(0, pageIndex + 1);
+        next[pageIndex] = requestCursor;
+        if (payload.next_cursor) {
+          next[pageIndex + 1] = payload.next_cursor;
+        }
+        return next;
+      });
+      if (resetSelection) {
+        setSelectedCloudinaryUrls([]);
+      }
+    } catch (err: any) {
+      setCloudinaryError(err?.message || "Unable to load Cloudinary images.");
+    } finally {
+      setCloudinaryLoading(false);
+    }
+  };
+
+  const openCloudinaryPicker = async () => {
+    setIsCloudinaryPickerOpen(true);
+    setCloudinaryPageCursors([null]);
+    setCloudinaryPageIndex(0);
+    setCloudinaryAssets([]);
+    setCloudinaryNextCursor(null);
+    await loadCloudinaryAssetsPage({
+      pageIndex: 0,
+      requestCursor: null,
+      resetSelection: true,
+    });
+  };
+
+  const addSelectedCloudinaryImages = () => {
+    if (selectedCloudinaryUrls.length === 0) return;
+    setGalleryUrls((prev) =>
+      normalizeImageUrls([...prev, ...selectedCloudinaryUrls]),
+    );
+    setIsCloudinaryPickerOpen(false);
+    setSelectedCloudinaryUrls([]);
+    setMediaError("");
+  };
+  const hasNextCloudinaryPage = Boolean(cloudinaryNextCursor);
+  const hasPrevCloudinaryPage = cloudinaryPageIndex > 0;
+  const goToNextCloudinaryPage = async () => {
+    if (!cloudinaryNextCursor) return;
+    await loadCloudinaryAssetsPage({
+      pageIndex: cloudinaryPageIndex + 1,
+      requestCursor: cloudinaryNextCursor,
+      resetSelection: false,
+    });
+  };
+  const goToPreviousCloudinaryPage = async () => {
+    if (cloudinaryPageIndex <= 0) return;
+    const prevIndex = cloudinaryPageIndex - 1;
+    const cursor = cloudinaryPageCursors[prevIndex] ?? null;
+    await loadCloudinaryAssetsPage({
+      pageIndex: prevIndex,
+      requestCursor: cursor,
+      resetSelection: false,
+    });
   };
 
   const submitWithValidation = async (
@@ -1926,13 +2055,22 @@ export default function EstatePropertyForm({
               <span className="text-xs font-semibold text-gray-600">
                 Upload images
               </span>
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={(e) => handleLocalUploads(e.target.files)}
-                className="w-full rounded-lg border px-3 py-2 text-sm bg-white"
-              />
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => handleLocalUploads(e.target.files)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => void openCloudinaryPicker()}
+                  className="px-3 py-2 rounded-lg border text-sm font-medium whitespace-nowrap"
+                >
+                  Pick from Cloudinary
+                </button>
+              </div>
               {pendingUploads.length > 0 ? (
                 <div className="rounded-lg border p-2 space-y-1">
                   <p className="text-xs font-semibold text-gray-600">
@@ -2085,6 +2223,133 @@ export default function EstatePropertyForm({
           {isSaving ? (isUploadingMedia ? "Uploading..." : "Saving...") : submitLabel}
         </button>
       </div>
+
+      <Dialog open={isCloudinaryPickerOpen} onOpenChange={setIsCloudinaryPickerOpen}>
+        <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-hidden p-0 flex flex-col">
+          <DialogHeader className="px-5 pt-5 pb-2 border-b">
+            <DialogTitle>Pick From Cloudinary</DialogTitle>
+            <DialogDescription>
+              Select one or more images to add to the listing gallery.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-5 space-y-3 overflow-y-auto flex-1 min-h-0">
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+              <input
+                value={cloudinaryPrefixInput}
+                onChange={(e) => setCloudinaryPrefixInput(e.target.value)}
+                placeholder="Folder prefix (optional), e.g. estate-properties/2026/"
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  void loadCloudinaryAssetsPage({
+                    pageIndex: 0,
+                    requestCursor: null,
+                    resetSelection: true,
+                  })
+                }
+                disabled={cloudinaryLoading}
+                className="px-3 py-2 rounded-lg border text-sm font-medium whitespace-nowrap disabled:opacity-60"
+              >
+                {cloudinaryLoading ? "Loading..." : "Refresh"}
+              </button>
+            </div>
+
+            {cloudinaryResolvedPrefix ? (
+              <p className="text-xs text-gray-500">
+                Showing prefix: <code>{cloudinaryResolvedPrefix}</code>
+              </p>
+            ) : null}
+
+            {cloudinaryError ? (
+              <p className="text-xs text-red-600">{cloudinaryError}</p>
+            ) : null}
+
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {cloudinaryAssets.map((asset, idx) => {
+                const url = String(asset.secure_url || "").trim();
+                if (!url) return null;
+                const selected = selectedCloudinaryUrls.includes(url);
+                return (
+                  <button
+                    key={`${asset.asset_id || asset.public_id || url}-${idx}`}
+                    type="button"
+                    onClick={() => toggleCloudinarySelection(url)}
+                    className={`text-left rounded-lg border overflow-hidden ${
+                      selected ? "border-blue-600 ring-2 ring-blue-200" : "border-gray-200"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={buildCloudinaryPreviewUrl(url)}
+                      alt={String(asset.public_id || `Cloudinary asset ${idx + 1}`)}
+                      className="h-24 w-full object-cover bg-gray-100"
+                      loading="lazy"
+                    />
+                    <div className="p-2">
+                      <p className="text-[11px] font-medium text-gray-700 truncate">
+                        {asset.public_id || "Untitled"}
+                      </p>
+                      <p className="text-[10px] text-gray-500">
+                        {asset.width && asset.height
+                          ? `${asset.width}x${asset.height}`
+                          : "Image"}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {!cloudinaryLoading && cloudinaryAssets.length === 0 && !cloudinaryError ? (
+              <div className="rounded-lg border border-dashed p-4 text-xs text-gray-500">
+                No Cloudinary images found for this view.
+              </div>
+            ) : null}
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+              <span className="text-xs text-gray-600">
+                Page: {cloudinaryPageIndex + 1} • Selected: {selectedCloudinaryUrls.length}
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void goToPreviousCloudinaryPage()}
+                  disabled={cloudinaryLoading || !hasPrevCloudinaryPage}
+                  className="px-3 py-2 rounded-lg border text-sm font-medium disabled:opacity-60"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void goToNextCloudinaryPage()}
+                  disabled={cloudinaryLoading || !hasNextCloudinaryPage}
+                  className="px-3 py-2 rounded-lg border text-sm font-medium disabled:opacity-60"
+                >
+                  Next
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCloudinaryPickerOpen(false)}
+                  className="px-3 py-2 rounded-lg border text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={addSelectedCloudinaryImages}
+                  disabled={selectedCloudinaryUrls.length === 0}
+                  className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
+                >
+                  Add Selected
+                </button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }

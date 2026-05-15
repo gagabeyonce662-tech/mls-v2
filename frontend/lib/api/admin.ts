@@ -233,6 +233,19 @@ export interface EstatePropertyUploadedMedia {
   size?: number;
 }
 
+export interface EstatePropertyCloudinaryAsset {
+  asset_id?: string;
+  public_id?: string;
+  secure_url: string;
+  width?: number;
+  height?: number;
+  format?: string;
+  bytes?: number;
+  created_at?: string;
+  folder?: string;
+  tags?: string[];
+}
+
 export async function fetchEstatePropertySchema(): Promise<{
   table: string;
   columns: Array<{
@@ -341,6 +354,43 @@ export async function uploadEstatePropertyMedia(
   const payload = await res.json();
   const rows = Array.isArray(payload?.results) ? payload.results : [];
   return rows.filter((item: any) => typeof item?.url === "string");
+}
+
+export async function fetchEstateCloudinaryAssets(params?: {
+  next_cursor?: string;
+  max_results?: number;
+  prefix?: string;
+}): Promise<{
+  count: number;
+  next_cursor: string | null;
+  prefix: string;
+  results: EstatePropertyCloudinaryAsset[];
+}> {
+  const sp = new URLSearchParams();
+  if (params?.next_cursor) sp.set("next_cursor", params.next_cursor);
+  if (params?.max_results) sp.set("max_results", String(params.max_results));
+  if (params?.prefix) sp.set("prefix", params.prefix);
+  const query = sp.toString();
+  const url = `${API_BASE_URL}/api/mls/estate-properties/cloudinary-assets/${query ? `?${query}` : ""}`;
+  const res = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    await handleResponseError(res, "Failed to load Cloudinary images.");
+  }
+  const payload = await res.json();
+  return {
+    count: Number(payload?.count || 0),
+    next_cursor: payload?.next_cursor ? String(payload.next_cursor) : null,
+    prefix: String(payload?.prefix || ""),
+    results: Array.isArray(payload?.results)
+      ? payload.results.filter(
+          (item: any) => typeof item?.secure_url === "string" && item.secure_url,
+        )
+      : [],
+  };
 }
 
 export async function deleteEstateProperty(id: string | number): Promise<void> {

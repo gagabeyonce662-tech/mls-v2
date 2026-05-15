@@ -3,6 +3,7 @@ from django.conf.urls.static import static
 from django.urls import path, include
 from .views import *
 from .views_estate import (
+    EstatePropertyCloudinaryAssetsAPIView,
     EstatePropertyButtonClickAPIView,
     EstatePropertyDetailAPIView,
     EstatePropertyListCreateAPIView,
@@ -62,6 +63,7 @@ urlpatterns = [
     path('properties/<str:PropertyKey>/', PropertyDetailView.as_view(), name='property_detail_path'),
     path('estate-properties/schema/', EstatePropertySchemaAPIView.as_view(), name='estate-property-schema'),
     path('estate-properties/media-upload/', EstatePropertyMediaUploadAPIView.as_view(), name='estate-property-media-upload'),
+    path('estate-properties/cloudinary-assets/', EstatePropertyCloudinaryAssetsAPIView.as_view(), name='estate-property-cloudinary-assets'),
     path('estate-properties/buttons/click/', EstatePropertyButtonClickAPIView.as_view(), name='estate-property-button-click'),
     path('estate-properties/<int:pk>/', EstatePropertyDetailAPIView.as_view(), name='estate-property-detail'),
     path('estate-properties/', EstatePropertyListCreateAPIView.as_view(), name='estate-property-list'),

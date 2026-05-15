@@ -3,7 +3,9 @@ import logging
 import os
 from uuid import uuid4
 
+from cloudinary import api as cloudinary_api
 from cloudinary.exceptions import Error as CloudinaryError
+from django.conf import settings
 from django.core.files.storage import default_storage
 from django.utils import timezone
 from django.db import DataError, DatabaseError, IntegrityError
@@ -1186,6 +1188,109 @@ class EstatePropertyMediaUploadAPIView(EstatePropertyAPIViewMixinMethods, APIVie
             )
 
         return Response({"count": len(uploaded), "results": uploaded})
+
+
+class EstatePropertyCloudinaryAssetsAPIView(EstatePropertyAPIViewMixinMethods, APIView):
+    MAX_PICK_RESULTS = 60
+
+    def get_permissions(self):
+        return [IsAdminUser()]
+
+    def get(self, request, *args, **kwargs):
+        cloudinary_settings = getattr(settings, "CLOUDINARY_STORAGE", {}) or {}
+        cloud_name = str(
+            cloudinary_settings.get("CLOUD_NAME")
+            or os.environ.get("CLOUDINARY_CLOUD_NAME")
+            or ""
+        ).strip()
+        api_key = str(
+            cloudinary_settings.get("API_KEY")
+            or os.environ.get("CLOUDINARY_API_KEY")
+            or ""
+        ).strip()
+        api_secret = str(
+            cloudinary_settings.get("API_SECRET")
+            or os.environ.get("CLOUDINARY_API_SECRET")
+            or ""
+        ).strip()
+
+        if not cloud_name or not api_key or not api_secret:
+            return Response(
+                {
+                    "detail": "Cloudinary is not configured for asset browsing.",
+                    "error": (
+                        "Missing CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, "
+                        "or CLOUDINARY_API_SECRET."
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            requested_max = int(request.query_params.get("max_results", 30))
+        except (TypeError, ValueError):
+            requested_max = 30
+        max_results = max(1, min(requested_max, self.MAX_PICK_RESULTS))
+
+        next_cursor = str(request.query_params.get("next_cursor") or "").strip()
+        prefix = str(request.query_params.get("prefix") or "").strip()
+        if not prefix:
+            prefix = str(os.environ.get("ESTATE_CLOUDINARY_PICKER_PREFIX") or "").strip()
+
+        options = {
+            "resource_type": "image",
+            "type": "upload",
+            "max_results": max_results,
+            "direction": "desc",
+        }
+        if next_cursor:
+            options["next_cursor"] = next_cursor
+        if prefix:
+            options["prefix"] = prefix
+
+        try:
+            result = cloudinary_api.resources(**options)
+        except Exception as exc:
+            logger.exception("[estate:cloudinary-assets] failed options=%s", options)
+            return Response(
+                {
+                    "detail": "Unable to load Cloudinary assets.",
+                    "error": str(exc),
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        resources = result.get("resources") if isinstance(result, dict) else []
+        assets = []
+        for resource in resources or []:
+            if not isinstance(resource, dict):
+                continue
+            secure_url = str(resource.get("secure_url") or resource.get("url") or "").strip()
+            if not secure_url:
+                continue
+            assets.append(
+                {
+                    "asset_id": resource.get("asset_id"),
+                    "public_id": resource.get("public_id"),
+                    "secure_url": secure_url,
+                    "width": resource.get("width"),
+                    "height": resource.get("height"),
+                    "format": resource.get("format"),
+                    "bytes": resource.get("bytes"),
+                    "created_at": resource.get("created_at"),
+                    "folder": resource.get("folder") or "",
+                    "tags": resource.get("tags") or [],
+                }
+            )
+
+        return Response(
+            {
+                "count": len(assets),
+                "results": assets,
+                "next_cursor": result.get("next_cursor") if isinstance(result, dict) else None,
+                "prefix": prefix,
+            }
+        )
 
 
 class EstatePropertyButtonClickAPIView(EstatePropertyAPIViewMixinMethods, APIView):
