@@ -237,6 +237,18 @@ class EstatePropertyAPITests(TestCase):
         self.assertTrue(
             any(col["column_name"] == "custom_tags" for col in payload["columns"]),
         )
+        self.assertTrue(
+            any(
+                col["column_name"] == "custom_detail_blocks_json"
+                for col in payload["columns"]
+            ),
+        )
+        self.assertTrue(
+            any(
+                col["column_name"] == "detail_blocks_layout_json"
+                for col in payload["columns"]
+            ),
+        )
 
     @override_settings(DEBUG=False)
     def test_estate_property_get_is_public_but_writes_require_staff(self):
@@ -406,6 +418,102 @@ class EstatePropertyAPITests(TestCase):
             (data.get("wp_meta_json") or {}).get("gallery_image_urls"),
             image_urls,
         )
+
+    @override_settings(DEBUG=False)
+    def test_estate_property_custom_detail_blocks_are_first_class_fields(self):
+        staff_user = get_user_model().objects.create_user(
+            email="estate-admin-detail-blocks@example.com",
+            password="safe-password-123",
+            is_staff=True,
+        )
+        self.client.force_login(staff_user)
+
+        custom_blocks = [
+            {
+                "id": "custom_payment_plan",
+                "title": "Payment Plan",
+                "order": 0,
+                "items": [
+                    {"label": "Deposit", "value": "20%"},
+                    {"label": "Due on Signing", "value": "$10,000"},
+                ],
+            }
+        ]
+        layout = [
+            {
+                "id": "financial_information",
+                "kind": "default",
+                "order": 0,
+                "visible": True,
+            },
+            {
+                "id": "custom_payment_plan",
+                "kind": "custom",
+                "order": 1,
+                "visible": True,
+            },
+            {
+                "id": "lot_land",
+                "kind": "default",
+                "order": 2,
+                "visible": False,
+            },
+        ]
+        payload = {
+            "listing_key": "estate-detail-blocks-1",
+            "property_title": "Detail Blocks Estate Home",
+            "city": "Toronto",
+            "publish_status": "draft",
+            "custom_detail_blocks_json": custom_blocks,
+            "detail_blocks_layout_json": layout,
+            "wp_meta_json": {
+                "custom_detail_blocks_json": [{"id": "old"}],
+                "detail_blocks_layout_json": [{"id": "old"}],
+            },
+        }
+
+        response = self.client.post(
+            "/api/mls/estate-properties/",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data.get("custom_detail_blocks_json"), custom_blocks)
+        self.assertEqual(data.get("detail_blocks_layout_json"), layout)
+        self.assertEqual(
+            (data.get("wp_meta_json") or {}).get("custom_detail_blocks_json"),
+            [{"id": "old"}],
+        )
+
+        estate_id = data["id"]
+        updated = self.client.patch(
+            f"/api/mls/estate-properties/{estate_id}/",
+            data=json.dumps(
+                {
+                    "custom_detail_blocks_json": [
+                        {
+                            "id": "custom_notes",
+                            "title": "Notes",
+                            "items": [{"label": "Builder", "value": "ABC"}],
+                        }
+                    ],
+                    "detail_blocks_layout_json": [
+                        {
+                            "id": "custom_notes",
+                            "kind": "custom",
+                            "order": 0,
+                            "visible": "true",
+                        }
+                    ],
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(updated.status_code, 200)
+        updated_data = updated.json()
+        self.assertEqual(updated_data["custom_detail_blocks_json"][0]["id"], "custom_notes")
+        self.assertEqual(updated_data["detail_blocks_layout_json"][0]["visible"], True)
 
     @override_settings(DEBUG=False)
     def test_estate_property_media_upload_accepts_multiple_images(self):

@@ -22,8 +22,24 @@ export interface PropertyDetailItem {
 }
 
 export interface PropertyDetailSection {
+  id?: string;
+  kind?: "default" | "custom";
   title: string;
   items: PropertyDetailItem[];
+}
+
+export interface PropertyCustomDetailBlock {
+  id: string;
+  title: string;
+  order?: number;
+  items: PropertyDetailItem[];
+}
+
+export interface PropertyDetailBlockLayoutItem {
+  id: string;
+  kind: "default" | "custom";
+  order: number;
+  visible: boolean;
 }
 
 /* ──────────────────────────── Identity ──────────────────────────── */
@@ -681,6 +697,101 @@ const toDetailItem = (
   return { label, value: trimmed };
 };
 
+const DEFAULT_DETAIL_BLOCK_IDS = [
+  "financial_information",
+  "building_facts",
+  "location_access",
+  "lot_land",
+  "construction_systems",
+  "utilities_services",
+  "parking_structure",
+  "listing_details",
+] as const;
+
+function parseJsonArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+  const text = value.trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function getDefaultPropertyDetailBlockLayout(): PropertyDetailBlockLayoutItem[] {
+  return DEFAULT_DETAIL_BLOCK_IDS.map((id, index) => ({
+    id,
+    kind: "default",
+    order: index,
+    visible: true,
+  }));
+}
+
+export function normalizePropertyCustomDetailBlocks(
+  value: unknown,
+): PropertyCustomDetailBlock[] {
+  const rows = parseJsonArray(value);
+  return rows
+    .map((block, blockIndex): PropertyCustomDetailBlock | null => {
+      if (!block || typeof block !== "object") return null;
+      const typed = block as Record<string, unknown>;
+      const id = String(typed.id || `custom_detail_block_${blockIndex + 1}`).trim();
+      const title = String(typed.title || "").trim();
+      const items = parseJsonArray(typed.items)
+        .map((item): PropertyDetailItem | null => {
+          if (!item || typeof item !== "object") return null;
+          const row = item as Record<string, unknown>;
+          return toDetailItem(
+            String(row.label || ""),
+            String(row.value ?? ""),
+          );
+        })
+        .filter((item): item is PropertyDetailItem => Boolean(item));
+      if (!id || !title || items.length === 0) return null;
+      const order =
+        typeof typed.order === "number"
+          ? typed.order
+          : Number.parseInt(String(typed.order ?? blockIndex), 10);
+      return {
+        id,
+        title,
+        order: Number.isFinite(order) ? order : blockIndex,
+        items,
+      };
+    })
+    .filter((block): block is PropertyCustomDetailBlock => Boolean(block))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+export function normalizePropertyDetailBlockLayout(
+  value: unknown,
+): PropertyDetailBlockLayoutItem[] {
+  const rows = parseJsonArray(value);
+  return rows
+    .map((item, index): PropertyDetailBlockLayoutItem | null => {
+      if (!item || typeof item !== "object") return null;
+      const typed = item as Record<string, unknown>;
+      const id = String(typed.id || "").trim();
+      if (!id) return null;
+      const kind = typed.kind === "custom" ? "custom" : "default";
+      const order =
+        typeof typed.order === "number"
+          ? typed.order
+          : Number.parseInt(String(typed.order ?? index), 10);
+      return {
+        id,
+        kind,
+        order: Number.isFinite(order) ? order : index,
+        visible: typed.visible !== false,
+      };
+    })
+    .filter((item): item is PropertyDetailBlockLayoutItem => Boolean(item))
+    .sort((a, b) => a.order - b.order);
+}
+
 export type PropertyDetailSectionsOptions = {
   isPrivileged?: boolean;
 };
@@ -693,14 +804,18 @@ export const getPropertyDetailSections = (
   const isPrivileged = options.isPrivileged ?? false;
   const sections: PropertyDetailSection[] = [];
 
-  const pushSection = (title: string, items: Array<PropertyDetailItem | null>) => {
+  const pushSection = (
+    id: string,
+    title: string,
+    items: Array<PropertyDetailItem | null>,
+  ) => {
     const filtered = items.filter((item): item is PropertyDetailItem => Boolean(item));
-    if (filtered.length > 0) sections.push({ title, items: filtered });
+    if (filtered.length > 0) sections.push({ id, kind: "default", title, items: filtered });
   };
 
   const mlsDisplay = getMlsNumberForDisplay(property, { isPrivileged });
 
-  pushSection("Financial Information", [
+  pushSection("financial_information", "Financial Information", [
     toDetailItem("List Price", core.price),
     toDetailItem(
       "Status",
@@ -719,7 +834,7 @@ export const getPropertyDetailSections = (
     toValue(getRaw(property, "bathrooms_partial", "BathroomsPartial")),
   );
 
-  pushSection("Building Facts", [
+  pushSection("building_facts", "Building Facts", [
     toDetailItem("Property Type", core.type),
     toDetailItem("Building Area", core.livingArea),
     toDetailItem(
@@ -744,12 +859,12 @@ export const getPropertyDetailSections = (
     ),
   ]);
 
-  pushSection("Location & access", [
+  pushSection("location_access", "Location & access", [
     toDetailItem("Directions", toValue(getRaw(property, "directions", "Directions"))),
     toDetailItem("Coordinates", getCoordinatesLabel(property)),
   ]);
 
-  pushSection("Lot & Land", [
+  pushSection("lot_land", "Lot & Land", [
     toDetailItem("Lot Size", getLotSizeSummary(property)),
     toDetailItem(
       "Frontage",
@@ -773,7 +888,7 @@ export const getPropertyDetailSections = (
     ),
   ]);
 
-  pushSection("Construction & Systems", [
+  pushSection("construction_systems", "Construction & Systems", [
     toDetailItem("Heating", formatList(getRaw(property, "heating", "Heating"))),
     toDetailItem("Cooling", formatList(getRaw(property, "cooling", "Cooling"))),
     toDetailItem("Basement", formatList(getRaw(property, "basement", "Basement"))),
@@ -797,7 +912,7 @@ export const getPropertyDetailSections = (
     toDetailItem("Appliances", formatList(getRaw(property, "appliances", "Appliances"))),
   ]);
 
-  pushSection("Utilities & Services", [
+  pushSection("utilities_services", "Utilities & Services", [
     toDetailItem("Utilities", formatList(getRaw(property, "utilities", "Utilities"))),
     toDetailItem(
       "Water Source",
@@ -807,7 +922,7 @@ export const getPropertyDetailSections = (
     toDetailItem("Electric", formatList(getRaw(property, "electric", "Electric"))),
   ]);
 
-  pushSection("Parking & Structure", [
+  pushSection("parking_structure", "Parking & Structure", [
     toDetailItem("Parking", getParkingSummary(property)),
     toDetailItem(
       "Parking Features",
@@ -823,7 +938,7 @@ export const getPropertyDetailSections = (
     ),
   ]);
 
-  pushSection("Listing Details", [
+  pushSection("listing_details", "Listing Details", [
     toDetailItem(
       "Postal Code",
       toValue(getRaw(property, "postal_code", "PostalCode")),
@@ -861,7 +976,49 @@ export const getPropertyDetailSections = (
     ),
   ]);
 
-  return sections;
+  const customBlocks = normalizePropertyCustomDetailBlocks(
+    (property as Record<string, unknown>).custom_detail_blocks_json,
+  ).map((block): PropertyDetailSection => ({
+    id: block.id,
+    kind: "custom",
+    title: block.title,
+    items: block.items,
+  }));
+  const layout = normalizePropertyDetailBlockLayout(
+    (property as Record<string, unknown>).detail_blocks_layout_json,
+  );
+
+  if (customBlocks.length === 0 && layout.length === 0) {
+    return sections;
+  }
+
+  const sectionMap = new Map<string, PropertyDetailSection>();
+  [...sections, ...customBlocks].forEach((section) => {
+    if (section.id) sectionMap.set(section.id, section);
+  });
+
+  const ordered: PropertyDetailSection[] = [];
+  const used = new Set<string>();
+  for (const item of layout) {
+    if (!item.visible) {
+      used.add(item.id);
+      continue;
+    }
+    const section = sectionMap.get(item.id);
+    if (!section) continue;
+    ordered.push(section);
+    used.add(item.id);
+  }
+
+  const appendMissing = (section: PropertyDetailSection) => {
+    if (!section.id || used.has(section.id)) return;
+    ordered.push(section);
+    used.add(section.id);
+  };
+  sections.forEach(appendMissing);
+  customBlocks.forEach(appendMissing);
+
+  return ordered;
 };
 
 export const getFormattedRoomDimensions = (room: Record<string, unknown>): string => {

@@ -267,6 +267,8 @@ class EstateProperty(models.Model):
     wp_terms_json = models.JSONField(default=dict, blank=True)
     wp_post_json = models.JSONField(default=dict, blank=True)
     description_sections_json = models.JSONField(default=list, blank=True)
+    custom_detail_blocks_json = models.JSONField(default=list, blank=True)
+    detail_blocks_layout_json = models.JSONField(default=list, blank=True)
 
     class Meta:
         db_table = "mls_estateproperty"
