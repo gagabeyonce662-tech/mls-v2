@@ -435,7 +435,6 @@ class EstatePropertyAPITests(TestCase):
         for row in payload.get("results") or []:
             self.assertTrue(str(row.get("url") or ""))
 
-
 class WatchedAPITests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(

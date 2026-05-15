@@ -43,7 +43,9 @@ interface WatchedContextType {
     metadata_json?: Record<string, unknown>;
   }) => void;
   unfollowArea: (areaKey: string) => void;
-  updateAlertPrefs: (payload: Partial<WatchedAlertPreferences>) => Promise<void>;
+  updateAlertPrefs: (
+    payload: Partial<WatchedAlertPreferences>,
+  ) => Promise<void>;
   isFavorite: (propertyId: string) => boolean;
   clearFavorites: () => void;
   clearHistory: () => void;
@@ -53,6 +55,11 @@ interface WatchedContextType {
 }
 
 const WatchedContext = createContext<WatchedContextType | undefined>(undefined);
+
+// useWatched hook for easy access to the context
+// It will throw an error if used outside of the WatchedProvider, which helps catch mistakes early.
+// The WatchedProvider is a higher-level component that should wrap around any part of the app that needs access to the watched properties state and actions.
+// By higher-level we mean that it should be placed near the root of the component tree, such as in the main App component or a layout component, to ensure that all child components can access the context without issues.
 
 export const useWatched = () => {
   const context = useContext(WatchedContext);
@@ -97,13 +104,16 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   });
   const [touredList, setTouredList] = useState<any[]>([]);
-  const [followedAreas, setFollowedAreas] = useState<WatchedFollowedAreaRow[]>([]);
-  const [alertPreferences, setAlertPreferences] = useState<WatchedAlertPreferences>({
-    price_changes: true,
-    new_listings: true,
-    status_updates: true,
-    email_enabled: true,
-  });
+  const [followedAreas, setFollowedAreas] = useState<WatchedFollowedAreaRow[]>(
+    [],
+  );
+  const [alertPreferences, setAlertPreferences] =
+    useState<WatchedAlertPreferences>({
+      price_changes: true,
+      new_listings: true,
+      status_updates: true,
+      email_enabled: true,
+    });
 
   // Helper to get consistent keys
   const getPropertyKey = useCallback((property: any) => {
@@ -127,9 +137,15 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
       const fromFavs = (data.favorites || []).map(hydrateWatchedProperty);
       const fromHist = (data.history || []).map(hydrateWatchedProperty);
       const fromToured = (data.toured || []).map(hydrateWatchedProperty);
-      setFavoritesList((prev) => mergeServerFirst(fromFavs, prev, getPropertyKey));
-      setHistoryList((prev) => mergeServerFirst(fromHist, prev, getPropertyKey));
-      setTouredList((prev) => mergeServerFirst(fromToured, prev, getPropertyKey));
+      setFavoritesList((prev) =>
+        mergeServerFirst(fromFavs, prev, getPropertyKey),
+      );
+      setHistoryList((prev) =>
+        mergeServerFirst(fromHist, prev, getPropertyKey),
+      );
+      setTouredList((prev) =>
+        mergeServerFirst(fromToured, prev, getPropertyKey),
+      );
       setFollowedAreas(data.followed_areas || []);
       if (data.alert_preferences) setAlertPreferences(data.alert_preferences);
     })();
@@ -260,10 +276,7 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const unfollowArea = useCallback((areaKey: string) => {
     setFollowedAreas((prev) => prev.filter((x) => x.area_key !== areaKey));
-    if (
-      typeof window !== "undefined" &&
-      localStorage.getItem("access_token")
-    ) {
+    if (typeof window !== "undefined" && localStorage.getItem("access_token")) {
       void postUnfollowArea(areaKey);
     }
   }, []);
@@ -284,40 +297,28 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const clearFavorites = useCallback(() => {
     setFavoritesList([]);
-    if (
-      typeof window !== "undefined" &&
-      localStorage.getItem("access_token")
-    ) {
+    if (typeof window !== "undefined" && localStorage.getItem("access_token")) {
       void clearWatchedFavoritesServer();
     }
   }, []);
 
   const clearHistory = useCallback(() => {
     setHistoryList([]);
-    if (
-      typeof window !== "undefined" &&
-      localStorage.getItem("access_token")
-    ) {
+    if (typeof window !== "undefined" && localStorage.getItem("access_token")) {
       void clearWatchedHistoryServer();
     }
   }, []);
 
   const clearToured = useCallback(() => {
     setTouredList([]);
-    if (
-      typeof window !== "undefined" &&
-      localStorage.getItem("access_token")
-    ) {
+    if (typeof window !== "undefined" && localStorage.getItem("access_token")) {
       void clearWatchedTouredServer();
     }
   }, []);
 
   const clearFollowedAreas = useCallback(() => {
     setFollowedAreas([]);
-    if (
-      typeof window !== "undefined" &&
-      localStorage.getItem("access_token")
-    ) {
+    if (typeof window !== "undefined" && localStorage.getItem("access_token")) {
       void clearWatchedAreasServer();
     }
   }, []);

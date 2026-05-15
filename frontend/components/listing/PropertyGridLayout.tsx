@@ -1,3 +1,8 @@
+// Renders property cards in either a grid or horizontal row layout.
+// Handles loading states with skeleton placeholders and supports
+// infinite scrolling to fetch additional properties as users scroll.
+// Displays an optional empty state when no properties are available.
+
 import React, { useRef, useCallback } from "react";
 import PropertyCard from "@/components/PropertyCard";
 import { Property } from "@/lib/api";
@@ -36,7 +41,7 @@ export function PropertyGridLayout({
         key={`skeleton-${index}`}
         className={cn(
           "bg-white rounded-xl shadow-md overflow-hidden animate-pulse min-h-[300px]",
-          variant === "row" && "min-w-[220px] max-w-[320px]"
+          variant === "row" && "min-w-[220px] max-w-[320px]",
         )}
       >
         <div
@@ -74,34 +79,35 @@ export function PropertyGridLayout({
       if (isLoading || isFetchingNextPage) return;
       if (observerRef.current) observerRef.current.disconnect();
 
-      observerRef.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
-        }
-      }, {
-        rootMargin: '100px', // Trigger slightly before the end
-        threshold: 0.1
-      });
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+          }
+        },
+        {
+          rootMargin: "100px", // Trigger slightly before the end
+          threshold: 0.1,
+        },
+      );
 
       if (node) observerRef.current.observe(node);
     },
     [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage],
   );
 
-  const containerClasses = variant === "row"
-    ? "flex flex-row flex-nowrap overflow-x-auto gap-4 w-full"
-    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 gap-6 w-full";
+  const containerClasses =
+    variant === "row"
+      ? "flex flex-row flex-nowrap overflow-x-auto gap-4 w-full"
+      : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 gap-6 w-full";
 
-  const itemClasses = variant === "row"
-    ? "flex-1 min-w-[220px] max-w-[320px]"
-    : "w-full";
+  const itemClasses =
+    variant === "row" ? "flex-1 min-w-[220px] max-w-[320px]" : "w-full";
 
   return (
     <>
       {isLoading && properties.length === 0 ? (
-        <div className={containerClasses}>
-          {renderSkeletons()}
-        </div>
+        <div className={containerClasses}>{renderSkeletons()}</div>
       ) : properties.length > 0 ? (
         <>
           <div className={containerClasses}>
@@ -129,7 +135,6 @@ export function PropertyGridLayout({
             })}
             {(isLoading || isFetchingNextPage) && renderSkeletons()}
           </div>
-
         </>
       ) : (
         emptyMessage || (

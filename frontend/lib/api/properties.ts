@@ -171,6 +171,8 @@ export function mapPropertyFromAPI(prop: any): Property {
   }
 }
 
+// The mapEstatePropertyFromAPI function is specifically designed to handle the unique structure of estate properties, which may differ from our standard property schema. It first normalizes the raw estate data and then maps it to our Property interface, ensuring that we can work with estate listings seamlessly alongside regular MLS properties.
+
 export function mapEstatePropertyFromAPI(prop: any, id?: string): Property {
   console.log(
     "[estate-map] Debug: Raw data received in mapEstatePropertyFromAPI:",

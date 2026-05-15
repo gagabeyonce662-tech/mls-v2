@@ -1,3 +1,16 @@
+// components/PropertyCard.tsx
+// Reusable client-side property card component used to display
+// individual listings with images, details, and actions.
+//
+// Supports user interactions including favorites, compare,
+// quick view, and navigation to property details.
+//
+// Integrates watched and compare contexts for state management
+// and prefetches property details on hover to improve perceived
+// performance.
+//
+// Uses composable subcomponents (PropertyCardImage,
+// PropertyCardContent) to keep presentation concerns separated.
 "use client";
 
 import Link from "next/link";
@@ -100,14 +113,18 @@ export default function PropertyCard({
           }`}
           style={{ borderColor: propertyCard.surface.sectionDivider }}
         >
-          <Heart className={`w-3 h-3 shrink-0 ${saved ? "fill-current" : ""}`} />
+          <Heart
+            className={`w-3 h-3 shrink-0 ${saved ? "fill-current" : ""}`}
+          />
           <span className="truncate">{saved ? "Saved" : "Save"}</span>
         </button>
 
         <button
           onClick={handleToggleCompare}
           className={`flex items-center justify-center gap-1.5 border-r py-2.5 text-xs font-medium transition-colors hover:bg-gray-50 ${
-            isCompared ? "text-purple-600" : "text-gray-500 hover:text-purple-500"
+            isCompared
+              ? "text-purple-600"
+              : "text-gray-500 hover:text-purple-500"
           }`}
           style={{ borderColor: propertyCard.surface.sectionDivider }}
           aria-label={isCompared ? "Remove from Compare" : "Add to Compare"}

@@ -3,7 +3,7 @@ import PreConstructionPageClient from "@/components/preconstruction/PreConstruct
 import { fetchPreConnProperties } from "@/lib/api/properties";
 export const revalidate = 300;
 
-const SITE_URL = "https://estate-4u.com";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const PAGE_URL = `${SITE_URL}/pre-construction`;
 const PAGE_TITLE = "Pre-Construction Projects in GTA | Estate-4u";
 const PAGE_DESCRIPTION =
@@ -21,7 +21,9 @@ export const metadata: Metadata = {
     title: PAGE_TITLE,
     description: PAGE_DESCRIPTION,
     siteName: "Estate-4u",
-    images: [{ url: FALLBACK_IMAGE, width: 1200, height: 630, alt: "Estate-4u" }],
+    images: [
+      { url: FALLBACK_IMAGE, width: 1200, height: 630, alt: "Estate-4u" },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -33,12 +35,14 @@ export const metadata: Metadata = {
 
 export default async function PreConstructionPage() {
   const response = await fetchPreConnProperties({ limit: 24 });
-  const itemList = (response.results || []).slice(0, 24).map((p: any, idx: number) => ({
-    "@type": "ListItem",
-    position: idx + 1,
-    url: `${PAGE_URL}#${p.listing_key || p.ListingKey || `project-${idx + 1}`}`,
-    name: p.project_name || p.address || "Pre-Construction Project",
-  }));
+  const itemList = (response.results || [])
+    .slice(0, 24)
+    .map((p: any, idx: number) => ({
+      "@type": "ListItem",
+      position: idx + 1,
+      url: `${PAGE_URL}#${p.listing_key || p.ListingKey || `project-${idx + 1}`}`,
+      name: p.project_name || p.address || "Pre-Construction Project",
+    }));
 
   const jsonLd = {
     "@context": "https://schema.org",

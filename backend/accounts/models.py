@@ -11,6 +11,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     google_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
     facebook_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
     ghl_contact_id = models.CharField(max_length=255, blank=True, null=True)
+    phone_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)

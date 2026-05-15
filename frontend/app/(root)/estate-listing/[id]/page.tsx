@@ -1,3 +1,14 @@
+/**
+ * Estate Listing Detail Page
+ *
+ * This is a server component that aggregates and displays all information for a specific property.
+ * It handles:
+ * - Core property data fetching with fallback support.
+ * - SEO Metadata generation.
+ * - Parallel fetching of market stats, school data, and demographics.
+ * - Responsive UI layout with multiple specialized detail components.
+ */
+
 import React from "react";
 import { Metadata } from "next";
 import Header from "@/components/Header";
@@ -14,7 +25,7 @@ import { fetchEstatePropertyById } from "@/lib/api/properties";
 import type { Property } from "@/lib/api";
 import { notFound } from "next/navigation";
 
-// Modular Detail Components
+// --- UI COMPONENT IMPORTS ---
 import PropertyHeader from "@/components/listing/details/PropertyHeader";
 import PropertyDetailsGrid from "@/components/listing/details/PropertyDetailsGrid";
 import PropertySidebar from "@/components/listing/details/PropertySidebar";
@@ -30,6 +41,7 @@ import FinancialsPanel from "@/components/listing/details/FinancialsPanel";
 import ListingAmenitiesSection from "@/components/listing/details/ListingAmenitiesSection";
 import {
   getBathroomDisplayLabel,
+  getBedroomDisplayLabel,
   getDescription,
   getLivingAreaSummary,
   getPropertyType,
@@ -52,6 +64,7 @@ interface ListingPageProps {
   }>;
 }
 
+// --- CONFIGURATION & CONSTANTS ---
 export const dynamic = "force-dynamic";
 const FORCE_TEMP_ESTATE_LISTING = false;
 const TEMP_ESTATE_SAMPLE_IMAGE =
@@ -114,12 +127,25 @@ function getTemporaryEstateListing(id: string): Property {
       "Temporary hardcoded estate listing for UI validation while backend mapping is finalized.",
     property_description:
       "<p>Temporary hardcoded estate listing for UI validation while backend mapping is finalized.</p>",
+    description_sections_json: [
+      {
+        id: "legacy-overview",
+        title: "Overview",
+        body_html:
+          "<p>Temporary hardcoded estate listing for UI validation while backend mapping is finalized.</p>",
+        order: 0,
+      },
+    ],
     latitude: "43.6425",
     longitude: "-79.3684",
     ModificationTimestamp: new Date().toISOString(),
   };
 }
 
+/**
+ * Dynamic Metadata Generation
+ * Optimizes SEO and Social Sharing (OpenGraph/Twitter) for each property listing.
+ */
 export async function generateMetadata({
   params,
 }: ListingPageProps): Promise<Metadata> {
@@ -163,6 +189,8 @@ export async function generateMetadata({
 }
 
 export default async function ListingPage(props: ListingPageProps) {
+  // --- 1. INITIAL DATA RESOLUTION ---
+  // Resolves params and fetches core property data.
   const params = await props.params;
   const property = FORCE_TEMP_ESTATE_LISTING
     ? getTemporaryEstateListing(params.id)
@@ -173,6 +201,7 @@ export default async function ListingPage(props: ListingPageProps) {
     notFound();
   }
 
+  // --- 2. LOCALIZATION & ACCESS CONTROL ---
   const t = await getTranslations("Listing");
 
   const isPrivileged = getListingIsPrivileged();
@@ -182,6 +211,7 @@ export default async function ListingPage(props: ListingPageProps) {
     isPrivileged,
   });
 
+  // --- 3. GEOGRAPHIC & MARKET ANALYTICS ---
   const getResolvedCity = () => {
     const rawCity = String(
       property.city || property.City || property.location || "",
@@ -209,7 +239,8 @@ export default async function ListingPage(props: ListingPageProps) {
     fsa ? fetchCensusFsaProfile(fsa) : Promise.resolve(null),
   ]);
 
-  // Data extraction helpers
+  // --- 4. UI DATA FORMATTING ---
+  // Normalizes raw property data into display-ready labels and arrays.
   const propertyImages =
     property.media && property.media.length > 0
       ? property.media.map((m: any) => m.media_url).filter(Boolean)
@@ -295,12 +326,13 @@ export default async function ListingPage(props: ListingPageProps) {
       wpTerms.labels,
   );
 
-  const beds = getBedCount();
+  const beds = getBedroomDisplayLabel(property) || getBedCount();
   const baths =
     getBathroomDisplayLabel(property) ||
     (getBathCount() != null ? String(getBathCount()) : "");
   const builtYear = property.year_built || property.YearBuilt;
 
+  // --- 5. DESCRIPTION & COORDINATES PROCESSING ---
   const description =
     getDescription(property) ||
     property.PrivateRemarks ||
@@ -309,6 +341,46 @@ export default async function ListingPage(props: ListingPageProps) {
   const aboutHtml = String(
     (property as { property_description?: string }).property_description || "",
   ).trim();
+  const descriptionSections = (() => {
+    const source = (property as { description_sections_json?: unknown })
+      .description_sections_json;
+    let raw: unknown[] = [];
+    if (Array.isArray(source)) {
+      raw = source;
+    } else if (typeof source === "string") {
+      try {
+        const parsed = JSON.parse(source);
+        if (Array.isArray(parsed)) raw = parsed;
+      } catch {
+        raw = [];
+      }
+    }
+    return raw
+      .map((item, idx) => {
+        if (!item || typeof item !== "object") return null;
+        const typed = item as Record<string, unknown>;
+        return {
+          id: String(typed.id || `section-${idx + 1}`),
+          title: String(typed.title || "").trim(),
+          bodyHtml: String(typed.body_html || "").trim(),
+          order:
+            typeof typed.order === "number"
+              ? typed.order
+              : Number.parseInt(String(typed.order ?? idx), 10) || idx,
+        };
+      })
+      .filter(
+        (
+          section,
+        ): section is {
+          id: string;
+          title: string;
+          bodyHtml: string;
+          order: number;
+        } => Boolean(section && section.bodyHtml),
+      )
+      .sort((a, b) => a.order - b.order);
+  })();
 
   const parseCoordinate = (value: unknown): number | null => {
     if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -329,6 +401,7 @@ export default async function ListingPage(props: ListingPageProps) {
     longitude >= -180 &&
     longitude <= 180;
 
+  // --- 6. EXTERNAL DATA (Schools & Amenities) ---
   const schoolRadiusMeters = 5000;
   let nearestSchoolsData: Awaited<ReturnType<typeof fetchNearestSchools>> =
     null;
@@ -349,12 +422,15 @@ export default async function ListingPage(props: ListingPageProps) {
     }
   }
 
+  // --- 7. RENDER LAYOUT ---
   return (
     <div className="min-h-screen bg-ds-background">
+      {/* Navigation and Tracking */}
       <Header />
       <PropertyViewerTracker property={property} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-700">
+        {/* Header Stats and Title */}
         <PropertyHeader
           headline={headline}
           propertyType={uiPropertyType}
@@ -399,25 +475,45 @@ export default async function ListingPage(props: ListingPageProps) {
 
         <ListingExternalLinks property={property} />
 
+        {/* Main Content Grid (2:1 Ratio) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
+            {/* Primary Details & History */}
             {/* 1. Description — first thing after gallery */}
-            <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
-              <h2 className="text-2xl md:text-3xl font-bold text-ds-heading mb-3">
-                {t("aboutTitle")}
-              </h2>
-              {aboutHtml ? (
-                <div
-                  className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
-                  dangerouslySetInnerHTML={{ __html: aboutHtml }}
-                />
-              ) : (
-                <OverviewExcerpt text={description} maxChars={400} />
-              )}
-            </section>
+            {descriptionSections.length > 0 ? (
+              <div className="space-y-4">
+                {descriptionSections.map((section) => (
+                  <div key={section.id} className="space-y-2">
+                    <h4 className="text-sm font-bold uppercase tracking-widest text-ds-body mb-3">
+                      {section.title || t("aboutTitle")}
+                    </h4>
+                    <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
+                      <div
+                        className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
+                        dangerouslySetInnerHTML={{ __html: section.bodyHtml }}
+                      />
+                    </section>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
+                <h2 className="text-2xl md:text-3xl font-bold text-ds-heading mb-3">
+                  {t("aboutTitle")}
+                </h2>
+                {aboutHtml ? (
+                  <div
+                    className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
+                    dangerouslySetInnerHTML={{ __html: aboutHtml }}
+                  />
+                ) : (
+                  <OverviewExcerpt text={description} maxChars={400} />
+                )}
+              </section>
+            )}
 
             {/* 2. AI summary */}
-            <ListingAISummary property={property} />
+            {/* <ListingAISummary property={property} /> */}
 
             {/* 3. Property Records — detailed specs early in the flow */}
             <PropertyDetailsGrid
@@ -469,6 +565,7 @@ export default async function ListingPage(props: ListingPageProps) {
             />
           </div>
 
+          {/* Sidebar Section (Sticky on desktop) */}
           <aside className="space-y-6 lg:sticky lg:top-24 self-start">
             <PropertySidebar
               property={property}

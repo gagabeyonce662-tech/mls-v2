@@ -39,12 +39,20 @@ interface Props {
   submitLabel: string;
 }
 
+type DescriptionSection = {
+  id: string;
+  title: string;
+  body_html: string;
+  order: number;
+};
+
 const HIDDEN_FIELDS = new Set(["id"]);
 const CORE_FIELD_ORDER = [
   "listing_key",
   "property_title",
   "property_slug",
   "property_description",
+  "description_sections_json",
   "listing_url",
   "publish_status",
   "is_featured",
@@ -268,6 +276,15 @@ function extractGalleryUrls(record: EstatePropertyRecord): string[] {
   ]);
 }
 
+function parseNumericRange(value: unknown): { min: number; max: number } | null {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+  if (!match) return null;
+  const min = Number.parseInt(match[1], 10);
+  const max = Number.parseInt(match[2], 10);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max < min) return null;
+  return { min, max };
+}
 export default function EstatePropertyForm({
   columns,
   initialValues = {},
@@ -278,7 +295,9 @@ export default function EstatePropertyForm({
   const [isSaving, setIsSaving] = useState(false);
   const [jsonText, setJsonText] = useState("");
   const [jsonError, setJsonError] = useState("");
-  const [editorMode, setEditorMode] = useState<"visual" | "html">("visual");
+  const [sectionEditorModes, setSectionEditorModes] = useState<
+    Record<string, "visual" | "html">
+  >({});
   const [submitError, setSubmitError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [summaryErrors, setSummaryErrors] = useState<string[]>([]);
@@ -295,7 +314,15 @@ export default function EstatePropertyForm({
       if (Object.keys(prev).length > initialKeys.length) {
         return prev; // Keep user's work
       }
-      return initialValues || {};
+      const seeded = { ...(initialValues || {}) };
+      const wpMeta = parseJsonObject(seeded.wp_meta_json);
+      if (seeded.max_bathrooms === undefined && wpMeta.max_bathrooms != null) {
+        seeded.max_bathrooms = String(wpMeta.max_bathrooms);
+      }
+      if (seeded.max_garages === undefined && wpMeta.max_garages != null) {
+        seeded.max_garages = String(wpMeta.max_garages);
+      }
+      return seeded;
     });
     setGalleryUrls(extractGalleryUrls(initialValues || {}));
     setGalleryUrlInput("");
@@ -345,6 +372,14 @@ export default function EstatePropertyForm({
       return {};
     }
   }, [form.wp_terms_json]);
+  const descriptionSections = useMemo(
+    () =>
+      normalizeDescriptionSections(
+        form.description_sections_json,
+        form.property_description,
+      ),
+    [form.description_sections_json, form.property_description],
+  );
 
   const handleChange = (name: string, value: string) => {
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -370,6 +405,59 @@ export default function EstatePropertyForm({
   ) => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
+  const setDescriptionSections = (sections: DescriptionSection[]) => {
+    const normalized = sections.map((section, index) => ({
+      id: section.id || createSectionId(),
+      title: String(section.title || ""),
+      body_html: String(section.body_html || ""),
+      order: index,
+    }));
+    setForm((prev) => ({
+      ...prev,
+      description_sections_json: normalized,
+      property_description: normalized[0]?.body_html ?? "",
+    }));
+  };
+  const updateDescriptionSection = (
+    sectionId: string,
+    field: "title" | "body_html",
+    value: string,
+  ) => {
+    const next = descriptionSections.map((section) =>
+      section.id === sectionId ? { ...section, [field]: value } : section,
+    );
+    setDescriptionSections(next);
+  };
+  const addDescriptionSection = () => {
+    setDescriptionSections([
+      ...descriptionSections,
+      {
+        id: createSectionId(),
+        title: "",
+        body_html: "",
+        order: descriptionSections.length,
+      },
+    ]);
+  };
+  const removeDescriptionSection = (sectionId: string) => {
+    setDescriptionSections(
+      descriptionSections.filter((section) => section.id !== sectionId),
+    );
+    setSectionEditorModes((prev) => {
+      if (!prev[sectionId]) return prev;
+      const next = { ...prev };
+      delete next[sectionId];
+      return next;
+    });
+  };
+  const setSectionEditorMode = (
+    sectionId: string,
+    mode: "visual" | "html",
+  ) => {
+    setSectionEditorModes((prev) => ({ ...prev, [sectionId]: mode }));
+  };
+  const getSectionEditorMode = (sectionId: string): "visual" | "html" =>
+    sectionEditorModes[sectionId] || "visual";
   const updateTaxonomySelection = (
     taxonomyKey: (typeof TAXONOMY_KEYS)[number],
     option: string,
@@ -505,7 +593,6 @@ export default function EstatePropertyForm({
       normalizedPayload.property_description =
         normalizedPayload.description_sections_json[0]?.body_html ?? "";
     }
-
     const existingWpPost = parseJsonObject(normalizedPayload.wp_post_json);
     const existingWpMeta = parseJsonObject(normalizedPayload.wp_meta_json);
     normalizedPayload.wp_post_json = {
@@ -518,6 +605,57 @@ export default function EstatePropertyForm({
       gallery_image_urls: finalGalleryUrls,
     };
     normalizedPayload.featured_image_url = finalGalleryUrls[0] ?? "";
+
+    // Allow admin shorthand like "3-5" in bedrooms_total by splitting into
+    // min bedrooms + max_bedrooms (when schema supports max_bedrooms).
+    const bedroomRange = parseNumericRange(normalizedPayload.bedrooms_total);
+    if (bedroomRange) {
+      normalizedPayload.bedrooms_total = bedroomRange.min;
+      if (editableColumnNames.has("max_bedrooms")) {
+        normalizedPayload.max_bedrooms = bedroomRange.max;
+      }
+    }
+
+    // Bathrooms range support via virtual max_bathrooms field + wp_meta_json fallback.
+    const bathroomRange = parseNumericRange(normalizedPayload.bathrooms_total_integer);
+    const explicitMaxBathrooms = Number.parseInt(
+      String(normalizedPayload.max_bathrooms ?? "").trim(),
+      10,
+    );
+    if (bathroomRange) {
+      normalizedPayload.bathrooms_total_integer = bathroomRange.min;
+      normalizedPayload.wp_meta_json = {
+        ...parseJsonObject(normalizedPayload.wp_meta_json),
+        max_bathrooms: bathroomRange.max,
+      };
+    } else if (Number.isFinite(explicitMaxBathrooms) && explicitMaxBathrooms > 0) {
+      normalizedPayload.wp_meta_json = {
+        ...parseJsonObject(normalizedPayload.wp_meta_json),
+        max_bathrooms: explicitMaxBathrooms,
+      };
+    }
+
+    // Garages range support via virtual max_garages field + wp_meta_json fallback.
+    const garageRange = parseNumericRange(normalizedPayload.garages);
+    const explicitMaxGarages = Number.parseInt(
+      String(normalizedPayload.max_garages ?? "").trim(),
+      10,
+    );
+    if (garageRange) {
+      normalizedPayload.garages = garageRange.min;
+      normalizedPayload.wp_meta_json = {
+        ...parseJsonObject(normalizedPayload.wp_meta_json),
+        max_garages: garageRange.max,
+      };
+    } else if (Number.isFinite(explicitMaxGarages) && explicitMaxGarages > 0) {
+      normalizedPayload.wp_meta_json = {
+        ...parseJsonObject(normalizedPayload.wp_meta_json),
+        max_garages: explicitMaxGarages,
+      };
+    }
+
+    delete normalizedPayload.max_bathrooms;
+    delete normalizedPayload.max_garages;
 
     delete normalizedPayload.id;
     for (const [field, rawValue] of Object.entries(normalizedPayload)) {
@@ -762,74 +900,121 @@ export default function EstatePropertyForm({
                 form.listing_url || "/estate/" + (form.property_slug || ""),
               )}
             </p>
-            <div className="space-y-1">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-gray-600">
-                  property_description
+                  description_sections
                 </span>
-                <div className="inline-flex gap-1 rounded border p-1">
-                  <button
-                    type="button"
-                    className={`px-2 py-1 text-xs rounded ${editorMode === "visual" ? "bg-gray-100" : ""}`}
-                    onClick={() => setEditorMode("visual")}
-                  >
-                    Visual
-                  </button>
-                  <button
-                    type="button"
-                    className={`px-2 py-1 text-xs rounded ${editorMode === "html" ? "bg-gray-100" : ""}`}
-                    onClick={() => setEditorMode("html")}
-                  >
-                    HTML
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={addDescriptionSection}
+                  className="px-2 py-1 text-xs rounded border"
+                >
+                  Add Section
+                </button>
               </div>
-              {editorMode === "visual" ? (
-                <div className="overflow-hidden rounded-lg border border-gray-200">
-                  <HugeRTEditor
-                    value={String(form.property_description ?? "")}
-                    init={{
-                      height: 420,
-                      menubar: true,
-                      plugins: [
-                        "lists",
-                        "link",
-                        "image",
-                        "table",
-                        "code",
-                        "fullscreen",
-                        "help",
-                        "wordcount",
-                        "preview",
-                      ],
-                      toolbar: `
-                        undo redo | formatselect |
-                        bold italic underline strikethrough |
-                        forecolor backcolor |
-                        alignleft aligncenter alignright alignjustify |
-                        bullist numlist outdent indent |
-                        removeformat | link image table | code fullscreen
-                      `,
-                      skin: "oxide",
-                      content_css: "default",
-                      branding: false,
-                    }}
-                    onEditorChange={(content: string) =>
-                      handleChange("property_description", content)
-                    }
-                  />
+              {descriptionSections.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-4 text-sm text-gray-500">
+                  No sections yet. Add one to start building the listing narrative.
                 </div>
-              ) : (
-                <textarea
-                  rows={10}
-                  value={String(form.property_description ?? "")}
-                  onChange={(e) =>
-                    handleChange("property_description", e.target.value)
-                  }
-                  className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
-                  placeholder="<p>Enter formatted HTML content...</p>"
-                />
-              )}
+              ) : null}
+              {descriptionSections.map((section, index) => {
+                const mode = getSectionEditorMode(section.id);
+                return (
+                  <div
+                    key={section.id || `section-${index}`}
+                    className="rounded-lg border p-3 space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-gray-600">
+                        Section {index + 1}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="inline-flex gap-1 rounded border p-1">
+                          <button
+                            type="button"
+                            className={`px-2 py-1 text-xs rounded ${mode === "visual" ? "bg-gray-100" : ""}`}
+                            onClick={() => setSectionEditorMode(section.id, "visual")}
+                          >
+                            Visual
+                          </button>
+                          <button
+                            type="button"
+                            className={`px-2 py-1 text-xs rounded ${mode === "html" ? "bg-gray-100" : ""}`}
+                            onClick={() => setSectionEditorMode(section.id, "html")}
+                          >
+                            HTML
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeDescriptionSection(section.id)}
+                          className="px-2 py-1 text-xs rounded border text-red-600"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    <label className="space-y-1 block">
+                      <span className="text-xs font-semibold text-gray-600">title</span>
+                      <input
+                        value={section.title}
+                        onChange={(e) =>
+                          updateDescriptionSection(section.id, "title", e.target.value)
+                        }
+                        className="w-full rounded-lg border px-3 py-2 text-sm"
+                        placeholder={DEFAULT_DESCRIPTION_SECTION_TITLE}
+                      />
+                    </label>
+                    {mode === "visual" ? (
+                      <div className="overflow-hidden rounded-lg border border-gray-200">
+                        <HugeRTEditor
+                          value={section.body_html}
+                          init={{
+                            height: 320,
+                            menubar: true,
+                            plugins: [
+                              "lists",
+                              "link",
+                              "image",
+                              "table",
+                              "code",
+                              "fullscreen",
+                              "help",
+                              "wordcount",
+                              "preview",
+                            ],
+                            toolbar: `
+                              undo redo | formatselect |
+                              bold italic underline strikethrough |
+                              forecolor backcolor |
+                              alignleft aligncenter alignright alignjustify |
+                              bullist numlist outdent indent |
+                              removeformat | link image table | code fullscreen
+                            `,
+                            skin: "oxide",
+                            content_css: "default",
+                            branding: false,
+                          }}
+                          onEditorChange={(content: string) =>
+                            updateDescriptionSection(section.id, "body_html", content)
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <textarea
+                        rows={10}
+                        value={section.body_html}
+                        onChange={(e) =>
+                          updateDescriptionSection(section.id, "body_html", e.target.value)
+                        }
+                        className="w-full rounded-lg border px-3 py-2 text-sm font-mono"
+                        placeholder="<p>Enter formatted HTML content...</p>"
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -852,6 +1037,30 @@ export default function EstatePropertyForm({
                 />
               </div>
             ) : null}
+            <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="space-y-1">
+                <span className="text-xs font-semibold text-gray-600">
+                  max_bathrooms (range upper bound)
+                </span>
+                <input
+                  value={String(form.max_bathrooms ?? "")}
+                  onChange={(e) => handleChange("max_bathrooms", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  placeholder="e.g. 4"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-semibold text-gray-600">
+                  max_garages (range upper bound)
+                </span>
+                <input
+                  value={String(form.max_garages ?? "")}
+                  onChange={(e) => handleChange("max_garages", e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  placeholder="e.g. 3"
+                />
+              </label>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 "list_price",

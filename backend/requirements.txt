@@ -38,7 +38,7 @@ postgres==4.0
 prompt_toolkit==3.0.52
 psycopg2-binary==2.9.11
 psycopg2-pool==1.2
-pyasn1==0.6.39
+pyasn1==0.6.3
 pyasn1_modules==0.4.2
 pycparser==3.0
 PyJWT==2.12.1
@@ -63,3 +63,4 @@ dj-database-url==2.1.0
 cloudinary==1.42.1
 django-cloudinary-storage==0.3.0
 h3
+twilio>=9.0.0

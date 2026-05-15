@@ -284,6 +284,11 @@ GHL_API_KEY = os.environ.get('GHL_API_KEY', '')
 GHL_LOCATION_ID = os.environ.get('GHL_LOCATION_ID', '')
 GHL_USER_ID = os.environ.get('GHL_USER_ID', '')
 
+# Twilio Verify (phone OTP)
+TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', '')
+TWILIO_VERIFY_SERVICE_SID = os.environ.get('TWILIO_VERIFY_SERVICE_SID', '')
+
 # Email (realtor notifications, etc.)
 EMAIL_BACKEND = os.environ.get(
     'EMAIL_BACKEND',
