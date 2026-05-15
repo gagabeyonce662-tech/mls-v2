@@ -409,6 +409,22 @@ export default function EstatePropertyForm({
   const [pendingUploads, setPendingUploads] = useState<File[]>([]);
   const [mediaError, setMediaError] = useState("");
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const pendingUploadPreviews = useMemo(
+    () =>
+      pendingUploads.map((file, idx) => ({
+        file,
+        key: `${file.name}-${idx}`,
+        previewUrl: URL.createObjectURL(file),
+      })),
+    [pendingUploads],
+  );
+
+  useEffect(
+    () => () => {
+      pendingUploadPreviews.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    },
+    [pendingUploadPreviews],
+  );
 
   useEffect(() => {
     setForm((prev) => {
@@ -1923,14 +1939,23 @@ export default function EstatePropertyForm({
                     Pending upload ({pendingUploads.length})
                   </p>
                   <ul className="space-y-1">
-                    {pendingUploads.map((file, idx) => (
+                    {pendingUploadPreviews.map((item, idx) => (
                       <li
-                        key={`${file.name}-${idx}`}
+                        key={item.key}
                         className="flex items-center justify-between gap-2 text-xs"
                       >
-                        <span className="truncate">
-                          {file.name} ({Math.max(1, Math.round(file.size / 1024))}KB)
-                        </span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={item.previewUrl}
+                            alt={`Pending upload ${idx + 1}`}
+                            className="h-10 w-14 rounded border object-cover bg-gray-100 shrink-0"
+                          />
+                          <span className="truncate">
+                            {item.file.name} (
+                            {Math.max(1, Math.round(item.file.size / 1024))}KB)
+                          </span>
+                        </div>
                         <button
                           type="button"
                           onClick={() => removePendingUpload(idx)}
@@ -1952,11 +1977,22 @@ export default function EstatePropertyForm({
                 <ul className="space-y-2">
                   {galleryUrls.map((url, idx) => (
                     <li key={`${url}-${idx}`} className="rounded-lg border p-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-gray-600">
-                          {idx + 1}. {idx === 0 ? "Featured image" : "Gallery image"}
-                        </span>
-                        <div className="flex items-center gap-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2 min-w-0">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={`Gallery image ${idx + 1}`}
+                            className="h-12 w-16 rounded border object-cover bg-gray-100 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <span className="text-xs text-gray-600 block">
+                              {idx + 1}. {idx === 0 ? "Featured image" : "Gallery image"}
+                            </span>
+                            <p className="mt-1 text-xs text-gray-700 break-all">{url}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
                             onClick={() => moveGalleryUrl(idx, -1)}
@@ -1982,7 +2018,6 @@ export default function EstatePropertyForm({
                           </button>
                         </div>
                       </div>
-                      <p className="mt-1 text-xs text-gray-700 break-all">{url}</p>
                     </li>
                   ))}
                 </ul>
