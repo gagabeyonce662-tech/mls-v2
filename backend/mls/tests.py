@@ -249,6 +249,9 @@ class EstatePropertyAPITests(TestCase):
                 for col in payload["columns"]
             ),
         )
+        self.assertTrue(
+            any(col["column_name"] == "listing_buttons_json" for col in payload["columns"]),
+        )
 
     @override_settings(DEBUG=False)
     def test_estate_property_get_is_public_but_writes_require_staff(self):
@@ -514,6 +517,93 @@ class EstatePropertyAPITests(TestCase):
         updated_data = updated.json()
         self.assertEqual(updated_data["custom_detail_blocks_json"][0]["id"], "custom_notes")
         self.assertEqual(updated_data["detail_blocks_layout_json"][0]["visible"], True)
+
+    @override_settings(DEBUG=False)
+    def test_estate_property_listing_button_click_requires_auth_and_phone_when_configured(self):
+        staff_user = get_user_model().objects.create_user(
+            email="estate-admin-buttons@example.com",
+            password="safe-password-123",
+            is_staff=True,
+        )
+        self.client.force_login(staff_user)
+        created = self.client.post(
+            "/api/mls/estate-properties/",
+            data=json.dumps(
+                {
+                    "listing_key": "estate-buttons-1",
+                    "property_title": "Buttons Estate Home",
+                    "publish_status": "draft",
+                    "listing_buttons_json": [
+                        {
+                            "id": "public-doc",
+                            "label": "Public Doc",
+                            "href": "https://drive.google.com/file/public",
+                            "order": 0,
+                            "requires_phone_verification": False,
+                        },
+                        {
+                            "id": "private-doc",
+                            "label": "Private Doc",
+                            "href": "https://drive.google.com/file/private",
+                            "order": 1,
+                            "requires_phone_verification": True,
+                        },
+                    ],
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(created.status_code, 200)
+        estate_id = created.json()["id"]
+        self.client.logout()
+
+        anonymous = self.client.post(
+            "/api/mls/estate-properties/buttons/click/",
+            data=json.dumps(
+                {
+                    "estate_property_id": estate_id,
+                    "listing_key": f"estate_{estate_id}",
+                    "button_id": "public-doc",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertIn(anonymous.status_code, {401, 403})
+
+        user = get_user_model().objects.create_user(
+            email="estate-button-user@example.com",
+            password="safe-password-123",
+        )
+        self.client.force_login(user)
+        phone_required = self.client.post(
+            "/api/mls/estate-properties/buttons/click/",
+            data=json.dumps(
+                {
+                    "estate_property_id": estate_id,
+                    "listing_key": f"estate_{estate_id}",
+                    "button_id": "private-doc",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(phone_required.status_code, 403)
+        self.assertEqual(phone_required.json().get("code"), "phone_verification_required")
+
+        user.phone_verified = True
+        user.save(update_fields=["phone_verified"])
+        allowed = self.client.post(
+            "/api/mls/estate-properties/buttons/click/",
+            data=json.dumps(
+                {
+                    "estate_property_id": estate_id,
+                    "listing_key": f"estate_{estate_id}",
+                    "button_id": "private-doc",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(allowed.status_code, 201)
+        self.assertEqual(allowed.json().get("href"), "https://drive.google.com/file/private")
 
     @override_settings(DEBUG=False)
     def test_estate_property_media_upload_accepts_multiple_images(self):

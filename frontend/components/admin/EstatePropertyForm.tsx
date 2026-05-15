@@ -8,8 +8,10 @@ import {
 } from "@/lib/api/admin";
 import {
   getDefaultPropertyDetailBlockLayout,
+  normalizeListingActionButtons,
   normalizePropertyCustomDetailBlocks,
   normalizePropertyDetailBlockLayout,
+  type ListingActionButton,
   type PropertyCustomDetailBlock,
   type PropertyDetailBlockLayoutItem,
 } from "@/lib/propertyUtils";
@@ -54,6 +56,7 @@ type DescriptionSection = {
 };
 
 type EditableDetailBlock = PropertyCustomDetailBlock;
+type EditableListingButton = ListingActionButton;
 
 const HIDDEN_FIELDS = new Set(["id"]);
 const CORE_FIELD_ORDER = [
@@ -64,6 +67,7 @@ const CORE_FIELD_ORDER = [
   "description_sections_json",
   "custom_detail_blocks_json",
   "detail_blocks_layout_json",
+  "listing_buttons_json",
   "listing_url",
   "publish_status",
   "is_featured",
@@ -264,6 +268,33 @@ function normalizeEditableDetailBlocks(value: unknown): EditableDetailBlock[] {
   });
 }
 
+function normalizeEditableListingButtons(value: unknown): EditableListingButton[] {
+  return parseJsonArray(value).map((button, index) => {
+    const typed =
+      button && typeof button === "object"
+        ? (button as Record<string, unknown>)
+        : {};
+    const requiresPhoneVerification =
+      typeof typed.requires_phone_verification === "boolean"
+        ? typed.requires_phone_verification
+        : ["1", "true", "yes", "y", "on"].includes(
+            String(typed.requires_phone_verification ?? "")
+              .trim()
+              .toLowerCase(),
+          );
+    return {
+      id: String(typed.id || `listing_button_${createSectionId()}`),
+      label: String(typed.label || ""),
+      href: String(typed.href || ""),
+      order:
+        typeof typed.order === "number"
+          ? typed.order
+          : Number.parseInt(String(typed.order ?? index), 10) || index,
+      requiresPhoneVerification,
+    };
+  });
+}
+
 function parseJsonObject(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     return value as Record<string, unknown>;
@@ -459,6 +490,12 @@ export default function EstatePropertyForm({
     }),
     [editableColumnNames],
   );
+  const listingButtonsStorage = useMemo(
+    () => ({
+      hasButtonsColumn: editableColumnNames.has("listing_buttons_json"),
+    }),
+    [editableColumnNames],
+  );
   const customDetailBlocks = useMemo(
     () =>
       normalizeEditableDetailBlocks(
@@ -481,6 +518,13 @@ export default function EstatePropertyForm({
       })),
     ];
   }, [customDetailBlocks, form]);
+  const listingButtons = useMemo(
+    () =>
+      normalizeEditableListingButtons(
+        readRecordJsonField(form, "listing_buttons_json"),
+      ),
+    [form],
+  );
 
   const handleChange = (name: string, value: string) => {
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -629,6 +673,63 @@ export default function EstatePropertyForm({
       nextLayout.splice(target, 0, item);
       return { blocks, layout: nextLayout };
     });
+  };
+  const setListingButtonsData = (buttons: EditableListingButton[]) => {
+    const normalized = buttons.map((button, index) => ({
+      id: button.id || `listing_button_${createSectionId()}`,
+      label: String(button.label || ""),
+      href: String(button.href || ""),
+      order: index,
+      requires_phone_verification: Boolean(button.requiresPhoneVerification),
+    }));
+    setForm((prev) => {
+      const next = { ...prev };
+      const meta = parseJsonObject(next.wp_meta_json);
+      if (listingButtonsStorage.hasButtonsColumn) {
+        next.listing_buttons_json = normalized;
+        delete meta.listing_buttons_json;
+      } else {
+        meta.listing_buttons_json = normalized;
+      }
+      next.wp_meta_json = meta;
+      return next;
+    });
+  };
+  const addListingButton = () => {
+    setListingButtonsData([
+      ...listingButtons,
+      {
+        id: `listing_button_${createSectionId()}`,
+        label: "",
+        href: "",
+        order: listingButtons.length,
+        requiresPhoneVerification: false,
+      },
+    ]);
+  };
+  const updateListingButton = (
+    buttonId: string,
+    updates: Partial<EditableListingButton>,
+  ) => {
+    setListingButtonsData(
+      listingButtons.map((button) =>
+        button.id === buttonId ? { ...button, ...updates } : button,
+      ),
+    );
+  };
+  const removeListingButton = (buttonId: string) => {
+    setListingButtonsData(
+      listingButtons.filter((button) => button.id !== buttonId),
+    );
+  };
+  const moveListingButton = (buttonId: string, direction: -1 | 1) => {
+    const index = listingButtons.findIndex((button) => button.id === buttonId);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= listingButtons.length) return;
+    const next = [...listingButtons];
+    const [item] = next.splice(index, 1);
+    next.splice(target, 0, item);
+    setListingButtonsData(next);
   };
   const updateDescriptionSection = (
     sectionId: string,
@@ -811,6 +912,15 @@ export default function EstatePropertyForm({
     const normalizedBlockLayout = normalizePropertyDetailBlockLayout(
       readRecordJsonField(normalizedPayload, "detail_blocks_layout_json"),
     );
+    const normalizedListingButtons = normalizeListingActionButtons(
+      readRecordJsonField(normalizedPayload, "listing_buttons_json"),
+    ).map((button, index) => ({
+      id: button.id,
+      label: button.label,
+      href: button.href,
+      order: index,
+      requires_phone_verification: button.requiresPhoneVerification,
+    }));
     const existingWpPost = parseJsonObject(normalizedPayload.wp_post_json);
     const existingWpMeta = parseJsonObject(normalizedPayload.wp_meta_json);
     normalizedPayload.wp_post_json = {
@@ -835,6 +945,13 @@ export default function EstatePropertyForm({
     } else {
       normalizedPayload.wp_meta_json.detail_blocks_layout_json = normalizedBlockLayout;
       delete normalizedPayload.detail_blocks_layout_json;
+    }
+    if (listingButtonsStorage.hasButtonsColumn) {
+      normalizedPayload.listing_buttons_json = normalizedListingButtons;
+      delete normalizedPayload.wp_meta_json.listing_buttons_json;
+    } else {
+      normalizedPayload.wp_meta_json.listing_buttons_json = normalizedListingButtons;
+      delete normalizedPayload.listing_buttons_json;
     }
     normalizedPayload.featured_image_url = finalGalleryUrls[0] ?? "";
 
@@ -1423,6 +1540,115 @@ export default function EstatePropertyForm({
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="bg-white border rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">Listing Buttons</h2>
+                <p className="text-xs text-gray-500">
+                  Add Drive links shown on the estate listing page.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addListingButton}
+                className="px-2 py-1 text-xs rounded border"
+              >
+                Add Button
+              </button>
+            </div>
+            {!listingButtonsStorage.hasButtonsColumn ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Button data is being stored in wp_meta_json until the dedicated
+                backend column is available.
+              </div>
+            ) : null}
+            {listingButtons.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-4 text-sm text-gray-500">
+                No listing buttons yet.
+              </div>
+            ) : null}
+            <div className="space-y-3">
+              {listingButtons.map((button, index) => (
+                <div key={button.id} className="rounded-lg border p-3 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-gray-800">
+                      Button {index + 1}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => moveListingButton(button.id, -1)}
+                        disabled={index === 0}
+                        className="px-2 py-1 text-xs rounded border disabled:opacity-40"
+                      >
+                        Up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveListingButton(button.id, 1)}
+                        disabled={index === listingButtons.length - 1}
+                        className="px-2 py-1 text-xs rounded border disabled:opacity-40"
+                      >
+                        Down
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeListingButton(button.id)}
+                        className="px-2 py-1 text-xs rounded border text-red-600"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <label className="space-y-1">
+                      <span className="text-xs font-semibold text-gray-600">
+                        label
+                      </span>
+                      <input
+                        value={button.label}
+                        onChange={(e) =>
+                          updateListingButton(button.id, {
+                            label: e.target.value,
+                          })
+                        }
+                        className="w-full rounded-lg border px-3 py-2 text-sm"
+                        placeholder="Download floor plan"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs font-semibold text-gray-600">
+                        Drive link
+                      </span>
+                      <input
+                        value={button.href}
+                        onChange={(e) =>
+                          updateListingButton(button.id, {
+                            href: e.target.value,
+                          })
+                        }
+                        className="w-full rounded-lg border px-3 py-2 text-sm"
+                        placeholder="https://drive.google.com/..."
+                      />
+                    </label>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={button.requiresPhoneVerification}
+                      onChange={(e) =>
+                        updateListingButton(button.id, {
+                          requiresPhoneVerification: e.target.checked,
+                        })
+                      }
+                    />
+                    Require verified phone number
+                  </label>
+                </div>
+              ))}
             </div>
           </div>
 

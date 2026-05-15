@@ -48,6 +48,7 @@ import {
   postalToFsa,
 } from "@/lib/propertyUtils";
 import ListingExternalLinks from "@/components/listing/ListingExternalLinks";
+import EstateListingActionButtons from "@/components/listing/EstateListingActionButtons";
 import {
   getCashflowInitialsFromProperty,
   getDisplayAddress,
@@ -479,6 +480,7 @@ export default async function ListingPage(props: ListingPageProps) {
         </div>
 
         <ListingExternalLinks property={property} />
+        <EstateListingActionButtons property={property} />
 
         {/* Main Content Grid (2:1 Ratio) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

@@ -4,7 +4,11 @@ import React, { useRef } from "react";
 import { Phone, ShieldCheck, Loader2, RotateCcw } from "lucide-react";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 
-export default function PhoneVerificationModal() {
+export default function PhoneVerificationModal({
+  onVerified,
+}: {
+  onVerified?: () => void;
+}) {
   const { sendOtp, verifyOtp } = useUserAuth();
 
   const [step, setStep] = React.useState<"phone" | "otp">("phone");
@@ -58,6 +62,7 @@ export default function PhoneVerificationModal() {
     setLoading(true);
     try {
       await verifyOtp(phone.trim(), code);
+      onVerified?.();
       // verifyOtp refreshes the profile — GalleryGateWrapper re-renders automatically
     } catch (e: any) {
       setError(e?.message || "Invalid or expired code. Try again.");
@@ -75,7 +80,9 @@ export default function PhoneVerificationModal() {
           </div>
           <div className="text-center space-y-1.5">
             <p className="text-base font-semibold text-ds-heading">Verify your number</p>
-            <p className="text-sm text-ds-body">We'll send a one-time code to confirm it's you</p>
+            <p className="text-sm text-ds-body">
+              We&apos;ll send a one-time code to confirm it&apos;s you
+            </p>
           </div>
           <div className="w-full space-y-2">
             <input

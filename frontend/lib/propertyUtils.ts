@@ -42,6 +42,14 @@ export interface PropertyDetailBlockLayoutItem {
   visible: boolean;
 }
 
+export interface ListingActionButton {
+  id: string;
+  label: string;
+  href: string;
+  order: number;
+  requiresPhoneVerification: boolean;
+}
+
 /* ──────────────────────────── Identity ──────────────────────────── */
 // this is the single source of truth for the unique key of a property, which is used for things like compare and quick view interactions. It falls back to a generated key based on city and price if no explicit listing key is available, to ensure that every property can be uniquely identified in the UI. This is important because some of our data sources (especially pre-construction) may not have consistent unique identifiers, so we need a robust way to generate them when missing.
 export const getPropertyKey = (property: Property): string =>
@@ -789,6 +797,40 @@ export function normalizePropertyDetailBlockLayout(
       };
     })
     .filter((item): item is PropertyDetailBlockLayoutItem => Boolean(item))
+    .sort((a, b) => a.order - b.order);
+}
+
+export function normalizeListingActionButtons(value: unknown): ListingActionButton[] {
+  const rows = parseJsonArray(value);
+  return rows
+    .map((item, index): ListingActionButton | null => {
+      if (!item || typeof item !== "object") return null;
+      const typed = item as Record<string, unknown>;
+      const id = String(typed.id || `listing-button-${index + 1}`).trim();
+      const label = String(typed.label || "").trim();
+      const href = String(typed.href || "").trim();
+      if (!id || !label || !/^https?:\/\//i.test(href)) return null;
+      const order =
+        typeof typed.order === "number"
+          ? typed.order
+          : Number.parseInt(String(typed.order ?? index), 10);
+      const requiresPhoneVerification =
+        typeof typed.requires_phone_verification === "boolean"
+          ? typed.requires_phone_verification
+          : ["1", "true", "yes", "y", "on"].includes(
+              String(typed.requires_phone_verification ?? "")
+                .trim()
+                .toLowerCase(),
+            );
+      return {
+        id,
+        label,
+        href,
+        order: Number.isFinite(order) ? order : index,
+        requiresPhoneVerification,
+      };
+    })
+    .filter((button): button is ListingActionButton => Boolean(button))
     .sort((a, b) => a.order - b.order);
 }
 
