@@ -206,7 +206,12 @@ export default async function ListingPage(props: ListingPageProps) {
 
   const isPrivileged = getListingIsPrivileged();
   const displayPrice = getDisplayPriceLabel(property, { isPrivileged });
-  const displayAddress = getDisplayAddress(property, { isPrivileged });
+  const displayAddress = String(
+    property.unparsed_address ||
+      property.address ||
+      getDisplayAddress(property, { isPrivileged }) ||
+      "",
+  ).trim();
   const cashflowInitials = getCashflowInitialsFromProperty(property, {
     isPrivileged,
   });

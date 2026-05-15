@@ -62,7 +62,11 @@ export function PropertyCardContent({
   const type = getPropertyType(property);
   const beds = getBedrooms(property);
   const baths = getBathrooms(property);
-  const address = getFullAddress(property);
+  const address = String(
+    (property as Record<string, unknown>).unparsed_address ||
+      getFullAddress(property) ||
+      "",
+  ).trim();
   const sqft = getSqft(property);
   const city = getCity(property);
   const province = getProvince(property);
