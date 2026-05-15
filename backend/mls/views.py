@@ -973,22 +973,22 @@ class PropertyRecommendationsAPIView(APIView):
             limit_per_section=limit,
         )
 
+        def _serialize_rows(rows):
+            return [{**row, "property": PropertySerializer(row["property"]).data} for row in rows]
+
         sections = rec_payload.get("sections", {})
         response_payload = {
-            "for_this_home": sections.get("for_this_home", []),
-            "based_on_your_history": sections.get("based_on_your_history", []),
-            "people_also_viewed": sections.get("people_also_viewed", []),
-            "fallback": rec_payload.get("fallback", {}).get("rows", []),
+            "for_this_home": _serialize_rows(sections.get("for_this_home", [])),
+            "based_on_your_history": _serialize_rows(sections.get("based_on_your_history", [])),
+            "people_also_viewed": _serialize_rows(sections.get("people_also_viewed", [])),
+            "fallback": _serialize_rows(rec_payload.get("fallback", {}).get("rows", [])),
             "metadata": {
                 **rec_payload.get("metadata", {}),
                 "fallback_applied": rec_payload.get("fallback", {}).get("applied", False),
             },
         }
-        serializer = ListingRecommendationsResponseSerializer(data=response_payload)
-        serializer.is_valid(raise_exception=True)
-        final_payload = serializer.data
-        cache.set(cache_key, final_payload, RECOMMENDATION_CACHE_TTL_SECONDS)
-        return Response(final_payload, status=status.HTTP_200_OK)
+        cache.set(cache_key, response_payload, RECOMMENDATION_CACHE_TTL_SECONDS)
+        return Response(response_payload, status=status.HTTP_200_OK)
 
 
 class RecommendationTrackAPIView(APIView):

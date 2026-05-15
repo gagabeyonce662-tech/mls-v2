@@ -1,5 +1,6 @@
 import React from "react";
 import { ds } from "@/lib/design-system-utils";
+import { cn } from "@/lib/utils";
 
 interface PropertyHeaderProps {
   headline: string;
@@ -8,6 +9,9 @@ interface PropertyHeaderProps {
   address: string;
   status: string;
   price: string;
+  priceLabel?: string;
+  priceClassName?: string;
+  rightActions?: React.ReactNode;
 }
 
 export default function PropertyHeader({
@@ -17,6 +21,9 @@ export default function PropertyHeader({
   address,
   status,
   price,
+  priceLabel = "List Price",
+  priceClassName,
+  rightActions,
 }: PropertyHeaderProps) {
   return (
     <div className="flex flex-col md:flex-row items-start justify-between mb-8 gap-4">
@@ -35,8 +42,9 @@ export default function PropertyHeader({
         </p>
       </div>
       <div className="md:text-right">
-        <p className="text-sm text-ds-body font-medium mb-1">List Price</p>
-        <p className={`${ds.h1} text-ds-primary`}>{price}</p>
+        <p className="text-sm text-ds-body font-medium mb-1">{priceLabel}</p>
+        <p className={cn(ds.h1, "text-ds-primary", priceClassName)}>{price}</p>
+        {rightActions ? <div className="mt-3 md:ml-auto md:max-w-sm">{rightActions}</div> : null}
       </div>
     </div>
   );

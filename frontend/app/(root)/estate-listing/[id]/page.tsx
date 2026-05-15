@@ -1,16 +1,13 @@
 import React from "react";
 import { Metadata } from "next";
-import { Home as HomeIcon } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import PropertyGalleryGrid from "@/components/listing/PropertyGalleryGrid";
+import PropertyMediaShowcase from "@/components/listing/PropertyMediaShowcase";
 import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
-import { ds } from "@/lib/design-system-utils";
 import {
   fetchNearestSchools,
   fetchNearbyAmenities,
   fetchListingCatalogStats,
-  fetchPropertySnapshots,
   fetchCensusFsaProfile,
 } from "@/lib/api";
 import { fetchEstatePropertyById } from "@/lib/api/properties";
@@ -19,8 +16,6 @@ import { notFound } from "next/navigation";
 
 // Modular Detail Components
 import PropertyHeader from "@/components/listing/details/PropertyHeader";
-import PropertyStats from "@/components/listing/details/PropertyStats";
-import PropertyHistory from "@/components/listing/details/PropertyHistory";
 import PropertyDetailsGrid from "@/components/listing/details/PropertyDetailsGrid";
 import PropertySidebar from "@/components/listing/details/PropertySidebar";
 import ListingAISummary from "@/components/listing/details/ListingAISummary";
@@ -47,9 +42,9 @@ import {
   getDisplayPriceLabel,
   getListingIsPrivileged,
   getMortgageInitialPrice,
-  getPropertyHistorySource,
 } from "@/lib/listingDisplay";
 import { getTranslations } from "next-intl/server";
+import ListingQuickActions from "@/components/listing/details/ListingQuickActions";
 
 interface ListingPageProps {
   params: Promise<{
@@ -206,12 +201,11 @@ export default async function ListingPage(props: ListingPageProps) {
     property.listing_key || property.ListingKey || (await props.params).id,
   );
 
-  const [catalogStats, snapshots, census] = await Promise.all([
+  const [catalogStats, census] = await Promise.all([
     fetchListingCatalogStats({
       city: cityForStats || undefined,
       fsa: fsa || undefined,
     }),
-    fetchPropertySnapshots(listingKeyStr),
     fsa ? fetchCensusFsaProfile(fsa) : Promise.resolve(null),
   ]);
 
@@ -239,43 +233,6 @@ export default async function ListingPage(props: ListingPageProps) {
     ).trim() || "Listing";
 
   const livingArea = getLivingAreaSummary(property);
-
-  const currentHistoryRow = {
-    date: property.ModificationTimestamp
-      ? new Date(property.ModificationTimestamp).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
-      : "Recent",
-    event: property.StandardStatus || property.standard_status || "Listed",
-    price: displayPrice,
-    source: getPropertyHistorySource(property, { isPrivileged }),
-  };
-
-  const snapshotHistoryRows = [...snapshots]
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    )
-    .map((s) => ({
-      date: new Date(s.created_at).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }),
-      event: s.standard_status || "Catalog snapshot",
-      price:
-        s.list_price != null
-          ? `$${Number(s.list_price).toLocaleString("en-US")}`
-          : "—",
-      source: "Our catalog sync history",
-    }));
-
-  const history =
-    snapshotHistoryRows.length > 0
-      ? [...snapshotHistoryRows, currentHistoryRow]
-      : [currentHistoryRow];
 
   const currentListNumeric = getMortgageInitialPrice(property, {
     isPrivileged,
@@ -346,45 +303,34 @@ export default async function ListingPage(props: ListingPageProps) {
           propertyType={uiPropertyType}
           city={getCity()}
           address={displayAddress}
-          status={
-            property.StandardStatus || property.standard_status || "Active"
-          }
+          status="Featured"
           price={displayPrice}
+          priceLabel="Price"
+          priceClassName="text-4xl md:text-5xl font-extrabold leading-tight tracking-tight"
+          rightActions={<ListingQuickActions property={property} compact />}
         />
 
-        {/*<div className="mb-4">
-          <PropertyStats
-            beds={beds || ""}
-            baths={baths || ""}
-            sqft={livingArea}
-            type={uiPropertyType}
-            year={builtYear || ""}
-            showPropertyType={false}
+        <div className="mb-6">
+          <PropertyMediaShowcase
+            images={propertyImages}
+            media={property.media || property.Media || []}
+            statusLabel="Featured"
+            latitude={latitude}
+            longitude={longitude}
+            city={getCity()}
+            stateOrProvince={
+              String(property.StateOrProvince || property.state_or_province || "").trim() ||
+              undefined
+            }
+            listingKey={listingKeyStr}
+            tourUrl={
+              property.virtual_tour_url ||
+              property.VirtualTourURL ||
+              property.video_tour_url ||
+              null
+            }
           />
-        </div>*/}
-
-        {propertyImages.length > 0 ? (
-          <div className="mb-6">
-            <PropertyGalleryGrid
-              images={propertyImages}
-              media={property.media || property.Media || []}
-              statusLabel="For Sale"
-              tourUrl={
-                property.virtual_tour_url ||
-                property.VirtualTourURL ||
-                property.video_tour_url ||
-                null
-              }
-            />
-          </div>
-        ) : (
-          <div className="w-full h-64 md:h-72 bg-ds-card border border-ds-card-border rounded-2xl flex items-center justify-center mb-10">
-            <div className="text-center opacity-40">
-              <HomeIcon className="mx-auto h-12 w-12 mb-4" />
-              <p className="text-lg font-medium">{t("noImages")}</p>
-            </div>
-          </div>
-        )}
+        </div>
 
         <ListingExternalLinks property={property} />
 
@@ -392,7 +338,9 @@ export default async function ListingPage(props: ListingPageProps) {
           <div className="lg:col-span-2 space-y-8">
             {/* 1. Description — first thing after gallery */}
             <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
-              <h2 className={`${ds.h3} mb-3`}>{t("aboutTitle")}</h2>
+              <h2 className="text-2xl md:text-3xl font-bold text-ds-heading mb-3">
+                {t("aboutTitle")}
+              </h2>
               {aboutHtml ? (
                 <div
                   className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
@@ -428,10 +376,7 @@ export default async function ListingPage(props: ListingPageProps) {
               headingPrefix={t("demographicsTitle")}
             />
 
-            {/* 4. Listing activity history */}
-            <PropertyHistory history={history} />
-
-            {/* 5. Neighborhood — collapsible to reduce scroll fatigue */}
+            {/* 4. Neighborhood — collapsible to reduce scroll fatigue */}
             <NearestSchoolsSection
               schools={nearestSchoolsData?.nearest_schools || []}
               radiusMeters={
@@ -445,7 +390,7 @@ export default async function ListingPage(props: ListingPageProps) {
             />
             <ListingAmenitiesSection amenities={nearbyAmenities} />
 
-            {/* 6. Financials — single tabbed panel replaces three stacked sections */}
+            {/* 5. Financials — single tabbed panel replaces three stacked sections */}
             <FinancialsPanel
               mortgageInitialPrice={getMortgageInitialPrice(property, {
                 isPrivileged,
@@ -460,7 +405,12 @@ export default async function ListingPage(props: ListingPageProps) {
           </div>
 
           <aside className="space-y-6 lg:sticky lg:top-24 self-start">
-            <PropertySidebar property={property} city={getCity()} />
+            <PropertySidebar
+              property={property}
+              city={getCity()}
+              showLocationMap={false}
+              showSecondaryActions={false}
+            />
             <ListingEngagementMeter
               listingKey={listingKeyStr}
               title={t("engagementTitle")}

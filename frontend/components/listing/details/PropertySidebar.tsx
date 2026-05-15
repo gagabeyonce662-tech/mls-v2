@@ -5,49 +5,38 @@ import {
   MapPin,
   Navigation,
   ExternalLink,
-  Columns,
-  Check,
-  Heart,
-  Share2,
 } from "lucide-react";
 import Link from "next/link";
-import { useCompare } from "@/contexts/CompareContext";
 import { useWatched } from "@/contexts/WatchedContext";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 import { submitPropertyInquiry, type PropertyInquiryIntent } from "@/lib/api";
 import { fetchWatchedAlertPreview } from "@/lib/api/properties";
 import { env } from "@/lib/env";
-import { getDetailUrl } from "@/lib/propertyUtils";
 import {
   getDisplayAddress,
   getDisplayPriceLabel,
   getListingIsPrivileged,
   getMlsNumberForDisplay,
 } from "@/lib/listingDisplay";
+import ListingQuickActions from "@/components/listing/details/ListingQuickActions";
 
 interface PropertySidebarProps {
   property: any;
   city: string;
+  showLocationMap?: boolean;
+  showSecondaryActions?: boolean;
 }
 
 export default function PropertySidebar({
   property,
   city,
+  showLocationMap = true,
+  showSecondaryActions = true,
 }: PropertySidebarProps) {
   const { user, isLoading: authLoading } = useUserAuth();
   const lat = property.latitude;
   const lon = property.longitude;
-  const {
-    addToCompare,
-    removeFromCompare,
-    isPropertySelected,
-    getPropertyKey,
-  } = useCompare();
-  const { toggleFavorite, isFavorite, updateAlertPrefs, alertPreferences } = useWatched();
-
-  const propertyKey = getPropertyKey(property);
-  const isSelected = isPropertySelected(propertyKey);
-  const isSaved = isFavorite(propertyKey);
+  const { updateAlertPrefs, alertPreferences } = useWatched();
   const [isInquiryOpen, setIsInquiryOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
@@ -56,9 +45,6 @@ export default function PropertySidebar({
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
   const [inquiryState, setInquiryState] = useState<"idle" | "success" | "error">(
     "idle",
-  );
-  const [shareStatus, setShareStatus] = useState<"" | "copied" | "shared" | "failed">(
-    "",
   );
   const [alertPreviewText, setAlertPreviewText] = useState("");
 
@@ -93,7 +79,7 @@ export default function PropertySidebar({
     setMessage(
       `Hi, I'm interested in this property and would like more details and viewing availability.${details ? `\n\n${details}` : ""}`,
     );
-  }, [message, property, propertyKey]);
+  }, [message, property]);
 
   const canSubmitInquiry =
     firstName.trim().length > 0 && email.trim().length > 2 && message.trim().length >= 10;
@@ -124,58 +110,6 @@ export default function PropertySidebar({
       setIsSubmittingInquiry(false);
     }
   };
-
-  const handleShare = async () => {
-    const detailUrl = getDetailUrl(property);
-    const shareUrl =
-      typeof window !== "undefined"
-        ? `${window.location.origin}${detailUrl}`
-        : detailUrl;
-    const shareAddress = getDisplayAddress(property, {
-      isPrivileged: getListingIsPrivileged(),
-    });
-    const shareTitle = `${shareAddress} | Estate-4u`;
-    const shareText = `Check out this property on Estate-4u.`;
-
-    try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({
-          title: shareTitle,
-          text: shareText,
-          url: shareUrl,
-        });
-        setShareStatus("shared");
-        return;
-      }
-
-      if (
-        typeof navigator !== "undefined" &&
-        navigator.clipboard &&
-        typeof navigator.clipboard.writeText === "function"
-      ) {
-        await navigator.clipboard.writeText(shareUrl);
-        setShareStatus("copied");
-        return;
-      }
-
-      if (typeof window !== "undefined") {
-        window.prompt("Copy this link:", shareUrl);
-        setShareStatus("copied");
-        return;
-      }
-
-      setShareStatus("failed");
-    } catch (error) {
-      console.error("Share failed", error);
-      setShareStatus("failed");
-    }
-  };
-
-  useEffect(() => {
-    if (!shareStatus) return;
-    const timer = window.setTimeout(() => setShareStatus(""), 2500);
-    return () => window.clearTimeout(timer);
-  }, [shareStatus]);
 
   const scheduleUrl = env.NEXT_PUBLIC_SCHEDULE_VIEWING_URL || "";
 
@@ -269,7 +203,7 @@ export default function PropertySidebar({
             ) : null}
             {inquiryState === "error" ? (
               <p className="text-xs text-red-100">
-                We couldn't send your request. Please try again.
+                We couldn&apos;t send your request. Please try again.
               </p>
             ) : null}
 
@@ -293,120 +227,78 @@ export default function PropertySidebar({
         )}
       </div>
 
-      {/* Map Section */}
-      <div className="bg-ds-card border border-ds-card-border rounded-xl p-4 shadow-sm">
-        <h3 className="text-sm font-bold text-ds-heading mb-4">Location</h3>
-        <div className="h-64 rounded-lg overflow-hidden border border-ds-card-border relative bg-gray-100">
-          {lat && lon ? (
-            <iframe
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              scrolling="no"
-              marginHeight={0}
-              marginWidth={0}
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(lon) - 0.005},${parseFloat(lat) - 0.005},${parseFloat(lon) + 0.005},${parseFloat(lat) + 0.005}&layer=mapnik&marker=${lat},${lon}`}
-              style={{ border: "none" }}
-            ></iframe>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center p-4 text-center">
-              <MapPin className="w-8 h-8 text-ds-body opacity-30 mb-2" />
-              <p className="text-sm text-ds-body">
-                Location details pinning...
-              </p>
-              <p className="text-xs text-ds-body/70 mt-1">
-                {city}, {property.StateOrProvince || "Ontario"}
-              </p>
+      {showLocationMap ? (
+        <div className="bg-ds-card border border-ds-card-border rounded-xl p-4 shadow-sm">
+          <h3 className="text-sm font-bold text-ds-heading mb-4">Location</h3>
+          <div className="h-64 rounded-lg overflow-hidden border border-ds-card-border relative bg-gray-100">
+            {lat && lon ? (
+              <iframe
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                scrolling="no"
+                marginHeight={0}
+                marginWidth={0}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(lon) - 0.005},${parseFloat(lat) - 0.005},${parseFloat(lon) + 0.005},${parseFloat(lat) + 0.005}&layer=mapnik&marker=${lat},${lon}`}
+                style={{ border: "none" }}
+              ></iframe>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center p-4 text-center">
+                <MapPin className="w-8 h-8 text-ds-body opacity-30 mb-2" />
+                <p className="text-sm text-ds-body">
+                  Location details pinning...
+                </p>
+                <p className="text-xs text-ds-body/70 mt-1">
+                  {city}, {property.StateOrProvince || "Ontario"}
+                </p>
+              </div>
+            )}
+          </div>
+          {lat && lon && (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 py-2 px-3 text-[11px] font-semibold bg-gray-50 border border-ds-card-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-ds-body"
+              >
+                <Navigation className="w-3 h-3 text-ds-primary" />
+                Google Maps
+              </a>
+              <Link
+                href={`/map-search?lat=${lat}&lng=${lon}&zoom=15${
+                  property?.listing_key
+                    ? `&id=${encodeURIComponent(property.listing_key)}`
+                    : ""
+                }`}
+                className="flex items-center justify-center gap-1.5 py-2 px-3 text-[11px] font-semibold bg-gray-50 border border-ds-card-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-ds-body"
+              >
+                <ExternalLink className="w-3 h-3 text-ds-primary" />
+                Explore Area
+              </Link>
             </div>
           )}
-        </div>
-        {lat && lon && (
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1.5 py-2 px-3 text-[11px] font-semibold bg-gray-50 border border-ds-card-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-ds-body"
-            >
-              <Navigation className="w-3 h-3 text-ds-primary" />
-              Google Maps
-            </a>
-            <Link
-              href={`/map-search?lat=${lat}&lng=${lon}&zoom=15${
-                property?.listing_key
-                  ? `&id=${encodeURIComponent(property.listing_key)}`
-                  : ""
-              }`}
-              className="flex items-center justify-center gap-1.5 py-2 px-3 text-[11px] font-semibold bg-gray-50 border border-ds-card-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-ds-body"
-            >
-              <ExternalLink className="w-3 h-3 text-ds-primary" />
-              Explore Area
-            </Link>
+
+          <div className="mt-4 flex items-center gap-2 text-[10px] text-ds-body font-mono">
+            <MapPin className="w-3 h-3" />
+            {lat && lon ? (
+              <span>
+                {lat}, {lon}
+              </span>
+            ) : (
+              <span>Coordinates not available</span>
+            )}
           </div>
-        )}
-
-        <div className="mt-4 flex items-center gap-2 text-[10px] text-ds-body font-mono">
-          <MapPin className="w-3 h-3" />
-          {lat && lon ? (
-            <span>
-              {lat}, {lon}
-            </span>
-          ) : (
-            <span>Coordinates not available</span>
-          )}
         </div>
-      </div>
+      ) : null}
 
-      {/* Secondary actions */}
-      <div>
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ds-body/70">
-          More actions
-        </p>
-        <div className="flex gap-2">
-        <button
-          onClick={() =>
-            isSelected ? removeFromCompare(propertyKey) : addToCompare(property)
-          }
-          className={`flex-1 flex flex-col items-center justify-center py-2.5 text-[10px] font-bold border rounded-xl transition-all ${isSelected
-              ? "bg-blue-50 border-blue-200 text-blue-700 shadow-inner"
-              : "bg-white border-ds-card-border text-ds-body/90 hover:bg-gray-50 shadow-sm"
-            }`}
-        >
-          {isSelected ? (
-            <Check className="w-4 h-4 mb-1" />
-          ) : (
-            <Columns className="w-4 h-4 mb-1" />
-          )}
-          {isSelected ? "Added" : "Compare"}
-        </button>
-        <button
-          onClick={() => toggleFavorite(property)}
-          className={`flex-1 flex flex-col items-center justify-center py-2.5 text-[10px] font-bold border rounded-xl transition-all ${isSaved
-              ? "bg-red-50 border-red-200 text-red-600 shadow-inner"
-              : "bg-white border-ds-card-border text-ds-body/90 hover:bg-gray-50 shadow-sm"
-            }`}
-        >
-          <Heart className={`w-4 h-4 mb-1 ${isSaved ? "fill-current" : ""}`} />
-          {isSaved ? "Saved" : "Save"}
-        </button>
-        <button
-          onClick={handleShare}
-          aria-label="Share listing"
-          className="flex-1 flex flex-col items-center justify-center py-2.5 text-[10px] font-bold bg-white border border-ds-card-border rounded-xl text-ds-body/90 hover:bg-gray-50 shadow-sm transition-all"
-        >
-          <Share2 className="w-4 h-4 mb-1" />
-          Share
-        </button>
-      </div>
-      </div>
-      {shareStatus ? (
-        <p className="text-[11px] text-ds-body">
-          {shareStatus === "shared"
-            ? "Shared successfully."
-            : shareStatus === "copied"
-              ? "Link copied to clipboard."
-              : "Could not share right now."}
-        </p>
+      {showSecondaryActions ? (
+        <div>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ds-body/70">
+            More actions
+          </p>
+          <ListingQuickActions property={property} />
+        </div>
       ) : null}
     </div>
   );
