@@ -11,11 +11,11 @@ from django.db.models import Q
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAdminUser, SAFE_METHODS
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated, SAFE_METHODS
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import EstateProperty
+from .models import EstateProperty, UserPropertyInteraction
 from .serializers import EstatePropertyWriteSerializer
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,7 @@ class EstatePropertyAPIViewMixin:
     description_sections_column = "description_sections_json"
     custom_detail_blocks_column = "custom_detail_blocks_json"
     detail_blocks_layout_column = "detail_blocks_layout_json"
+    listing_buttons_column = "listing_buttons_json"
 
     
 class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
@@ -41,6 +42,7 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
     description_sections_column = "description_sections_json"
     custom_detail_blocks_column = "custom_detail_blocks_json"
     detail_blocks_layout_column = "detail_blocks_layout_json"
+    listing_buttons_column = "listing_buttons_json"
 
     # WordPress/Houzez keys that should map to first-class estate columns.
     WP_TO_CORE_FIELD_MAP = {
@@ -155,6 +157,9 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
     DETAIL_BLOCK_MAX_COUNT = 50
     DETAIL_BLOCK_ITEM_MAX_COUNT = 100
     DETAIL_BLOCK_TEXT_MAX_LEN = 2000
+    LISTING_BUTTON_MAX_COUNT = 20
+    LISTING_BUTTON_LABEL_MAX_LEN = 80
+    LISTING_BUTTON_URL_MAX_LEN = 2000
     MAX_MEDIA_UPLOAD_FILES = 30
     MAX_MEDIA_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024
 
@@ -633,6 +638,105 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
             )
         return normalized
 
+    @classmethod
+    def _normalize_listing_buttons(cls, value):
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValidationError(
+                {
+                    "detail": "Invalid listing_buttons_json payload.",
+                    "fields": {
+                        cls.listing_buttons_column: "Expected an array of button objects."
+                    },
+                }
+            )
+        if len(value) > cls.LISTING_BUTTON_MAX_COUNT:
+            raise ValidationError(
+                {
+                    "detail": "Too many listing buttons.",
+                    "fields": {
+                        cls.listing_buttons_column: (
+                            f"Maximum {cls.LISTING_BUTTON_MAX_COUNT} buttons are allowed."
+                        )
+                    },
+                }
+            )
+
+        normalized = []
+        for idx, item in enumerate(value):
+            if not isinstance(item, dict):
+                raise ValidationError(
+                    {
+                        "detail": "Invalid listing button item.",
+                        "fields": {
+                            f"{cls.listing_buttons_column}[{idx}]": "Expected an object."
+                        },
+                    }
+                )
+            button_id = str(item.get("id") or f"listing-button-{idx + 1}").strip()
+            label = str(item.get("label") or "").strip()
+            href = str(item.get("href") or "").strip()
+            if not label and not href:
+                continue
+            if not label or not href:
+                raise ValidationError(
+                    {
+                        "detail": "Listing button label and href are required.",
+                        "fields": {
+                            f"{cls.listing_buttons_column}[{idx}]": (
+                                "Both label and href are required."
+                            )
+                        },
+                    }
+                )
+            if not href.startswith(("http://", "https://")):
+                raise ValidationError(
+                    {
+                        "detail": "Listing button href must be an http(s) URL.",
+                        "fields": {f"{cls.listing_buttons_column}[{idx}].href": "Invalid URL."},
+                    }
+                )
+            if (
+                len(label) > cls.LISTING_BUTTON_LABEL_MAX_LEN
+                or len(href) > cls.LISTING_BUTTON_URL_MAX_LEN
+            ):
+                raise ValidationError(
+                    {
+                        "detail": "Listing button text is too long.",
+                        "fields": {
+                            f"{cls.listing_buttons_column}[{idx}]": (
+                                "Label or href exceeds the allowed length."
+                            )
+                        },
+                    }
+                )
+            try:
+                order = int(item.get("order", idx))
+            except (TypeError, ValueError):
+                order = idx
+            requires_phone = item.get("requires_phone_verification", False)
+            if isinstance(requires_phone, str):
+                requires_phone = requires_phone.strip().lower() in {
+                    "1",
+                    "true",
+                    "yes",
+                    "y",
+                    "on",
+                }
+            else:
+                requires_phone = bool(requires_phone)
+            normalized.append(
+                {
+                    "id": button_id,
+                    "label": label,
+                    "href": href,
+                    "order": order,
+                    "requires_phone_verification": requires_phone,
+                }
+            )
+        return sorted(normalized, key=lambda row: row.get("order", 0))
+
     def _split_payload(self, payload):
         """
         Returns:
@@ -651,6 +755,7 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
             self.description_sections_column,
             self.custom_detail_blocks_column,
             self.detail_blocks_layout_column,
+            self.listing_buttons_column,
         }
 
         for key, value in payload.items():
@@ -720,6 +825,11 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
                 mapped[self.detail_blocks_layout_column]
             )
 
+        if self.listing_buttons_column in allowed and self.listing_buttons_column in mapped:
+            mapped[self.listing_buttons_column] = self._normalize_listing_buttons(
+                mapped[self.listing_buttons_column]
+            )
+
         invalid = {}
         for key, value in mapped.items():
             if key in json_columns:
@@ -748,6 +858,7 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
             self.description_sections_column,
             self.custom_detail_blocks_column,
             self.detail_blocks_layout_column,
+            self.listing_buttons_column,
         }
         prepared = {}
         for key, value in payload.items():
@@ -1075,3 +1186,87 @@ class EstatePropertyMediaUploadAPIView(EstatePropertyAPIViewMixinMethods, APIVie
             )
 
         return Response({"count": len(uploaded), "results": uploaded})
+
+
+class EstatePropertyButtonClickAPIView(EstatePropertyAPIViewMixinMethods, APIView):
+    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def _find_button(buttons, button_id):
+        for button in buttons or []:
+            if str(button.get("id") or "") == str(button_id or ""):
+                return button
+        return None
+
+    def post(self, request, *args, **kwargs):
+        estate_id = request.data.get("estate_property_id") or request.data.get("property_id")
+        listing_key = str(request.data.get("listing_key") or "").strip()
+        button_id = str(request.data.get("button_id") or "").strip()
+        if not button_id:
+            return Response(
+                {"detail": "button_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        queryset = EstateProperty.objects.all()
+        estate = None
+        if estate_id:
+            try:
+                estate = queryset.filter(id=int(estate_id)).first()
+            except (TypeError, ValueError):
+                estate = None
+        if estate is None and listing_key:
+            normalized_key = listing_key.replace("estate_", "", 1)
+            lookup = Q(listing_key=listing_key)
+            if normalized_key.isdigit():
+                lookup |= Q(id=int(normalized_key))
+            estate = queryset.filter(lookup).first()
+        if estate is None:
+            return Response({"detail": "Estate property not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        button = self._find_button(estate.listing_buttons_json, button_id)
+        if not button:
+            return Response({"detail": "Listing button not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if button.get("requires_phone_verification") and not getattr(
+            request.user,
+            "phone_verified",
+            False,
+        ):
+            return Response(
+                {
+                    "detail": "Phone verification is required for this button.",
+                    "code": "phone_verification_required",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        event_listing_key = listing_key or estate.listing_key or f"estate_{estate.id}"
+        UserPropertyInteraction.objects.create(
+            listing_key=event_listing_key,
+            session_key=str(request.data.get("session_key") or request.headers.get("X-Session-Key", ""))[:64],
+            user=request.user,
+            event_type=UserPropertyInteraction.EVENT_INQUIRY,
+            source="estate_listing_button",
+            metadata={
+                "estate_property_id": estate.id,
+                "button_id": button_id,
+                "button_label": button.get("label", ""),
+                "requires_phone_verification": bool(button.get("requires_phone_verification")),
+                "href": button.get("href", ""),
+            },
+        )
+        return Response(
+            {
+                "ok": True,
+                "href": button.get("href", ""),
+                "button": {
+                    "id": button_id,
+                    "label": button.get("label", ""),
+                    "requires_phone_verification": bool(
+                        button.get("requires_phone_verification")
+                    ),
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
