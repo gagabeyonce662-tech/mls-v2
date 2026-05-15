@@ -593,6 +593,10 @@ export function normalizeListingRecord(
     description_sections_json: parseDescriptionSections(
       prop.description_sections_json,
     ),
+    custom_detail_blocks_json:
+      prop.custom_detail_blocks_json ?? wpMetaValue(wpMeta, "custom_detail_blocks_json"),
+    detail_blocks_layout_json:
+      prop.detail_blocks_layout_json ?? wpMetaValue(wpMeta, "detail_blocks_layout_json"),
     rooms: resolvedRooms,
     Rooms: resolvedRooms,
     media,
@@ -762,6 +766,10 @@ export function normalizeEstateDetailRecord(
     description_sections_json: parseDescriptionSections(
       prop.description_sections_json,
     ),
+    custom_detail_blocks_json:
+      prop.custom_detail_blocks_json ?? wpMetaValue(wpMeta, "custom_detail_blocks_json"),
+    detail_blocks_layout_json:
+      prop.detail_blocks_layout_json ?? wpMetaValue(wpMeta, "detail_blocks_layout_json"),
     list_price:
       prop.list_price ??
       prop.ListPrice ??

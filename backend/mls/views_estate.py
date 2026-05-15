@@ -28,6 +28,8 @@ class EstatePropertyAPIViewMixin:
     wp_terms_column = "wp_terms_json"
     wp_post_column = "wp_post_json"
     description_sections_column = "description_sections_json"
+    custom_detail_blocks_column = "custom_detail_blocks_json"
+    detail_blocks_layout_column = "detail_blocks_layout_json"
 
     
 class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
@@ -37,6 +39,8 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
     wp_terms_column = "wp_terms_json"
     wp_post_column = "wp_post_json"
     description_sections_column = "description_sections_json"
+    custom_detail_blocks_column = "custom_detail_blocks_json"
+    detail_blocks_layout_column = "detail_blocks_layout_json"
 
     # WordPress/Houzez keys that should map to first-class estate columns.
     WP_TO_CORE_FIELD_MAP = {
@@ -148,6 +152,9 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
     BOOLEAN_FIELDS = {"enable_price_placeholder", "is_featured"}
     DESCRIPTION_SECTION_MAX_COUNT = 25
     DESCRIPTION_TITLE_MAX_LEN = 255
+    DETAIL_BLOCK_MAX_COUNT = 50
+    DETAIL_BLOCK_ITEM_MAX_COUNT = 100
+    DETAIL_BLOCK_TEXT_MAX_LEN = 2000
     MAX_MEDIA_UPLOAD_FILES = 30
     MAX_MEDIA_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024
 
@@ -443,6 +450,189 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
             )
         return normalized
 
+    @classmethod
+    def _normalize_custom_detail_blocks(cls, value):
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValidationError(
+                {
+                    "detail": "Invalid custom_detail_blocks_json payload.",
+                    "fields": {
+                        cls.custom_detail_blocks_column: "Expected an array of block objects."
+                    },
+                }
+            )
+        if len(value) > cls.DETAIL_BLOCK_MAX_COUNT:
+            raise ValidationError(
+                {
+                    "detail": "Too many custom detail blocks.",
+                    "fields": {
+                        cls.custom_detail_blocks_column: (
+                            f"Maximum {cls.DETAIL_BLOCK_MAX_COUNT} blocks are allowed."
+                        )
+                    },
+                }
+            )
+
+        normalized = []
+        for idx, block in enumerate(value):
+            if not isinstance(block, dict):
+                raise ValidationError(
+                    {
+                        "detail": "Invalid custom detail block item.",
+                        "fields": {
+                            f"{cls.custom_detail_blocks_column}[{idx}]": "Expected an object."
+                        },
+                    }
+                )
+
+            block_id = str(block.get("id") or f"custom-detail-block-{idx + 1}").strip()
+            title = str(block.get("title") or "").strip()
+            items = block.get("items") or []
+            if not isinstance(items, list):
+                raise ValidationError(
+                    {
+                        "detail": "Invalid custom detail block rows.",
+                        "fields": {
+                            f"{cls.custom_detail_blocks_column}[{idx}].items": (
+                                "Expected an array of label/value row objects."
+                            )
+                        },
+                    }
+                )
+            if len(items) > cls.DETAIL_BLOCK_ITEM_MAX_COUNT:
+                raise ValidationError(
+                    {
+                        "detail": "Too many custom detail block rows.",
+                        "fields": {
+                            f"{cls.custom_detail_blocks_column}[{idx}].items": (
+                                f"Maximum {cls.DETAIL_BLOCK_ITEM_MAX_COUNT} rows are allowed."
+                            )
+                        },
+                    }
+                )
+
+            try:
+                order = int(block.get("order", idx))
+            except (TypeError, ValueError):
+                order = idx
+
+            normalized_items = []
+            for row_idx, row in enumerate(items):
+                if not isinstance(row, dict):
+                    raise ValidationError(
+                        {
+                            "detail": "Invalid custom detail block row.",
+                            "fields": {
+                                f"{cls.custom_detail_blocks_column}[{idx}].items[{row_idx}]": (
+                                    "Expected an object."
+                                )
+                            },
+                        }
+                    )
+                label = str(row.get("label") or "").strip()
+                row_value = str(row.get("value") or "").strip()
+                if not label and not row_value:
+                    continue
+                if (
+                    len(label) > cls.DESCRIPTION_TITLE_MAX_LEN
+                    or len(row_value) > cls.DETAIL_BLOCK_TEXT_MAX_LEN
+                ):
+                    raise ValidationError(
+                        {
+                            "detail": "Custom detail block row text is too long.",
+                            "fields": {
+                                f"{cls.custom_detail_blocks_column}[{idx}].items[{row_idx}]": (
+                                    "Label or value exceeds the allowed length."
+                                )
+                            },
+                        }
+                    )
+                normalized_items.append({"label": label, "value": row_value})
+
+            if not title and not normalized_items:
+                continue
+            if len(title) > cls.DESCRIPTION_TITLE_MAX_LEN:
+                raise ValidationError(
+                    {
+                        "detail": "Custom detail block title is too long.",
+                        "fields": {
+                            f"{cls.custom_detail_blocks_column}[{idx}].title": (
+                                f"Must be <= {cls.DESCRIPTION_TITLE_MAX_LEN} characters."
+                            )
+                        },
+                    }
+                )
+            normalized.append(
+                {
+                    "id": block_id,
+                    "title": title,
+                    "order": order,
+                    "items": normalized_items,
+                }
+            )
+        return normalized
+
+    @classmethod
+    def _normalize_detail_blocks_layout(cls, value):
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValidationError(
+                {
+                    "detail": "Invalid detail_blocks_layout_json payload.",
+                    "fields": {
+                        cls.detail_blocks_layout_column: "Expected an array of layout objects."
+                    },
+                }
+            )
+        if len(value) > cls.DETAIL_BLOCK_MAX_COUNT + 8:
+            raise ValidationError(
+                {
+                    "detail": "Too many detail block layout entries.",
+                    "fields": {
+                        cls.detail_blocks_layout_column: "Layout contains too many entries."
+                    },
+                }
+            )
+
+        normalized = []
+        seen = set()
+        for idx, item in enumerate(value):
+            if not isinstance(item, dict):
+                raise ValidationError(
+                    {
+                        "detail": "Invalid detail block layout item.",
+                        "fields": {
+                            f"{cls.detail_blocks_layout_column}[{idx}]": "Expected an object."
+                        },
+                    }
+                )
+            block_id = str(item.get("id") or "").strip()
+            if not block_id or block_id in seen:
+                continue
+            seen.add(block_id)
+            kind = "custom" if item.get("kind") == "custom" else "default"
+            try:
+                order = int(item.get("order", idx))
+            except (TypeError, ValueError):
+                order = idx
+            visible = item.get("visible", True)
+            if isinstance(visible, str):
+                visible = visible.strip().lower() not in {"0", "false", "no", "n", "off"}
+            else:
+                visible = bool(visible)
+            normalized.append(
+                {
+                    "id": block_id,
+                    "kind": kind,
+                    "order": order,
+                    "visible": visible,
+                }
+            )
+        return normalized
+
     def _split_payload(self, payload):
         """
         Returns:
@@ -459,6 +649,8 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
             self.wp_terms_column,
             self.wp_post_column,
             self.description_sections_column,
+            self.custom_detail_blocks_column,
+            self.detail_blocks_layout_column,
         }
 
         for key, value in payload.items():
@@ -518,6 +710,16 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
                     else []
                 )
 
+        if self.custom_detail_blocks_column in allowed and self.custom_detail_blocks_column in mapped:
+            mapped[self.custom_detail_blocks_column] = self._normalize_custom_detail_blocks(
+                mapped[self.custom_detail_blocks_column]
+            )
+
+        if self.detail_blocks_layout_column in allowed and self.detail_blocks_layout_column in mapped:
+            mapped[self.detail_blocks_layout_column] = self._normalize_detail_blocks_layout(
+                mapped[self.detail_blocks_layout_column]
+            )
+
         invalid = {}
         for key, value in mapped.items():
             if key in json_columns:
@@ -544,6 +746,8 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
             self.wp_terms_column,
             self.wp_post_column,
             self.description_sections_column,
+            self.custom_detail_blocks_column,
+            self.detail_blocks_layout_column,
         }
         prepared = {}
         for key, value in payload.items():

@@ -6,6 +6,13 @@ import {
   uploadEstatePropertyMedia,
   type EstatePropertyRecord,
 } from "@/lib/api/admin";
+import {
+  getDefaultPropertyDetailBlockLayout,
+  normalizePropertyCustomDetailBlocks,
+  normalizePropertyDetailBlockLayout,
+  type PropertyCustomDetailBlock,
+  type PropertyDetailBlockLayoutItem,
+} from "@/lib/propertyUtils";
 import LocationPicker from "@/components/admin/LocationPicker";
 import "hugerte/hugerte";
 import "hugerte/models/dom";
@@ -46,6 +53,8 @@ type DescriptionSection = {
   order: number;
 };
 
+type EditableDetailBlock = PropertyCustomDetailBlock;
+
 const HIDDEN_FIELDS = new Set(["id"]);
 const CORE_FIELD_ORDER = [
   "listing_key",
@@ -53,6 +62,8 @@ const CORE_FIELD_ORDER = [
   "property_slug",
   "property_description",
   "description_sections_json",
+  "custom_detail_blocks_json",
+  "detail_blocks_layout_json",
   "listing_url",
   "publish_status",
   "is_featured",
@@ -147,6 +158,16 @@ const TAXONOMY_OPTIONS: Record<(typeof TAXONOMY_KEYS)[number], string[]> = {
 
 const DEFAULT_DESCRIPTION_SECTION_TITLE = "Overview";
 const MAX_LOCAL_MEDIA_FILES = 30;
+const DEFAULT_DETAIL_BLOCK_TITLES: Record<string, string> = {
+  financial_information: "Financial Information",
+  building_facts: "Building Facts",
+  location_access: "Location & access",
+  lot_land: "Lot & Land",
+  construction_systems: "Construction & Systems",
+  utilities_services: "Utilities & Services",
+  parking_structure: "Parking & Structure",
+  listing_details: "Listing Details",
+};
 
 function createSectionId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -190,6 +211,57 @@ function normalizeDescriptionSections(
       order: 0,
     },
   ];
+}
+
+function readRecordJsonField(
+  record: EstatePropertyRecord,
+  fieldName: string,
+): unknown {
+  if (record[fieldName] !== undefined && record[fieldName] !== null) {
+    return record[fieldName];
+  }
+  return parseJsonObject(record.wp_meta_json)[fieldName];
+}
+
+function parseJsonArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+  const text = value.trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeEditableDetailBlocks(value: unknown): EditableDetailBlock[] {
+  return parseJsonArray(value).map((block, index) => {
+    const typed =
+      block && typeof block === "object"
+        ? (block as Record<string, unknown>)
+        : {};
+    const items = parseJsonArray(typed.items).map((item) => {
+      const row =
+        item && typeof item === "object"
+          ? (item as Record<string, unknown>)
+          : {};
+      return {
+        label: String(row.label || ""),
+        value: String(row.value || ""),
+      };
+    });
+    return {
+      id: String(typed.id || `custom_${createSectionId()}`),
+      title: String(typed.title || ""),
+      order:
+        typeof typed.order === "number"
+          ? typed.order
+          : Number.parseInt(String(typed.order ?? index), 10) || index,
+      items: items.length > 0 ? items : [{ label: "", value: "" }],
+    };
+  });
 }
 
 function parseJsonObject(value: unknown): Record<string, unknown> {
@@ -380,6 +452,35 @@ export default function EstatePropertyForm({
       ),
     [form.description_sections_json, form.property_description],
   );
+  const detailBlocksStorage = useMemo(
+    () => ({
+      hasCustomColumn: editableColumnNames.has("custom_detail_blocks_json"),
+      hasLayoutColumn: editableColumnNames.has("detail_blocks_layout_json"),
+    }),
+    [editableColumnNames],
+  );
+  const customDetailBlocks = useMemo(
+    () =>
+      normalizeEditableDetailBlocks(
+        readRecordJsonField(form, "custom_detail_blocks_json"),
+      ),
+    [form],
+  );
+  const detailBlockLayout = useMemo(() => {
+    const normalized = normalizePropertyDetailBlockLayout(
+      readRecordJsonField(form, "detail_blocks_layout_json"),
+    );
+    if (normalized.length > 0) return normalized;
+    return [
+      ...getDefaultPropertyDetailBlockLayout(),
+      ...customDetailBlocks.map((block, index) => ({
+        id: block.id,
+        kind: "custom" as const,
+        order: getDefaultPropertyDetailBlockLayout().length + index,
+        visible: true,
+      })),
+    ];
+  }, [customDetailBlocks, form]);
 
   const handleChange = (name: string, value: string) => {
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -417,6 +518,117 @@ export default function EstatePropertyForm({
       description_sections_json: normalized,
       property_description: normalized[0]?.body_html ?? "",
     }));
+  };
+  const setDetailBlocksData = (
+    blocks: EditableDetailBlock[],
+    layout: PropertyDetailBlockLayoutItem[],
+  ) => {
+    const normalizedBlocks = blocks.map((block, index) => ({
+      id: block.id || createSectionId(),
+      title: String(block.title || ""),
+      order: index,
+      items: block.items.map((item) => ({
+        label: String(item.label || ""),
+        value: String(item.value || ""),
+      })),
+    }));
+    const normalizedLayout = layout.map((item, index) => ({
+      id: item.id,
+      kind: item.kind,
+      order: index,
+      visible: item.visible !== false,
+    }));
+    setForm((prev) => {
+      const next = { ...prev };
+      const meta = parseJsonObject(next.wp_meta_json);
+      if (detailBlocksStorage.hasCustomColumn) {
+        next.custom_detail_blocks_json = normalizedBlocks;
+        delete meta.custom_detail_blocks_json;
+      } else {
+        meta.custom_detail_blocks_json = normalizedBlocks;
+      }
+      if (detailBlocksStorage.hasLayoutColumn) {
+        next.detail_blocks_layout_json = normalizedLayout;
+        delete meta.detail_blocks_layout_json;
+      } else {
+        meta.detail_blocks_layout_json = normalizedLayout;
+      }
+      next.wp_meta_json = meta;
+      return next;
+    });
+  };
+  const syncDetailBlocks = (
+    updater: (state: {
+      blocks: EditableDetailBlock[];
+      layout: PropertyDetailBlockLayoutItem[];
+    }) => {
+      blocks: EditableDetailBlock[];
+      layout: PropertyDetailBlockLayoutItem[];
+    },
+  ) => {
+    const next = updater({
+      blocks: customDetailBlocks,
+      layout: detailBlockLayout,
+    });
+    setDetailBlocksData(next.blocks, next.layout);
+  };
+  const addCustomDetailBlock = () => {
+    syncDetailBlocks(({ blocks, layout }) => {
+      const id = `custom_${createSectionId()}`;
+      return {
+        blocks: [
+          ...blocks,
+          {
+            id,
+            title: "",
+            order: blocks.length,
+            items: [{ label: "", value: "" }],
+          },
+        ],
+        layout: [
+          ...layout,
+          { id, kind: "custom", order: layout.length, visible: true },
+        ],
+      };
+    });
+  };
+  const updateCustomDetailBlock = (
+    blockId: string,
+    value: Partial<Pick<EditableDetailBlock, "title" | "items">>,
+  ) => {
+    syncDetailBlocks(({ blocks, layout }) => ({
+      blocks: blocks.map((block) =>
+        block.id === blockId ? { ...block, ...value } : block,
+      ),
+      layout,
+    }));
+  };
+  const removeCustomDetailBlock = (blockId: string) => {
+    syncDetailBlocks(({ blocks, layout }) => ({
+      blocks: blocks.filter((block) => block.id !== blockId),
+      layout: layout.filter((item) => item.id !== blockId),
+    }));
+  };
+  const toggleDetailBlockVisibility = (blockId: string) => {
+    syncDetailBlocks(({ blocks, layout }) => ({
+      blocks,
+      layout: layout.map((item) =>
+        item.id === blockId ? { ...item, visible: !item.visible } : item,
+      ),
+    }));
+  };
+  const moveDetailBlock = (blockId: string, direction: -1 | 1) => {
+    syncDetailBlocks(({ blocks, layout }) => {
+      const index = layout.findIndex((item) => item.id === blockId);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= layout.length) {
+        return { blocks, layout };
+      }
+      const nextLayout = [...layout];
+      const [item] = nextLayout.splice(index, 1);
+      nextLayout.splice(target, 0, item);
+      return { blocks, layout: nextLayout };
+    });
   };
   const updateDescriptionSection = (
     sectionId: string,
@@ -593,6 +805,12 @@ export default function EstatePropertyForm({
       normalizedPayload.property_description =
         normalizedPayload.description_sections_json[0]?.body_html ?? "";
     }
+    const normalizedCustomBlocks = normalizePropertyCustomDetailBlocks(
+      readRecordJsonField(normalizedPayload, "custom_detail_blocks_json"),
+    );
+    const normalizedBlockLayout = normalizePropertyDetailBlockLayout(
+      readRecordJsonField(normalizedPayload, "detail_blocks_layout_json"),
+    );
     const existingWpPost = parseJsonObject(normalizedPayload.wp_post_json);
     const existingWpMeta = parseJsonObject(normalizedPayload.wp_meta_json);
     normalizedPayload.wp_post_json = {
@@ -604,6 +822,20 @@ export default function EstatePropertyForm({
       ...existingWpMeta,
       gallery_image_urls: finalGalleryUrls,
     };
+    if (detailBlocksStorage.hasCustomColumn) {
+      normalizedPayload.custom_detail_blocks_json = normalizedCustomBlocks;
+      delete normalizedPayload.wp_meta_json.custom_detail_blocks_json;
+    } else {
+      normalizedPayload.wp_meta_json.custom_detail_blocks_json = normalizedCustomBlocks;
+      delete normalizedPayload.custom_detail_blocks_json;
+    }
+    if (detailBlocksStorage.hasLayoutColumn) {
+      normalizedPayload.detail_blocks_layout_json = normalizedBlockLayout;
+      delete normalizedPayload.wp_meta_json.detail_blocks_layout_json;
+    } else {
+      normalizedPayload.wp_meta_json.detail_blocks_layout_json = normalizedBlockLayout;
+      delete normalizedPayload.detail_blocks_layout_json;
+    }
     normalizedPayload.featured_image_url = finalGalleryUrls[0] ?? "";
 
     // Allow admin shorthand like "3-5" in bedrooms_total by splitting into
@@ -1013,6 +1245,181 @@ export default function EstatePropertyForm({
                         placeholder="<p>Enter formatted HTML content...</p>"
                       />
                     )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="bg-white border rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Property Record Blocks</h2>
+                <p className="text-xs text-gray-500">
+                  Arrange default blocks and add custom blocks for this listing.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addCustomDetailBlock}
+                className="px-2 py-1 text-xs rounded border"
+              >
+                Add Custom Block
+              </button>
+            </div>
+            {!detailBlocksStorage.hasCustomColumn ||
+            !detailBlocksStorage.hasLayoutColumn ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Custom block data is being stored in wp_meta_json until the
+                dedicated backend columns are available.
+              </div>
+            ) : null}
+            <div className="space-y-3">
+              {detailBlockLayout.map((layoutItem, index) => {
+                const customBlock = customDetailBlocks.find(
+                  (block) => block.id === layoutItem.id,
+                );
+                const title =
+                  layoutItem.kind === "default"
+                    ? DEFAULT_DETAIL_BLOCK_TITLES[layoutItem.id] || layoutItem.id
+                    : customBlock?.title || "Untitled custom block";
+                return (
+                  <div
+                    key={layoutItem.id}
+                    className={`rounded-lg border p-3 space-y-3 ${
+                      layoutItem.visible ? "bg-white" : "bg-gray-50 opacity-75"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-800">
+                          {index + 1}. {title}
+                        </div>
+                        <div className="text-[11px] uppercase tracking-wide text-gray-500">
+                          {layoutItem.kind === "default" ? "Default block" : "Custom block"}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => moveDetailBlock(layoutItem.id, -1)}
+                          disabled={index === 0}
+                          className="px-2 py-1 text-xs rounded border disabled:opacity-40"
+                        >
+                          Up
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveDetailBlock(layoutItem.id, 1)}
+                          disabled={index === detailBlockLayout.length - 1}
+                          className="px-2 py-1 text-xs rounded border disabled:opacity-40"
+                        >
+                          Down
+                        </button>
+                        <label className="flex items-center gap-1 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={layoutItem.visible}
+                            onChange={() => toggleDetailBlockVisibility(layoutItem.id)}
+                          />
+                          Visible
+                        </label>
+                        {layoutItem.kind === "custom" ? (
+                          <button
+                            type="button"
+                            onClick={() => removeCustomDetailBlock(layoutItem.id)}
+                            className="px-2 py-1 text-xs rounded border text-red-600"
+                          >
+                            Delete
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                    {layoutItem.kind === "custom" && customBlock ? (
+                      <div className="space-y-3">
+                        <label className="space-y-1 block">
+                          <span className="text-xs font-semibold text-gray-600">
+                            block title
+                          </span>
+                          <input
+                            value={customBlock.title}
+                            onChange={(e) =>
+                              updateCustomDetailBlock(customBlock.id, {
+                                title: e.target.value,
+                              })
+                            }
+                            className="w-full rounded-lg border px-3 py-2 text-sm"
+                            placeholder="Payment Plan"
+                          />
+                        </label>
+                        <div className="space-y-2">
+                          {customBlock.items.map((item, rowIndex) => (
+                            <div
+                              key={`${customBlock.id}-${rowIndex}`}
+                              className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2"
+                            >
+                              <input
+                                value={item.label}
+                                onChange={(e) => {
+                                  const nextItems = customBlock.items.map((row, idx) =>
+                                    idx === rowIndex
+                                      ? { ...row, label: e.target.value }
+                                      : row,
+                                  );
+                                  updateCustomDetailBlock(customBlock.id, {
+                                    items: nextItems,
+                                  });
+                                }}
+                                className="w-full rounded-lg border px-3 py-2 text-sm"
+                                placeholder="Label"
+                              />
+                              <input
+                                value={item.value}
+                                onChange={(e) => {
+                                  const nextItems = customBlock.items.map((row, idx) =>
+                                    idx === rowIndex
+                                      ? { ...row, value: e.target.value }
+                                      : row,
+                                  );
+                                  updateCustomDetailBlock(customBlock.id, {
+                                    items: nextItems,
+                                  });
+                                }}
+                                className="w-full rounded-lg border px-3 py-2 text-sm"
+                                placeholder="Value"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateCustomDetailBlock(customBlock.id, {
+                                    items: customBlock.items.filter(
+                                      (_, idx) => idx !== rowIndex,
+                                    ),
+                                  })
+                                }
+                                className="px-2 py-1 text-xs rounded border text-red-600"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateCustomDetailBlock(customBlock.id, {
+                              items: [
+                                ...customBlock.items,
+                                { label: "", value: "" },
+                              ],
+                            })
+                          }
+                          className="px-2 py-1 text-xs rounded border"
+                        >
+                          Add Row
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
