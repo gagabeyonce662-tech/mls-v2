@@ -20,6 +20,7 @@ import type { Property } from "@/lib/api";
 interface PropertyCardContentProps {
   property: Property;
   showFooterDivider?: boolean;
+  layoutMode?: "default" | "compact";
 }
 
 const getListingContact = (property: Property): string => {
@@ -55,6 +56,7 @@ const getInitials = (value: string): string => {
 export function PropertyCardContent({
   property,
   showFooterDivider = true,
+  layoutMode = "default",
 }: PropertyCardContentProps) {
   const price = getPrice(property);
   const type = getPropertyType(property);
@@ -68,27 +70,31 @@ export function PropertyCardContent({
   const listedOn = getListingDate(property);
   const contact = getListingContact(property);
   const initials = getInitials(contact);
+  const isCompact = layoutMode === "compact";
+  const hasAddress = Boolean(address);
 
   return (
-    <div className={propertyCard.layout.contentPadding}>
+    <div
+      className={`${propertyCard.layout.contentPadding} flex flex-col ${isCompact ? "min-h-[190px]" : ""}`}
+    >
       <h3
-        className={`${propertyCard.typography.title} truncate`}
+        className={`${propertyCard.typography.title} ${isCompact ? "line-clamp-1" : "truncate"}`}
         style={{ color: colors.heading }}
         title={property.project_name || `${type} in ${city}`}
       >
         {property.project_name ? property.project_name : `${type} in ${city}`}
       </h3>
 
-      {address && (
-        <p
-          className={`${propertyCard.typography.address} mt-2 flex items-start gap-1.5 line-clamp-1`}
-          style={{ color: colors.body }}
-          title={address}
-        >
-          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>{address}</span>
-        </p>
-      )}
+      <p
+        className={`${propertyCard.typography.address} mt-2 flex items-start gap-1.5 ${isCompact ? "line-clamp-2 min-h-[32px]" : "line-clamp-1"}`}
+        style={{ color: colors.body }}
+        title={address || undefined}
+      >
+        <MapPin className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${hasAddress ? "opacity-100" : "opacity-0"}`} />
+        <span className={hasAddress ? "opacity-100" : "opacity-0"}>
+          {address || "Address unavailable"}
+        </span>
+      </p>
 
       <p
         className={`${propertyCard.typography.addedDate} mt-1 flex items-center gap-1.5`}
@@ -98,7 +104,7 @@ export function PropertyCardContent({
         Added: {listedOn}
       </p>
 
-      {description && (
+      {!isCompact && description && (
         <p
           className="mt-2 text-sm leading-relaxed text-gray-600 line-clamp-3"
           title={description}
@@ -107,10 +113,7 @@ export function PropertyCardContent({
         </p>
       )}
 
-      <div
-        className="mt-2 grid grid-cols-3 items-center gap-2"
-        style={{ color: colors.body }}
-      >
+      <div className="mt-2 grid grid-cols-3 items-center gap-2 min-h-[20px]" style={{ color: colors.body }}>
         <div className="flex items-center gap-1.5">
           <Bed className="h-3.5 w-3.5" />
           <span className={propertyCard.typography.stat}>{beds || 0}</span>
@@ -127,8 +130,10 @@ export function PropertyCardContent({
         </div>
       </div>
 
+      {isCompact ? <div className="mt-2" /> : <div className="mt-2 flex-1" />}
+
       <div
-        className="my-3 border-t"
+        className={`${isCompact ? "my-2" : "my-3"} border-t`}
         style={{ borderColor: propertyCard.surface.sectionDivider }}
       />
 
