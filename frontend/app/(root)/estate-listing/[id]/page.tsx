@@ -237,6 +237,63 @@ export default async function ListingPage(props: ListingPageProps) {
   const currentListNumeric = getMortgageInitialPrice(property, {
     isPrivileged,
   });
+  const parseJsonObject = (value: unknown): Record<string, unknown> => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    if (typeof value !== "string") return {};
+    const text = value.trim();
+    if (!text) return {};
+    try {
+      const parsed = JSON.parse(text);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : {};
+    } catch {
+      return {};
+    }
+  };
+  const parseBoolean = (value: unknown): boolean => {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value !== 0;
+    if (typeof value === "string") {
+      return ["1", "true", "yes", "y", "on"].includes(
+        value.trim().toLowerCase(),
+      );
+    }
+    return false;
+  };
+  const parseCustomTags = (value: unknown): string[] => {
+    const raw = Array.isArray(value)
+      ? value.map(String)
+      : String(value ?? "").split(/[,\n|]/g);
+    const cleaned = raw
+      .map((item) => item.trim().replace(/\s+/g, " "))
+      .filter(Boolean)
+      .filter((item) => item.toLowerCase() !== "featured");
+    const seen = new Set<string>();
+    const deduped: string[] = [];
+    for (const tag of cleaned) {
+      const key = tag.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(tag);
+    }
+    return deduped;
+  };
+  const wpMeta = parseJsonObject((property as { wp_meta_json?: unknown }).wp_meta_json);
+  const wpTerms = parseJsonObject((property as { wp_terms_json?: unknown }).wp_terms_json);
+  const isFeaturedTag = parseBoolean(
+    (property as { is_featured?: unknown }).is_featured ??
+      wpMeta.fave_featured ??
+      wpMeta.is_featured,
+  );
+  const customTags = parseCustomTags(
+    (property as { custom_tags?: unknown }).custom_tags ??
+      wpMeta.custom_tags ??
+      wpMeta.tags ??
+      wpTerms.labels,
+  );
 
   const beds = getBedCount();
   const baths =
@@ -303,8 +360,12 @@ export default async function ListingPage(props: ListingPageProps) {
           propertyType={uiPropertyType}
           city={getCity()}
           address={displayAddress}
-          status="Featured"
+          status={
+            property.StandardStatus || property.standard_status || "Active"
+          }
           price={displayPrice}
+          isFeaturedTag={isFeaturedTag}
+          customTags={customTags}
           priceLabel="Price"
           priceClassName="text-4xl md:text-5xl font-extrabold leading-tight tracking-tight"
           rightActions={<ListingQuickActions property={property} compact />}
@@ -314,7 +375,11 @@ export default async function ListingPage(props: ListingPageProps) {
           <PropertyMediaShowcase
             images={propertyImages}
             media={property.media || property.Media || []}
-            statusLabel="Featured"
+            statusLabel={
+              isFeaturedTag
+                ? "Featured"
+                : String(property.StandardStatus || property.standard_status || "For Sale")
+            }
             latitude={latitude}
             longitude={longitude}
             city={getCity()}

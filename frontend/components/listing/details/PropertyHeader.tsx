@@ -9,6 +9,8 @@ interface PropertyHeaderProps {
   address: string;
   status: string;
   price: string;
+  isFeaturedTag?: boolean;
+  customTags?: string[];
   priceLabel?: string;
   priceClassName?: string;
   rightActions?: React.ReactNode;
@@ -21,6 +23,8 @@ export default function PropertyHeader({
   address,
   status,
   price,
+  isFeaturedTag = false,
+  customTags = [],
   priceLabel = "List Price",
   priceClassName,
   rightActions,
@@ -29,9 +33,23 @@ export default function PropertyHeader({
     <div className="flex flex-col md:flex-row items-start justify-between mb-8 gap-4">
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <span className="px-3 py-1 bg-ds-primary/10 text-ds-primary text-xs font-bold rounded-full uppercase tracking-wider">
-            {status}
-          </span>
+          {isFeaturedTag ? (
+            <span className="px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-extrabold rounded-full uppercase tracking-wider shadow-sm">
+              Featured
+            </span>
+          ) : (
+            <span className="px-3 py-1 bg-ds-primary/10 text-ds-primary text-xs font-bold rounded-full uppercase tracking-wider">
+              {status}
+            </span>
+          )}
+          {customTags.map((tag) => (
+            <span
+              key={tag}
+              className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-semibold rounded-full tracking-wide"
+            >
+              {tag}
+            </span>
+          ))}
           <span className="text-ds-body text-sm font-medium">
             {propertyType}
           </span>

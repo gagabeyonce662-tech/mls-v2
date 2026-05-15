@@ -66,7 +66,11 @@ export default function NewEstatePropertyPage() {
       columns={columns}
       onSubmit={onSubmit}
       submitLabel="Publish Estate Property"
-      initialValues={{ standard_status: "Active", is_featured: false }}
+      initialValues={{
+        standard_status: "Active",
+        is_featured: false,
+        custom_tags: "",
+      }}
     />
   );
 }
