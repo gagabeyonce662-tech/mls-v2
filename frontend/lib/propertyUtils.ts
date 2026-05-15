@@ -27,7 +27,7 @@ export interface PropertyDetailSection {
 }
 
 /* ──────────────────────────── Identity ──────────────────────────── */
-
+// this is the single source of truth for the unique key of a property, which is used for things like compare and quick view interactions. It falls back to a generated key based on city and price if no explicit listing key is available, to ensure that every property can be uniquely identified in the UI. This is important because some of our data sources (especially pre-construction) may not have consistent unique identifiers, so we need a robust way to generate them when missing.
 export const getPropertyKey = (property: Property): string =>
   property.listing_key ||
   property.PropertyKey ||
@@ -383,6 +383,7 @@ const isPreConstruction = (property: Property): boolean => {
 
 /**
  * Returns the canonical detail page URL for a property.
+ * Canocial means it will always return a URL in the format of `/listing/${key}` or `/listing/rental/${key}` or `/estate-listing/${key}` for estates, regardless of the original API fields available. This ensures that all components can link to property details consistently without worrying about the underlying data structure.
  */
 export const getDetailUrl = (property: Property): string => {
   let key = getPropertyKey(property);

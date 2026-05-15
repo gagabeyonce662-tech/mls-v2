@@ -47,22 +47,23 @@ export default function PreConstructionPageClient() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // the fetchEstateProperties function is used here to get the builder logos and other details that are not available in the pre-constructionAPI.
+  // I am breadcrumbing my way to the backend to add the feature for the suer to add multiple tables to the estate-listing/[id] page.
+
   React.useEffect(() => {
     let mounted = true;
 
     const fetchPrecons = async () => {
       setIsLoading(true);
       try {
-        const [preConnData, estateData] = await Promise.all([
-          fetchPreConnProperties({ limit: 100 }),
+        const [estateData] = await Promise.all([
           fetchEstateProperties({ page_size: 100 }),
         ]);
 
-        const preConMapped = (preConnData?.results || []) as Property[];
         const estateMapped = (estateData?.results || []).map((row: any) =>
           mapEstatePropertyFromAPI(row, String(row?.id || "")),
         );
-        const merged = [...preConMapped, ...estateMapped];
+        const merged = [...estateMapped];
 
         if (mounted) setProperties(merged);
       } catch (err) {
@@ -89,15 +90,26 @@ export default function PreConstructionPageClient() {
   }, [properties, searchQuery]);
 
   const displayedProperties = useMemo(() => {
-    return showAll ? filteredProperties : filteredProperties.slice(0, initialLimit);
+    return showAll
+      ? filteredProperties
+      : filteredProperties.slice(0, initialLimit);
   }, [filteredProperties, showAll, initialLimit]);
 
   const builderLogoUrl = useMemo(() => {
     const detectedLogo = properties
-      .map((p: any) => p?.builder_logo || p?.developer_logo || p?.logo_url || p?.logo)
-      .find((url: string | undefined) => typeof url === "string" && url.trim().length > 0);
+      .map(
+        (p: any) =>
+          p?.builder_logo || p?.developer_logo || p?.logo_url || p?.logo,
+      )
+      .find(
+        (url: string | undefined) =>
+          typeof url === "string" && url.trim().length > 0,
+      );
 
-    return detectedLogo || "https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png";
+    return (
+      detectedLogo ||
+      "https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
+    );
   }, [properties]);
 
   const emptyMessage = (
