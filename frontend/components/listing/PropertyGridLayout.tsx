@@ -21,6 +21,7 @@ interface PropertyGridLayoutProps {
   currentCity?: string;
   emptyMessage?: React.ReactNode;
   variant?: "grid" | "row";
+  cardLayout?: "default" | "compact";
 }
 
 export function PropertyGridLayout({
@@ -32,6 +33,7 @@ export function PropertyGridLayout({
   interactions,
   emptyMessage,
   variant = "grid",
+  cardLayout = "default",
 }: PropertyGridLayoutProps) {
   const handleQuickView = interactions?.handleQuickView;
 
@@ -127,6 +129,7 @@ export function PropertyGridLayout({
                   <PropertyCard
                     property={property}
                     variant="featured"
+                    layoutMode={cardLayout}
                     index={index}
                     onQuickView={handleQuickView}
                   />

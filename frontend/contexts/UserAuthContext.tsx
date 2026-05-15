@@ -12,6 +12,7 @@ import {
   apiSendOtp,
   apiVerifyOtp,
 } from "@/lib/api/auth";
+import { getJwtExpiryMs, isJwtExpired } from "@/lib/auth/jwt";
 
 interface User {
   id: string;
@@ -57,6 +58,11 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
       return;
     }
+    if (isJwtExpired(accessToken)) {
+      logout();
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const userData = await apiGetProfile();
@@ -93,6 +99,29 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    const accessToken = localStorage.getItem("access_token");
+    if (!accessToken) return;
+
+    const expiryMs = getJwtExpiryMs(accessToken);
+    if (!expiryMs) {
+      logout();
+      return;
+    }
+
+    const delayMs = expiryMs - Date.now();
+    if (delayMs <= 0) {
+      logout();
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      logout();
+    }, delayMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [user, logout]);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);

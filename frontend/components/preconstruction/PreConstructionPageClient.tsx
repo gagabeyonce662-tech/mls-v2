@@ -166,6 +166,7 @@ export default function PreConstructionPageClient() {
           fetchNextPage={() => {}}
           isLoggedIn={isLoggedIn}
           interactions={interactions}
+          cardLayout="compact"
           emptyMessage={emptyMessage}
         />
 
