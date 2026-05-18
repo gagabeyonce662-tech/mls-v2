@@ -534,6 +534,14 @@ export const getLotSizeSummary = (property: Property): string | null => {
   return `${area} sq ft`;
 };
 
+export const getPropertySizeSummary = (property: Property): string | null => {
+  const sizeValue = toValue(getRaw(property, "lot_size", "LotSize"));
+  if (!sizeValue) return null;
+  const postfix =
+    toValue(getRaw(property, "size_postfix", "SizePostfix")) || "sq ft";
+  return `${sizeValue} ${postfix}`.trim();
+};
+
 /** Prefer living area min–max range when both exist (matches DDF LivingAreaMinimum / Maximum). */
 export const getLivingAreaSummary = (property: Property): string => {
   const minStr = toValue(
@@ -878,7 +886,7 @@ export const getPropertyDetailSections = (
 
   pushSection("building_facts", "Building Facts", [
     toDetailItem("Property Type", core.type),
-    toDetailItem("Building Area", core.livingArea),
+    toDetailItem("Property Size", getPropertySizeSummary(property) || core.livingArea),
     toDetailItem(
       "Year Built",
       toValue(getRaw(property, "year_built", "YearBuilt")),
@@ -907,7 +915,6 @@ export const getPropertyDetailSections = (
   ]);
 
   pushSection("lot_land", "Lot & Land", [
-    toDetailItem("Lot Size", getLotSizeSummary(property)),
     toDetailItem(
       "Frontage",
       toValue(

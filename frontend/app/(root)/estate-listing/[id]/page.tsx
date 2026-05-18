@@ -39,11 +39,13 @@ import ListingDemographicsSection from "@/components/listing/details/ListingDemo
 import PropertyNotesPanel from "@/components/listing/details/PropertyNotesPanel";
 import FinancialsPanel from "@/components/listing/details/FinancialsPanel";
 import ListingAmenitiesSection from "@/components/listing/details/ListingAmenitiesSection";
+import { CalendarDays } from "lucide-react";
 import {
   getBathroomDisplayLabel,
   getBedroomDisplayLabel,
   getDescription,
   getLivingAreaSummary,
+  getPropertySizeSummary,
   getPropertyType,
   postalToFsa,
 } from "@/lib/propertyUtils";
@@ -270,6 +272,7 @@ export default async function ListingPage(props: ListingPageProps) {
     ).trim() || "Listing";
 
   const livingArea = getLivingAreaSummary(property);
+  const propertySize = getPropertySizeSummary(property) || livingArea;
 
   const currentListNumeric = getMortgageInitialPrice(property, {
     isPrivileged,
@@ -337,6 +340,78 @@ export default async function ListingPage(props: ListingPageProps) {
     getBathroomDisplayLabel(property) ||
     (getBathCount() != null ? String(getBathCount()) : "");
   const builtYear = property.year_built || property.YearBuilt;
+  const parseNumericLike = (value: unknown): number | null => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const parsed = Number(value.replace(/[^0-9.-]+/g, ""));
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  };
+  const formatRange = (min: unknown, max: unknown): string | null => {
+    const minNum = parseNumericLike(min);
+    const maxNum = parseNumericLike(max);
+    if (minNum === null && maxNum === null) return null;
+    if (minNum !== null && maxNum !== null) {
+      if (minNum === maxNum) return String(minNum);
+      return `${minNum}-${maxNum}`;
+    }
+    return String(minNum ?? maxNum);
+  };
+  const formatSignedCurrency = (value: unknown): string | null => {
+    const parsed = parseNumericLike(value);
+    if (parsed === null) return null;
+    return `$${parsed.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  };
+  const wpMetaMaxBathrooms = parseNumericLike(wpMeta.max_bathrooms);
+  const wpMetaMaxGarages = parseNumericLike(wpMeta.max_garages);
+  const bedroomRange = formatRange(
+    property.bedrooms_total || property.BedroomsTotal,
+    property.max_bedrooms,
+  );
+  const bathroomRange = formatRange(
+    property.bathrooms_total_integer || property.BathroomsTotalInteger,
+    property.max_bathrooms ?? wpMetaMaxBathrooms,
+  );
+  const garageRange = formatRange(
+    property.garages,
+    property.max_garages ?? wpMetaMaxGarages,
+  );
+  const updatedTimestamp = String(
+    property.modification_timestamp ||
+      property.ModificationTimestamp ||
+      property.updated_at ||
+      "",
+  ).trim();
+  const updatedOnLabel = (() => {
+    if (!updatedTimestamp) return "";
+    const parsed = new Date(updatedTimestamp);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return parsed.toLocaleString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  })();
+  const detailsRows = [
+    { label: "Price", value: displayPrice },
+    { label: "Property Type", value: uiPropertyType },
+    { label: "Property Size", value: propertySize },
+    { label: "Developer", value: String(property.developer || "").trim() },
+    { label: "Bedrooms", value: bedroomRange || String(beds || "").trim() },
+    {
+      label: "Occupancy",
+      value: String(property.occupancy_year || property.occupancy || "").trim(),
+    },
+    { label: "Bathrooms", value: bathroomRange || String(baths || "").trim() },
+    {
+      label: "Signing amount",
+      value: formatSignedCurrency(property.signing_amount) || "",
+    },
+    { label: "Garages", value: garageRange || "" },
+  ].filter((item) => String(item.value || "").trim().length > 0);
 
   // --- 5. DESCRIPTION & COORDINATES PROCESSING ---
   const description =
@@ -480,12 +555,40 @@ export default async function ListingPage(props: ListingPageProps) {
         </div>
 
         <ListingExternalLinks property={property} />
-        <EstateListingActionButtons property={property} />
 
         {/* Main Content Grid (2:1 Ratio) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             {/* Primary Details & History */}
+            <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
+                <h2 className="text-2xl font-bold text-ds-heading">Details</h2>
+                {updatedOnLabel ? (
+                  <p className="inline-flex items-center gap-2 text-sm text-ds-body">
+                    <CalendarDays className="h-4 w-4 text-ds-body/80" />
+                    Updated on {updatedOnLabel}
+                  </p>
+                ) : null}
+              </div>
+              <div className="rounded-lg border border-sky-500/70 bg-sky-100/70 p-4 sm:p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+                  {detailsRows.map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex items-start justify-between gap-4 py-3 border-b border-sky-300/70"
+                    >
+                      <span className="font-semibold text-ds-heading">
+                        {item.label}:
+                      </span>
+                      <span className="text-ds-heading text-right">
+                        {item.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
             {/* 1. Description — first thing after gallery */}
             {descriptionSections.length > 0 ? (
               <div className="space-y-4">
@@ -518,6 +621,8 @@ export default async function ListingPage(props: ListingPageProps) {
                 )}
               </section>
             )}
+
+            <EstateListingActionButtons property={property} />
 
             {/* 2. AI summary */}
             {/* <ListingAISummary property={property} /> */}

@@ -78,6 +78,12 @@ export default function EstatePropertiesPage() {
     }
     return "";
   };
+  const getPropertySize = (row: EstatePropertyRecord): string => {
+    const size = String(row.lot_size ?? "").trim();
+    if (!size) return "-";
+    const postfix = String(row.size_postfix ?? "").trim();
+    return [size, postfix].filter(Boolean).join(" ");
+  };
 
   
   return (
@@ -135,6 +141,7 @@ export default function EstatePropertiesPage() {
                 <th className="text-left px-4 py-2">City</th>
                 <th className="text-left px-4 py-2">Publish</th>
                 <th className="text-left px-4 py-2">Price</th>
+                <th className="text-left px-4 py-2">Property Size</th>
                 <th className="text-right px-4 py-2">Actions</th>
               </tr>
             </thead>
@@ -161,6 +168,7 @@ export default function EstatePropertiesPage() {
                   <td className="px-4 py-2">{r.city ?? "-"}</td>
                   <td className="px-4 py-2">{r.publish_status ?? "-"}</td>
                   <td className="px-4 py-2">{r.list_price ?? "-"}</td>
+                  <td className="px-4 py-2">{getPropertySize(r)}</td>
                   <td className="px-4 py-2 text-right space-x-3">
                     <Link
                       href={`/admin/estate-properties/${r.id}`}
@@ -179,7 +187,7 @@ export default function EstatePropertiesPage() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                     No results
                   </td>
                 </tr>

@@ -182,6 +182,9 @@ const DEFAULT_DETAIL_BLOCK_TITLES: Record<string, string> = {
   parking_structure: "Parking & Structure",
   listing_details: "Listing Details",
 };
+const ADMIN_FIELD_LABELS: Record<string, string> = {
+  lot_size: "property_size",
+};
 
 function createSectionId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -569,6 +572,11 @@ export default function EstatePropertyForm({
       ),
     [form],
   );
+  const propertySizePreview = useMemo(() => {
+    const size = String(form.lot_size ?? "").trim();
+    const postfix = String(form.size_postfix ?? "").trim();
+    return [size, postfix].filter(Boolean).join(" ").trim();
+  }, [form.lot_size, form.size_postfix]);
 
   const handleChange = (name: string, value: string) => {
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -1819,6 +1827,17 @@ export default function EstatePropertyForm({
             <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="space-y-1">
                 <span className="text-xs font-semibold text-gray-600">
+                  property_size (lot_size + size_postfix)
+                </span>
+                <input
+                  value={propertySizePreview}
+                  readOnly
+                  className="w-full rounded-lg border px-3 py-2 text-sm bg-gray-50 text-gray-700"
+                  placeholder="Set lot_size and size_postfix"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-semibold text-gray-600">
                   max_bathrooms (range upper bound)
                 </span>
                 <input
@@ -1880,7 +1899,7 @@ export default function EstatePropertyForm({
                 .map((key) => (
                   <label key={key} className="space-y-1">
                     <span className="text-xs font-semibold text-gray-600">
-                      {key}
+                      {ADMIN_FIELD_LABELS[key] || key}
                     </span>
                     {key === "enable_price_placeholder" ? (
                       <select
