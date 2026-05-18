@@ -141,10 +141,10 @@ export default function WatchedPage() {
               className="text-4xl font-extrabold tracking-tight"
               style={{ color: colors.heading }}
             >
-              Your Collections
+              Watched
             </h1>
             <p className="mt-2 text-lg" style={{ color: colors.body }}>
-              Manage your saved properties and viewing history in one place.
+              Manage listing notifications, saved homes, and browsing history in one place.
             </p>
           </div>
 
@@ -273,14 +273,37 @@ export default function WatchedPage() {
           <div className="mb-8 rounded-2xl border border-ds-card-border bg-white p-4">
             <div className="mb-3 flex items-center gap-2">
               <Bell className="h-4 w-4 text-ds-primary" />
-              <h2 className="text-sm font-bold text-ds-heading">Notifications</h2>
+              <h2 className="text-sm font-bold text-ds-heading">Watched Alerts</h2>
+            </div>
+            <div className="mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ds-body">Email</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {[
-                ["price_changes", "Price changes"],
-                ["new_listings", "New listings in followed areas"],
-                ["status_updates", "Status updates"],
                 ["email_enabled", "Email delivery"],
+                ["email_recommend", "Recommend"],
+                ["email_watched_property", "Watched property"],
+                ["email_watched_community", "Watched community"],
+                ["email_watched_area", "Watched area"],
+              ].map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm text-ds-body">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(alertPreferences[key as keyof typeof alertPreferences])}
+                    onChange={(e) =>
+                      void updateAlertPrefs({ [key]: e.target.checked })
+                    }
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <div className="mb-3 mt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ds-body">Push Notification</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                ["push_watched_property", "Watched property"],
               ].map(([key, label]) => (
                 <label key={key} className="flex items-center gap-2 text-sm text-ds-body">
                   <input

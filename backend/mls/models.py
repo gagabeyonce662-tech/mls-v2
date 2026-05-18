@@ -488,6 +488,11 @@ class UserAlertPreference(models.Model):
     new_listings = models.BooleanField(default=True)
     status_updates = models.BooleanField(default=True)
     email_enabled = models.BooleanField(default=True)
+    email_recommend = models.BooleanField(default=True)
+    email_watched_property = models.BooleanField(default=True)
+    email_watched_community = models.BooleanField(default=True)
+    email_watched_area = models.BooleanField(default=True)
+    push_watched_property = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -712,6 +717,57 @@ class PropertySnapshot(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["listing_key", "-created_at"]),
+        ]
+
+
+class ListingFirstSeen(models.Model):
+    """First-seen marker for listings ingested into our catalog."""
+
+    listing_key = models.CharField(max_length=2000, unique=True, db_index=True)
+    first_seen_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    first_source_modification_timestamp = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-first_seen_at"]
+        indexes = [
+            models.Index(fields=["-first_seen_at"]),
+        ]
+
+
+class NewsletterDelivery(models.Model):
+    STATUS_SENT = "sent"
+    STATUS_SKIPPED = "skipped"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = [
+        (STATUS_SENT, "Sent"),
+        (STATUS_SKIPPED, "Skipped"),
+        (STATUS_FAILED, "Failed"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="newsletter_deliveries",
+    )
+    digest_date = models.DateField(db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_SENT)
+    listing_count = models.PositiveIntegerField(default=0)
+    section_counts = models.JSONField(default=dict, blank=True)
+    error = models.TextField(blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "digest_date"],
+                name="uniq_newsletterdelivery_user_digest_date",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["digest_date", "status"]),
+            models.Index(fields=["user", "-created_at"]),
         ]
 
 

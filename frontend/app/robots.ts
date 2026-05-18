@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin", "/api", "/_next", "/watched", "/compare"],
+        disallow: ["/admin", "/api", "/_next", "/watched", "/notifications", "/compare"],
       },
     ],
     sitemap: "https://estate-4u.com/sitemap.xml",

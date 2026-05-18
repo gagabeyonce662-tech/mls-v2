@@ -874,6 +874,11 @@ class WatchedAlertPreviewAPIView(APIView):
                 {"events": [], "message": "Email alerts are disabled."},
                 status=status.HTTP_200_OK,
             )
+        if not prefs.email_watched_property:
+            return Response(
+                {"events": [], "message": "Watched property email alerts are disabled."},
+                status=status.HTTP_200_OK,
+            )
 
         favorite_keys = list(
             UserFavorite.objects.filter(user=request.user).values_list("property_key", flat=True)[:500]
@@ -2610,7 +2615,6 @@ class PropertyNoteAPIView(APIView):
         return Response(
             {"listing_key": lk, "body": note.body, "updated_at": note.updated_at}
         )
-
 
 
 

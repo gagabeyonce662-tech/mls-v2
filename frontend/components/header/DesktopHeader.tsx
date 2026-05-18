@@ -9,6 +9,7 @@ import {
   User,
   LogOut,
   LayoutDashboard,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -137,6 +138,12 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
                     <DropdownMenuItem className="cursor-pointer">
                       <LayoutDashboard className="mr-2 h-4 w-4 text-ds-primary" />
                       <span>Admin Dashboard</span>
+                    </DropdownMenuItem>
+                  </Link>
+                  <Link href="/watched">
+                    <DropdownMenuItem className="cursor-pointer">
+                      <Bell className="mr-2 h-4 w-4 text-ds-primary" />
+                      <span>Watched</span>
                     </DropdownMenuItem>
                   </Link>
                   <DropdownMenuItem className="cursor-pointer">

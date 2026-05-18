@@ -35,10 +35,17 @@ export type WatchedFollowedAreaRow = {
 };
 
 export type WatchedAlertPreferences = {
+  // Legacy toggles kept for backward compatibility with existing preview logic.
   price_changes: boolean;
   new_listings: boolean;
   status_updates: boolean;
   email_enabled: boolean;
+  // Newsletter matrix toggles.
+  email_recommend: boolean;
+  email_watched_property: boolean;
+  email_watched_community: boolean;
+  email_watched_area: boolean;
+  push_watched_property: boolean;
 };
 
 export type WatchedOverviewPayload = {

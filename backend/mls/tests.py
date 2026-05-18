@@ -15,7 +15,13 @@ from mls.models import (
     PropertySoldProxy,
     Agent,
     AgentServiceArea,
+    ListingFirstSeen,
+    NewsletterDelivery,
+    UserAlertPreference,
+    UserFavorite,
+    UserFollowedArea,
 )
+from mls.services.newsletter_notifications import send_daily_listing_newsletters
 from mls.services.valuation.comps import select_comps, haversine_km
 from mls.services.valuation.hedonic import apply_hedonic
 from mls.services.valuation.agents import match_agent
@@ -792,13 +798,110 @@ class WatchedAPITests(TestCase):
         self._auth()
         response = self.client.put(
             self.url_alert_prefs,
-            {"price_changes": False, "email_enabled": False},
+            {
+                "price_changes": False,
+                "email_enabled": False,
+                "email_recommend": False,
+                "push_watched_property": False,
+            },
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertFalse(data["price_changes"])
         self.assertFalse(data["email_enabled"])
+        self.assertFalse(data["email_recommend"])
+        self.assertFalse(data["push_watched_property"])
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    DEFAULT_FROM_EMAIL="no-reply@example.com",
+)
+class DailyListingNewsletterTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email="newsletter@example.com",
+            password="safe-password-123",
+            first_name="Taylor",
+        )
+        self.seed = Property.objects.create(
+            listing_key="seed-1",
+            city="Toronto",
+            state_or_province="ON",
+            unparsed_address="1 Seed St",
+            public_remarks="Seed listing",
+            list_price=800000,
+            bedrooms_total=2,
+            bathrooms_total_integer=2,
+            standard_status="Active",
+            property_sub_type="Condo",
+        )
+        UserFavorite.objects.create(
+            user=self.user,
+            property_key=self.seed.listing_key,
+            property_snapshot_json={"listing_key": self.seed.listing_key},
+        )
+        UserFollowedArea.objects.create(
+            user=self.user,
+            area_key="river-district",
+            area_label="River District",
+            area_kind="community",
+            metadata_json={"community_slug": "river-district", "city": "Toronto"},
+        )
+
+        self.new_listing = Property.objects.create(
+            listing_key="new-1",
+            city="Toronto",
+            state_or_province="ON",
+            unparsed_address="100 River Rd",
+            public_remarks="Brand new listing",
+            list_price=820000,
+            bedrooms_total=2,
+            bathrooms_total_integer=2,
+            standard_status="Active",
+            property_sub_type="Condo",
+            listing_url="https://example.com/listing/new-1",
+        )
+        CommunityListing.objects.create(
+            property=self.new_listing,
+            community_name="River District",
+            community_slug="river-district",
+            badge="Featured",
+            rank=1,
+            is_published=True,
+        )
+        ListingFirstSeen.objects.create(
+            listing_key=self.new_listing.listing_key,
+            first_source_modification_timestamp=timezone.now(),
+        )
+        UserAlertPreference.objects.update_or_create(
+            user=self.user,
+            defaults={
+                "email_enabled": True,
+                "email_recommend": True,
+                "email_watched_property": True,
+                "email_watched_community": True,
+                "email_watched_area": True,
+            },
+        )
+
+    def test_send_daily_listing_newsletter_creates_delivery(self):
+        today = timezone.localdate()
+        result = send_daily_listing_newsletters(digest_date=today, dry_run=False)
+        self.assertEqual(result["sent"], 1)
+        self.assertEqual(result["failed"], 0)
+
+        delivery = NewsletterDelivery.objects.get(user=self.user, digest_date=today)
+        self.assertEqual(delivery.status, NewsletterDelivery.STATUS_SENT)
+        self.assertGreater(delivery.listing_count, 0)
+
+    def test_send_daily_listing_newsletter_is_idempotent(self):
+        today = timezone.localdate()
+        send_daily_listing_newsletters(digest_date=today, dry_run=False)
+        second = send_daily_listing_newsletters(digest_date=today, dry_run=False)
+        self.assertEqual(second["sent"], 0)
+        self.assertGreaterEqual(second["skipped"], 1)
 
 
 class CommunityListingAPITests(TestCase):

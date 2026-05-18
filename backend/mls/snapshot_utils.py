@@ -1,6 +1,7 @@
 """Record catalog sync snapshots for listing price/status history (not sold data)."""
 
 import logging
+from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -38,3 +39,50 @@ def record_property_snapshot(property_instance) -> None:
         )
     except Exception as e:
         logger.warning("record_property_snapshot failed: %s", e)
+
+
+def record_listing_first_seen(listing_key: str, source_modification_timestamp=None) -> None:
+    """Insert listing first-seen marker if it does not yet exist."""
+    from mls.models import ListingFirstSeen
+
+    try:
+        if not listing_key:
+            return
+        ListingFirstSeen.objects.get_or_create(
+            listing_key=listing_key,
+            defaults={
+                "first_source_modification_timestamp": source_modification_timestamp,
+            },
+        )
+    except Exception as e:
+        logger.warning("record_listing_first_seen failed for %s: %s", listing_key, e)
+
+
+def bulk_record_listing_first_seen(rows: Iterable[tuple[str, object]]) -> None:
+    """
+    Bulk insert listing first-seen rows.
+
+    Each row is `(listing_key, source_modification_timestamp)`.
+    Existing listing keys are ignored.
+    """
+    from mls.models import ListingFirstSeen
+
+    try:
+        to_create = []
+        seen = set()
+        for listing_key, source_ts in rows:
+            key = (listing_key or "").strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            to_create.append(
+                ListingFirstSeen(
+                    listing_key=key,
+                    first_source_modification_timestamp=source_ts,
+                )
+            )
+        if not to_create:
+            return
+        ListingFirstSeen.objects.bulk_create(to_create, ignore_conflicts=True)
+    except Exception as e:
+        logger.warning("bulk_record_listing_first_seen failed: %s", e)

@@ -113,6 +113,11 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
       new_listings: true,
       status_updates: true,
       email_enabled: true,
+      email_recommend: true,
+      email_watched_property: true,
+      email_watched_community: true,
+      email_watched_area: true,
+      push_watched_property: true,
     });
 
   // Helper to get consistent keys

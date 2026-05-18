@@ -14,6 +14,7 @@ from pathlib import Path
 from datetime import timedelta
 import dj_database_url
 from dotenv import load_dotenv
+from celery.schedules import crontab
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -146,6 +147,17 @@ CELERY_RESULT_BACKEND = "redis://redis:6379/0"
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 # CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_TIMEZONE = os.environ.get("CELERY_TIMEZONE", "UTC")
+if os.environ.get("DAILY_NEWSLETTER_BEAT_ENABLED", "0") == "1":
+    CELERY_BEAT_SCHEDULE = {
+        "send-daily-listing-newsletters": {
+            "task": "mls.tasks.run_daily_listing_newsletters",
+            "schedule": crontab(
+                hour=int(os.environ.get("DAILY_NEWSLETTER_HOUR_UTC", "11")),
+                minute=int(os.environ.get("DAILY_NEWSLETTER_MINUTE_UTC", "0")),
+            ),
+        },
+    }
 
 CACHE_URL = os.environ.get("CACHE_URL", os.environ.get("REDIS_URL", "")).strip()
 if CACHE_URL:
@@ -300,6 +312,9 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@vsell4u.ca')
+SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY', '')
+SENDGRID_BASE_URL = os.environ.get('SENDGRID_BASE_URL', 'https://api.sendgrid.com/v3')
+SENDGRID_TIMEOUT_SECONDS = int(os.environ.get('SENDGRID_TIMEOUT_SECONDS', '15'))
 REALTOR_INBOX_EMAIL = os.environ.get('REALTOR_INBOX_EMAIL', '')
 # Base URL for links in outbound emails (e.g. Django admin change URL)
 PUBLIC_BACKEND_URL = os.environ.get('PUBLIC_BACKEND_URL', 'http://127.0.0.1:8000')

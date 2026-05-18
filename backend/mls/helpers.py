@@ -6,7 +6,7 @@ import logging
 from django.db import IntegrityError
 from celery import shared_task
 
-from mls.snapshot_utils import record_property_snapshot
+from mls.snapshot_utils import record_listing_first_seen, record_property_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -284,6 +284,10 @@ def fetch_properties():
                         )
 
                     record_property_snapshot(property_instance)
+                    record_listing_first_seen(
+                        property_instance.listing_key,
+                        property_instance.modification_timestamp,
+                    )
 
                 except IntegrityError as e:
                     logger.error(f"IntegrityError while processing property {property_data.get('ListingKey')}: {e}")
@@ -449,5 +453,8 @@ def fetch_properties_by_property_data(property_data):
             }
         )
     record_property_snapshot(property_instance)
+    record_listing_first_seen(
+        property_instance.listing_key,
+        property_instance.modification_timestamp,
+    )
     logger.info(f"Processed property {property_instance.listing_key}")
-

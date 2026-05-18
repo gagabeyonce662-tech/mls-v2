@@ -1,101 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { MessageCircle, MessageSquareText, X } from "lucide-react";
-import { submitFeedback } from "@/lib/api";
-
-type FeedbackType = "general" | "bug" | "feature";
-const FEEDBACK_STORAGE_KEY = "feedback_submissions";
-
-interface CachedFeedbackSubmission {
-  id: number;
-  feedbackType: FeedbackType;
-  message: string;
-  pageUrl: string;
-  submittedAt: string;
-}
+import { MessageCircle } from "lucide-react";
 
 export default function FeedbackWidget() {
-  const [open, setOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitState, setSubmitState] = useState<"idle" | "success" | "error">(
-    "idle",
-  );
-  const [lastSubmission, setLastSubmission] =
-    useState<CachedFeedbackSubmission | null>(null);
-
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [feedbackType, setFeedbackType] = useState<FeedbackType>("general");
-  const [message, setMessage] = useState("");
-
-  const isValid = useMemo(() => message.trim().length >= 10, [message]);
-
-  const resetForm = () => {
-    setName("");
-    setEmail("");
-    setFeedbackType("general");
-    setMessage("");
-  };
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(FEEDBACK_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as CachedFeedbackSubmission[];
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        setLastSubmission(parsed[0]);
-      }
-    } catch (error) {
-      console.warn("Could not read cached feedback submissions:", error);
-    }
-  }, []);
-
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!isValid || isSubmitting) return;
-
-    setIsSubmitting(true);
-    setSubmitState("idle");
-    try {
-      const pageUrl =
-        typeof window !== "undefined" ? window.location.href : "";
-      const response = await submitFeedback({
-        page_url: typeof window !== "undefined" ? window.location.href : "",
-        name: name.trim() || undefined,
-        email: email.trim() || undefined,
-        feedback_type: feedbackType,
-        message: message.trim(),
-      });
-
-      const cachedEntry: CachedFeedbackSubmission = {
-        id: response.id,
-        feedbackType,
-        message: message.trim(),
-        pageUrl,
-        submittedAt: new Date().toISOString(),
-      };
-
-      try {
-        const raw = localStorage.getItem(FEEDBACK_STORAGE_KEY);
-        const existing = raw ? (JSON.parse(raw) as CachedFeedbackSubmission[]) : [];
-        const next = [cachedEntry, ...(Array.isArray(existing) ? existing : [])].slice(0, 20);
-        localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(next));
-      } catch (error) {
-        console.warn("Could not cache feedback submission locally:", error);
-      }
-
-      setLastSubmission(cachedEntry);
-      setSubmitState("success");
-      resetForm();
-    } catch (error) {
-      console.error("Feedback submission failed:", error);
-      setSubmitState("error");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
     <>
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
@@ -112,6 +19,7 @@ export default function FeedbackWidget() {
           </span>
         </a>
 
+        {/* Feedback disabled for now
         <button
           onClick={() => setOpen(true)}
           className="rounded-full bg-ds-primary text-white shadow-lg px-4 py-3 text-sm font-semibold hover:opacity-90 transition"
@@ -122,8 +30,10 @@ export default function FeedbackWidget() {
             Feedback
           </span>
         </button>
+        */}
       </div>
 
+      {/* Feedback modal disabled for now
       {open ? (
         <div className="fixed inset-0 z-[100] bg-black/40 flex items-end sm:items-center sm:justify-center p-3 sm:p-6">
           <div className="w-full sm:max-w-md rounded-2xl bg-white border border-ds-card-border shadow-xl">
@@ -211,6 +121,7 @@ export default function FeedbackWidget() {
           </div>
         </div>
       ) : null}
+      */}
     </>
   );
 }

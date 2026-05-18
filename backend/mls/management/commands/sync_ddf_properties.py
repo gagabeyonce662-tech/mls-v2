@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 import pytz
 from mls.models import Property, Room, Media  # Replace with your actual app name
 from mls.services.map_aggregates import rebuild_h3_aggregates
+from mls.snapshot_utils import bulk_record_listing_first_seen
 logger = logging.getLogger(__name__)
 
 # Helper: Safe converters
@@ -68,6 +69,12 @@ class Command(BaseCommand):
         parser.add_argument('--full', action='store_true', help='Force full sync (ignore incremental)')
         parser.add_argument('--threads', type=int, default=10, help='Parallel download threads (max 15)')
         parser.add_argument('--batch-size', type=int, default=5000, help='Properties per DB batch')
+        parser.add_argument(
+            '--max-pages',
+            type=int,
+            default=0,
+            help='Optional safety cap for pages during testing. 0 means no cap.',
+        )
 
     def handle(self, *args, **options):
         start_time = time.time()
@@ -77,7 +84,11 @@ class Command(BaseCommand):
             return
 
         headers = {'Authorization': f'Bearer {token}'}
-        page_urls = self.collect_all_page_urls(headers, force_full=options['full'])
+        page_urls = self.collect_all_page_urls(
+            headers,
+            force_full=options['full'],
+            max_pages=options['max_pages'],
+        )
 
         self.stdout.write(f"Found {len(page_urls)} pages to download using {options['threads']} threads...")
 
@@ -167,26 +178,25 @@ class Command(BaseCommand):
     
 
 
-    def collect_all_page_urls(self, headers, force_full=False):
+    def collect_all_page_urls(self, headers, force_full=False, max_pages=0):
         base = "https://ddfapi.realtor.ca/odata/v1/Property"
         params = {
             "$top": 100,
             "$orderby": "ModificationTimestamp desc",
         }
 
-        # Optional: remove filter for full test, or keep it
-        # if not force_full:
-        #     last = Property.objects.order_by('-modification_timestamp').first()
-        #     if last and last.modification_timestamp:
-        #         cutoff = (last.modification_timestamp - timedelta(minutes=10)).isoformat() + "Z"
-        #         params["$filter"] = f"ModificationTimestamp gt {cutoff}"
+        if not force_full:
+            last = Property.objects.order_by('-modification_timestamp').first()
+            if last and last.modification_timestamp:
+                cutoff = (last.modification_timestamp - timedelta(minutes=10)).isoformat() + "Z"
+                params["$filter"] = f"ModificationTimestamp gt {cutoff}"
 
         urls = []
         url = base
         page_count = 0
-        max_pages = 50  # ←←← ONLY 5 PAGES FOR TESTING
+        page_cap = max(0, int(max_pages or 0))
 
-        while url and page_count < max_pages:
+        while url and (page_cap == 0 or page_count < page_cap):
             resp = requests.get(url, headers=headers, params=params if url == base else None, timeout=30)
             resp.raise_for_status()
             data = resp.json()
@@ -201,7 +211,8 @@ class Command(BaseCommand):
             page_count += 1
             time.sleep(0.2)  # Be nice to the API
 
-        self.stdout.write(self.style.WARNING(f"TEST MODE: Limited to {len(urls)} pages"))
+        if page_cap > 0:
+            self.stdout.write(self.style.WARNING(f"TEST MODE: Limited to {len(urls)} pages"))
         return urls
 
 
@@ -225,13 +236,14 @@ class Command(BaseCommand):
 
     def process_batch(self, batch):
         listing_keys = [p["ListingKey"] for p in batch if p.get("ListingKey")]
-        existing = Property.objects.in_bulk(field_name="listing_key")
+        existing = Property.objects.filter(listing_key__in=listing_keys).in_bulk(field_name="listing_key")
         existing_keys = set(existing.keys())
 
         property_objs = []
         room_objs = []
         media_objs = []
         properties_to_update = []
+        first_seen_rows = []
 
         for data in batch:
             key = data.get("ListingKey")
@@ -362,6 +374,9 @@ class Command(BaseCommand):
                 "sewer": safe_list(data.get("Sewer")),
                 "electric": safe_list(data.get("Electric")),
             }
+            first_seen_rows.append(
+                (key, defaults.get("modification_timestamp") or defaults.get("original_entry_timestamp"))
+            )
 
             if key in existing:
                 prop = existing[key]
@@ -416,6 +431,9 @@ class Command(BaseCommand):
                     Room.objects.bulk_create(room_objs, ignore_conflicts=True)
                 if media_objs:
                     Media.objects.bulk_create(media_objs, ignore_conflicts=True)
+
+        if first_seen_rows:
+            bulk_record_listing_first_seen(first_seen_rows)
 
 
 

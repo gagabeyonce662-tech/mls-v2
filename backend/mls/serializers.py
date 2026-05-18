@@ -214,7 +214,17 @@ class UserFollowedAreaSerializer(serializers.ModelSerializer):
 class UserAlertPreferenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserAlertPreference
-        fields = ["price_changes", "new_listings", "status_updates", "email_enabled"]
+        fields = [
+            "price_changes",
+            "new_listings",
+            "status_updates",
+            "email_enabled",
+            "email_recommend",
+            "email_watched_property",
+            "email_watched_community",
+            "email_watched_area",
+            "push_watched_property",
+        ]
 
 
 class ListingViewBeaconSerializer(serializers.Serializer):

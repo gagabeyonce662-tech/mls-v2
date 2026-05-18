@@ -11,6 +11,7 @@ import {
   ChevronDown,
   LogOut,
   LayoutDashboard,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -164,6 +165,17 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
                     {item.name}
                   </Link>
                 ))}
+                {user && (
+                  <Link
+                    href="/watched"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center space-x-2 text-lg font-medium transition-all"
+                    style={{ color: colors.body }}
+                  >
+                    <Bell className="w-5 h-5" />
+                    <span>Watched</span>
+                  </Link>
+                )}
                 {user && (
                   <Link
                     href="/admin"

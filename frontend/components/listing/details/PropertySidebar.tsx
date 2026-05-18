@@ -118,6 +118,11 @@ export default function PropertySidebar({
       email_enabled: true,
       price_changes: true,
       status_updates: true,
+      email_recommend: true,
+      email_watched_property: true,
+      email_watched_community: true,
+      email_watched_area: true,
+      push_watched_property: true,
     });
     const preview = await fetchWatchedAlertPreview(14);
     if (preview?.events?.length) {
