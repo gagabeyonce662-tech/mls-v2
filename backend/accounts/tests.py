@@ -137,6 +137,36 @@ class FacebookAuthViewTests(TestCase):
             format="json",
         )
         self.assertEqual(r.status_code, 400)
+
+
+class PhoneOtpViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            email="otp@example.com",
+            password="secret12345",
+            first_name="Otp",
+        )
+        self.client.force_authenticate(self.user)
+
+    @override_settings(
+        TWILIO_ACCOUNT_SID="",
+        TWILIO_AUTH_TOKEN="",
+        TWILIO_VERIFY_SERVICE_SID="",
+    )
+    def test_send_otp_returns_controlled_503_when_twilio_is_not_configured(self):
+        with self.assertLogs("accounts.views", level="ERROR") as logs:
+            r = self.client.post(
+                "/api/auth/send-otp/",
+                {"phone": "+15555550123"},
+                format="json",
+            )
+
+        self.assertEqual(r.status_code, 503)
+        self.assertEqual(r.data.get("detail"), "SMS service is not configured.")
+        self.assertIn("TWILIO_ACCOUNT_SID", "\n".join(logs.output))
+        self.assertIn("TWILIO_AUTH_TOKEN", "\n".join(logs.output))
+        self.assertIn("TWILIO_VERIFY_SERVICE_SID", "\n".join(logs.output))
         self.assertIn("email", str(r.data.get("detail", "")).lower())
 
     @patch("accounts.views.requests.get")
