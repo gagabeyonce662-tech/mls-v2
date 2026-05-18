@@ -354,11 +354,22 @@ def _get_twilio_client():
     sid = getattr(settings, 'TWILIO_ACCOUNT_SID', '')
     token = getattr(settings, 'TWILIO_AUTH_TOKEN', '')
     service = getattr(settings, 'TWILIO_VERIFY_SERVICE_SID', '')
-    if not (sid and token and service):
-        return None, None
     if not _twilio_available:
-        return None, None
-    return TwilioClient(sid, token), service
+        return None, None, 'twilio package is not installed'
+
+    missing = [
+        name
+        for name, value in (
+            ('TWILIO_ACCOUNT_SID', sid),
+            ('TWILIO_AUTH_TOKEN', token),
+            ('TWILIO_VERIFY_SERVICE_SID', service),
+        )
+        if not value
+    ]
+    if missing:
+        return None, None, f"missing {', '.join(missing)}"
+
+    return TwilioClient(sid, token), service, ''
 
 
 class SendOtpView(APIView):
@@ -369,8 +380,9 @@ class SendOtpView(APIView):
         if not phone:
             return Response({'detail': 'Phone number is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        client, service_sid = _get_twilio_client()
+        client, service_sid, config_error = _get_twilio_client()
         if not client:
+            logger.error('Twilio send OTP is not configured: %s', config_error)
             return Response({'detail': 'SMS service is not configured.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         try:
@@ -394,8 +406,9 @@ class VerifyOtpView(APIView):
         if not phone or not code:
             return Response({'detail': 'Phone and code are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        client, service_sid = _get_twilio_client()
+        client, service_sid, config_error = _get_twilio_client()
         if not client:
+            logger.error('Twilio verify OTP is not configured: %s', config_error)
             return Response({'detail': 'SMS service is not configured.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         try:
