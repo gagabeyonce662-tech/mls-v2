@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { MessageSquareText, X } from "lucide-react";
+import { MessageCircle, MessageSquareText, X } from "lucide-react";
 import { submitFeedback } from "@/lib/api";
 
 type FeedbackType = "general" | "bug" | "feature";
@@ -98,16 +98,31 @@ export default function FeedbackWidget() {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 rounded-full bg-ds-primary text-white shadow-lg px-4 py-3 text-sm font-semibold hover:opacity-90 transition"
-        aria-label="Open feedback form"
-      >
-        <span className="inline-flex items-center gap-2">
-          <MessageSquareText className="h-4 w-4" />
-          Feedback
-        </span>
-      </button>
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+        <a
+          href="https://wa.me/14168214200"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-full bg-[#25D366] text-white shadow-lg px-4 py-3 text-sm font-semibold hover:opacity-90 transition"
+          aria-label="Speak to us on WhatsApp"
+        >
+          <span className="inline-flex items-center gap-2">
+            <MessageCircle className="h-4 w-4" />
+            Speak to us
+          </span>
+        </a>
+
+        <button
+          onClick={() => setOpen(true)}
+          className="rounded-full bg-ds-primary text-white shadow-lg px-4 py-3 text-sm font-semibold hover:opacity-90 transition"
+          aria-label="Open feedback form"
+        >
+          <span className="inline-flex items-center gap-2">
+            <MessageSquareText className="h-4 w-4" />
+            Feedback
+          </span>
+        </button>
+      </div>
 
       {open ? (
         <div className="fixed inset-0 z-[100] bg-black/40 flex items-end sm:items-center sm:justify-center p-3 sm:p-6">
