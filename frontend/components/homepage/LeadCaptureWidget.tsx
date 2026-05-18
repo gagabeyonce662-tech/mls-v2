@@ -10,6 +10,7 @@ import { colors } from "@/config/design-system";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { submitPropertyInquiry } from "@/lib/api";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -46,6 +47,14 @@ const itemVariants: Variants = {
   visible: { y: 0, opacity: 1 },
 };
 
+const splitFullName = (name: string) => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] || "",
+    lastName: parts.slice(1).join(" "),
+  };
+};
+
 export const LeadCaptureWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,9 +72,17 @@ export const LeadCaptureWidget = () => {
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
     try {
-      // Simulate API call for now (GHL integration removed)
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      console.log("Lead captured (Simulation):", data);
+      const { firstName, lastName } = splitFullName(data.name);
+
+      await submitPropertyInquiry({
+        first_name: firstName,
+        last_name: lastName,
+        email: data.email,
+        phone: data.contact,
+        intent: "explore",
+        message: "Homepage lead capture widget submission.",
+        page_url: typeof window !== "undefined" ? window.location.href : "",
+      });
 
       setIsSuccess(true);
       toast.success("Details captured successfully!");
