@@ -604,12 +604,14 @@ export default async function ListingPage(props: ListingPageProps) {
 
             {/* 1. Description — first thing after gallery */}
             {descriptionSections.length > 0 ? (
-              <div className="">
+              <div className="space-y-8">
                 {descriptionSections.map((section) => (
-                  <div key={section.id} className="space-y-2">
-                    <h4 className="mb-3 text-2xl font-extrabold uppercase tracking-[0.12em] text-[#374151]">
-                      {section.title || t("aboutTitle")}
-                    </h4>
+                  <div key={section.id} className="space-y-3">
+                    {section.title ? (
+                      <h4 className="text-2xl font-extrabold uppercase tracking-[0.12em] text-[#374151]">
+                        {section.title}
+                      </h4>
+                    ) : null}
                     <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
                       <div
                         className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-h4:text-2xl prose-h4:font-extrabold prose-h4:text-[#374151] prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"

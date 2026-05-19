@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Editor as HugeRTEditor } from "@hugerte/hugerte-react";
 import {
   fetchEstateCloudinaryAssets,
@@ -80,6 +80,10 @@ export default function EstatePropertyForm({
   const [sectionEditorModes, setSectionEditorModes] = useState<
     Record<string, "visual" | "html">
   >({});
+  const [pendingSectionTitleFocusId, setPendingSectionTitleFocusId] = useState<
+    string | null
+  >(null);
+  const sectionTitleRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [submitError, setSubmitError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [summaryErrors, setSummaryErrors] = useState<string[]>([]);
@@ -196,6 +200,13 @@ export default function EstatePropertyForm({
       ),
     [form.description_sections_json, form.property_description],
   );
+  useEffect(() => {
+    if (!pendingSectionTitleFocusId) return;
+    const titleInput = sectionTitleRefs.current[pendingSectionTitleFocusId];
+    if (!titleInput) return;
+    titleInput.focus();
+    setPendingSectionTitleFocusId(null);
+  }, [descriptionSections, pendingSectionTitleFocusId]);
   const detailBlocksStorage = useMemo(
     () => ({
       hasCustomColumn: editableColumnNames.has("custom_detail_blocks_json"),
@@ -448,16 +459,26 @@ export default function EstatePropertyForm({
     );
     setDescriptionSections(next);
   };
-  const addDescriptionSection = () => {
+  const addDescriptionSection = (afterIndex?: number) => {
+    const newSection: DescriptionSection = {
+      id: createSectionId(),
+      title: "",
+      body_html: "",
+      order: descriptionSections.length,
+    };
+
+    if (typeof afterIndex !== "number") {
+      setDescriptionSections([...descriptionSections, newSection]);
+      setPendingSectionTitleFocusId(newSection.id);
+      return;
+    }
+
     setDescriptionSections([
-      ...descriptionSections,
-      {
-        id: createSectionId(),
-        title: "",
-        body_html: "",
-        order: descriptionSections.length,
-      },
+      ...descriptionSections.slice(0, afterIndex + 1),
+      newSection,
+      ...descriptionSections.slice(afterIndex + 1),
     ]);
+    setPendingSectionTitleFocusId(newSection.id);
   };
   const removeDescriptionSection = (sectionId: string) => {
     setDescriptionSections(
@@ -469,6 +490,13 @@ export default function EstatePropertyForm({
       delete next[sectionId];
       return next;
     });
+  };
+  const moveDescriptionSection = (sectionId: string, direction: -1 | 1) => {
+    const index = descriptionSections.findIndex(
+      (section) => section.id === sectionId,
+    );
+    if (index < 0) return;
+    setDescriptionSections(moveItem(descriptionSections, index, direction));
   };
   const setSectionEditorMode = (
     sectionId: string,
@@ -1066,6 +1094,31 @@ export default function EstatePropertyForm({
                             HTML
                           </button>
                         </div>
+                        <div className="inline-flex gap-1 rounded border p-1">
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => moveDescriptionSection(section.id, -1)}
+                            className="px-2 py-1 text-xs rounded disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Up
+                          </button>
+                          <button
+                            type="button"
+                            disabled={index === descriptionSections.length - 1}
+                            onClick={() => moveDescriptionSection(section.id, 1)}
+                            className="px-2 py-1 text-xs rounded disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Down
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => addDescriptionSection(index)}
+                          className="px-2 py-1 text-xs rounded border"
+                        >
+                          Add below
+                        </button>
                         <button
                           type="button"
                           onClick={() => removeDescriptionSection(section.id)}
@@ -1078,6 +1131,9 @@ export default function EstatePropertyForm({
                     <label className="space-y-1 block">
                       <span className="text-xs font-semibold text-gray-600">title</span>
                       <input
+                        ref={(element) => {
+                          sectionTitleRefs.current[section.id] = element;
+                        }}
                         value={section.title}
                         onChange={(e) =>
                           updateDescriptionSection(section.id, "title", e.target.value)
