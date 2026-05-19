@@ -14,8 +14,13 @@ import {
   Calendar,
   MapPin,
   ExternalLink,
+  Heart,
+  GitCompare,
+  Check,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useWatched } from "@/contexts/WatchedContext";
+import { useCompare } from "@/contexts/CompareContext";
 
 export default function PropertyCard({
   property,
@@ -28,6 +33,9 @@ export default function PropertyCard({
   onViewStreetView: () => void;
   isSelected: boolean;
 }) {
+  const { toggleFavorite, isFavorite, getPropertyKey } = useWatched();
+  const { addToCompare, removeFromCompare, isPropertySelected } = useCompare();
+
   const formatSquareFeet = (sqft: string | number | undefined) => {
     if (!sqft) return "N/A";
     const numSqft = typeof sqft === "string" ? parseFloat(sqft) : sqft;
@@ -82,6 +90,31 @@ export default function PropertyCard({
   const photo = getPropertyPhoto();
   const detailUrl =
     raw.listing_key || raw.PropertyKey ? getDetailUrl(raw as any) : null;
+  const propertyKey = raw ? getPropertyKey(raw) : property.id;
+  const saved = isFavorite(propertyKey);
+  const compared = isPropertySelected(propertyKey);
+  const canUsePropertyActions = Boolean(raw && Object.keys(raw).length > 0);
+
+  const handleToggleFavorite = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (!canUsePropertyActions) return;
+    toggleFavorite(raw);
+  };
+
+  const handleToggleCompare = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (!canUsePropertyActions) return;
+    if (compared) {
+      removeFromCompare(propertyKey);
+      return;
+    }
+    addToCompare(raw);
+  };
+
+  const handleOpenDetails = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (detailUrl) openInNewTab(detailUrl);
+  };
 
   return (
     <motion.div
@@ -174,7 +207,7 @@ export default function PropertyCard({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2 pt-1">
+        <div className="grid grid-cols-2 gap-2 pt-1">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -192,6 +225,54 @@ export default function PropertyCard({
             className="flex-1 px-3 py-2 bg-ds-primary text-white text-xs font-bold rounded-xl shadow-lg shadow-ds-primary/20 hover:scale-[1.02] transition-all"
           >
             Street View
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={handleToggleFavorite}
+            disabled={!canUsePropertyActions}
+            aria-label={saved ? "Remove from saved homes" : "Save listing"}
+            aria-pressed={saved}
+            className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-bold rounded-xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+              saved
+                ? "bg-red-50 text-red-600 border-red-200"
+                : "bg-ds-card text-ds-heading border-ds-card-border hover:bg-white hover:border-ds-primary"
+            }`}
+          >
+            <Heart className={`w-3.5 h-3.5 ${saved ? "fill-current" : ""}`} />
+            <span>{saved ? "Saved" : "Save"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleToggleCompare}
+            disabled={!canUsePropertyActions}
+            aria-label={compared ? "Remove from compare" : "Add to compare"}
+            aria-pressed={compared}
+            className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-bold rounded-xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+              compared
+                ? "bg-blue-50 text-blue-700 border-blue-200"
+                : "bg-ds-card text-ds-heading border-ds-card-border hover:bg-white hover:border-ds-primary"
+            }`}
+          >
+            {compared ? (
+              <Check className="w-3.5 h-3.5" />
+            ) : (
+              <GitCompare className="w-3.5 h-3.5" />
+            )}
+            <span>{compared ? "Added" : "Compare"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleOpenDetails}
+            disabled={!detailUrl}
+            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-white text-ds-primary text-xs font-bold rounded-xl border border-ds-primary/30 hover:bg-ds-primary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Details</span>
           </button>
         </div>
 

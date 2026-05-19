@@ -33,7 +33,7 @@ export const ResultsPortal: React.FC<ResultsPortalProps> = ({
           top: `${top}px`,
           left: `${left}px`,
           width: `${width}px`,
-          maxHeight: "400px",
+          maxHeight: "min(400px, calc(100dvh - 8rem))",
         }}
         role="listbox"
       >

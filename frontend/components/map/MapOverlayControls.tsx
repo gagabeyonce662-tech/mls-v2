@@ -180,7 +180,7 @@ export const MapOverlayControls = ({
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 300 }}
-              className="fixed top-0 right-0 bottom-0 w-[85vw] max-w-[360px] z-[2001] lg:hidden flex flex-col bg-white shadow-2xl"
+              className="fixed top-0 right-0 bottom-0 w-full sm:w-[min(92vw,420px)] z-[2001] lg:hidden flex flex-col bg-white shadow-2xl"
             >
               {/* Header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-ds-card-border">
@@ -199,10 +199,10 @@ export const MapOverlayControls = ({
               </div>
 
               {/* Filter content */}
-              <div className="flex-1 overflow-y-auto no-scrollbar">
+              <div className="flex-1 overflow-y-auto">
                 {followedAreas.length > 0 && (
                   <div className="px-5 pt-4">
-                    <label className="text-[10px] font-bold text-ds-body uppercase tracking-widest pl-1 block mb-1.5">
+                    <label className="text-xs font-bold text-ds-body uppercase tracking-wide pl-1 block mb-1.5">
                       Watched Areas
                     </label>
                     <select
@@ -231,7 +231,7 @@ export const MapOverlayControls = ({
               </div>
 
               {/* Mobile action buttons */}
-              <div className="p-4 border-t border-ds-card-border flex gap-2 bg-white safe-bottom">
+              <div className="p-4 border-t border-ds-card-border flex flex-col sm:flex-row gap-2 bg-white safe-bottom">
                 <button
                   onClick={() => {
                     if (drawing) {
@@ -325,7 +325,7 @@ export const MapOverlayControls = ({
             animate={{ x: 0, opacity: 1, scale: 1 }}
             exit={{ x: 60, opacity: 0, scale: 0.95 }}
             transition={{ type: "tween", ease: "easeOut", duration: 0.4 }}
-            className="absolute top-4 right-4 bottom-4 z-30 w-[clamp(320px,23vw,360px)] hidden lg:flex flex-col pointer-events-auto"
+            className="absolute top-4 right-4 bottom-4 z-30 w-[min(420px,calc(100vw-2rem))] hidden lg:flex flex-col pointer-events-auto"
           >
             <div className="flex flex-col h-full rounded-2xl border border-ds-card-border bg-white/95 backdrop-blur-sm shadow-md overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2 border-b border-ds-card-border bg-ds-card/60">
@@ -344,7 +344,7 @@ export const MapOverlayControls = ({
                 </button>
               </div>
 
-              <div className="p-3 border-b border-ds-card-border h-[96px] bg-[#f5f5f5]">
+              <div className="p-3 border-b border-ds-card-border min-h-[96px] bg-[#f5f5f5]">
                 <SearchBox
                   inputRef={inputRef}
                   value={searchQuery}
@@ -354,7 +354,7 @@ export const MapOverlayControls = ({
                 />
               </div>
 
-              <div className="flex-1 overflow-y-auto no-scrollbar">
+              <div className="flex-1 overflow-y-auto">
                 <FilterBar
                   filters={filters}
                   setFilters={setFilters}
@@ -435,7 +435,7 @@ export const MapOverlayControls = ({
                     </span>
                   </motion.button>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}

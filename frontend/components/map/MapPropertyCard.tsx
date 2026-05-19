@@ -125,8 +125,7 @@ export default function MapPropertyCard({
 
   return (
     <div
-      className="w-full max-w-[18rem] overflow-hidden rounded-xl bg-white"
-      style={{ minWidth: "16rem" }}
+      className="w-full min-w-0 max-w-[18rem] overflow-hidden rounded-xl bg-white"
     >
       <div className={`relative w-full ${imageHeight} bg-gray-100`}>
         {thumbnail && !imgFailed ? (

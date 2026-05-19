@@ -68,7 +68,7 @@ const AUTO_ZOOM_OUT_REFRESH_DEBOUNCE_MS = 700;
 
 function LoadingShell() {
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-50">
+    <div className="flex min-h-dvh items-center justify-center bg-gray-50">
       <div className="flex flex-col items-center gap-4">
         <Loader2 className="h-12 w-12 animate-spin text-ds-primary" />
         <p className="text-ds-body font-medium">
@@ -608,7 +608,7 @@ function MapOnlyPageInner() {
   // ====================THE ACTUAL RETURN STATEMENT====================================
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-white">
+    <div className="flex h-dvh min-h-dvh flex-col overflow-hidden bg-white">
       <Header />
 
       <main className="flex-1 relative flex flex-col">

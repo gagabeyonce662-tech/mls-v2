@@ -45,7 +45,7 @@ export default function FilterBar({
   const inputCls =
     "w-full pl-9 pr-3 py-2 bg-ds-card/50 border border-ds-card-border rounded-xl text-sm text-ds-heading focus:ring-2 focus:ring-ds-primary/20 focus:border-ds-primary transition-all outline-none font-medium placeholder:text-ds-body/30";
   const labelCls =
-    "text-[10px] font-bold text-ds-body mb-1.5 uppercase tracking-widest pl-1";
+    "text-xs font-bold text-ds-body mb-1.5 uppercase tracking-wide pl-1";
   const iconCls =
     "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ds-primary";
 

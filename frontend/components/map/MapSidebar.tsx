@@ -47,7 +47,7 @@ export const MapSidebar = ({
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {loading ? (
             // Skeleton cards
             Array.from({ length: 4 }).map((_, i) => (
@@ -120,7 +120,7 @@ export const MapSidebar = ({
                   transition={{ type: "tween", ease: "easeOut", duration: 0.3 }}
                   className="overflow-hidden"
                 >
-                  <div className="h-full overflow-y-auto p-4 space-y-4 no-scrollbar border-t border-ds-card-border">
+                  <div className="h-full overflow-y-auto p-4 space-y-4 border-t border-ds-card-border">
                     {loading ? (
                       Array.from({ length: 3 }).map((_, i) => (
                         <div key={i} className="rounded-xl border border-ds-card-border bg-ds-card p-4 animate-pulse space-y-3">
