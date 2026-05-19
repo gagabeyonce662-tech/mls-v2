@@ -13,18 +13,43 @@ import {
   normalizeListingActionButtons,
   normalizePropertyCustomDetailBlocks,
   normalizePropertyDetailBlockLayout,
-  type ListingActionButton,
-  type PropertyCustomDetailBlock,
   type PropertyDetailBlockLayoutItem,
 } from "@/lib/propertyUtils";
 import LocationPicker from "@/components/admin/LocationPicker";
+import { CloudinaryPickerDialog } from "@/components/admin/estate-property-form/CloudinaryPickerDialog";
+import { JsonImportSection } from "@/components/admin/estate-property-form/sections/JsonImportSection";
+import { SubmitBar } from "@/components/admin/estate-property-form/sections/SubmitBar";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ADMIN_FIELD_LABELS,
+  CLOUDINARY_PICK_PAGE_SIZE,
+  CORE_FIELD_ORDER,
+  DEFAULT_DESCRIPTION_SECTION_TITLE,
+  DEFAULT_DETAIL_BLOCK_TITLES,
+  HIDDEN_FIELDS,
+  MAX_LOCAL_MEDIA_FILES,
+  TAXONOMY_KEYS,
+  TAXONOMY_OPTIONS,
+} from "@/components/admin/estate-property-form/constants";
+import type {
+  DescriptionSection,
+  EditableDetailBlock,
+  EditableListingButton,
+  EstatePropertyFormProps,
+} from "@/components/admin/estate-property-form/types";
+import { createSectionId } from "@/components/admin/estate-property-form/utils/ids";
+import { parseJsonObject } from "@/components/admin/estate-property-form/utils/json";
+import {
+  extractGalleryUrls,
+  normalizeImageUrls,
+} from "@/components/admin/estate-property-form/utils/media";
+import {
+  normalizeCustomTags,
+  normalizeDescriptionSections,
+  normalizeEditableDetailBlocks,
+  normalizeEditableListingButtons,
+  parseNumericRange,
+  readRecordJsonField,
+} from "@/components/admin/estate-property-form/utils/normalization";
 import "hugerte/hugerte";
 import "hugerte/models/dom";
 import "hugerte/themes/silver";
@@ -40,373 +65,12 @@ import "hugerte/plugins/help";
 import "hugerte/plugins/wordcount";
 import "hugerte/plugins/preview";
 
-type Column = {
-  column_name: string;
-  data_type: string;
-  is_nullable: string;
-  column_default: string | null;
-};
-
-interface Props {
-  columns: Column[];
-  initialValues?: EstatePropertyRecord;
-  onSubmit: (
-    payload: EstatePropertyRecord,
-    options?: { stayOnPage?: boolean; isDraft?: boolean },
-  ) => Promise<void>;
-  submitLabel: string;
-}
-
-type DescriptionSection = {
-  id: string;
-  title: string;
-  body_html: string;
-  order: number;
-};
-
-type EditableDetailBlock = PropertyCustomDetailBlock;
-type EditableListingButton = ListingActionButton;
-
-const HIDDEN_FIELDS = new Set(["id"]);
-const CORE_FIELD_ORDER = [
-  "listing_key",
-  "property_title",
-  "property_slug",
-  "property_description",
-  "description_sections_json",
-  "custom_detail_blocks_json",
-  "detail_blocks_layout_json",
-  "listing_buttons_json",
-  "listing_url",
-  "publish_status",
-  "is_featured",
-  "custom_tags",
-  "expires_at",
-  "list_price",
-  "second_price",
-  "enable_price_placeholder",
-  "price_placeholder",
-  "price_prefix",
-  "after_price",
-  "building_area_total",
-  "size_postfix",
-  "land_area",
-  "land_area_size_postfix",
-  "bedrooms_total",
-  "rooms",
-  "bathrooms_total_integer",
-  "garages",
-  "garage_size",
-  "year_built",
-  "property_id_code",
-  "max_bedrooms",
-  "developer",
-  "occupancy_year",
-  "signing_amount",
-  "lot_size",
-  "kitchens",
-  "listing_id",
-  "tax_annual_amount",
-  "tax_year",
-  "basement",
-  "exterior_features",
-  "unparsed_address",
-  "city",
-  "state_or_province",
-  "postal_code",
-  "country",
-  "latitude",
-  "longitude",
-  "featured_image_url",
-  "wp_meta_json",
-  "wp_post_json",
-  "wp_terms_json",
-] as const;
-
-const TAXONOMY_KEYS = [
-  "type",
-  "status",
-  "features",
-  "labels",
-  "city",
-  "state",
-  "country",
-] as const;
-
-const TAXONOMY_OPTIONS: Record<(typeof TAXONOMY_KEYS)[number], string[]> = {
-  type: [
-    "Detached Homes",
-    "Townhomes",
-    "Bungalows",
-    "Condo Apartment",
-    "Pre Construction",
-    "Semi-Detached",
-  ],
-  status: [
-    "Assignments",
-    "Coming Soon",
-    "For Sale",
-    "Leased",
-    "Resale",
-    "Sold Out",
-  ],
-  features: [
-    "Appliances Included",
-    "Air-conditioning Unit",
-    "Finished Basement",
-    "Free Assignment",
-    "Free Maintenance Fees",
-    "Price Discount",
-  ],
-  labels: [
-    "$10K on Signing",
-    "$20K on Signing",
-    "$25K on Signing",
-    "$30K on Signing",
-  ],
-  city: ["Brampton", "Oakville", "Ajax", "Barrie", "Milton"],
-  state: ["Ontario", "California", "Florida", "Illinois", "New York"],
-  country: ["Canada", "USA"],
-};
-
-const DEFAULT_DESCRIPTION_SECTION_TITLE = "Overview";
-const MAX_LOCAL_MEDIA_FILES = 30;
-const CLOUDINARY_PICK_PAGE_SIZE = 30;
-const DEFAULT_DETAIL_BLOCK_TITLES: Record<string, string> = {
-  financial_information: "Financial Information",
-  building_facts: "Building Facts",
-  location_access: "Location & access",
-  lot_land: "Lot & Land",
-  construction_systems: "Construction & Systems",
-  utilities_services: "Utilities & Services",
-  parking_structure: "Parking & Structure",
-  listing_details: "Listing Details",
-};
-const ADMIN_FIELD_LABELS: Record<string, string> = {
-  lot_size: "property_size",
-};
-
-function createSectionId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `section-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-}
-
-function normalizeDescriptionSections(
-  raw: unknown,
-  legacyDescription: unknown,
-): DescriptionSection[] {
-  const asArray = Array.isArray(raw) ? raw : [];
-  const normalized = asArray
-    .map((item, idx): DescriptionSection | null => {
-      if (!item || typeof item !== "object") return null;
-      const typed = item as Record<string, unknown>;
-      return {
-        id: String(typed.id || `section-${idx + 1}`),
-        title: String(typed.title || ""),
-        body_html: String(typed.body_html || ""),
-        order:
-          typeof typed.order === "number"
-            ? typed.order
-            : Number.parseInt(String(typed.order ?? idx), 10) || idx,
-      };
-    })
-    .filter((item): item is DescriptionSection => item !== null)
-    .sort((a, b) => a.order - b.order);
-
-  if (normalized.length > 0) return normalized;
-
-  const legacy = String(legacyDescription ?? "").trim();
-  if (!legacy) return [];
-
-  return [
-    {
-      id: "legacy-overview",
-      title: DEFAULT_DESCRIPTION_SECTION_TITLE,
-      body_html: legacy,
-      order: 0,
-    },
-  ];
-}
-
-function readRecordJsonField(
-  record: EstatePropertyRecord,
-  fieldName: string,
-): unknown {
-  if (record[fieldName] !== undefined && record[fieldName] !== null) {
-    return record[fieldName];
-  }
-  return parseJsonObject(record.wp_meta_json)[fieldName];
-}
-
-function parseJsonArray(value: unknown): unknown[] {
-  if (Array.isArray(value)) return value;
-  if (typeof value !== "string") return [];
-  const text = value.trim();
-  if (!text) return [];
-  try {
-    const parsed = JSON.parse(text);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function normalizeEditableDetailBlocks(value: unknown): EditableDetailBlock[] {
-  return parseJsonArray(value).map((block, index) => {
-    const typed =
-      block && typeof block === "object"
-        ? (block as Record<string, unknown>)
-        : {};
-    const items = parseJsonArray(typed.items).map((item) => {
-      const row =
-        item && typeof item === "object"
-          ? (item as Record<string, unknown>)
-          : {};
-      return {
-        label: String(row.label || ""),
-        value: String(row.value || ""),
-      };
-    });
-    return {
-      id: String(typed.id || `custom_${createSectionId()}`),
-      title: String(typed.title || ""),
-      order:
-        typeof typed.order === "number"
-          ? typed.order
-          : Number.parseInt(String(typed.order ?? index), 10) || index,
-      items: items.length > 0 ? items : [{ label: "", value: "" }],
-    };
-  });
-}
-
-function normalizeEditableListingButtons(value: unknown): EditableListingButton[] {
-  return parseJsonArray(value).map((button, index) => {
-    const typed =
-      button && typeof button === "object"
-        ? (button as Record<string, unknown>)
-        : {};
-    const requiresPhoneVerification =
-      typeof typed.requires_phone_verification === "boolean"
-        ? typed.requires_phone_verification
-        : ["1", "true", "yes", "y", "on"].includes(
-            String(typed.requires_phone_verification ?? "")
-              .trim()
-              .toLowerCase(),
-          );
-    return {
-      id: String(typed.id || `listing_button_${createSectionId()}`),
-      label: String(typed.label || ""),
-      href: String(typed.href || ""),
-      order:
-        typeof typed.order === "number"
-          ? typed.order
-          : Number.parseInt(String(typed.order ?? index), 10) || index,
-      requiresPhoneVerification,
-    };
-  });
-}
-
-function parseJsonObject(value: unknown): Record<string, unknown> {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  if (typeof value !== "string") return {};
-  const text = value.trim();
-  if (!text) return {};
-  try {
-    const parsed = JSON.parse(text);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
-  }
-}
-
-function normalizeImageUrls(value: unknown): string[] {
-  if (!value) return [];
-  const raw: unknown[] = [];
-
-  if (Array.isArray(value)) {
-    raw.push(...value);
-  } else if (typeof value === "string") {
-    const text = value.trim();
-    if (!text) return [];
-    if (text.startsWith("[") && text.endsWith("]")) {
-      try {
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed)) raw.push(...parsed);
-        else raw.push(text);
-      } catch {
-        raw.push(...text.split(","));
-      }
-    } else {
-      raw.push(...text.split(","));
-    }
-  } else {
-    raw.push(value);
-  }
-
-  const deduped: string[] = [];
-  const seen = new Set<string>();
-  raw.forEach((item) => {
-    const url = String(item ?? "").trim();
-    if (!url || (!url.startsWith("http://") && !url.startsWith("https://"))) {
-      return;
-    }
-    if (seen.has(url)) return;
-    seen.add(url);
-    deduped.push(url);
-  });
-  return deduped;
-}
-
-function normalizeCustomTags(value: unknown): string {
-  const raw = Array.isArray(value) ? value.map(String) : String(value ?? "").split(/[,\n|]/g);
-  const cleaned = raw
-    .map((item) => item.trim().replace(/\s+/g, " "))
-    .filter(Boolean)
-    .filter((item) => item.toLowerCase() !== "featured");
-  const deduped: string[] = [];
-  const seen = new Set<string>();
-  for (const tag of cleaned) {
-    const key = tag.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(tag);
-  }
-  return deduped.join(", ");
-}
-
-function extractGalleryUrls(record: EstatePropertyRecord): string[] {
-  const wpPost = parseJsonObject(record?.wp_post_json);
-  const wpMeta = parseJsonObject(record?.wp_meta_json);
-
-  return normalizeImageUrls([
-    ...(normalizeImageUrls(wpPost["images"]) || []),
-    ...(normalizeImageUrls(wpPost["gallery"]) || []),
-    ...(normalizeImageUrls(wpMeta["gallery_image_urls"]) || []),
-    record?.featured_image_url,
-  ]);
-}
-
-function parseNumericRange(value: unknown): { min: number; max: number } | null {
-  const raw = String(value ?? "").trim();
-  const match = raw.match(/^(\d+)\s*[-–]\s*(\d+)$/);
-  if (!match) return null;
-  const min = Number.parseInt(match[1], 10);
-  const max = Number.parseInt(match[2], 10);
-  if (!Number.isFinite(min) || !Number.isFinite(max) || max < min) return null;
-  return { min, max };
-}
 export default function EstatePropertyForm({
   columns,
   initialValues = {},
   onSubmit,
   submitLabel,
-}: Props) {
+}: EstatePropertyFormProps) {
   const [form, setForm] = useState<EstatePropertyRecord>({});
   const [isSaving, setIsSaving] = useState(false);
   const [jsonText, setJsonText] = useState("");
@@ -903,18 +567,6 @@ export default function EstatePropertyForm({
     );
   };
 
-  const buildCloudinaryPreviewUrl = (url: string): string => {
-    const raw = String(url || "").trim();
-    if (!raw) return "";
-    const marker = "/upload/";
-    const markerIndex = raw.indexOf(marker);
-    if (markerIndex === -1) return raw;
-    const transformed = "f_auto,q_auto,c_fill,w_320,h_220";
-    return `${raw.slice(0, markerIndex + marker.length)}${transformed}/${raw.slice(
-      markerIndex + marker.length,
-    )}`;
-  };
-
   const loadCloudinaryAssetsPage = async ({
     pageIndex,
     requestCursor,
@@ -1331,31 +983,12 @@ export default function EstatePropertyForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-white border rounded-xl p-4 space-y-3">
-        <h2 className="text-base font-semibold">Paste JSON</h2>
-        <p className="text-xs text-gray-500">
-          Paste one listing JSON object to auto-fill matching fields.
-        </p>
-        <textarea
-          value={jsonText}
-          onChange={(e) => setJsonText(e.target.value)}
-          rows={8}
-          placeholder='{"listing_key":"EST-1001","unparsed_address":"123 Main St","city":"Toronto","list_price":950000}'
-          className="w-full rounded-lg border px-3 py-2 text-xs font-mono"
-        />
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={applyJsonPayload}
-            className="px-3 py-2 rounded-lg border text-sm font-medium"
-          >
-            Apply JSON
-          </button>
-          {jsonError ? (
-            <span className="text-xs text-red-600">{jsonError}</span>
-          ) : null}
-        </div>
-      </div>
+      <JsonImportSection
+        jsonText={jsonText}
+        jsonError={jsonError}
+        onJsonTextChange={setJsonText}
+        onApplyJsonPayload={applyJsonPayload}
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 space-y-6">
@@ -2225,150 +1858,39 @@ export default function EstatePropertyForm({
         </div>
       ) : null}
 
-      <div className="sticky bottom-4 bg-white border rounded-xl p-3 flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={handleSaveDraft}
-          disabled={isSaving}
-          className="px-4 py-2 rounded-lg border text-sm font-semibold disabled:opacity-60"
-        >
-          {isSaving ? (isUploadingMedia ? "Uploading..." : "Saving...") : "Save Draft"}
-        </button>
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
-        >
-          {isSaving ? (isUploadingMedia ? "Uploading..." : "Saving...") : submitLabel}
-        </button>
-      </div>
+      <SubmitBar
+        isSaving={isSaving}
+        isUploadingMedia={isUploadingMedia}
+        submitLabel={submitLabel}
+        onSaveDraft={handleSaveDraft}
+      />
 
-      <Dialog open={isCloudinaryPickerOpen} onOpenChange={setIsCloudinaryPickerOpen}>
-        <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-hidden p-0 flex flex-col">
-          <DialogHeader className="px-5 pt-5 pb-2 border-b">
-            <DialogTitle>Pick From Cloudinary</DialogTitle>
-            <DialogDescription>
-              Select one or more images to add to the listing gallery.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="p-5 space-y-3 overflow-y-auto flex-1 min-h-0">
-            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-              <input
-                value={cloudinaryPrefixInput}
-                onChange={(e) => setCloudinaryPrefixInput(e.target.value)}
-                placeholder="Folder prefix (optional), e.g. estate-properties/2026/"
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  void loadCloudinaryAssetsPage({
-                    pageIndex: 0,
-                    requestCursor: null,
-                    resetSelection: true,
-                  })
-                }
-                disabled={cloudinaryLoading}
-                className="px-3 py-2 rounded-lg border text-sm font-medium whitespace-nowrap disabled:opacity-60"
-              >
-                {cloudinaryLoading ? "Loading..." : "Refresh"}
-              </button>
-            </div>
-
-            {cloudinaryResolvedPrefix ? (
-              <p className="text-xs text-gray-500">
-                Showing prefix: <code>{cloudinaryResolvedPrefix}</code>
-              </p>
-            ) : null}
-
-            {cloudinaryError ? (
-              <p className="text-xs text-red-600">{cloudinaryError}</p>
-            ) : null}
-
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {cloudinaryAssets.map((asset, idx) => {
-                const url = String(asset.secure_url || "").trim();
-                if (!url) return null;
-                const selected = selectedCloudinaryUrls.includes(url);
-                return (
-                  <button
-                    key={`${asset.asset_id || asset.public_id || url}-${idx}`}
-                    type="button"
-                    onClick={() => toggleCloudinarySelection(url)}
-                    className={`text-left rounded-lg border overflow-hidden ${
-                      selected ? "border-blue-600 ring-2 ring-blue-200" : "border-gray-200"
-                    }`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={buildCloudinaryPreviewUrl(url)}
-                      alt={String(asset.public_id || `Cloudinary asset ${idx + 1}`)}
-                      className="h-24 w-full object-cover bg-gray-100"
-                      loading="lazy"
-                    />
-                    <div className="p-2">
-                      <p className="text-[11px] font-medium text-gray-700 truncate">
-                        {asset.public_id || "Untitled"}
-                      </p>
-                      <p className="text-[10px] text-gray-500">
-                        {asset.width && asset.height
-                          ? `${asset.width}x${asset.height}`
-                          : "Image"}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {!cloudinaryLoading && cloudinaryAssets.length === 0 && !cloudinaryError ? (
-              <div className="rounded-lg border border-dashed p-4 text-xs text-gray-500">
-                No Cloudinary images found for this view.
-              </div>
-            ) : null}
-
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
-              <span className="text-xs text-gray-600">
-                Page: {cloudinaryPageIndex + 1} • Selected: {selectedCloudinaryUrls.length}
-              </span>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void goToPreviousCloudinaryPage()}
-                  disabled={cloudinaryLoading || !hasPrevCloudinaryPage}
-                  className="px-3 py-2 rounded-lg border text-sm font-medium disabled:opacity-60"
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void goToNextCloudinaryPage()}
-                  disabled={cloudinaryLoading || !hasNextCloudinaryPage}
-                  className="px-3 py-2 rounded-lg border text-sm font-medium disabled:opacity-60"
-                >
-                  Next
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsCloudinaryPickerOpen(false)}
-                  className="px-3 py-2 rounded-lg border text-sm font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={addSelectedCloudinaryImages}
-                  disabled={selectedCloudinaryUrls.length === 0}
-                  className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
-                >
-                  Add Selected
-                </button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CloudinaryPickerDialog
+        open={isCloudinaryPickerOpen}
+        onOpenChange={setIsCloudinaryPickerOpen}
+        prefixInput={cloudinaryPrefixInput}
+        onPrefixInputChange={setCloudinaryPrefixInput}
+        resolvedPrefix={cloudinaryResolvedPrefix}
+        error={cloudinaryError}
+        loading={cloudinaryLoading}
+        assets={cloudinaryAssets}
+        selectedUrls={selectedCloudinaryUrls}
+        pageIndex={cloudinaryPageIndex}
+        hasPreviousPage={hasPrevCloudinaryPage}
+        hasNextPage={hasNextCloudinaryPage}
+        onRefresh={() =>
+          void loadCloudinaryAssetsPage({
+            pageIndex: 0,
+            requestCursor: null,
+            resetSelection: true,
+          })
+        }
+        onToggleSelection={toggleCloudinarySelection}
+        onPreviousPage={() => void goToPreviousCloudinaryPage()}
+        onNextPage={() => void goToNextCloudinaryPage()}
+        onAddSelected={addSelectedCloudinaryImages}
+      />
     </form>
   );
 }
+
