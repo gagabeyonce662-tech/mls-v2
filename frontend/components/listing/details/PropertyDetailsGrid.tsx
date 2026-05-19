@@ -14,6 +14,8 @@ interface PropertyDetailsGridProps {
   price: string;
   type: string;
   livingArea: string;
+  hiddenLabels?: string[];
+  hideZeroValueLabels?: string[];
 }
 
 export default function PropertyDetailsGrid({
@@ -21,21 +23,46 @@ export default function PropertyDetailsGrid({
   price,
   type,
   livingArea,
+  hiddenLabels = [],
+  hideZeroValueLabels = [],
 }: PropertyDetailsGridProps) {
   const [showAllRooms, setShowAllRooms] = useState(false);
   const [expandedSections, setExpandedSections] = useState<
     Record<number, boolean>
   >({});
   const isPrivileged = getListingIsPrivileged();
-  const sections = useMemo(
-    () =>
-      getPropertyDetailSections(
+  const sections = useMemo(() => {
+    const hiddenLabelSet = new Set(hiddenLabels.map((label) => label.toLowerCase()));
+    const zeroValueLabelSet = new Set(
+      hideZeroValueLabels.map((label) => label.toLowerCase()),
+    );
+
+    return getPropertyDetailSections(
         property,
         { price, type, livingArea },
         { isPrivileged },
-      ),
-    [property, price, type, livingArea, isPrivileged],
-  );
+      )
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => {
+          const label = item.label.toLowerCase();
+          if (hiddenLabelSet.has(label)) return false;
+          if (zeroValueLabelSet.has(label) && item.value.trim() === "0") {
+            return false;
+          }
+          return true;
+        }),
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [
+    property,
+    price,
+    type,
+    livingArea,
+    isPrivileged,
+    hiddenLabels,
+    hideZeroValueLabels,
+  ]);
   const rooms = useMemo(
     () =>
       (property.rooms || property.Rooms || []) as unknown as Array<

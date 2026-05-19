@@ -14,6 +14,7 @@ interface PropertyHeaderProps {
   price: string;
   isFeaturedTag?: boolean;
   customTags?: string[];
+  statusTags?: string[];
   priceLabel?: string;
   priceClassName?: string;
   rightActions?: React.ReactNode;
@@ -28,32 +29,46 @@ export default function PropertyHeader({
   price,
   isFeaturedTag = false,
   customTags = [],
+  statusTags = [],
   priceLabel = "List Price",
   priceClassName,
   rightActions,
 }: PropertyHeaderProps) {
+  const visibleStatusTags = statusTags.length > 0 ? statusTags : [status].filter(Boolean);
+  const visibleCustomTags = customTags.slice(0, 2);
+  const hiddenCustomTagCount = Math.max(customTags.length - visibleCustomTags.length, 0);
+
   return (
     <div className="flex flex-col md:flex-row items-start justify-between mb-8 gap-4">
-      <div>
-        <div className="flex items-center gap-2 mb-2">
+      <div className="min-w-0 flex-1">
+        <div className="mb-3 flex max-w-4xl flex-wrap items-center gap-2">
           {isFeaturedTag ? (
-            <span className="px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-extrabold rounded-full uppercase tracking-wider shadow-sm">
+            <span className="shrink-0 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-white shadow-sm">
               Featured
             </span>
-          ) : (
-            <span className="px-3 py-1 bg-ds-primary/10 text-ds-primary text-xs font-bold rounded-full uppercase tracking-wider">
-              {status}
-            </span>
-          )}
-          {customTags.map((tag) => (
+          ) : null}
+          {visibleStatusTags.map((tag) => (
             <span
               key={tag}
-              className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-semibold rounded-full tracking-wide"
+              className="shrink-0 rounded-full bg-ds-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-ds-primary"
             >
               {tag}
             </span>
           ))}
-          <span className="text-ds-body text-sm font-medium">
+          {visibleCustomTags.map((tag) => (
+            <span
+              key={tag}
+              className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-gray-700"
+            >
+              {tag}
+            </span>
+          ))}
+          {hiddenCustomTagCount > 0 ? (
+            <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-gray-600">
+              +{hiddenCustomTagCount} more
+            </span>
+          ) : null}
+          <span className="text-sm font-medium text-ds-body">
             {propertyType}
           </span>
         </div>

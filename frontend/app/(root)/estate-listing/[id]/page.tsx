@@ -330,6 +330,25 @@ export default async function ListingPage(props: ListingPageProps) {
   const wpTerms = parseJsonObject(
     (property as { wp_terms_json?: unknown }).wp_terms_json,
   );
+  const formatTaxonomyValues = (value: unknown): string => {
+    const rawValues = Array.isArray(value) ? value : String(value ?? "").split(",");
+    const cleaned = rawValues
+      .map((item) => {
+        if (item && typeof item === "object") {
+          const term = item as Record<string, unknown>;
+          return String(term.name || term.label || term.value || "").trim();
+        }
+        return String(item).trim();
+      })
+      .filter(Boolean);
+    return Array.from(new Set(cleaned)).join(", ");
+  };
+  const propertyTypeDetailsValue =
+    formatTaxonomyValues(wpTerms.type || wpTerms.property_type) || uiPropertyType;
+  const statusTags = formatTaxonomyValues(wpTerms.status || wpTerms.property_status)
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
   const isFeaturedTag = parseBoolean(
     (property as { is_featured?: unknown }).is_featured ??
       wpMeta.fave_featured ??
@@ -404,7 +423,7 @@ export default async function ListingPage(props: ListingPageProps) {
   })();
   const detailsRows = [
     { label: "Price", value: displayPrice },
-    { label: "Property Type", value: uiPropertyType },
+    { label: "Property Type", value: propertyTypeDetailsValue },
     { label: "Property Size", value: propertySize },
     { label: "Developer", value: String(property.developer || "").trim() },
     { label: "Bedrooms", value: bedroomRange || String(beds || "").trim() },
@@ -530,6 +549,7 @@ export default async function ListingPage(props: ListingPageProps) {
           price={displayPrice}
           isFeaturedTag={isFeaturedTag}
           customTags={customTags}
+          statusTags={statusTags}
           priceLabel="Price"
           priceClassName="text-4xl md:text-5xl font-extrabold leading-tight tracking-tight"
           rightActions={<ListingQuickActions property={property} compact />}
@@ -567,7 +587,7 @@ export default async function ListingPage(props: ListingPageProps) {
           />
         </div>
 
-        {/* <ListingExternalLinks property={property} /> */}
+        <ListingExternalLinks property={property} />
 
         {/* Main Content Grid (2:1 Ratio) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -604,17 +624,15 @@ export default async function ListingPage(props: ListingPageProps) {
 
             {/* 1. Description — first thing after gallery */}
             {descriptionSections.length > 0 ? (
-              <div className="space-y-8">
+              <div className="">
                 {descriptionSections.map((section) => (
-                  <div key={section.id} className="space-y-3">
-                    {section.title ? (
-                      <h4 className="text-2xl font-extrabold uppercase tracking-[0.12em] text-[#374151]">
-                        {section.title}
-                      </h4>
-                    ) : null}
+                  <div key={section.id} className="space-y-2">
+                    <h4 className=" text-lg font-extrabold uppercase tracking-widest text-ds-body mb-3">
+                      {section.title || t("aboutTitle")}
+                    </h4>
                     <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
                       <div
-                        className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-h4:text-2xl prose-h4:font-extrabold prose-h4:text-[#374151] prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
+                        className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
                         dangerouslySetInnerHTML={{ __html: section.bodyHtml }}
                       />
                     </section>
@@ -648,6 +666,8 @@ export default async function ListingPage(props: ListingPageProps) {
               price={displayPrice}
               type={uiPropertyType}
               livingArea={livingArea}
+              hiddenLabels={["Status", "MLS® #", "Coordinates", "Publish Status"]}
+              hideZeroValueLabels={["Parking"]}
             />
 
             <ListingCatalogStatsSection
