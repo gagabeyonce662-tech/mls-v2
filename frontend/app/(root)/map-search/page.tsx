@@ -86,6 +86,17 @@ type ParsedMapParams = {
   targetListingId: string | null;
 };
 
+type DrawnSearchArea = {
+  mode: "rectangle" | "polygon";
+  bbox: {
+    latitude_min: number;
+    latitude_max: number;
+    longitude_min: number;
+    longitude_max: number;
+  };
+  polygon?: LatLngPoint[];
+};
+
 function parseMapParams(searchParams: URLSearchParams | null): ParsedMapParams {
   const fallback: ParsedMapParams = {
     initialCenter: DEFAULT_CENTER,
@@ -150,9 +161,9 @@ function MapOnlyPageInner() {
   const autoSelectAppliedRef = useRef(false);
   const previousZoomRef = useRef<number | null>(null);
   const autoRefreshTimerRef = useRef<number | null>(null);
-  const handleSearchThisAreaRef = useRef<(mapRef: React.MutableRefObject<any>) => Promise<void>>(
-    async () => {},
-  );
+  const handleSearchThisAreaRef = useRef<
+    (mapRef: React.MutableRefObject<any>) => Promise<void>
+  >(async () => {});
   const interactionStateRef = useRef({
     loadingApi: false,
     drawing: false,
@@ -162,6 +173,8 @@ function MapOnlyPageInner() {
   const [selectedAggregateId, setSelectedAggregateId] = useState<string | null>(
     null,
   );
+  const [drawnSearchArea, setDrawnSearchArea] =
+    useState<DrawnSearchArea | null>(null);
   const isMobile = useIsMobile();
 
   // Custom Hooks
@@ -182,7 +195,6 @@ function MapOnlyPageInner() {
     setSelectedPropertyId,
     showSearchThisArea,
     setShowSearchThisArea,
-    applyFilters,
     handleSearchThisArea,
     resetMapFetchDedupe,
     fetchExclusivePropertiesForBBox,
@@ -237,6 +249,83 @@ function MapOnlyPageInner() {
     flyToGeocodeResultAndFetchArea(res.lat, res.lng);
   });
 
+  const runDrawnAreaSearch = useCallback(
+    async ({ mode, bbox, polygon }: DrawnSearchArea) => {
+      setLoadingApi(true);
+      setApiError(null);
+      setApiMarkers([]);
+      setAggregateMarkers([]);
+      setMapDataMode("listings");
+      setSelectedPropertyId(null);
+      setSelectedAggregateId(null);
+      setShowSearchThisArea(false);
+      resetMapFetchDedupe();
+
+      try {
+        const data = await fetchExclusivePropertiesForBBox(bbox);
+        let results = data?.results ?? [];
+        if (mode === "polygon" && polygon && polygon.length >= 4) {
+          results = results.filter((p: Property) => {
+            const latRaw = p.latitude ?? p.Latitude ?? p.lat ?? p.coords?.lat;
+            const lonRaw = p.longitude ?? p.Longitude ?? p.lon ?? p.coords?.lng;
+            const lat = latRaw !== undefined ? Number(latRaw) : NaN;
+            const lng = lonRaw !== undefined ? Number(lonRaw) : NaN;
+            if (Number.isNaN(lat) || Number.isNaN(lng)) return false;
+            return isPointInPolygon({ lat, lng }, polygon);
+          });
+        }
+        const markers: PropertyMarker[] = results
+          .map((p: Property, idx: number) => {
+            const latRaw = p.latitude ?? p.Latitude ?? p.lat ?? p.coords?.lat;
+            const lonRaw = p.longitude ?? p.Longitude ?? p.lon ?? p.coords?.lng;
+            const lat = latRaw !== undefined ? Number(latRaw) : NaN;
+            const lng = lonRaw !== undefined ? Number(lonRaw) : NaN;
+            if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+            return {
+              id: String(p.listing_key ?? p.listingKey ?? p.PropertyKey ?? idx),
+              title:
+                (p.city
+                  ? `${p.city}`
+                  : p.public_remarks
+                    ? String(p.public_remarks).slice(0, 40)
+                    : "Property") ?? "Property",
+              price: p.list_price ?? p.ListPrice,
+              lat,
+              lng,
+              raw: p,
+            } as PropertyMarker;
+          })
+          .filter(Boolean) as PropertyMarker[];
+
+        setApiMarkers(markers);
+        if (markers.length > 0 && mapRef.current && L) {
+          try {
+            const group = markers.map((m) => [m.lat, m.lng]);
+            const bounds = L.latLngBounds(group as any);
+            mapRef.current.fitBounds(bounds.pad(0.2));
+          } catch {}
+        }
+      } catch (err: any) {
+        console.error("Failed to fetch exclusive properties:", err);
+        setApiError(err.message || "Failed to fetch properties");
+      } finally {
+        setLoadingApi(false);
+      }
+    },
+    [
+      L,
+      fetchExclusivePropertiesForBBox,
+      resetMapFetchDedupe,
+      setAggregateMarkers,
+      setApiError,
+      setApiMarkers,
+      setLoadingApi,
+      setMapDataMode,
+      setSelectedPropertyId,
+      setShowSearchThisArea,
+    ],
+  );
+
   // Special handler for drawing finish
   const onFinishDrawing = async ({
     mode,
@@ -252,62 +341,9 @@ function MapOnlyPageInner() {
     };
     polygon?: LatLngPoint[];
   }) => {
-    setLoadingApi(true);
-    setApiError(null);
-    setApiMarkers([]);
-    setAggregateMarkers([]);
-    setMapDataMode("listings");
-    setSelectedPropertyId(null);
-    try {
-      const data = await fetchExclusivePropertiesForBBox(bbox);
-      let results = data?.results ?? [];
-      if (mode === "polygon" && polygon && polygon.length >= 4) {
-        results = results.filter((p: Property) => {
-          const latRaw = p.latitude ?? p.Latitude ?? p.lat ?? p.coords?.lat;
-          const lonRaw = p.longitude ?? p.Longitude ?? p.lon ?? p.coords?.lng;
-          const lat = latRaw !== undefined ? Number(latRaw) : NaN;
-          const lng = lonRaw !== undefined ? Number(lonRaw) : NaN;
-          if (Number.isNaN(lat) || Number.isNaN(lng)) return false;
-          return isPointInPolygon({ lat, lng }, polygon);
-        });
-      }
-      const markers: PropertyMarker[] = results
-        .map((p: Property, idx: number) => {
-          const latRaw = p.latitude ?? p.Latitude ?? p.lat ?? p.coords?.lat;
-          const lonRaw = p.longitude ?? p.Longitude ?? p.lon ?? p.coords?.lng;
-          const lat = latRaw !== undefined ? Number(latRaw) : NaN;
-          const lng = lonRaw !== undefined ? Number(lonRaw) : NaN;
-          if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
-          return {
-            id: String(p.listing_key ?? p.listingKey ?? p.PropertyKey ?? idx),
-            title:
-              (p.city
-                ? `${p.city}`
-                : p.public_remarks
-                  ? String(p.public_remarks).slice(0, 40)
-                  : "Property") ?? "Property",
-            price: p.list_price ?? p.ListPrice,
-            lat,
-            lng,
-            raw: p,
-          } as PropertyMarker;
-        })
-        .filter(Boolean) as PropertyMarker[];
-
-      setApiMarkers(markers);
-      if (markers.length > 0 && mapRef.current) {
-        try {
-          const group = markers.map((m) => [m.lat, m.lng]);
-          const bounds = L.latLngBounds(group as any);
-          mapRef.current.fitBounds(bounds.pad(0.2));
-        } catch {}
-      }
-      setLoadingApi(false);
-    } catch (err: any) {
-      console.error("Failed to fetch exclusive properties:", err);
-      setApiError(err.message || "Failed to fetch properties");
-      setLoadingApi(false);
-    }
+    const area = { mode, bbox, polygon };
+    setDrawnSearchArea(area);
+    await runDrawnAreaSearch(area);
   };
 
   const {
@@ -468,6 +504,7 @@ function MapOnlyPageInner() {
 
   const clearAll = () => {
     clearShape();
+    setDrawnSearchArea(null);
     setApiMarkers([]);
     setAggregateMarkers([]);
     setMapDataMode("listings");
@@ -477,6 +514,24 @@ function MapOnlyPageInner() {
     setSelectedAggregateId(null);
     setShowSearchThisArea(false);
     resetMapFetchDedupe();
+  };
+
+  const applyCurrentAreaSearch = () => {
+    if (drawnSearchArea) {
+      void runDrawnAreaSearch(drawnSearchArea);
+      return;
+    }
+    void handleSearchThisArea(mapRef);
+  };
+
+  const startRectangleDrawing = () => {
+    setDrawnSearchArea(null);
+    enableDrawing("rectangle");
+  };
+
+  const startPolygonDrawing = () => {
+    setDrawnSearchArea(null);
+    enableDrawing("polygon");
   };
 
   const handleViewOnMap = (property: PropertyMarker) => {
@@ -550,13 +605,13 @@ function MapOnlyPageInner() {
     }
   };
 
+  // ====================THE ACTUAL RETURN STATEMENT====================================
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-white">
       <Header />
 
-      <main
-        className="flex-1 relative flex flex-col"
-      >
+      <main className="flex-1 relative flex flex-col">
         <div className="flex-1 relative overflow-hidden">
           <div className="w-full h-full relative bg-ds-card">
             <MapOverlayControls
@@ -567,11 +622,11 @@ function MapOnlyPageInner() {
               inputRef={inputRef}
               filters={filters}
               setFilters={setFilters}
-              applyFilters={() => applyFilters(L, mapRef)}
+              applyFilters={applyCurrentAreaSearch}
               drawing={drawing}
               drawingMode={drawingMode}
-              onStartRectangleDrawing={() => enableDrawing("rectangle")}
-              onStartPolygonDrawing={() => enableDrawing("polygon")}
+              onStartRectangleDrawing={startRectangleDrawing}
+              onStartPolygonDrawing={startPolygonDrawing}
               onCancelDrawing={disableDrawing}
               onClearAll={clearAll}
               loading={loadingApi}
@@ -596,7 +651,8 @@ function MapOnlyPageInner() {
                 ) : null}
                 {apiError ? (
                   <div className="pointer-events-auto rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-sm">
-                    Could not update listings right now. Please try “Properties in this area” again.
+                    Could not update listings right now. Please try “Properties
+                    in this area” again.
                   </div>
                 ) : null}
               </div>
@@ -651,12 +707,7 @@ function MapOnlyPageInner() {
                   }}
                 >
                   {!isMobile && (
-                    <Popup
-                      maxWidth={300}
-                      minWidth={260}
-                      closeButton
-                      autoPan
-                    >
+                    <Popup maxWidth={300} minWidth={260} closeButton autoPan>
                       <MapPropertyCard marker={m} compact />
                     </Popup>
                   )}
@@ -668,7 +719,10 @@ function MapOnlyPageInner() {
                   <CircleMarker
                     key={cell.id}
                     center={[cell.lat, cell.lng]}
-                    radius={Math.min(24, Math.max(10, Math.log2(cell.property_count + 1) * 4))}
+                    radius={Math.min(
+                      24,
+                      Math.max(10, Math.log2(cell.property_count + 1) * 4),
+                    )}
                     pathOptions={{
                       color:
                         selectedAggregateId === cell.id ? "#0f172a" : "#1d4ed8",

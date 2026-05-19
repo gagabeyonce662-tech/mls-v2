@@ -12,7 +12,9 @@ interface FeaturedCollectionsProps {
   categories?: HomepageCategory[];
 }
 
-export default function FeaturedCollections({ categories = [] }: FeaturedCollectionsProps) {
+export default function FeaturedCollections({
+  categories = [],
+}: FeaturedCollectionsProps) {
   const marketingCollections = [
     {
       id: 1,
@@ -51,7 +53,10 @@ export default function FeaturedCollections({ categories = [] }: FeaturedCollect
     key: item.key,
   }));
 
-  const collections = [...marketingCollections, ...categoryCollections].slice(0, 4);
+  const collections = [...marketingCollections, ...categoryCollections].slice(
+    0,
+    4,
+  );
 
   return (
     <div className="py-2 bg-white w-full overflow-hidden">

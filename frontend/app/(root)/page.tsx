@@ -40,7 +40,9 @@ const ConnectionsSection = dynamic(
 export default function HomePage() {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const isDynamicCategoriesEnabled = true;
-  const { categories, hasError } = useHomepageCategories(isDynamicCategoriesEnabled);
+  const { categories, hasError } = useHomepageCategories(
+    isDynamicCategoriesEnabled,
+  );
 
   useEffect(() => {
     if (!isDynamicCategoriesEnabled || categories.length === 0) return;
@@ -102,7 +104,10 @@ export default function HomePage() {
                     </div>
                     <div className="space-y-1">
                       {categories.map((category) => (
-                        <div key={category.key} className="flex items-center gap-2">
+                        <div
+                          key={category.key}
+                          className="flex items-center gap-2"
+                        >
                           <span className="font-semibold">{category.key}</span>
                           <span>-</span>
                           <span>{category.label}</span>
