@@ -8,11 +8,12 @@ import {
   Map as MapIcon,
   Navigation,
   ExternalLink,
+  PlayCircle,
 } from "lucide-react";
 import FullGalleryModal from "@/components/listing/FullGalleryModal";
 import { cn } from "@/lib/utils";
 
-type MediaView = "image" | "map" | "street";
+type MediaView = "image" | "video" | "map" | "street";
 
 interface PropertyMediaShowcaseProps {
   images: string[];
@@ -20,6 +21,7 @@ interface PropertyMediaShowcaseProps {
   className?: string;
   statusLabel?: string;
   tourUrl?: string | null;
+  videoUrl?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   city?: string;
@@ -33,9 +35,58 @@ const VIEW_OPTIONS: Array<{
   icon: React.ComponentType<{ className?: string }>;
 }> = [
   { key: "image", label: "Image", icon: ImageIcon },
+  { key: "video", label: "Video", icon: PlayCircle },
   { key: "map", label: "Map", icon: MapIcon },
   { key: "street", label: "Street", icon: Navigation },
 ];
+const IMAGE_ROTATION_MS = 5000;
+const VIDEO_ROTATION_MS = 12000;
+
+function getEmbeddableVideoUrl(url: string, options?: { autoplay?: boolean }): string {
+  try {
+    const parsed = new URL(url);
+    const youtubeVideoId = getYouTubeVideoId(parsed);
+    if (youtubeVideoId) {
+      const params = new URLSearchParams({
+        rel: "0",
+        modestbranding: "1",
+        playsinline: "1",
+        iv_load_policy: "3",
+      });
+      if (options?.autoplay) {
+        params.set("autoplay", "1");
+        params.set("mute", "1");
+      }
+      return `https://www.youtube-nocookie.com/embed/${youtubeVideoId}?${params.toString()}`;
+    }
+  } catch {
+    return url;
+  }
+  return url;
+}
+
+function getYouTubeVideoId(url: URL): string {
+  const host = url.hostname.replace(/^www\./, "");
+  if (host === "youtube.com" || host === "m.youtube.com") {
+    return url.searchParams.get("v") || "";
+  }
+  if (host === "youtu.be") {
+    return url.pathname.split("/").filter(Boolean)[0] || "";
+  }
+  return "";
+}
+
+function getVideoThumbnailUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const youtubeVideoId = getYouTubeVideoId(parsed);
+    return youtubeVideoId
+      ? `https://img.youtube.com/vi/${youtubeVideoId}/hqdefault.jpg`
+      : "";
+  } catch {
+    return "";
+  }
+}
 
 export default function PropertyMediaShowcase({
   images,
@@ -43,6 +94,7 @@ export default function PropertyMediaShowcase({
   className,
   statusLabel = "For Sale",
   tourUrl = null,
+  videoUrl = null,
   latitude = null,
   longitude = null,
   city,
@@ -53,6 +105,10 @@ export default function PropertyMediaShowcase({
   const [activeCategory, setActiveCategory] = React.useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
   const [modalOpen, setModalOpen] = React.useState(false);
+  const [carouselIndex, setCarouselIndex] = React.useState(0);
+  const [progressKey, setProgressKey] = React.useState(0);
+  const [hasInteractedWithCarousel, setHasInteractedWithCarousel] =
+    React.useState(false);
 
   const normalizedImages = React.useMemo(
     () => images.map((src) => String(src || "").trim()).filter(Boolean),
@@ -122,6 +178,68 @@ export default function PropertyMediaShowcase({
 
   const selectedImage = effectiveImages[selectedImageIndex] || effectiveImages[0] || "";
   const locationFallback = [city, stateOrProvince].filter(Boolean).join(", ");
+  const normalizedVideoUrl = String(videoUrl || "").trim();
+  const isVideoActive = activeView === "video";
+  const embeddableVideoUrl = normalizedVideoUrl
+    ? getEmbeddableVideoUrl(normalizedVideoUrl, { autoplay: isVideoActive })
+    : "";
+  const videoThumbnailUrl = normalizedVideoUrl
+    ? getVideoThumbnailUrl(normalizedVideoUrl)
+    : "";
+  const viewOptions = React.useMemo(
+    () =>
+      normalizedVideoUrl
+        ? VIEW_OPTIONS
+        : VIEW_OPTIONS.filter((view) => view.key !== "video"),
+    [normalizedVideoUrl],
+  );
+  const carouselItems = React.useMemo(
+    () => [
+      ...(normalizedVideoUrl ? [{ type: "video" as const, index: -1 }] : []),
+      ...effectiveImages.map((_, index) => ({ type: "image" as const, index })),
+    ],
+    [effectiveImages, normalizedVideoUrl],
+  );
+
+  React.useEffect(() => {
+    if (hasInteractedWithCarousel) return;
+    if (carouselItems.length <= 1 || modalOpen) return;
+    if (activeView !== "image" && activeView !== "video") return;
+    const currentItem = carouselItems[carouselIndex] || carouselItems[0];
+    const delay =
+      currentItem?.type === "video" ? VIDEO_ROTATION_MS : IMAGE_ROTATION_MS;
+    const timer = window.setTimeout(() => {
+      const nextIndex = (carouselIndex + 1) % carouselItems.length;
+      const nextItem = carouselItems[nextIndex];
+      if (nextItem?.type === "video") {
+        setActiveView("video");
+      } else if (nextItem) {
+        setActiveView("image");
+        setSelectedImageIndex(nextItem.index);
+      }
+      setCarouselIndex(nextIndex);
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [
+    activeView,
+    carouselIndex,
+    carouselItems,
+    hasInteractedWithCarousel,
+    modalOpen,
+  ]);
+
+  React.useEffect(() => {
+    setProgressKey((prev) => prev + 1);
+  }, [activeView, carouselIndex, selectedImageIndex]);
+
+  const currentCarouselItem = carouselItems[carouselIndex] || carouselItems[0];
+  const currentRotationMs =
+    currentCarouselItem?.type === "video" ? VIDEO_ROTATION_MS : IMAGE_ROTATION_MS;
+  const showProgress =
+    carouselItems.length > 1 &&
+    !modalOpen &&
+    !hasInteractedWithCarousel &&
+    (activeView === "image" || activeView === "video");
 
   const renderUnavailable = (title: string, body: string) => (
     <div className="h-full w-full flex items-center justify-center bg-ds-card/50">
@@ -173,14 +291,17 @@ export default function PropertyMediaShowcase({
 
       <div className="relative overflow-hidden rounded-2xl border border-ds-card-border bg-ds-card/40">
         <div className="absolute right-3 top-3 z-20 inline-flex rounded-xl border border-white/20 bg-slate-900/75 p-1 backdrop-blur-md">
-          {VIEW_OPTIONS.map((view) => {
+          {viewOptions.map((view) => {
             const Icon = view.icon;
             const isActive = activeView === view.key;
             return (
               <button
                 key={view.key}
                 type="button"
-                onClick={() => setActiveView(view.key)}
+                onClick={() => {
+                  setHasInteractedWithCarousel(true);
+                  setActiveView(view.key);
+                }}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition",
                   isActive
@@ -198,11 +319,25 @@ export default function PropertyMediaShowcase({
         </div>
 
         <div className="relative h-[min(560px,62vh)] w-full">
+          {showProgress ? (
+            <div className="absolute inset-x-0 top-0 z-10 h-1 bg-black/20">
+              <div
+                key={progressKey}
+                className="h-full bg-sky-500"
+                style={{
+                  animation: `media-showcase-progress ${currentRotationMs}ms linear forwards`,
+                }}
+              />
+            </div>
+          ) : null}
           {activeView === "image" ? (
             selectedImage ? (
               <button
                 type="button"
-                onClick={() => setModalOpen(true)}
+                onClick={() => {
+                  setHasInteractedWithCarousel(true);
+                  setModalOpen(true);
+                }}
                 className="h-full w-full cursor-zoom-in"
                 aria-label="Open full gallery"
               >
@@ -223,6 +358,27 @@ export default function PropertyMediaShowcase({
                   <p className="mt-2 text-sm font-medium">No images available</p>
                 </div>
               </div>
+            )
+          ) : activeView === "video" ? (
+            embeddableVideoUrl ? (
+              <div
+                className="h-full w-full"
+                onPointerDownCapture={() => setHasInteractedWithCarousel(true)}
+              >
+                <iframe
+                  title="Property video"
+                  src={embeddableVideoUrl}
+                  className="h-full w-full border-0 bg-black"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  loading="lazy"
+                />
+              </div>
+            ) : (
+              renderUnavailable(
+                "Video unavailable",
+                "No video URL has been added for this listing.",
+              )
             )
           ) : activeView === "map" ? (
             mapEmbedUrl ? (
@@ -256,16 +412,69 @@ export default function PropertyMediaShowcase({
         </div>
       </div>
 
-      {effectiveImages.length > 1 && (
+      <style jsx>{`
+        @keyframes media-showcase-progress {
+          from {
+            width: 0%;
+          }
+          to {
+            width: 100%;
+          }
+        }
+      `}</style>
+
+      {(effectiveImages.length > 1 || normalizedVideoUrl) && (
         <div className="mt-3 overflow-x-auto pb-1">
           <div className="flex min-w-max gap-2">
+            {normalizedVideoUrl ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setHasInteractedWithCarousel(true);
+                  setActiveView("video");
+                  setCarouselIndex(
+                    Math.max(
+                      0,
+                      carouselItems.findIndex((item) => item.type === "video"),
+                    ),
+                  );
+                }}
+                className={cn(
+                  "relative h-16 w-24 overflow-hidden rounded-lg border bg-slate-900 transition",
+                  activeView === "video"
+                    ? "border-ds-primary ring-2 ring-ds-primary/25"
+                    : "border-ds-card-border hover:border-ds-primary/50",
+                )}
+                aria-label="Show property video"
+              >
+                {videoThumbnailUrl ? (
+                  <img
+                    src={videoThumbnailUrl}
+                    alt="Property video thumbnail"
+                    className="h-full w-full object-cover opacity-80"
+                  />
+                ) : null}
+                <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+                  <PlayCircle className="h-7 w-7 text-white drop-shadow" />
+                </span>
+              </button>
+            ) : null}
             {effectiveImages.map((src, idx) => (
               <button
                 key={`${src}-${idx}`}
                 type="button"
                 onClick={() => {
+                  setHasInteractedWithCarousel(true);
                   setActiveView("image");
                   setSelectedImageIndex(idx);
+                  setCarouselIndex(
+                    Math.max(
+                      0,
+                      carouselItems.findIndex(
+                        (item) => item.type === "image" && item.index === idx,
+                      ),
+                    ),
+                  );
                 }}
                 className={cn(
                   "relative h-16 w-24 overflow-hidden rounded-lg border transition",

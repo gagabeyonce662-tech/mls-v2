@@ -1,3 +1,6 @@
+// frontend/components/listing/details/PropertyHeader.tsx
+// This component is responsible for rendering the header section of a property listing detail page. It displays the headline, property type, location, price, and status of the listing. It also supports custom tags and a "Featured" badge for highlighted listings.
+
 import React from "react";
 import { ds } from "@/lib/design-system-utils";
 import { cn } from "@/lib/utils";
@@ -62,7 +65,9 @@ export default function PropertyHeader({
       <div className="md:text-right">
         <p className="text-sm text-ds-body font-medium mb-1">{priceLabel}</p>
         <p className={cn(ds.h1, "text-ds-primary", priceClassName)}>{price}</p>
-        {rightActions ? <div className="mt-3 md:ml-auto md:max-w-sm">{rightActions}</div> : null}
+        {rightActions ? (
+          <div className="mt-3 md:ml-auto md:max-w-sm">{rightActions}</div>
+        ) : null}
       </div>
     </div>
   );

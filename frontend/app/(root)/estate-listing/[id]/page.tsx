@@ -321,8 +321,15 @@ export default async function ListingPage(props: ListingPageProps) {
     }
     return deduped;
   };
-  const wpMeta = parseJsonObject((property as { wp_meta_json?: unknown }).wp_meta_json);
-  const wpTerms = parseJsonObject((property as { wp_terms_json?: unknown }).wp_terms_json);
+  const wpMeta = parseJsonObject(
+    (property as { wp_meta_json?: unknown }).wp_meta_json,
+  );
+  const videoUrl = String(
+    (property as { video_url?: unknown }).video_url ?? wpMeta.video_url ?? "",
+  ).trim();
+  const wpTerms = parseJsonObject(
+    (property as { wp_terms_json?: unknown }).wp_terms_json,
+  );
   const isFeaturedTag = parseBoolean(
     (property as { is_featured?: unknown }).is_featured ??
       wpMeta.fave_featured ??
@@ -535,14 +542,19 @@ export default async function ListingPage(props: ListingPageProps) {
             statusLabel={
               isFeaturedTag
                 ? "Featured"
-                : String(property.StandardStatus || property.standard_status || "For Sale")
+                : String(
+                    property.StandardStatus ||
+                      property.standard_status ||
+                      "For Sale",
+                  )
             }
             latitude={latitude}
             longitude={longitude}
             city={getCity()}
             stateOrProvince={
-              String(property.StateOrProvince || property.state_or_province || "").trim() ||
-              undefined
+              String(
+                property.StateOrProvince || property.state_or_province || "",
+              ).trim() || undefined
             }
             listingKey={listingKeyStr}
             tourUrl={
@@ -551,10 +563,11 @@ export default async function ListingPage(props: ListingPageProps) {
               property.video_tour_url ||
               null
             }
+            videoUrl={videoUrl || null}
           />
         </div>
 
-        <ListingExternalLinks property={property} />
+        {/* <ListingExternalLinks property={property} /> */}
 
         {/* Main Content Grid (2:1 Ratio) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -591,15 +604,15 @@ export default async function ListingPage(props: ListingPageProps) {
 
             {/* 1. Description — first thing after gallery */}
             {descriptionSections.length > 0 ? (
-              <div className="space-y-4">
+              <div className="">
                 {descriptionSections.map((section) => (
                   <div key={section.id} className="space-y-2">
-                    <h4 className="text-sm font-bold uppercase tracking-widest text-ds-body mb-3">
+                    <h4 className="mb-3 text-2xl font-extrabold uppercase tracking-[0.12em] text-[#374151]">
                       {section.title || t("aboutTitle")}
                     </h4>
                     <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
                       <div
-                        className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
+                        className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-h4:text-2xl prose-h4:font-extrabold prose-h4:text-[#374151] prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
                         dangerouslySetInnerHTML={{ __html: section.bodyHtml }}
                       />
                     </section>

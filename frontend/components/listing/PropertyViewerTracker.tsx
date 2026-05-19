@@ -1,3 +1,5 @@
+// frontend/components/listing/PropertyViewerTracker.tsx
+// this component is responsible for tracking when a user views a property listing. It adds the property to the user's watch history and sends a beacon to the server for telemetry purposes.
 "use client";
 
 import { useEffect, useRef } from "react";

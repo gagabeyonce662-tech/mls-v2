@@ -57,7 +57,7 @@ export default function EditEstatePropertyPage() {
         return;
       }
       toast({ title: "Updated", description: "Estate property updated." });
-      router.push("/admin/estate-properties");
+      router.refresh();
     } catch (e: any) {
       toast({
         title: "Update failed",
