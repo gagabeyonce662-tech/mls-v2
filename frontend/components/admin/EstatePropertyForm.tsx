@@ -1055,7 +1055,7 @@ export default function EstatePropertyForm({
                 </span>
                 <button
                   type="button"
-                  onClick={addDescriptionSection}
+                  onClick={() => addDescriptionSection()}
                   className="px-2 py-1 text-xs rounded border"
                 >
                   Add Section
