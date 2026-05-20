@@ -305,7 +305,13 @@ export default async function ListingPage(props: ListingPageProps) {
   };
   const parseCustomTags = (value: unknown): string[] => {
     const raw = Array.isArray(value)
-      ? value.map(String)
+      ? value.map((item) => {
+          if (item && typeof item === "object") {
+            const term = item as Record<string, unknown>;
+            return String(term.name || term.label || term.value || "");
+          }
+          return String(item);
+        })
       : String(value ?? "").split(/[,\n|]/g);
     const cleaned = raw
       .map((item) => item.trim().replace(/\s+/g, " "))
@@ -357,8 +363,13 @@ export default async function ListingPage(props: ListingPageProps) {
   const customTags = parseCustomTags(
     (property as { custom_tags?: unknown }).custom_tags ??
       wpMeta.custom_tags ??
-      wpMeta.tags ??
-      wpTerms.labels,
+      wpMeta.tags,
+  );
+  const labelTags = parseCustomTags(
+    (property as { labels?: unknown }).labels ??
+      (property as { property_label?: unknown }).property_label ??
+      wpTerms.labels ??
+      wpTerms.property_label,
   );
 
   const beds = getBedroomDisplayLabel(property) || getBedCount();
@@ -548,6 +559,7 @@ export default async function ListingPage(props: ListingPageProps) {
           }
           price={displayPrice}
           isFeaturedTag={isFeaturedTag}
+          labelTags={labelTags}
           customTags={customTags}
           statusTags={statusTags}
           priceLabel="Price"
@@ -624,12 +636,14 @@ export default async function ListingPage(props: ListingPageProps) {
 
             {/* 1. Description — first thing after gallery */}
             {descriptionSections.length > 0 ? (
-              <div className="">
+              <div className="space-y-6">
                 {descriptionSections.map((section) => (
                   <div key={section.id} className="space-y-2">
-                    <h4 className=" text-lg font-extrabold uppercase tracking-widest text-ds-body mb-3">
-                      {section.title || t("aboutTitle")}
-                    </h4>
+                    {section.title ? (
+                      <h4 className="text-lg font-extrabold uppercase tracking-widest text-ds-body mb-3">
+                        {section.title}
+                      </h4>
+                    ) : null}
                     <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
                       <div
                         className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"

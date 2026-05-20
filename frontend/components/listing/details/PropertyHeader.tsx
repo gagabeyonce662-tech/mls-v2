@@ -13,6 +13,7 @@ interface PropertyHeaderProps {
   status: string;
   price: string;
   isFeaturedTag?: boolean;
+  labelTags?: string[];
   customTags?: string[];
   statusTags?: string[];
   priceLabel?: string;
@@ -28,6 +29,7 @@ export default function PropertyHeader({
   status,
   price,
   isFeaturedTag = false,
+  labelTags = [],
   customTags = [],
   statusTags = [],
   priceLabel = "List Price",
@@ -51,6 +53,14 @@ export default function PropertyHeader({
             <span
               key={tag}
               className="shrink-0 rounded-full bg-ds-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-ds-primary"
+            >
+              {tag}
+            </span>
+          ))}
+          {labelTags.map((tag) => (
+            <span
+              key={tag}
+              className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"
             >
               {tag}
             </span>

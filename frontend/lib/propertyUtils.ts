@@ -469,9 +469,45 @@ const formatCurrency = (value: unknown): string | null => {
 const formatList = (value: unknown): string | null => {
   if (!Array.isArray(value)) return toValue(value);
   const compact = value
-    .map((entry) => toValue(entry))
+    .map((entry) => {
+      if (entry && typeof entry === "object") {
+        const typed = entry as Record<string, unknown>;
+        return toValue(typed.name ?? typed.label ?? typed.value);
+      }
+      return toValue(entry);
+    })
     .filter((entry): entry is string => Boolean(entry));
   return compact.length ? compact.join(", ") : null;
+};
+
+const parseJsonMap = (value: unknown): Record<string, unknown> => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== "string") return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+};
+
+const getTaxonomyList = (
+  property: Property,
+  ...keys: string[]
+): string | null => {
+  const direct = formatList(getRaw(property, ...keys));
+  if (direct) return direct;
+
+  const wpTerms = parseJsonMap((property as Record<string, unknown>).wp_terms_json);
+  for (const key of keys) {
+    const value = formatList(wpTerms[key]);
+    if (value) return value;
+  }
+  return null;
 };
 
 const normalizeRangeText = (value: unknown): string | null => {
@@ -907,6 +943,7 @@ export const getPropertyDetailSections = (
       "Occupancy Year",
       toValue(getRaw(property, "occupancy_year", "OccupancyYear")),
     ),
+    toDetailItem("Features", getTaxonomyList(property, "features", "property_feature")),
   ]);
 
   pushSection("location_access", "Location & access", [
