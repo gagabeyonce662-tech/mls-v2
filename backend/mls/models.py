@@ -820,6 +820,72 @@ class PropertySoldProxy(models.Model):
         return f"SoldProxy<{self.listing_key}>"
 
 
+class AmplifySoldProperty(models.Model):
+    """
+    Normalized sold listing row from Amplify RESO OData feed.
+    """
+
+    listing_key = models.CharField(max_length=2000, unique=True, db_index=True)
+    standard_status = models.CharField(max_length=64, null=True, blank=True)
+
+    list_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    close_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    sold_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+
+    close_date = models.DateField(null=True, blank=True, db_index=True)
+    modification_timestamp = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    city = models.CharField(max_length=2000, null=True, blank=True)
+    postal_code = models.CharField(max_length=20, null=True, blank=True)
+    fsa = models.CharField(max_length=3, blank=True, db_index=True)
+    property_sub_type = models.CharField(max_length=2000, null=True, blank=True)
+
+    bedrooms_total = models.IntegerField(null=True, blank=True)
+    bathrooms_total_integer = models.IntegerField(null=True, blank=True)
+    living_area = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    days_on_market = models.IntegerField(null=True, blank=True)
+
+    raw_payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["city", "close_date"]),
+            models.Index(fields=["fsa", "close_date"]),
+            models.Index(fields=["modification_timestamp"]),
+            models.Index(fields=["-close_date"]),
+        ]
+
+    def __str__(self):
+        return f"AmplifySold<{self.listing_key}>"
+
+
+class AmplifySoldSyncState(models.Model):
+    """
+    Singleton-like sync cursor + health for Amplify sold ingestion.
+    """
+
+    DEFAULT_KEY = "default"
+
+    key = models.CharField(max_length=32, unique=True, default=DEFAULT_KEY)
+    last_successful_modification_timestamp = models.DateTimeField(null=True, blank=True)
+    last_successful_sync_at = models.DateTimeField(null=True, blank=True)
+    last_attempted_sync_at = models.DateTimeField(null=True, blank=True)
+    total_rows_synced = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Amplify sold sync state"
+        verbose_name_plural = "Amplify sold sync state"
+
+    def __str__(self):
+        return f"AmplifySoldSyncState<{self.key}>"
+
+
 class Agent(models.Model):
     """Local agent shown on valuation / contact flows."""
 

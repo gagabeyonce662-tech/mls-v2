@@ -1388,6 +1388,9 @@ export type ListingTrendsPoint = {
   mean_list_price: number | null;
   median_price_per_sqft: number | null;
   new_listings: number;
+  median_sold_price?: number | null;
+  sold_count?: number;
+  median_days_on_market?: number | null;
 };
 
 export type ListingTrendsResponse = {
@@ -1410,6 +1413,7 @@ export type ListingTrendsResponse = {
     price_per_sqft_p50: number | null;
     price_per_sqft_p75: number | null;
     spread_index: number | null;
+    median_days_on_market?: number | null;
   };
   segmentation?: {
     by_subtype: Array<{ name: string; count: number }>;
@@ -1436,6 +1440,12 @@ export type ListingTrendsResponse = {
     pct_with_list_price: number;
     pct_recently_updated_30d: number;
   };
+  freshness?: {
+    last_successful_sync_at: string | null;
+    stale: boolean;
+    stale_threshold_hours: number;
+  };
+  warning?: string | null;
   disclaimer: string;
 };
 
@@ -1458,6 +1468,7 @@ export async function fetchListingTrends(params: {
   city?: string;
   fsa?: string;
   window?: "3m" | "6m" | "12m" | "24m";
+  baseUrl?: string;
 }): Promise<ListingTrendsResponse | null> {
   try {
     const usp = new URLSearchParams();
@@ -1466,7 +1477,8 @@ export async function fetchListingTrends(params: {
     usp.set("window", params.window || "12m");
     const q = usp.toString();
     if (!q) return null;
-    const res = await fetch(`${API_BASE_URL}/api/mls/trends/?${q}`, {
+    const base = (params.baseUrl || API_BASE_URL).replace(/\/+$/, "");
+    const res = await fetch(`${base}/api/mls/trends/sold/?${q}`, {
       next: { revalidate: 300 },
     });
     if (!res.ok) return null;

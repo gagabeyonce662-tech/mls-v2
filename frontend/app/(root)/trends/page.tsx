@@ -33,14 +33,22 @@ export default function TrendsPage() {
   const [city, setCity] = useState("Ottawa");
   const [fsa, setFsa] = useState("");
   const [window, setWindow] = useState<"3m" | "6m" | "12m" | "24m">("12m");
+  const [apiTarget, setApiTarget] = useState<"default" | "local" | "prod">("default");
+
+  const baseUrl = useMemo(() => {
+    if (apiTarget === "local") return "http://127.0.0.1:8000";
+    if (apiTarget === "prod") return "https://mls-backend-v2.vercel.app";
+    return undefined;
+  }, [apiTarget]);
 
   const { data, isLoading, isError } = useQuery<ListingTrendsResponse | null>({
-    queryKey: ["trends", city, fsa, window],
+    queryKey: ["trends", city, fsa, window, apiTarget],
     queryFn: () =>
       fetchListingTrends({
         city: city.trim() || undefined,
         fsa: fsa.trim().toUpperCase() || undefined,
         window,
+        baseUrl,
       }),
   });
 
@@ -78,7 +86,7 @@ export default function TrendsPage() {
                 Real Estate Trends & Insights
               </h1>
               <p className="text-xl text-ds-body max-w-2xl font-inter">
-                Listing-catalog trends for your selected market scope.
+                Sold-market trends for your selected market scope.
               </p>
             </div>
 
@@ -105,9 +113,19 @@ export default function TrendsPage() {
                 <option value="12m">Last 12 months</option>
                 <option value="24m">Last 24 months</option>
               </select>
-              <div className="text-xs text-ds-body flex items-center">
-                Scope: {city || "—"} {fsa ? `· ${fsa.toUpperCase()}` : ""}
-              </div>
+              <select
+                className="border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                value={apiTarget}
+                onChange={(e) => setApiTarget(e.target.value as typeof apiTarget)}
+              >
+                <option value="default">API: Default</option>
+                <option value="local">API: Local (127.0.0.1:8000)</option>
+                <option value="prod">API: Production</option>
+              </select>
+            </div>
+            <div className="mb-8 text-xs text-ds-body flex items-center">
+              Scope: {city || "—"} {fsa ? `· ${fsa.toUpperCase()}` : ""} · Source:{" "}
+              {baseUrl || "NEXT_PUBLIC_API_URL"}
             </div>
 
             <div className="grid md:grid-cols-4 gap-8 mb-10">
@@ -115,7 +133,7 @@ export default function TrendsPage() {
                 <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
                   <BarChart3 className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl font-bold text-ds-heading font-inter">Median List Price</h3>
+                <h3 className="text-xl font-bold text-ds-heading font-inter">Median Sold Price</h3>
                 <p className="text-ds-body text-sm leading-relaxed font-inter">
                   {money(latestPoint?.median_list_price)}
                 </p>
@@ -125,7 +143,7 @@ export default function TrendsPage() {
                 <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-green-600">
                   <PieChart className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl font-bold text-ds-heading font-inter">Median $/sqft</h3>
+                <h3 className="text-xl font-bold text-ds-heading font-inter">Median Sold $/sqft</h3>
                 <p className="text-ds-body text-sm leading-relaxed font-inter">
                   {money(latestPoint?.median_price_per_sqft)}
                 </p>
@@ -135,7 +153,7 @@ export default function TrendsPage() {
                 <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600">
                   <Map className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl font-bold text-ds-heading font-inter">New Listings (Latest)</h3>
+                <h3 className="text-xl font-bold text-ds-heading font-inter">Sold Listings (Latest)</h3>
                 <p className="text-ds-body text-sm leading-relaxed font-inter">
                   {latestPoint?.new_listings ?? 0}
                 </p>
@@ -145,7 +163,7 @@ export default function TrendsPage() {
                 <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-600">
                   <TrendingUp className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl font-bold text-ds-heading font-inter">Active Inventory</h3>
+                <h3 className="text-xl font-bold text-ds-heading font-inter">Sold Volume (Window)</h3>
                 <p className="text-ds-body text-sm leading-relaxed font-inter">
                   {data?.velocity?.active_current ?? 0}
                 </p>
@@ -154,7 +172,7 @@ export default function TrendsPage() {
 
             <div className="grid lg:grid-cols-2 gap-8">
               <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-                <h2 className="text-xl font-bold text-ds-heading mb-3">Price trend</h2>
+                <h2 className="text-xl font-bold text-ds-heading mb-3">Sold price trend</h2>
                 {isLoading ? (
                   <p className="text-sm text-ds-body">Loading trends…</p>
                 ) : isError || !data ? (
@@ -183,7 +201,7 @@ export default function TrendsPage() {
               </div>
 
               <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-                <h2 className="text-xl font-bold text-ds-heading mb-3">Inventory by property type</h2>
+                <h2 className="text-xl font-bold text-ds-heading mb-3">Sold distribution by property type</h2>
                 {isLoading ? (
                   <p className="text-sm text-ds-body">Loading inventory…</p>
                 ) : isError || !data ? (
@@ -206,7 +224,7 @@ export default function TrendsPage() {
 
             <div className="grid lg:grid-cols-2 gap-8 mt-8">
               <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-                <h2 className="text-xl font-bold text-ds-heading mb-3">Velocity (30d)</h2>
+                <h2 className="text-xl font-bold text-ds-heading mb-3">Sold velocity (30d)</h2>
                 {isLoading ? (
                   <p className="text-sm text-ds-body">Loading velocity…</p>
                 ) : isError || !data?.velocity ? (
@@ -214,7 +232,7 @@ export default function TrendsPage() {
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-xl border border-gray-100 p-3">
-                      <p className="text-xs text-ds-body">New listings</p>
+                      <p className="text-xs text-ds-body">Sold listings</p>
                       <p className="text-lg font-bold text-ds-heading">{data.velocity.new_listings_30d}</p>
                     </div>
                     <div className="rounded-xl border border-gray-100 p-3">
@@ -375,6 +393,14 @@ export default function TrendsPage() {
             </div>
             {data?.disclaimer ? (
               <p className="mt-6 text-xs text-ds-body">{data.disclaimer}</p>
+            ) : null}
+            {data?.freshness?.last_successful_sync_at ? (
+              <p className="mt-1 text-xs text-ds-body">
+                Last sold sync: {new Date(data.freshness.last_successful_sync_at).toLocaleString("en-CA")}
+              </p>
+            ) : null}
+            {data?.warning ? (
+              <p className="mt-1 text-xs text-orange-700">{data.warning}</p>
             ) : null}
           </div>
         </Container>

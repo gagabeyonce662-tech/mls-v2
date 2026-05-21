@@ -9,6 +9,8 @@ from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from mls.models import (
+    AmplifySoldProperty,
+    AmplifySoldSyncState,
     Property,
     PropertyInquiry,
     CommunityListing,
@@ -1156,3 +1158,65 @@ class ValuationAPITests(TestCase):
         self.assertTrue("estimate" in data)
         self.assertIn("sparse", data)
         self.assertTrue(data["beta"])
+
+
+class SoldListingTrendsAPITests(TestCase):
+    def setUp(self):
+        today = timezone.now().date()
+        AmplifySoldProperty.objects.create(
+            listing_key="sold-1",
+            standard_status="Closed",
+            sold_price=Decimal("900000"),
+            list_price=Decimal("870000"),
+            close_price=Decimal("900000"),
+            close_date=today - timedelta(days=8),
+            city="Toronto",
+            postal_code="M5V 1A1",
+            fsa="M5V",
+            property_sub_type="Condo",
+            bedrooms_total=2,
+            bathrooms_total_integer=2,
+            living_area=Decimal("900"),
+            days_on_market=12,
+        )
+        AmplifySoldProperty.objects.create(
+            listing_key="sold-2",
+            standard_status="Closed",
+            sold_price=Decimal("1100000"),
+            list_price=Decimal("1080000"),
+            close_price=Decimal("1100000"),
+            close_date=today - timedelta(days=38),
+            city="Toronto",
+            postal_code="M5V 2B2",
+            fsa="M5V",
+            property_sub_type="Detached",
+            bedrooms_total=3,
+            bathrooms_total_integer=2,
+            living_area=Decimal("1400"),
+            days_on_market=20,
+        )
+        AmplifySoldSyncState.objects.create(
+            key=AmplifySoldSyncState.DEFAULT_KEY,
+            last_successful_sync_at=timezone.now() - timedelta(hours=1),
+            total_rows_synced=2,
+        )
+
+    def test_sold_trends_requires_scope(self):
+        response = self.client.get("/api/mls/trends/sold/", {"window": "6m"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_sold_trends_returns_metrics_and_freshness(self):
+        response = self.client.get(
+            "/api/mls/trends/sold/",
+            {"city": "Toronto", "window": "6m"},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["scope"]["city"], "Toronto")
+        self.assertEqual(payload["window_months"], 6)
+        self.assertGreater(payload["sample_size"], 0)
+        self.assertIn("series", payload)
+        self.assertIn("pricing", payload)
+        self.assertIn("freshness", payload)
+        self.assertFalse(payload["freshness"]["stale"])
+        self.assertIsNotNone(payload["freshness"]["last_successful_sync_at"])

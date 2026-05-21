@@ -27,6 +27,8 @@ from .helpers import get_access_token, fetch_properties_by_property_data
 from mls.models import (
     MapAggregateCell,
     Property,
+    AmplifySoldProperty,
+    AmplifySoldSyncState,
     CommunityListing,
     UserFavorite,
     UserHistory,
@@ -2459,6 +2461,286 @@ class ListingTrendsAPIView(APIView):
         return Response(payload)
 
 
+class SoldListingTrendsAPIView(APIView):
+    """Time-series trends sourced from Amplify sold feed data."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        city = (request.query_params.get("city") or "").strip()
+        fsa = (request.query_params.get("fsa") or "").strip().upper()[:3]
+        months = request.query_params.get("window", "12m").strip().lower()
+        try:
+            window_months = int(months.replace("m", ""))
+        except ValueError:
+            window_months = 12
+        window_months = max(3, min(window_months, 36))
+
+        has_city = bool(city)
+        has_fsa = len(fsa) == 3
+        if not has_city and not has_fsa:
+            return Response(
+                {"error": "Provide city or fsa (3-letter FSA)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cache_key = f"sold-listing-trends:{city.lower()}:{fsa}:{window_months}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        now = timezone.now()
+        start_month = (now.year * 12 + now.month - window_months)
+        start_year = start_month // 12
+        start_month_num = start_month % 12
+        if start_month_num == 0:
+            start_year -= 1
+            start_month_num = 12
+        start_date = datetime(start_year, start_month_num, 1, tzinfo=now.tzinfo).date()
+
+        sold_qs = AmplifySoldProperty.objects.exclude(sold_price__isnull=True)
+        if city:
+            sold_qs = sold_qs.filter(city__iexact=city)
+        if len(fsa) == 3:
+            sold_qs = sold_qs.filter(fsa=fsa)
+
+        def percentile(nums, p):
+            if not nums:
+                return None
+            s = sorted(nums)
+            if len(s) == 1:
+                return float(s[0])
+            k = (len(s) - 1) * p
+            f = int(k)
+            c = min(f + 1, len(s) - 1)
+            if f == c:
+                return float(s[f])
+            d0 = s[f] * (c - k)
+            d1 = s[c] * (k - f)
+            return float(d0 + d1)
+
+        monthly: dict[str, dict[str, list[float] | int]] = {}
+        subtype_count: dict[str, int] = {}
+        bed_bucket_count = {"0-1": 0, "2": 0, "3": 0, "4+": 0}
+        bath_bucket_count = {"0-1": 0, "2": 0, "3": 0, "4+": 0}
+        all_prices: list[float] = []
+        all_ppsf: list[float] = []
+        all_dom: list[float] = []
+        rows_with_price = 0
+        rows_with_living_area = 0
+        total_rows = 0
+
+        sold_last_30d = 0
+        sold_prev_30d = 0
+        cutoff_last_30d = now.date() - timedelta(days=30)
+        cutoff_prev_30d = now.date() - timedelta(days=60)
+
+        for row in sold_qs.values(
+            "sold_price",
+            "close_date",
+            "living_area",
+            "property_sub_type",
+            "bedrooms_total",
+            "bathrooms_total_integer",
+            "days_on_market",
+        ):
+            total_rows += 1
+            sold_price = row.get("sold_price")
+            if sold_price is None:
+                continue
+            try:
+                price = float(sold_price)
+            except (TypeError, ValueError):
+                continue
+            if price <= 0:
+                continue
+
+            rows_with_price += 1
+            all_prices.append(price)
+
+            close_date = row.get("close_date")
+            if close_date:
+                if close_date >= cutoff_last_30d:
+                    sold_last_30d += 1
+                elif cutoff_prev_30d <= close_date < cutoff_last_30d:
+                    sold_prev_30d += 1
+
+            if not close_date or close_date < start_date:
+                continue
+
+            month_key = f"{close_date.year:04d}-{close_date.month:02d}"
+            bucket = monthly.setdefault(
+                month_key,
+                {"prices": [], "ppsf": [], "dom": [], "sold_count": 0},
+            )
+            bucket["sold_count"] = int(bucket["sold_count"]) + 1
+            bucket_prices = bucket["prices"]
+            bucket_prices.append(price)
+
+            living_area = row.get("living_area")
+            if living_area:
+                try:
+                    area = float(living_area)
+                    if area > 0:
+                        ppsf = price / area
+                        bucket_ppsf = bucket["ppsf"]
+                        bucket_ppsf.append(ppsf)
+                        all_ppsf.append(ppsf)
+                        rows_with_living_area += 1
+                except (TypeError, ValueError):
+                    pass
+
+            dom = row.get("days_on_market")
+            if dom is not None:
+                try:
+                    domf = float(dom)
+                    bucket_dom = bucket["dom"]
+                    bucket_dom.append(domf)
+                    all_dom.append(domf)
+                except (TypeError, ValueError):
+                    pass
+
+            subtype = (row.get("property_sub_type") or "Other").strip() or "Other"
+            subtype_count[subtype] = subtype_count.get(subtype, 0) + 1
+
+            beds = row.get("bedrooms_total")
+            baths = row.get("bathrooms_total_integer")
+            try:
+                b = int(float(beds)) if beds is not None else 0
+            except (TypeError, ValueError):
+                b = 0
+            try:
+                bt = int(float(baths)) if baths is not None else 0
+            except (TypeError, ValueError):
+                bt = 0
+
+            if b <= 1:
+                bed_bucket_count["0-1"] += 1
+            elif b == 2:
+                bed_bucket_count["2"] += 1
+            elif b == 3:
+                bed_bucket_count["3"] += 1
+            else:
+                bed_bucket_count["4+"] += 1
+
+            if bt <= 1:
+                bath_bucket_count["0-1"] += 1
+            elif bt == 2:
+                bath_bucket_count["2"] += 1
+            elif bt == 3:
+                bath_bucket_count["3"] += 1
+            else:
+                bath_bucket_count["4+"] += 1
+
+        month_points = []
+        ym = start_month
+        for _ in range(window_months):
+            y = ym // 12
+            m = ym % 12
+            if m == 0:
+                y -= 1
+                m = 12
+            key = f"{y:04d}-{m:02d}"
+            b = monthly.get(key, {"prices": [], "ppsf": [], "dom": [], "sold_count": 0})
+            prices = b["prices"]
+            ppsf = b["ppsf"]
+            dom = b["dom"]
+            sold_count = int(b["sold_count"])
+            month_points.append(
+                {
+                    "month": key,
+                    "median_list_price": _median_sorted(prices),
+                    "mean_list_price": (sum(prices) / len(prices)) if prices else None,
+                    "median_price_per_sqft": _median_sorted(ppsf),
+                    "new_listings": sold_count,
+                    "median_sold_price": _median_sorted(prices),
+                    "sold_count": sold_count,
+                    "median_days_on_market": _median_sorted(dom),
+                }
+            )
+            ym += 1
+
+        subtype_distribution = [
+            {"name": k, "count": v}
+            for k, v in sorted(subtype_count.items(), key=lambda kv: kv[1], reverse=True)[:8]
+        ]
+
+        sync_state = AmplifySoldSyncState.objects.filter(
+            key=AmplifySoldSyncState.DEFAULT_KEY
+        ).first()
+        last_sync_at = sync_state.last_successful_sync_at if sync_state else None
+        stale_hours = max(1, int(os.environ.get("AMPLIFY_SOLD_STALE_HOURS", "36")))
+        is_stale = (
+            True
+            if not last_sync_at
+            else (now - last_sync_at) > timedelta(hours=stale_hours)
+        )
+
+        payload = {
+            "scope": {"city": city or None, "fsa": fsa if len(fsa) == 3 else None},
+            "window_months": window_months,
+            "series": month_points,
+            "subtype_distribution": subtype_distribution,
+            "sample_size": sum(p["sold_count"] for p in month_points),
+            "velocity": {
+                "active_current": sum(p["sold_count"] for p in month_points),
+                "active_delta_30d": sold_last_30d - sold_prev_30d,
+                "new_listings_30d": sold_last_30d,
+                "modifications_30d": sold_last_30d,
+            },
+            "pricing": {
+                "list_price_p25": percentile(all_prices, 0.25),
+                "list_price_p50": percentile(all_prices, 0.50),
+                "list_price_p75": percentile(all_prices, 0.75),
+                "price_per_sqft_p25": percentile(all_ppsf, 0.25),
+                "price_per_sqft_p50": percentile(all_ppsf, 0.50),
+                "price_per_sqft_p75": percentile(all_ppsf, 0.75),
+                "spread_index": (
+                    (percentile(all_prices, 0.75) - percentile(all_prices, 0.25))
+                    if percentile(all_prices, 0.75) is not None and percentile(all_prices, 0.25) is not None
+                    else None
+                ),
+                "median_days_on_market": _median_sorted(all_dom),
+            },
+            "segmentation": {
+                "by_subtype": subtype_distribution,
+                "by_bedrooms": [{"name": k, "count": v} for k, v in bed_bucket_count.items()],
+                "by_bathrooms": [{"name": k, "count": v} for k, v in bath_bucket_count.items()],
+                "lease_vs_sale": [{"name": "sold", "count": sum(p["sold_count"] for p in month_points)}],
+            },
+            "behavior": {
+                "views_7d": 0,
+                "views_prev_7d": 0,
+                "views_delta_pct": None,
+                "saves_30d": 0,
+                "rising_listings": [],
+                "note": "Behavior metrics are not available for third-party sold feed data.",
+            },
+            "confidence": {
+                "sample_size": rows_with_price,
+                "pct_with_living_area": (rows_with_living_area / rows_with_price * 100.0) if rows_with_price else 0.0,
+                "pct_with_list_price": (rows_with_price / total_rows * 100.0) if total_rows else 0.0,
+                "pct_recently_updated_30d": 0.0,
+            },
+            "freshness": {
+                "last_successful_sync_at": last_sync_at.isoformat() if last_sync_at else None,
+                "stale": is_stale,
+                "stale_threshold_hours": stale_hours,
+            },
+            "disclaimer": (
+                "Based on Amplify sold-feed data. Availability and fields depend on board permissions; "
+                "last successful sync timestamp is included for freshness."
+            ),
+            "warning": (
+                "Showing last successful sold-data snapshot due to stale/missing recent sync."
+                if is_stale
+                else None
+            ),
+        }
+        cache.set(cache_key, payload, 300)
+        return Response(payload)
+
+
 class ListingViewBeaconAPIView(APIView):
     permission_classes = [AllowAny]
 
@@ -2615,6 +2897,4 @@ class PropertyNoteAPIView(APIView):
         return Response(
             {"listing_key": lk, "body": note.body, "updated_at": note.updated_at}
         )
-
-
 

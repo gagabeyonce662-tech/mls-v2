@@ -55,6 +55,7 @@ urlpatterns = [
     path('nearby-amenities/', NearbyAmenitiesAPIView.as_view(), name='nearby-amenities'),
     path('catalog-stats/', ListingCatalogStatsAPIView.as_view(), name='catalog-stats'),
     path('trends/', ListingTrendsAPIView.as_view(), name='listing-trends'),
+    path('trends/sold/', SoldListingTrendsAPIView.as_view(), name='sold-listing-trends'),
     path('listing-views/', ListingViewBeaconAPIView.as_view(), name='listing-view-beacon'),
     path('listing-engagement/', ListingEngagementAPIView.as_view(), name='listing-engagement'),
     path('census/fsa/<str:fsa>/', CensusFSAAPIView.as_view(), name='census-fsa'),

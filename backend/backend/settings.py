@@ -148,15 +148,23 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 # CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 CELERY_TIMEZONE = os.environ.get("CELERY_TIMEZONE", "UTC")
+CELERY_BEAT_SCHEDULE = {}
 if os.environ.get("DAILY_NEWSLETTER_BEAT_ENABLED", "0") == "1":
-    CELERY_BEAT_SCHEDULE = {
-        "send-daily-listing-newsletters": {
-            "task": "mls.tasks.run_daily_listing_newsletters",
-            "schedule": crontab(
-                hour=int(os.environ.get("DAILY_NEWSLETTER_HOUR_UTC", "11")),
-                minute=int(os.environ.get("DAILY_NEWSLETTER_MINUTE_UTC", "0")),
-            ),
-        },
+    CELERY_BEAT_SCHEDULE["send-daily-listing-newsletters"] = {
+        "task": "mls.tasks.run_daily_listing_newsletters",
+        "schedule": crontab(
+            hour=int(os.environ.get("DAILY_NEWSLETTER_HOUR_UTC", "11")),
+            minute=int(os.environ.get("DAILY_NEWSLETTER_MINUTE_UTC", "0")),
+        ),
+    }
+
+if os.environ.get("AMPLIFY_SOLD_SYNC_ENABLED", "0") == "1":
+    CELERY_BEAT_SCHEDULE["sync-amplify-sold"] = {
+        "task": "mls.tasks.run_amplify_sold_sync_task",
+        "schedule": crontab(
+            hour=int(os.environ.get("AMPLIFY_SOLD_SYNC_HOUR_UTC", "2")),
+            minute=int(os.environ.get("AMPLIFY_SOLD_SYNC_MINUTE_UTC", "15")),
+        ),
     }
 
 CACHE_URL = os.environ.get("CACHE_URL", os.environ.get("REDIS_URL", "")).strip()
