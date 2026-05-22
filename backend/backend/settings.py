@@ -140,14 +140,17 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
-CELERY_BROKER_URL = "redis://redis:6379/0"
-CELERY_RESULT_BACKEND = "redis://redis:6379/0"
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
-# CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Assuming Redis is running locally
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
-# CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 CELERY_TIMEZONE = os.environ.get("CELERY_TIMEZONE", "UTC")
+
+# Local dev: run tasks synchronously without a broker (set in .env.local).
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "False") == "True"
+CELERY_TASK_EAGER_PROPAGATES = os.environ.get("CELERY_TASK_EAGER_PROPAGATES", "False") == "True"
+
 if os.environ.get("DAILY_NEWSLETTER_BEAT_ENABLED", "0") == "1":
     CELERY_BEAT_SCHEDULE = {
         "send-daily-listing-newsletters": {
@@ -158,6 +161,7 @@ if os.environ.get("DAILY_NEWSLETTER_BEAT_ENABLED", "0") == "1":
             ),
         },
     }
+
 
 CACHE_URL = os.environ.get("CACHE_URL", os.environ.get("REDIS_URL", "")).strip()
 if CACHE_URL:
@@ -318,6 +322,13 @@ SENDGRID_TIMEOUT_SECONDS = int(os.environ.get('SENDGRID_TIMEOUT_SECONDS', '15'))
 REALTOR_INBOX_EMAIL = os.environ.get('REALTOR_INBOX_EMAIL', '')
 # Base URL for links in outbound emails (e.g. Django admin change URL)
 PUBLIC_BACKEND_URL = os.environ.get('PUBLIC_BACKEND_URL', 'http://127.0.0.1:8000')
+
+# Frontend base URL — used when building email links (e.g. verification links).
+# Example: https://app.ravan.ai   or   https://staging.vsell4u.ca
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://app.ravan.ai')
+
+# How long (in hours) a verification token stays valid. Default: 24 h.
+EMAIL_VERIFICATION_EXPIRY_HOURS = int(os.environ.get('EMAIL_VERIFICATION_EXPIRY_HOURS', '24'))
 
 # DRF
 REST_FRAMEWORK = {

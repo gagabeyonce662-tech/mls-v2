@@ -61,3 +61,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def get_name(self, obj):
         return obj.full_name
+
+
+class ResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()

@@ -1,6 +1,8 @@
 import logging
 import requests
 from django.contrib.auth import get_user_model, authenticate
+from django.core.cache import cache
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -16,17 +18,24 @@ try:
 except ImportError:
     _twilio_available = False
 
+from .models import EmailVerificationToken
 from .serializers import (
     RegisterSerializer,
     LoginSerializer,
     GoogleAuthSerializer,
     FacebookAuthSerializer,
     UserProfileSerializer,
+    ResendVerificationSerializer,
 )
 from .services import create_ghl_contact, update_ghl_contact
+from .tasks import _send_now as _send_verification_email
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+# Max resend attempts per email per hour (anti-spam).
+_RESEND_RATE_LIMIT = 3
+_RESEND_WINDOW_SECONDS = 3600
 
 
 def _facebook_allowed_redirect_uris():
@@ -51,6 +60,22 @@ def get_tokens_for_user(user):
     }
 
 
+def _issue_token_and_respond(user, extra: dict = None):
+    """Return a 200 response with JWT pair + user profile."""
+    tokens = get_tokens_for_user(user)
+    data = {
+        'user': UserProfileSerializer(user).data,
+        **tokens,
+    }
+    if extra:
+        data.update(extra)
+    return Response(data)
+
+
+# ---------------------------------------------------------------------------
+# Registration
+# ---------------------------------------------------------------------------
+
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -59,9 +84,10 @@ class RegisterView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        # Creates user with is_active=False (default in model).
         user = serializer.save()
 
-        # Create GHL contact with name, email, phone
+        # Create GHL contact immediately (per confirmed requirement).
         contact_id = create_ghl_contact(
             first_name=user.first_name,
             last_name=user.last_name,
@@ -72,12 +98,20 @@ class RegisterView(APIView):
             user.ghl_contact_id = contact_id
             user.save(update_fields=['ghl_contact_id'])
 
-        tokens = get_tokens_for_user(user)
-        return Response({
-            'user': UserProfileSerializer(user).data,
-            **tokens,
-        }, status=status.HTTP_201_CREATED)
+        # Create a 24-hour verification token and fire the async email.
+        token_obj = EmailVerificationToken.objects.create(user=user)
+        # Send verification email synchronously (like Twilio OTP — no broker needed).
+        _send_verification_email(user.id, str(token_obj.token))
 
+        return Response(
+            {'detail': 'Registration successful. Check your email to verify your account.'},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Login
+# ---------------------------------------------------------------------------
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -93,14 +127,132 @@ class LoginView(APIView):
             password=serializer.validated_data['password'],
         )
         if not user:
-            return Response({'detail': 'Invalid email or password.'}, status=status.HTTP_401_UNAUTHORIZED)
+            # Distinguish "wrong password" from "not verified" for UX.
+            unverified = User.objects.filter(
+                email=serializer.validated_data['email'].lower(),
+                is_active=False,
+            ).first()
+            if unverified:
+                return Response(
+                    {'detail': 'Please verify your email address before logging in.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            return Response(
+                {'detail': 'Invalid email or password.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
-        tokens = get_tokens_for_user(user)
-        return Response({
-            'user': UserProfileSerializer(user).data,
-            **tokens,
-        })
+        return _issue_token_and_respond(user)
 
+
+# ---------------------------------------------------------------------------
+# Email Verification
+# ---------------------------------------------------------------------------
+
+class VerifyEmailView(APIView):
+    """
+    GET /api/auth/verify-email/<uuid:token>/
+
+    Validates the token:
+      - Valid & not expired → activates user, deletes token, returns JWT pair (auto-login).
+      - Expired           → 410 Gone.
+      - Not found         → 404.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        try:
+            token_obj = EmailVerificationToken.objects.select_related('user').get(token=token)
+        except EmailVerificationToken.DoesNotExist:
+            return Response(
+                {'detail': 'Verification link is invalid or has already been used.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if token_obj.is_expired():
+            token_obj.delete()
+            return Response(
+                {
+                    'detail': (
+                        'This verification link has expired. '
+                        'Please request a new one.'
+                    ),
+                    'resend_required': True,
+                },
+                status=status.HTTP_410_GONE,
+            )
+
+        user = token_obj.user
+        user.is_active = True
+        user.save(update_fields=['is_active'])
+        token_obj.delete()
+
+        logger.info("Email verified for user %s (id=%s)", user.email, user.pk)
+
+        # Auto-login: return JWT pair.
+        return _issue_token_and_respond(user, extra={'detail': 'Email verified successfully.'})
+
+
+# ---------------------------------------------------------------------------
+# Resend Verification
+# ---------------------------------------------------------------------------
+
+class ResendVerificationView(APIView):
+    """
+    POST /api/auth/resend-verification/   Body: {"email": "..."}
+
+    Rate-limited to 3 resends per email per hour.
+    Always returns 200 to avoid user enumeration.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = ResendVerificationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = serializer.validated_data['email'].lower()
+        cache_key = f"resend_verify:{email}"
+
+        # --- Rate-limit check ---
+        attempts = cache.get(cache_key, 0)
+        if attempts >= _RESEND_RATE_LIMIT:
+            # Still return 200 to avoid enumeration, but do nothing.
+            logger.warning("Resend verification rate-limited for %s", email)
+            return Response(
+                {'detail': 'If an unverified account exists, a new link has been sent.'},
+                status=status.HTTP_200_OK,
+            )
+
+        try:
+            user = User.objects.get(email=email, is_active=False)
+        except User.DoesNotExist:
+            # No unverified user — return 200 silently.
+            return Response(
+                {'detail': 'If an unverified account exists, a new link has been sent.'},
+                status=status.HTTP_200_OK,
+            )
+
+        # Invalidate any existing token.
+        EmailVerificationToken.objects.filter(user=user).delete()
+
+        # Create fresh token and send email.
+        token_obj = EmailVerificationToken.objects.create(user=user)
+        _send_verification_email(user.id, str(token_obj.token))
+
+        # Increment rate-limit counter.
+        cache.set(cache_key, attempts + 1, timeout=_RESEND_WINDOW_SECONDS)
+
+        logger.info("Verification email resent to %s", email)
+        return Response(
+            {'detail': 'If an unverified account exists, a new link has been sent.'},
+            status=status.HTTP_200_OK,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Google OAuth
+# ---------------------------------------------------------------------------
 
 class GoogleAuthView(APIView):
     permission_classes = [AllowAny]
@@ -172,16 +324,23 @@ class GoogleAuthView(APIView):
         if not user:
             user = User.objects.filter(email=email).first()
             if user:
-                # Existing email user — link Google account
+                # Existing email user — link Google account; also activate if not yet active.
+                update_fields = ['google_id']
                 user.google_id = google_id
-                user.save(update_fields=['google_id'])
+                if not user.is_active:
+                    user.is_active = True
+                    update_fields.append('is_active')
+                    # Clean up any pending verification token.
+                    EmailVerificationToken.objects.filter(user=user).delete()
+                user.save(update_fields=update_fields)
             else:
-                # Brand new user via Google
+                # Brand new user via Google — email is provider-verified → is_active=True.
                 user = User.objects.create_user(
                     email=email,
                     first_name=first_name,
                     last_name=last_name,
                     google_id=google_id,
+                    is_active=True,   # skip email verification for OAuth
                 )
                 is_new = True
 
@@ -202,6 +361,10 @@ class GoogleAuthView(APIView):
             **tokens,
         })
 
+
+# ---------------------------------------------------------------------------
+# Facebook OAuth
+# ---------------------------------------------------------------------------
 
 class FacebookAuthView(APIView):
     permission_classes = [AllowAny]
@@ -320,14 +483,21 @@ class FacebookAuthView(APIView):
         if not user:
             user = User.objects.filter(email=email).first()
             if user:
+                update_fields = ["facebook_id"]
                 user.facebook_id = facebook_id
-                user.save(update_fields=["facebook_id"])
+                if not user.is_active:
+                    user.is_active = True
+                    update_fields.append('is_active')
+                    EmailVerificationToken.objects.filter(user=user).delete()
+                user.save(update_fields=update_fields)
             else:
+                # Brand new user via Facebook — email is provider-verified → is_active=True.
                 user = User.objects.create_user(
                     email=email,
                     first_name=first_name,
                     last_name=last_name,
                     facebook_id=facebook_id,
+                    is_active=True,   # skip email verification for OAuth
                 )
                 is_new = True
 
@@ -349,6 +519,10 @@ class FacebookAuthView(APIView):
             }
         )
 
+
+# ---------------------------------------------------------------------------
+# Twilio OTP helpers
+# ---------------------------------------------------------------------------
 
 def _get_twilio_client():
     sid = getattr(settings, 'TWILIO_ACCOUNT_SID', '')
@@ -430,6 +604,10 @@ class VerifyOtpView(APIView):
 
         return Response(UserProfileSerializer(user).data)
 
+
+# ---------------------------------------------------------------------------
+# Profile
+# ---------------------------------------------------------------------------
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]

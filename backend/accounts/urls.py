@@ -1,7 +1,17 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .views import RegisterView, LoginView, GoogleAuthView, FacebookAuthView, ProfileView, SendOtpView, VerifyOtpView
+from .views import (
+    RegisterView,
+    LoginView,
+    GoogleAuthView,
+    FacebookAuthView,
+    ProfileView,
+    SendOtpView,
+    VerifyOtpView,
+    VerifyEmailView,
+    ResendVerificationView,
+)
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='auth-register'),
@@ -12,4 +22,8 @@ urlpatterns = [
     path('profile/', ProfileView.as_view(), name='auth-profile'),
     path('send-otp/', SendOtpView.as_view(), name='auth-send-otp'),
     path('verify-otp/', VerifyOtpView.as_view(), name='auth-verify-otp'),
+
+    # Email verification
+    path('verify-email/<uuid:token>/', VerifyEmailView.as_view(), name='auth-verify-email'),
+    path('resend-verification/', ResendVerificationView.as_view(), name='auth-resend-verification'),
 ]

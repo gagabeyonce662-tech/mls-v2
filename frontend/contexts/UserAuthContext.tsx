@@ -145,14 +145,7 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (regData: { name: string; email: string; password: string; phone: string }) => {
     setIsLoading(true);
     try {
-      const data = await apiRegister(regData);
-      
-      // Store tokens
-      localStorage.setItem("access_token", data.access);
-      localStorage.setItem("refresh_token", data.refresh);
-      
-      setUser(data.user);
-      localStorage.setItem("user_session", JSON.stringify(data.user));
+      await apiRegister(regData);
     } catch (error) {
       console.error("Registration failed", error);
       throw error;

@@ -4,10 +4,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Loader2, Mail, Lock, User, Eye, EyeOff, Phone } from "lucide-react";
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,13 +28,11 @@ const signUpSchema = z
 type SignUpValues = z.infer<typeof signUpSchema>;
 
 export default function SignUpPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") || "/";
   const { register: registerUser } = useUserAuth();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [verifyEmail, setVerifyEmail] = useState("");
 
   const {
     register,
@@ -55,11 +51,7 @@ export default function SignUpPage() {
         password: data.password,
         phone: data.phone,
       });
-      toast({
-        title: "Account created!",
-        description: "Welcome to Estate-4u. Your account is ready.",
-      });
-      router.push(nextPath);
+      setVerifyEmail(data.email);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -70,6 +62,32 @@ export default function SignUpPage() {
       setIsSubmitting(false);
     }
   };
+
+  if (verifyEmail) {
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 text-center">
+        <div className="flex justify-center">
+          <div className="rounded-full bg-ds-primary/10 p-4">
+            <Mail className="w-8 h-8 text-ds-primary" />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold tracking-tight text-ds-heading">Check your email</h1>
+          <p className="text-ds-body text-sm">
+            We sent a verification link to <span className="font-semibold text-ds-heading">{verifyEmail}</span>.
+            Click the link to activate your account.
+          </p>
+        </div>
+        <p className="text-xs text-ds-body/70">
+          Didn&apos;t get it? Check your spam folder or{" "}
+          <Link href="/sign-in" className="underline hover:text-ds-primary">
+            return to sign in
+          </Link>
+          .
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
