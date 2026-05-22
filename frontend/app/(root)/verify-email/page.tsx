@@ -12,7 +12,7 @@ type State = "loading" | "success" | "expired" | "invalid";
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { login } = useUserAuth();
+  const { loginWithTokens } = useUserAuth();
   const [state, setState] = useState<State>("loading");
 
   useEffect(() => {
@@ -26,10 +26,7 @@ export default function VerifyEmailPage() {
       .then(async (res) => {
         if (res.ok) {
           const data = await res.json();
-          // Store tokens and set user from the auto-login response
-          localStorage.setItem("access_token", data.access);
-          localStorage.setItem("refresh_token", data.refresh);
-          localStorage.setItem("user_session", JSON.stringify(data.user));
+          loginWithTokens({ access: data.access, refresh: data.refresh, user: data.user });
           setState("success");
           setTimeout(() => router.push("/"), 2500);
         } else if (res.status === 410) {

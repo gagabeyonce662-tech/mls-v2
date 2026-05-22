@@ -31,6 +31,7 @@ interface UserAuthContextType {
   googleLoginWithCode: (code: string) => Promise<void>;
   facebookLoginWithCode: (code: string, redirectUri?: string) => Promise<void>;
   register: (data: { name: string; email: string; password: string; phone: string }) => Promise<void>;
+  loginWithTokens: (data: { access: string; refresh: string; user: User }) => void;
   logout: () => void;
   sendOtp: (phone: string) => Promise<void>;
   verifyOtp: (phone: string, code: string) => Promise<void>;
@@ -208,6 +209,13 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("user_session", JSON.stringify(userData));
   }, []);
 
+  const loginWithTokens = (data: { access: string; refresh: string; user: User }) => {
+    localStorage.setItem("access_token", data.access);
+    localStorage.setItem("refresh_token", data.refresh);
+    localStorage.setItem("user_session", JSON.stringify(data.user));
+    setUser(data.user);
+  };
+
   const sendOtp = async (phone: string) => {
     await apiSendOtp(phone);
   };
@@ -227,6 +235,7 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
         googleLoginWithCode,
         facebookLoginWithCode,
         register,
+        loginWithTokens,
         logout,
         sendOtp,
         verifyOtp,
