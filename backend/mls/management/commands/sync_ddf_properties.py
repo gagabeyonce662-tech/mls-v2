@@ -1,8 +1,5 @@
 
 import time
-import logging
-import requests
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from mls.helpers import get_access_token
@@ -17,15 +14,16 @@ from mls.services.ddf.converters import (
     safe_str,
 )
 from mls.services.ddf.mapper import map_property_defaults
+from mls.services.ddf.client import fetch_all_properties
 
-logger = logging.getLogger(__name__)
 
 class Command(BaseCommand):
     help = 'Ultra-fast full sync of REALTOR.ca DDF properties'
 
     def add_arguments(self, parser):
         parser.add_argument('--full', action='store_true', help='Force full sync (ignore incremental)')
-        parser.add_argument('--threads', type=int, default=10, help='Parallel download threads (max 15)')
+        parser.add_argument('--threads', type=int, default=10, help='Deprecated. Kept temporarily for compatibility. Use default threading.'
+        "DDF pagination is sequential")
         parser.add_argument('--batch-size', type=int, default=5000, help='Properties per DB batch')
         parser.add_argument(
             '--max-pages',
@@ -34,31 +32,115 @@ class Command(BaseCommand):
             help='Optional safety cap for pages during testing. 0 means no cap.',
         )
 
+        def build_incremental_filter(self, force_full=False):
+            """
+            Build the DDF filter used for an incremental sync.
+
+            A full sync returns None, meaning no timestamp filter.
+            """
+            if force_full:
+                return None
+
+            latest_property = Property.objects.order_by(
+                "-modification_timestamp"
+            ).first()
+
+            if not latest_property:
+                return None
+
+            if not latest_property.modification_timestamp:
+                return None
+
+            cutoff = (
+                latest_property.modification_timestamp
+                - timedelta(minutes=10)
+            )
+
+            return (
+                "ModificationTimestamp gt "
+                f"{cutoff.isoformat()}Z"
+            )
+
+            if force_full:
+                return None
+
+            latest_property = Property.objects.order_by(
+                "-modification_timestamp"
+            ).first()
+
+            if not latest_property:
+                return None
+
+            if not latest_property.modification_timestamp:
+                return None
+
+            cutoff = (
+                latest_property.modification_timestamp
+                - timedelta(minutes=10)
+            )
+
+            return (
+                "ModificationTimestamp gt "
+                f"{cutoff.isoformat()}Z"
+            )
+
     def handle(self, *args, **options):
         start_time = time.time()
-        token =get_access_token()
+
+        token = get_access_token()
+
         if not token:
-            self.stderr.write("Failed to get access token")
+            self.stderr.write(
+                "Failed to get access token"
+            )
             return
 
-        headers = {'Authorization': f'Bearer {token}'}
-        page_urls = self.collect_all_page_urls(
-            headers,
-            force_full=options['full'],
-            max_pages=options['max_pages'],
+        headers = {
+            "Authorization": f"Bearer {token}",
+        }
+
+        filter_expression = self.build_incremental_filter(
+            force_full=options["full"],
         )
 
-        self.stdout.write(f"Found {len(page_urls)} pages to download using {options['threads']} threads...")
+        self.stdout.write(
+            "Downloading DDF properties..."
+        )
 
-        all_properties = []
-        with ThreadPoolExecutor(max_workers=options['threads']) as executor:
-            futures = [executor.submit(self.fetch_page, url, headers) for url in page_urls]
-            for i, future in enumerate(as_completed(futures), 1):
-                batch = future.result()
-                all_properties.extend(batch)
-                self.stdout.write(f"Downloaded page {i}/{len(page_urls)} → {len(batch)} listings (Total: {len(all_properties)})")
-                time.sleep(0.05)  # Be gentle
+        all_properties, page_count = fetch_all_properties(
+            headers=headers,
+            filter_expression=filter_expression,
+            max_pages=options["max_pages"],
+        )
 
+        self.stdout.write(
+            f"Downloaded {page_count} pages containing "
+            f"{len(all_properties):,} listings."
+        )
+
+        if not all_properties:
+            self.stdout.write(
+                "No properties returned."
+            )
+            return
+
+        processed_keys = {
+            property_data.get("ListingKey")
+            for property_data in all_properties
+            if property_data.get("ListingKey")
+        }
+
+        self.stdout.write(
+            f"Starting bulk upsert of "
+            f"{len(all_properties):,} properties..."
+        )
+
+        self.bulk_upsert(
+            all_properties,
+            batch_size=options["batch_size"],
+        )
+
+       
         if not all_properties:
             self.stdout.write("No properties returned.")
             return
@@ -107,82 +189,6 @@ class Command(BaseCommand):
         else:
             self.stdout.write("No orphaned listings found.")
 
-
-
-    # def collect_all_page_urls(self, headers, force_full=False):
-    #     base = "https://ddfapi.realtor.ca/odata/v1/Property"
-    #     params = {
-    #         "$top": 100,
-    #         "$orderby": "ModificationTimestamp desc",
-    #     }
-
-    #     if not force_full:
-    #         last = Property.objects.order_by('-modification_timestamp').first()
-    #         if last and last.modification_timestamp:
-    #             cutoff = (last.modification_timestamp - timedelta(minutes=10)).isoformat() + "Z"
-    #             params["$filter"] = f"ModificationTimestamp gt {cutoff}"
-
-    #     urls = []
-    #     url = base
-    #     while url:
-    #         resp = requests.get(url, headers=headers, params=params if url == base else None, timeout=30)
-    #         resp.raise_for_status()
-    #         data = resp.json()
-    #         urls.append(url if url == base else data.get('@odata.nextLink'))
-    #         url = data.get('@odata.nextLink')
-    #         params = None
-    #         time.sleep(0.1)
-    #     return urls
-    
-
-
-    def collect_all_page_urls(self, headers, force_full=False, max_pages=0):
-        base = "https://ddfapi.realtor.ca/odata/v1/Property"
-        params = {
-            "$top": 100,
-            "$orderby": "ModificationTimestamp desc",
-        }
-
-        if not force_full:
-            last = Property.objects.order_by('-modification_timestamp').first()
-            if last and last.modification_timestamp:
-                cutoff = (last.modification_timestamp - timedelta(minutes=10)).isoformat() + "Z"
-                params["$filter"] = f"ModificationTimestamp gt {cutoff}"
-
-        urls = []
-        url = base
-        page_count = 0
-        page_cap = max(0, int(max_pages or 0))
-
-        while url and (page_cap == 0 or page_count < page_cap):
-            resp = requests.get(url, headers=headers, params=params if url == base else None, timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
-
-            current_url = url if url == base else data.get('@odata.nextLink')
-            urls.append(current_url)
-            
-            self.stdout.write(f"Collected page URL {page_count + 1}: {current_url}")
-
-            url = data.get('@odata.nextLink')
-            params = None
-            page_count += 1
-            time.sleep(0.2)  # Be nice to the API
-
-        if page_cap > 0:
-            self.stdout.write(self.style.WARNING(f"TEST MODE: Limited to {len(urls)} pages"))
-        return urls
-
-
-
-
-
-
-
-    def fetch_page(self, url, headers):
-        resp = requests.get(url, headers=headers, timeout=30)
-        resp.raise_for_status()
-        return resp.json().get("value", [])
 
     @transaction.atomic
     def bulk_upsert(self, properties_data, batch_size=5000):
@@ -273,6 +279,8 @@ class Command(BaseCommand):
             bulk_record_listing_first_seen(first_seen_rows)
 
 
+# Incremental sync
+# python manage.py sync_ddf_properties --batch-size 8000
 
-# python manage.py sync_ddf_properties --threads 12 --batch-size 8000
-# python manage.py sync_ddf_properties --full --threads 15
+# Full sync
+# python manage.py sync_ddf_properties --full --batch-size 8000
