@@ -6,61 +6,21 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from mls.helpers import get_access_token
-from decimal import Decimal
-from datetime import datetime
-from datetime import datetime, timedelta
-import pytz
+from datetime import timedelta
 from mls.models import Property, Room, Media  # Replace with your actual app name
 from mls.services.map_aggregates import rebuild_h3_aggregates
 from mls.snapshot_utils import bulk_record_listing_first_seen
+from mls.services.ddf.converters import (
+    safe_bool,
+    safe_datetime,
+    safe_decimal,
+    safe_float,
+    safe_int,
+    safe_list,
+    safe_str,
+)
+
 logger = logging.getLogger(__name__)
-
-# Helper: Safe converters
-def safe_decimal(val, default=None):
-    if val in (None, '', 'null'):
-        return default
-    try:
-        return Decimal(str(val))
-    except:
-        return default
-
-def safe_int(val, default=None):
-    if val in (None, '', 'null'):
-        return default
-    try:
-        return int(float(val)) if '.' in str(val) else int(val)
-    except:
-        return default
-
-def safe_float(val, default=None):
-    try:
-        return float(val) if val not in (None, '', 'null') else default
-    except:
-        return default
-
-def safe_str(val, default=''):
-    return str(val).strip() if val and str(val).strip() not in ('null', '') else default
-
-def safe_list(val):
-    if not val or val == 'null':
-        return ''
-    return ', '.join([str(x).strip() for x in val if x and str(x).strip()])
-
-def safe_bool(val):
-    if val is True or str(val).lower() in ('true', 'yes', '1', 'y'):
-        return True
-    if val is False or str(val).lower() in ('false', 'no', '0', 'n'):
-        return False
-    return None
-
-def safe_datetime(val):
-    if not val or val == 'null':
-        return None
-    try:
-        dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-        return dt.astimezone(pytz.UTC).replace(tzinfo=None)
-    except:
-        return None
 
 class Command(BaseCommand):
     help = 'Ultra-fast full sync of REALTOR.ca DDF properties'
