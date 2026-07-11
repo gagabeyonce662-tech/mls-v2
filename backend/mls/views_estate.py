@@ -875,7 +875,7 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
                 prepared[key] = value
         return prepared
 
-    def schema(self, request):
+    def schema_response(self, request):
         return Response({"table": self.table_name, "columns": self._columns()})
 
     def list(self, request):
@@ -1071,7 +1071,7 @@ class EstatePropertyDetailAPIView(EstatePropertyAPIViewMixinMethods, APIView):
 
 class EstatePropertySchemaAPIView(EstatePropertyAPIViewMixinMethods, APIView):
     def get(self, request, *args, **kwargs):
-        return self.schema(request)
+        return self.schema_response(request)
 
 
 class EstatePropertyMediaUploadAPIView(EstatePropertyAPIViewMixinMethods, APIView):

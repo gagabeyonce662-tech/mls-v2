@@ -1,5 +1,7 @@
 # api/serializers.py
 from rest_framework import serializers
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from mls.models import (
     Property,
     CommunityListing,
@@ -54,6 +56,7 @@ class PropertySerializer(serializers.ModelSerializer):
             'media', 
             # 'rooms'
         ]
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_media(self, obj):
         # 1. Try to get the preferred photo
         preferred = obj.media.filter(is_preferred=True).first()
