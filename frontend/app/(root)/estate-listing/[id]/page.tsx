@@ -13,7 +13,7 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import PropertyMediaShowcase from "@/components/listing/PropertyMediaShowcase";
+import EstateHeroGallery from "@/components/listing/EstateHeroGallery";
 import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
 import {
   fetchNearestSchools,
@@ -33,12 +33,10 @@ import NearestSchoolsSection from "@/components/listing/details/NearestSchoolsSe
 import SimilarProperties from "@/components/listing/SimilarProperties";
 import { PropertyViewerTracker } from "@/components/listing/PropertyViewerTracker";
 import ListingCatalogStatsSection from "@/components/listing/details/ListingCatalogStatsSection";
-import ListingEngagementMeter from "@/components/listing/details/ListingEngagementMeter";
 import ListingDemographicsSection from "@/components/listing/details/ListingDemographicsSection";
 import PropertyNotesPanel from "@/components/listing/details/PropertyNotesPanel";
 import FinancialsPanel from "@/components/listing/details/FinancialsPanel";
 import ListingAmenitiesSection from "@/components/listing/details/ListingAmenitiesSection";
-import { CalendarDays } from "lucide-react";
 import {
   getBathroomDisplayLabel,
   getBedroomDisplayLabel,
@@ -49,7 +47,6 @@ import {
   getPropertyType,
   postalToFsa,
 } from "@/lib/propertyUtils";
-import ListingExternalLinks from "@/components/listing/ListingExternalLinks";
 import EstateListingActionButtons from "@/components/listing/EstateListingActionButtons";
 import {
   getCashflowInitialsFromProperty,
@@ -60,6 +57,8 @@ import {
 } from "@/lib/listingDisplay";
 import { getTranslations } from "next-intl/server";
 import ListingQuickActions from "@/components/listing/details/ListingQuickActions";
+import ListingFactsStrip from "@/components/listing/details/ListingFactsStrip";
+import ListingSectionNav from "@/components/listing/details/ListingSectionNav";
 
 interface ListingPageProps {
   params: Promise<{
@@ -70,33 +69,9 @@ interface ListingPageProps {
 // --- CONFIGURATION & CONSTANTS ---
 export const dynamic = "force-dynamic";
 
-const getEstateProperty = cache(
-  async (id: string): Promise<Property | null> => fetchEstatePropertyById(id),
+const getEstateProperty = cache(async (id: string): Promise<Property | null> =>
+  fetchEstatePropertyById(id),
 );
-
-function richTextToPlainText(value: unknown): string {
-  const html = String(value ?? "").trim();
-  if (!html) return "";
-
-  return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p\s*>/gi, "\n\n")
-    .replace(/<\/h[1-6]\s*>/gi, "\n\n")
-    .replace(/<li\b[^>]*>/gi, "• ")
-    .replace(/<\/li\s*>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '\"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n[ \t]+/g, "\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
 
 /**
  * Dynamic Metadata Generation
@@ -378,19 +353,9 @@ export default async function ListingPage(props: ListingPageProps) {
     if (parsed === null) return null;
     return `$${parsed.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   };
-  const wpMetaMaxBathrooms = parseNumericLike(wpMeta.max_bathrooms);
-  const wpMetaMaxGarages = parseNumericLike(wpMeta.max_garages);
   const bedroomRange = formatRange(
     property.bedrooms_total ?? property.BedroomsTotal,
     property.max_bedrooms,
-  );
-  const bathroomRange = formatRange(
-    property.bathrooms_total_integer ?? property.BathroomsTotalInteger,
-    property.max_bathrooms ?? wpMetaMaxBathrooms,
-  );
-  const garageRange = formatRange(
-    property.garages,
-    property.max_garages ?? wpMetaMaxGarages,
   );
   const updatedTimestamp = String(
     property.modification_timestamp ||
@@ -410,22 +375,20 @@ export default async function ListingPage(props: ListingPageProps) {
       minute: "2-digit",
     });
   })();
-  const detailsRows = [
-    { label: "Price", value: displayPrice },
-    { label: "Property Type", value: propertyTypeDetailsValue },
-    { label: "Property Size", value: propertySize },
-    { label: "Developer", value: String(property.developer || "").trim() },
+  const developerName = String(property.developer || "").trim();
+  const listingFacts = [
+    { label: "Home types", value: propertyTypeDetailsValue },
     { label: "Bedrooms", value: bedroomRange || String(beds || "").trim() },
+    { label: "Size", value: propertySize },
     {
       label: "Occupancy",
       value: String(property.occupancy_year || property.occupancy || "").trim(),
     },
-    { label: "Bathrooms", value: bathroomRange || String(baths || "").trim() },
     {
-      label: "Signing amount",
+      label: "Deposit",
       value: formatSignedCurrency(property.signing_amount) || "",
     },
-    { label: "Garages", value: garageRange || "" },
+    { label: "Developer", value: developerName },
   ].filter((item) => String(item.value || "").trim().length > 0);
 
   // --- 5. DESCRIPTION & COORDINATES PROCESSING ---
@@ -514,141 +477,127 @@ export default async function ListingPage(props: ListingPageProps) {
 
   // --- 7. RENDER LAYOUT ---
   return (
-    <div className="min-h-screen bg-ds-background">
+    <div className="min-h-screen bg-[#f6f7fb]">
       {/* Navigation and Tracking */}
       <Header />
       <PropertyViewerTracker property={property} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-700">
+      <main className="mx-auto max-w-[1360px] px-4 py-7 sm:px-6 sm:py-10 lg:px-8 animate-in fade-in duration-700">
         {/* Header Stats and Title */}
         <PropertyHeader
           headline={headline}
           propertyType={uiPropertyType}
           city={getCity()}
           address={displayAddress}
-          status={listingStatus || "Status unavailable"}
+          status={listingStatus || undefined}
           price={displayPrice}
+          developer={developerName || undefined}
           isFeaturedTag={isFeaturedTag}
           labelTags={labelTags}
           customTags={customTags}
           statusTags={statusTags}
-          priceLabel="Price"
-          priceClassName="text-4xl md:text-5xl font-extrabold leading-tight tracking-tight"
+          priceLabel="Starting from"
           rightActions={<ListingQuickActions property={property} compact />}
         />
 
-        <div className="mb-6">
-          <PropertyMediaShowcase
-            images={propertyImages}
-            media={property.media || property.Media || []}
-            statusLabel={
-              isFeaturedTag ? "Featured" : listingStatus || "Status unavailable"
-            }
-            latitude={latitude}
-            longitude={longitude}
-            city={getCity()}
-            stateOrProvince={
-              String(
-                property.StateOrProvince || property.state_or_province || "",
-              ).trim() || undefined
-            }
-            listingKey={listingKeyStr}
-            tourUrl={
-              property.virtual_tour_url ||
-              property.VirtualTourURL ||
-              property.video_tour_url ||
-              null
-            }
-            videoUrl={videoUrl || null}
+        <EstateHeroGallery
+          images={propertyImages}
+          statusLabel={listingStatus || undefined}
+          latitude={latitude}
+          longitude={longitude}
+          listingKey={listingKeyStr}
+          tourUrl={
+            property.virtual_tour_url ||
+            property.VirtualTourURL ||
+            property.video_tour_url ||
+            null
+          }
+          videoUrl={videoUrl || null}
+        />
+
+        <div className="mt-5">
+          <ListingFactsStrip facts={listingFacts} />
+        </div>
+
+        <div className="mt-5">
+          <ListingSectionNav
+            sections={[
+              { id: "overview", label: "Overview" },
+              { id: "documents", label: "Documents" },
+              { id: "project-details", label: "Project details" },
+              { id: "neighborhood", label: "Area" },
+              { id: "calculator", label: "Calculator" },
+            ]}
           />
         </div>
 
-        <ListingExternalLinks property={property} />
+        {updatedOnLabel ? (
+          <p className="mt-3 text-right text-xs font-medium text-slate-500">
+            Listing updated {updatedOnLabel}
+          </p>
+        ) : null}
 
-        {/* Main Content Grid (2:1 Ratio) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            {/* Primary Details & History */}
-            <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
-                <h2 className="text-2xl font-bold text-ds-heading">Details</h2>
-                {updatedOnLabel ? (
-                  <p className="inline-flex items-center gap-2 text-sm text-ds-body">
-                    <CalendarDays className="h-4 w-4 text-ds-body/80" />
-                    Updated on {updatedOnLabel}
-                  </p>
-                ) : null}
-              </div>
-              <div className="rounded-lg border border-sky-500/70 bg-sky-100/70 p-4 sm:p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-                  {detailsRows.map((item) => (
-                    <div
-                      key={item.label}
-                      className="flex items-start justify-between gap-4 py-3 border-b border-sky-300/70"
-                    >
-                      <span className="font-semibold text-ds-heading">
-                        {item.label}:
-                      </span>
-                      <span className="text-ds-heading text-right">
-                        {item.value}
-                      </span>
+        {/* Main Content Grid */}
+        <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_350px] lg:items-start">
+          <div className="min-w-0 space-y-10">
+            {/* 1. Description — first thing after gallery */}
+            <div id="overview" className="scroll-mt-32">
+              {descriptionSections.length > 0 ? (
+                <div className="space-y-8">
+                  {descriptionSections.map((section) => (
+                    <div key={section.id} className="space-y-2">
+                      {section.title ? (
+                        <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+                          {section.title}
+                        </h2>
+                      ) : null}
+                      <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_18px_48px_-36px_rgba(15,23,42,0.65)] sm:p-8">
+                        <div
+                          className="rich-text-content overflow-x-auto"
+                          dangerouslySetInnerHTML={{ __html: section.bodyHtml }}
+                        />
+                      </section>
                     </div>
                   ))}
                 </div>
-              </div>
-            </section>
+              ) : (
+                <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_18px_48px_-36px_rgba(15,23,42,0.65)] sm:p-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-ds-heading mb-3">
+                    {t("aboutTitle")}
+                  </h2>
+                  {aboutHtml ? (
+                    <div
+                      className="rich-text-content overflow-x-auto"
+                      dangerouslySetInnerHTML={{ __html: aboutHtml }}
+                    />
+                  ) : (
+                    <OverviewExcerpt text={description} maxChars={400} />
+                  )}
+                </section>
+              )}
+            </div>
 
-            {/* 1. Description — first thing after gallery */}
-            {descriptionSections.length > 0 ? (
-              <div className="space-y-6">
-                {descriptionSections.map((section) => (
-                  <div key={section.id} className="space-y-2">
-                    {section.title ? (
-                      <h4 className="text-lg font-extrabold uppercase tracking-widest text-ds-body mb-3">
-                        {section.title}
-                      </h4>
-                    ) : null}
-                    <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
-                      <div
-                        className="rich-text-content overflow-x-auto text-sm leading-7 text-ds-body"
-                        dangerouslySetInnerHTML={{ __html: section.bodyHtml }}
-                      />
-                    </section>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
-                <h2 className="text-2xl md:text-3xl font-bold text-ds-heading mb-3">
-                  {t("aboutTitle")}
-                </h2>
-                {aboutHtml ? (
-                  <div
-                    className="rich-text-content overflow-x-auto text-sm leading-7 text-ds-body"
-                    dangerouslySetInnerHTML={{ __html: aboutHtml }}
-                  />
-                ) : (
-                  <OverviewExcerpt text={description} maxChars={400} />
-                )}
-              </section>
-            )}
-
-            <EstateListingActionButtons property={property} />
+            <div id="documents" className="scroll-mt-32">
+              <EstateListingActionButtons property={property} />
+            </div>
 
             {/* 3. Property Records — detailed specs early in the flow */}
-            <PropertyDetailsGrid
-              property={property}
-              price={displayPrice}
-              type={uiPropertyType}
-              livingArea={livingArea}
-              hiddenLabels={[
-                "Status",
-                "MLS® #",
-                "Coordinates",
-                "Publish Status",
-              ]}
-              hideZeroValueLabels={["Parking"]}
-            />
+            <section id="project-details" className="scroll-mt-32">
+              <PropertyDetailsGrid
+                property={property}
+                price={displayPrice}
+                type={uiPropertyType}
+                livingArea={livingArea}
+                title="Project Details"
+                hiddenLabels={[
+                  "Status",
+                  "MLS® #",
+                  "Coordinates",
+                  "Publish Status",
+                ]}
+                hideZeroValueLabels={["Parking"]}
+              />
+            </section>
 
             <ListingCatalogStatsSection
               stats={catalogStats}
@@ -664,46 +613,49 @@ export default async function ListingPage(props: ListingPageProps) {
               headingPrefix={t("demographicsTitle")}
             />
 
-            {/* 4. Neighborhood — collapsible to reduce scroll fatigue */}
-            <NearestSchoolsSection
-              schools={nearestSchoolsData?.nearest_schools || []}
-              radiusMeters={
-                nearestSchoolsData?.search_radius_m || schoolRadiusMeters
-              }
-              hasCoordinates={hasValidCoordinates}
-              isUnavailable={
-                schoolFetchFailed ||
-                (!nearestSchoolsData && hasValidCoordinates)
-              }
-            />
-            <ListingAmenitiesSection amenities={nearbyAmenities} />
+            <section id="neighborhood" className="scroll-mt-32 space-y-6">
+              <NearestSchoolsSection
+                schools={nearestSchoolsData?.nearest_schools || []}
+                radiusMeters={
+                  nearestSchoolsData?.search_radius_m || schoolRadiusMeters
+                }
+                hasCoordinates={hasValidCoordinates}
+                isUnavailable={
+                  schoolFetchFailed ||
+                  (!nearestSchoolsData && hasValidCoordinates)
+                }
+              />
+              <ListingAmenitiesSection amenities={nearbyAmenities} />
+            </section>
 
-            {/* 5. Financials — single tabbed panel replaces three stacked sections */}
-            <FinancialsPanel
-              mortgageInitialPrice={getMortgageInitialPrice(property, {
-                isPrivileged,
-              })}
-              closingCostsPrice={
-                currentListNumeric > 0 ? currentListNumeric : null
-              }
-              cashflowInitials={cashflowInitials}
-              cashflowDisclaimer={t("cashFlowDisclaimer")}
-              mortgageTitle={t("mortgageCalculatorTitle")}
-            />
+            <section id="calculator" className="scroll-mt-32">
+              <FinancialsPanel
+                mortgageInitialPrice={getMortgageInitialPrice(property, {
+                  isPrivileged,
+                })}
+                closingCostsPrice={
+                  currentListNumeric > 0 ? currentListNumeric : null
+                }
+                cashflowInitials={cashflowInitials}
+                cashflowDisclaimer={t("cashFlowDisclaimer")}
+                mortgageTitle={t("mortgageCalculatorTitle")}
+              />
+            </section>
           </div>
 
-          {/* Sidebar Section (Sticky on desktop) */}
-          <aside className="space-y-6 lg:sticky lg:top-24 self-start">
-            <PropertySidebar
-              property={property}
-              city={getCity()}
-              showLocationMap={false}
-              showSecondaryActions={false}
-            />
-            <ListingEngagementMeter
-              listingKey={listingKeyStr}
-              title={t("engagementTitle")}
-            />
+          <aside className="space-y-6">
+            <div className="lg:sticky lg:top-24">
+              <PropertySidebar
+                property={property}
+                city={getCity()}
+                showLocationMap={false}
+                showSecondaryActions={false}
+                title={`Interested in ${headline}?`}
+                description="Get the latest price list, floor plans and current availability from our team."
+                primaryActionLabel="Get price list & floor plans"
+                showTrustPoints
+              />
+            </div>
             <PropertyNotesPanel
               listingKey={listingKeyStr}
               title={t("myNotesTitle")}

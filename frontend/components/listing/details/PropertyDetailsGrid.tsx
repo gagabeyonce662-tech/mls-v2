@@ -16,6 +16,7 @@ interface PropertyDetailsGridProps {
   livingArea: string;
   hiddenLabels?: string[];
   hideZeroValueLabels?: string[];
+  title?: string;
 }
 
 export default function PropertyDetailsGrid({
@@ -25,6 +26,7 @@ export default function PropertyDetailsGrid({
   livingArea,
   hiddenLabels = [],
   hideZeroValueLabels = [],
+  title = "Property Records",
 }: PropertyDetailsGridProps) {
   const [showAllRooms, setShowAllRooms] = useState(false);
   const [expandedSections, setExpandedSections] = useState<
@@ -32,16 +34,18 @@ export default function PropertyDetailsGrid({
   >({});
   const isPrivileged = getListingIsPrivileged();
   const sections = useMemo(() => {
-    const hiddenLabelSet = new Set(hiddenLabels.map((label) => label.toLowerCase()));
+    const hiddenLabelSet = new Set(
+      hiddenLabels.map((label) => label.toLowerCase()),
+    );
     const zeroValueLabelSet = new Set(
       hideZeroValueLabels.map((label) => label.toLowerCase()),
     );
 
     return getPropertyDetailSections(
-        property,
-        { price, type, livingArea },
-        { isPrivileged },
-      )
+      property,
+      { price, type, livingArea },
+      { isPrivileged },
+    )
       .map((section) => ({
         ...section,
         items: section.items.filter((item) => {
@@ -107,7 +111,9 @@ export default function PropertyDetailsGrid({
 
   return (
     <div className="space-y-6">
-      <h2 className={`${ds.h3}`}>Property Records</h2>
+      <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+        {title}
+      </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {sections.map((section, idx) => {
@@ -117,9 +123,9 @@ export default function PropertyDetailsGrid({
           return (
             <div
               key={idx}
-              className={`border border-ds-card-border rounded-xl overflow-hidden shadow-sm${isOrphanedSection ? " md:col-span-2" : ""}`}
+              className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_36px_-28px_rgba(15,23,42,0.6)]${isOrphanedSection ? " md:col-span-2" : ""}`}
             >
-              <div className="bg-ds-card px-4 py-3 border-b border-ds-card-border">
+              <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
                 <h3 className="text-sm font-bold text-ds-heading">
                   {section.title}
                 </h3>
@@ -159,9 +165,9 @@ export default function PropertyDetailsGrid({
         {/* Room Details if available */}
         {rooms.length > 0 && (
           <div
-            className={`border border-ds-card-border rounded-xl overflow-hidden shadow-sm${hasOrphan ? " md:col-span-2" : ""}`}
+            className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_36px_-28px_rgba(15,23,42,0.6)]${hasOrphan ? " md:col-span-2" : ""}`}
           >
-            <div className="bg-ds-card px-4 py-3 border-b border-ds-card-border">
+            <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
               <h3 className="text-sm font-bold text-ds-heading">
                 Room Details
               </h3>

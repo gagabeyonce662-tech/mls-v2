@@ -1,0 +1,1453 @@
+diff --git a/frontend/app/(root)/estate-listing/[id]/page.tsx b/frontend/app/(root)/estate-listing/[id]/page.tsx
+index 721119c..a298ee4 100644
+--- a/frontend/app/(root)/estate-listing/[id]/page.tsx
++++ b/frontend/app/(root)/estate-listing/[id]/page.tsx
+@@ -13,7 +13,7 @@ import { cache } from "react";
+ import type { Metadata } from "next";
+ import Header from "@/components/Header";
+ import Footer from "@/components/Footer";
+-import PropertyMediaShowcase from "@/components/listing/PropertyMediaShowcase";
++import EstateHeroGallery from "@/components/listing/EstateHeroGallery";
+ import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
+ import {
+   fetchNearestSchools,
+@@ -33,12 +33,10 @@ import NearestSchoolsSection from "@/components/listing/details/NearestSchoolsSe
+ import SimilarProperties from "@/components/listing/SimilarProperties";
+ import { PropertyViewerTracker } from "@/components/listing/PropertyViewerTracker";
+ import ListingCatalogStatsSection from "@/components/listing/details/ListingCatalogStatsSection";
+-import ListingEngagementMeter from "@/components/listing/details/ListingEngagementMeter";
+ import ListingDemographicsSection from "@/components/listing/details/ListingDemographicsSection";
+ import PropertyNotesPanel from "@/components/listing/details/PropertyNotesPanel";
+ import FinancialsPanel from "@/components/listing/details/FinancialsPanel";
+ import ListingAmenitiesSection from "@/components/listing/details/ListingAmenitiesSection";
+-import { CalendarDays } from "lucide-react";
+ import {
+   getBathroomDisplayLabel,
+   getBedroomDisplayLabel,
+@@ -49,7 +47,6 @@ import {
+   getPropertyType,
+   postalToFsa,
+ } from "@/lib/propertyUtils";
+-import ListingExternalLinks from "@/components/listing/ListingExternalLinks";
+ import EstateListingActionButtons from "@/components/listing/EstateListingActionButtons";
+ import {
+   getCashflowInitialsFromProperty,
+@@ -60,6 +57,8 @@ import {
+ } from "@/lib/listingDisplay";
+ import { getTranslations } from "next-intl/server";
+ import ListingQuickActions from "@/components/listing/details/ListingQuickActions";
++import ListingFactsStrip from "@/components/listing/details/ListingFactsStrip";
++import ListingSectionNav from "@/components/listing/details/ListingSectionNav";
+ 
+ interface ListingPageProps {
+   params: Promise<{
+@@ -74,30 +73,6 @@ const getEstateProperty = cache(
+   async (id: string): Promise<Property | null> => fetchEstatePropertyById(id),
+ );
+ 
+-function richTextToPlainText(value: unknown): string {
+-  const html = String(value ?? "").trim();
+-  if (!html) return "";
+-
+-  return html
+-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+-    .replace(/<br\s*\/?>/gi, "\n")
+-    .replace(/<\/p\s*>/gi, "\n\n")
+-    .replace(/<\/h[1-6]\s*>/gi, "\n\n")
+-    .replace(/<li\b[^>]*>/gi, "• ")
+-    .replace(/<\/li\s*>/gi, "\n")
+-    .replace(/<[^>]+>/g, " ")
+-    .replace(/&nbsp;/gi, " ")
+-    .replace(/&amp;/gi, "&")
+-    .replace(/&quot;/gi, '\"')
+-    .replace(/&#39;|&apos;/gi, "'")
+-    .replace(/[ \t]+\n/g, "\n")
+-    .replace(/\n[ \t]+/g, "\n")
+-    .replace(/[ \t]{2,}/g, " ")
+-    .replace(/\n{3,}/g, "\n\n")
+-    .trim();
+-}
+-
+ /**
+  * Dynamic Metadata Generation
+  * Optimizes SEO and Social Sharing (OpenGraph/Twitter) for each property listing.
+@@ -378,20 +353,10 @@ export default async function ListingPage(props: ListingPageProps) {
+     if (parsed === null) return null;
+     return `$${parsed.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+   };
+-  const wpMetaMaxBathrooms = parseNumericLike(wpMeta.max_bathrooms);
+-  const wpMetaMaxGarages = parseNumericLike(wpMeta.max_garages);
+   const bedroomRange = formatRange(
+     property.bedrooms_total ?? property.BedroomsTotal,
+     property.max_bedrooms,
+   );
+-  const bathroomRange = formatRange(
+-    property.bathrooms_total_integer ?? property.BathroomsTotalInteger,
+-    property.max_bathrooms ?? wpMetaMaxBathrooms,
+-  );
+-  const garageRange = formatRange(
+-    property.garages,
+-    property.max_garages ?? wpMetaMaxGarages,
+-  );
+   const updatedTimestamp = String(
+     property.modification_timestamp ||
+       property.ModificationTimestamp ||
+@@ -410,22 +375,20 @@ export default async function ListingPage(props: ListingPageProps) {
+       minute: "2-digit",
+     });
+   })();
+-  const detailsRows = [
+-    { label: "Price", value: displayPrice },
+-    { label: "Property Type", value: propertyTypeDetailsValue },
+-    { label: "Property Size", value: propertySize },
+-    { label: "Developer", value: String(property.developer || "").trim() },
++  const developerName = String(property.developer || "").trim();
++  const listingFacts = [
++    { label: "Home types", value: propertyTypeDetailsValue },
+     { label: "Bedrooms", value: bedroomRange || String(beds || "").trim() },
++    { label: "Size", value: propertySize },
+     {
+       label: "Occupancy",
+       value: String(property.occupancy_year || property.occupancy || "").trim(),
+     },
+-    { label: "Bathrooms", value: bathroomRange || String(baths || "").trim() },
+     {
+-      label: "Signing amount",
++      label: "Deposit",
+       value: formatSignedCurrency(property.signing_amount) || "",
+     },
+-    { label: "Garages", value: garageRange || "" },
++    { label: "Developer", value: developerName },
+   ].filter((item) => String(item.value || "").trim().length > 0);
+ 
+   // --- 5. DESCRIPTION & COORDINATES PROCESSING ---
+@@ -514,141 +477,127 @@ export default async function ListingPage(props: ListingPageProps) {
+ 
+   // --- 7. RENDER LAYOUT ---
+   return (
+-    <div className="min-h-screen bg-ds-background">
++    <div className="min-h-screen bg-[#f6f7fb]">
+       {/* Navigation and Tracking */}
+       <Header />
+       <PropertyViewerTracker property={property} />
+ 
+-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-700">
++      <main className="mx-auto max-w-[1360px] px-4 py-7 sm:px-6 sm:py-10 lg:px-8 animate-in fade-in duration-700">
+         {/* Header Stats and Title */}
+         <PropertyHeader
+           headline={headline}
+           propertyType={uiPropertyType}
+           city={getCity()}
+           address={displayAddress}
+-          status={listingStatus || "Status unavailable"}
++          status={listingStatus || undefined}
+           price={displayPrice}
++          developer={developerName || undefined}
+           isFeaturedTag={isFeaturedTag}
+           labelTags={labelTags}
+           customTags={customTags}
+           statusTags={statusTags}
+-          priceLabel="Price"
+-          priceClassName="text-4xl md:text-5xl font-extrabold leading-tight tracking-tight"
++          priceLabel="Starting from"
+           rightActions={<ListingQuickActions property={property} compact />}
+         />
+ 
+-        <div className="mb-6">
+-          <PropertyMediaShowcase
+-            images={propertyImages}
+-            media={property.media || property.Media || []}
+-            statusLabel={
+-              isFeaturedTag ? "Featured" : listingStatus || "Status unavailable"
+-            }
+-            latitude={latitude}
+-            longitude={longitude}
+-            city={getCity()}
+-            stateOrProvince={
+-              String(
+-                property.StateOrProvince || property.state_or_province || "",
+-              ).trim() || undefined
+-            }
+-            listingKey={listingKeyStr}
+-            tourUrl={
+-              property.virtual_tour_url ||
+-              property.VirtualTourURL ||
+-              property.video_tour_url ||
+-              null
+-            }
+-            videoUrl={videoUrl || null}
++        <EstateHeroGallery
++          images={propertyImages}
++          statusLabel={listingStatus || undefined}
++          latitude={latitude}
++          longitude={longitude}
++          listingKey={listingKeyStr}
++          tourUrl={
++            property.virtual_tour_url ||
++            property.VirtualTourURL ||
++            property.video_tour_url ||
++            null
++          }
++          videoUrl={videoUrl || null}
++        />
++
++        <div className="mt-5">
++          <ListingFactsStrip facts={listingFacts} />
++        </div>
++
++        <div className="mt-5">
++          <ListingSectionNav
++            sections={[
++              { id: "overview", label: "Overview" },
++              { id: "documents", label: "Documents" },
++              { id: "project-details", label: "Project details" },
++              { id: "neighborhood", label: "Area" },
++              { id: "calculator", label: "Calculator" },
++            ]}
+           />
+         </div>
+ 
+-        <ListingExternalLinks property={property} />
+-
+-        {/* Main Content Grid (2:1 Ratio) */}
+-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+-          <div className="lg:col-span-2 space-y-8">
+-            {/* Primary Details & History */}
+-            <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
+-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
+-                <h2 className="text-2xl font-bold text-ds-heading">Details</h2>
+-                {updatedOnLabel ? (
+-                  <p className="inline-flex items-center gap-2 text-sm text-ds-body">
+-                    <CalendarDays className="h-4 w-4 text-ds-body/80" />
+-                    Updated on {updatedOnLabel}
+-                  </p>
+-                ) : null}
+-              </div>
+-              <div className="rounded-lg border border-sky-500/70 bg-sky-100/70 p-4 sm:p-6">
+-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+-                  {detailsRows.map((item) => (
+-                    <div
+-                      key={item.label}
+-                      className="flex items-start justify-between gap-4 py-3 border-b border-sky-300/70"
+-                    >
+-                      <span className="font-semibold text-ds-heading">
+-                        {item.label}:
+-                      </span>
+-                      <span className="text-ds-heading text-right">
+-                        {item.value}
+-                      </span>
++        {updatedOnLabel ? (
++          <p className="mt-3 text-right text-xs font-medium text-slate-500">
++            Listing updated {updatedOnLabel}
++          </p>
++        ) : null}
++
++        {/* Main Content Grid */}
++        <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_350px] lg:items-start">
++          <div className="min-w-0 space-y-10">
++            {/* 1. Description — first thing after gallery */}
++            <div id="overview" className="scroll-mt-32">
++              {descriptionSections.length > 0 ? (
++                <div className="space-y-8">
++                  {descriptionSections.map((section) => (
++                    <div key={section.id} className="space-y-2">
++                      {section.title ? (
++                        <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
++                          {section.title}
++                        </h2>
++                      ) : null}
++                      <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_18px_48px_-36px_rgba(15,23,42,0.65)] sm:p-8">
++                        <div
++                          className="rich-text-content overflow-x-auto"
++                          dangerouslySetInnerHTML={{ __html: section.bodyHtml }}
++                        />
++                      </section>
+                     </div>
+                   ))}
+                 </div>
+-              </div>
+-            </section>
+-
+-            {/* 1. Description — first thing after gallery */}
+-            {descriptionSections.length > 0 ? (
+-              <div className="space-y-6">
+-                {descriptionSections.map((section) => (
+-                  <div key={section.id} className="space-y-2">
+-                    {section.title ? (
+-                      <h4 className="text-lg font-extrabold uppercase tracking-widest text-ds-body mb-3">
+-                        {section.title}
+-                      </h4>
+-                    ) : null}
+-                    <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
+-                      <div
+-                        className="rich-text-content overflow-x-auto text-sm leading-7 text-ds-body"
+-                        dangerouslySetInnerHTML={{ __html: section.bodyHtml }}
+-                      />
+-                    </section>
+-                  </div>
+-                ))}
+-              </div>
+-            ) : (
+-              <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
+-                <h2 className="text-2xl md:text-3xl font-bold text-ds-heading mb-3">
+-                  {t("aboutTitle")}
+-                </h2>
+-                {aboutHtml ? (
+-                  <div
+-                    className="rich-text-content overflow-x-auto text-sm leading-7 text-ds-body"
+-                    dangerouslySetInnerHTML={{ __html: aboutHtml }}
+-                  />
+-                ) : (
+-                  <OverviewExcerpt text={description} maxChars={400} />
+-                )}
+-              </section>
+-            )}
+-
+-            <EstateListingActionButtons property={property} />
++              ) : (
++                <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_18px_48px_-36px_rgba(15,23,42,0.65)] sm:p-8">
++                  <h2 className="text-2xl md:text-3xl font-bold text-ds-heading mb-3">
++                    {t("aboutTitle")}
++                  </h2>
++                  {aboutHtml ? (
++                    <div
++                      className="rich-text-content overflow-x-auto"
++                      dangerouslySetInnerHTML={{ __html: aboutHtml }}
++                    />
++                  ) : (
++                    <OverviewExcerpt text={description} maxChars={400} />
++                  )}
++                </section>
++              )}
++            </div>
++
++            <div id="documents" className="scroll-mt-32">
++              <EstateListingActionButtons property={property} />
++            </div>
+ 
+             {/* 3. Property Records — detailed specs early in the flow */}
+-            <PropertyDetailsGrid
+-              property={property}
+-              price={displayPrice}
+-              type={uiPropertyType}
+-              livingArea={livingArea}
+-              hiddenLabels={[
+-                "Status",
+-                "MLS® #",
+-                "Coordinates",
+-                "Publish Status",
+-              ]}
+-              hideZeroValueLabels={["Parking"]}
+-            />
++            <section id="project-details" className="scroll-mt-32">
++              <PropertyDetailsGrid
++                property={property}
++                price={displayPrice}
++                type={uiPropertyType}
++                livingArea={livingArea}
++                title="Project Details"
++                hiddenLabels={[
++                  "Status",
++                  "MLS® #",
++                  "Coordinates",
++                  "Publish Status",
++                ]}
++                hideZeroValueLabels={["Parking"]}
++              />
++            </section>
+ 
+             <ListingCatalogStatsSection
+               stats={catalogStats}
+@@ -664,46 +613,49 @@ export default async function ListingPage(props: ListingPageProps) {
+               headingPrefix={t("demographicsTitle")}
+             />
+ 
+-            {/* 4. Neighborhood — collapsible to reduce scroll fatigue */}
+-            <NearestSchoolsSection
+-              schools={nearestSchoolsData?.nearest_schools || []}
+-              radiusMeters={
+-                nearestSchoolsData?.search_radius_m || schoolRadiusMeters
+-              }
+-              hasCoordinates={hasValidCoordinates}
+-              isUnavailable={
+-                schoolFetchFailed ||
+-                (!nearestSchoolsData && hasValidCoordinates)
+-              }
+-            />
+-            <ListingAmenitiesSection amenities={nearbyAmenities} />
+-
+-            {/* 5. Financials — single tabbed panel replaces three stacked sections */}
+-            <FinancialsPanel
+-              mortgageInitialPrice={getMortgageInitialPrice(property, {
+-                isPrivileged,
+-              })}
+-              closingCostsPrice={
+-                currentListNumeric > 0 ? currentListNumeric : null
+-              }
+-              cashflowInitials={cashflowInitials}
+-              cashflowDisclaimer={t("cashFlowDisclaimer")}
+-              mortgageTitle={t("mortgageCalculatorTitle")}
+-            />
++            <section id="neighborhood" className="scroll-mt-32 space-y-6">
++              <NearestSchoolsSection
++                schools={nearestSchoolsData?.nearest_schools || []}
++                radiusMeters={
++                  nearestSchoolsData?.search_radius_m || schoolRadiusMeters
++                }
++                hasCoordinates={hasValidCoordinates}
++                isUnavailable={
++                  schoolFetchFailed ||
++                  (!nearestSchoolsData && hasValidCoordinates)
++                }
++              />
++              <ListingAmenitiesSection amenities={nearbyAmenities} />
++            </section>
++
++            <section id="calculator" className="scroll-mt-32">
++              <FinancialsPanel
++                mortgageInitialPrice={getMortgageInitialPrice(property, {
++                  isPrivileged,
++                })}
++                closingCostsPrice={
++                  currentListNumeric > 0 ? currentListNumeric : null
++                }
++                cashflowInitials={cashflowInitials}
++                cashflowDisclaimer={t("cashFlowDisclaimer")}
++                mortgageTitle={t("mortgageCalculatorTitle")}
++              />
++            </section>
+           </div>
+ 
+-          {/* Sidebar Section (Sticky on desktop) */}
+-          <aside className="space-y-6 lg:sticky lg:top-24 self-start">
+-            <PropertySidebar
+-              property={property}
+-              city={getCity()}
+-              showLocationMap={false}
+-              showSecondaryActions={false}
+-            />
+-            <ListingEngagementMeter
+-              listingKey={listingKeyStr}
+-              title={t("engagementTitle")}
+-            />
++          <aside className="space-y-6">
++            <div className="lg:sticky lg:top-24">
++              <PropertySidebar
++                property={property}
++                city={getCity()}
++                showLocationMap={false}
++                showSecondaryActions={false}
++                title={`Interested in ${headline}?`}
++                description="Get the latest price list, floor plans and current availability from our team."
++                primaryActionLabel="Get price list & floor plans"
++                showTrustPoints
++              />
++            </div>
+             <PropertyNotesPanel
+               listingKey={listingKeyStr}
+               title={t("myNotesTitle")}
+diff --git a/frontend/components/listing/EstateHeroGallery.tsx b/frontend/components/listing/EstateHeroGallery.tsx
+new file mode 100644
+index 0000000..003757a
+--- /dev/null
++++ b/frontend/components/listing/EstateHeroGallery.tsx
+@@ -0,0 +1,247 @@
++"use client";
++
++import { useMemo, useState } from "react";
++import Link from "next/link";
++import {
++  ExternalLink,
++  Image as ImageIcon,
++  Map,
++  Navigation,
++  PlayCircle,
++} from "lucide-react";
++import FullGalleryModal from "@/components/listing/FullGalleryModal";
++import { cn } from "@/lib/utils";
++
++interface EstateHeroGalleryProps {
++  images: string[];
++  statusLabel?: string;
++  tourUrl?: string | null;
++  videoUrl?: string | null;
++  latitude?: number | null;
++  longitude?: number | null;
++  listingKey?: string;
++  className?: string;
++}
++
++export default function EstateHeroGallery({
++  images,
++  statusLabel,
++  tourUrl,
++  videoUrl,
++  latitude,
++  longitude,
++  listingKey,
++  className,
++}: EstateHeroGalleryProps) {
++  const [modalOpen, setModalOpen] = useState(false);
++  const [startIndex, setStartIndex] = useState(0);
++
++  const normalizedImages = useMemo(
++    () =>
++      Array.from(
++        new Set(
++          images.map((image) => String(image || "").trim()).filter(Boolean),
++        ),
++      ),
++    [images],
++  );
++
++  const hasCoordinates =
++    typeof latitude === "number" &&
++    Number.isFinite(latitude) &&
++    typeof longitude === "number" &&
++    Number.isFinite(longitude);
++
++  const googleMapsUrl = hasCoordinates
++    ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
++    : null;
++  const streetViewUrl = hasCoordinates
++    ? `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${latitude},${longitude}`
++    : null;
++  const mapSearchUrl = hasCoordinates
++    ? `/map-search?lat=${latitude}&lng=${longitude}&zoom=15${
++        listingKey ? `&id=${encodeURIComponent(listingKey)}` : ""
++      }`
++    : null;
++
++  const openGallery = (index = 0) => {
++    setStartIndex(index);
++    setModalOpen(true);
++  };
++
++  if (normalizedImages.length === 0) {
++    return (
++      <section
++        className={cn(
++          "flex h-[360px] items-center justify-center overflow-hidden rounded-[28px] border border-dashed border-slate-300 bg-slate-100",
++          className,
++        )}
++      >
++        <div className="text-center text-slate-500">
++          <ImageIcon className="mx-auto h-10 w-10" />
++          <p className="mt-3 text-sm font-semibold">No images available</p>
++        </div>
++      </section>
++    );
++  }
++
++  const imageCount = normalizedImages.length;
++  const showMosaic = imageCount >= 3;
++
++  return (
++    <>
++      <section
++        className={cn(
++          "group relative overflow-hidden rounded-[28px] bg-slate-900 shadow-[0_24px_70px_-32px_rgba(15,23,42,0.55)]",
++          className,
++        )}
++      >
++        <div
++          className={cn(
++            "grid h-[380px] gap-1.5 sm:h-[470px] lg:h-[560px]",
++            showMosaic
++              ? "lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:grid-rows-2"
++              : imageCount === 2
++                ? "lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]"
++                : "grid-cols-1",
++          )}
++        >
++          <button
++            type="button"
++            onClick={() => openGallery(0)}
++            className={cn(
++              "relative h-full min-h-0 overflow-hidden text-left",
++              showMosaic && "lg:row-span-2",
++            )}
++            aria-label="Open property gallery"
++          >
++            <img
++              src={normalizedImages[0]}
++              alt="Property exterior"
++              className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.015]"
++            />
++            <span className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/10" />
++          </button>
++
++          {imageCount >= 2 ? (
++            <button
++              type="button"
++              onClick={() => openGallery(1)}
++              className="relative hidden min-h-0 overflow-hidden lg:block"
++              aria-label="Open image 2"
++            >
++              <img
++                src={normalizedImages[1]}
++                alt="Property image 2"
++                className="h-full w-full object-cover transition duration-500 hover:scale-[1.03]"
++              />
++              <span className="absolute inset-0 bg-black/5" />
++            </button>
++          ) : null}
++
++          {imageCount >= 3 ? (
++            <button
++              type="button"
++              onClick={() => openGallery(2)}
++              className="relative hidden min-h-0 overflow-hidden lg:block"
++              aria-label="Open image 3"
++            >
++              <img
++                src={normalizedImages[2]}
++                alt="Property image 3"
++                className="h-full w-full object-cover transition duration-500 hover:scale-[1.03]"
++              />
++              <span className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
++            </button>
++          ) : null}
++        </div>
++
++        <div className="absolute inset-x-0 top-0 flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5">
++          <div>
++            {statusLabel ? (
++              <span className="inline-flex rounded-full border border-white/30 bg-white/90 px-3 py-1.5 text-xs font-bold text-slate-900 shadow-sm backdrop-blur">
++                {statusLabel}
++              </span>
++            ) : null}
++          </div>
++
++          <div className="flex flex-wrap justify-end gap-2">
++            {videoUrl ? (
++              <a
++                href={videoUrl}
++                target="_blank"
++                rel="noreferrer"
++                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-slate-950/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-slate-950/80"
++              >
++                <PlayCircle className="h-4 w-4" />
++                Video
++              </a>
++            ) : null}
++            {tourUrl ? (
++              <a
++                href={tourUrl}
++                target="_blank"
++                rel="noreferrer"
++                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-slate-950/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-slate-950/80"
++              >
++                <ExternalLink className="h-4 w-4" />
++                Virtual tour
++              </a>
++            ) : null}
++            {mapSearchUrl ? (
++              <Link
++                href={mapSearchUrl}
++                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-slate-950/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-slate-950/80"
++              >
++                <Map className="h-4 w-4" />
++                Map
++              </Link>
++            ) : null}
++            {streetViewUrl ? (
++              <a
++                href={streetViewUrl}
++                target="_blank"
++                rel="noreferrer"
++                className="hidden items-center gap-2 rounded-full border border-white/20 bg-slate-950/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-slate-950/80 sm:inline-flex"
++              >
++                <Navigation className="h-4 w-4" />
++                Street view
++              </a>
++            ) : null}
++          </div>
++        </div>
++
++        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 sm:p-5">
++          {googleMapsUrl ? (
++            <a
++              href={googleMapsUrl}
++              target="_blank"
++              rel="noreferrer"
++              className="hidden text-xs font-medium text-white/85 underline-offset-4 hover:text-white hover:underline sm:inline"
++            >
++              Open in Google Maps
++            </a>
++          ) : (
++            <span />
++          )}
++
++          <button
++            type="button"
++            onClick={() => openGallery(0)}
++            className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white px-4 py-2.5 text-sm font-bold text-slate-900 shadow-lg transition hover:-translate-y-0.5 hover:bg-slate-50"
++          >
++            <ImageIcon className="h-4 w-4" />
++            View all {imageCount} {imageCount === 1 ? "photo" : "photos"}
++          </button>
++        </div>
++      </section>
++
++      <FullGalleryModal
++        images={normalizedImages}
++        startIndex={startIndex}
++        open={modalOpen}
++        onClose={() => setModalOpen(false)}
++      />
++    </>
++  );
++}
+diff --git a/frontend/components/listing/EstateListingActionButtons.tsx b/frontend/components/listing/EstateListingActionButtons.tsx
+index 161cff7..7cec2de 100644
+--- a/frontend/components/listing/EstateListingActionButtons.tsx
++++ b/frontend/components/listing/EstateListingActionButtons.tsx
+@@ -20,9 +20,8 @@ export default function EstateListingActionButtons({
+   const router = useRouter();
+   const pathname = usePathname();
+   const { user, isLoading, refreshProfile } = useUserAuth();
+-  const [pendingButton, setPendingButton] = useState<ListingActionButton | null>(
+-    null,
+-  );
++  const [pendingButton, setPendingButton] =
++    useState<ListingActionButton | null>(null);
+   const [loadingButtonId, setLoadingButtonId] = useState<string | null>(null);
+   const [error, setError] = useState("");
+ 
+@@ -90,11 +89,19 @@ export default function EstateListingActionButtons({
+   };
+ 
+   return (
+-    <section className="mb-10 bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
+-      <h2 className="text-2xl md:text-3xl font-bold text-ds-heading mb-4">
+-        Listing Documents
+-      </h2>
+-      <div className="flex flex-wrap gap-3">
++    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.65)] sm:p-8">
++      <div className="mb-5">
++        <p className="text-xs font-bold uppercase tracking-[0.14em] text-ds-primary">
++          Resources
++        </p>
++        <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
++          Plans and documents
++        </h2>
++        <p className="mt-2 text-sm leading-6 text-slate-600">
++          Open the available price lists, brochures and floor-plan documents.
++        </p>
++      </div>
++      <div className="grid gap-3 sm:grid-cols-2">
+         {buttons.map((button) => {
+           const isBusy = loadingButtonId === button.id;
+           return (
+@@ -103,7 +110,7 @@ export default function EstateListingActionButtons({
+               type="button"
+               onClick={() => handleClick(button)}
+               disabled={isBusy || isLoading}
+-              className="inline-flex items-center gap-2 rounded-xl border border-ds-card-border bg-white px-4 py-2.5 text-sm font-semibold text-ds-heading shadow-sm transition-colors hover:bg-ds-card disabled:opacity-60"
++              className="group flex min-h-[76px] w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left text-sm font-bold text-slate-900 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50/60 hover:shadow-sm disabled:opacity-60"
+             >
+               {isBusy ? (
+                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+@@ -112,8 +119,11 @@ export default function EstateListingActionButtons({
+               ) : (
+                 <FileText className="h-4 w-4 text-ds-primary" aria-hidden />
+               )}
+-              <span>{button.label}</span>
+-              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
++              <span className="min-w-0 flex-1">{button.label}</span>
++              <ExternalLink
++                className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-ds-primary"
++                aria-hidden
++              />
+             </button>
+           );
+         })}
+diff --git a/frontend/components/listing/details/ListingFactsStrip.tsx b/frontend/components/listing/details/ListingFactsStrip.tsx
+new file mode 100644
+index 0000000..9041ce6
+--- /dev/null
++++ b/frontend/components/listing/details/ListingFactsStrip.tsx
+@@ -0,0 +1,72 @@
++import {
++  BedDouble,
++  Building2,
++  CalendarClock,
++  Home,
++  Ruler,
++  WalletCards,
++} from "lucide-react";
++import type { LucideIcon } from "lucide-react";
++
++export interface ListingFact {
++  label: string;
++  value: string;
++}
++
++interface ListingFactsStripProps {
++  facts: ListingFact[];
++}
++
++function getIcon(label: string): LucideIcon {
++  const normalized = label.toLowerCase();
++  if (normalized.includes("bed")) return BedDouble;
++  if (normalized.includes("size") || normalized.includes("area")) return Ruler;
++  if (normalized.includes("occupancy") || normalized.includes("completion")) {
++    return CalendarClock;
++  }
++  if (normalized.includes("deposit") || normalized.includes("signing")) {
++    return WalletCards;
++  }
++  if (normalized.includes("developer")) return Building2;
++  return Home;
++}
++
++export default function ListingFactsStrip({ facts }: ListingFactsStripProps) {
++  const visibleFacts = facts.filter(
++    (fact) => fact.label.trim().length > 0 && fact.value.trim().length > 0,
++  );
++
++  if (visibleFacts.length === 0) return null;
++
++  return (
++    <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_14px_40px_-28px_rgba(15,23,42,0.55)]">
++      <div className="flex snap-x overflow-x-auto lg:grid lg:grid-cols-6">
++        {visibleFacts.slice(0, 6).map((fact, index) => {
++          const Icon = getIcon(fact.label);
++          return (
++            <div
++              key={`${fact.label}-${fact.value}`}
++              className={`min-w-[190px] snap-start px-5 py-5 lg:min-w-0 ${
++                index > 0 ? "border-l border-slate-200" : ""
++              }`}
++            >
++              <div className="flex items-start gap-3">
++                <div className="mt-0.5 rounded-xl bg-blue-50 p-2 text-ds-primary">
++                  <Icon className="h-4 w-4" aria-hidden />
++                </div>
++                <div className="min-w-0">
++                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
++                    {fact.label}
++                  </p>
++                  <p className="mt-1 break-words text-sm font-bold leading-5 text-slate-950 sm:text-base">
++                    {fact.value}
++                  </p>
++                </div>
++              </div>
++            </div>
++          );
++        })}
++      </div>
++    </section>
++  );
++}
+diff --git a/frontend/components/listing/details/ListingSectionNav.tsx b/frontend/components/listing/details/ListingSectionNav.tsx
+new file mode 100644
+index 0000000..c271230
+--- /dev/null
++++ b/frontend/components/listing/details/ListingSectionNav.tsx
+@@ -0,0 +1,70 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import { cn } from "@/lib/utils";
++
++export interface ListingSectionLink {
++  id: string;
++  label: string;
++}
++
++export default function ListingSectionNav({
++  sections,
++}: {
++  sections: ListingSectionLink[];
++}) {
++  const [activeId, setActiveId] = useState(sections[0]?.id || "");
++
++  useEffect(() => {
++    const elements = sections
++      .map((section) => document.getElementById(section.id))
++      .filter((element): element is HTMLElement => Boolean(element));
++
++    if (elements.length === 0) return;
++
++    const observer = new IntersectionObserver(
++      (entries) => {
++        const visible = entries
++          .filter((entry) => entry.isIntersecting)
++          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
++        if (visible?.target.id) setActiveId(visible.target.id);
++      },
++      {
++        rootMargin: "-30% 0px -60% 0px",
++        threshold: [0.05, 0.25, 0.5],
++      },
++    );
++
++    elements.forEach((element) => observer.observe(element));
++    return () => observer.disconnect();
++  }, [sections]);
++
++  const navigateTo = (id: string) => {
++    const element = document.getElementById(id);
++    if (!element) return;
++    setActiveId(id);
++    element.scrollIntoView({ behavior: "smooth", block: "start" });
++  };
++
++  return (
++    <nav className="sticky top-0 z-30 -mx-4 border-y border-slate-200/80 bg-white/95 px-4 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border sm:px-3 sm:shadow-sm lg:top-20">
++      <div className="flex gap-1 overflow-x-auto py-2">
++        {sections.map((section) => (
++          <button
++            key={section.id}
++            type="button"
++            onClick={() => navigateTo(section.id)}
++            className={cn(
++              "relative shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition",
++              activeId === section.id
++                ? "bg-blue-50 text-ds-primary"
++                : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
++            )}
++          >
++            {section.label}
++          </button>
++        ))}
++      </div>
++    </nav>
++  );
++}
+diff --git a/frontend/components/listing/details/PropertyDetailsGrid.tsx b/frontend/components/listing/details/PropertyDetailsGrid.tsx
+index 288223b..bfbdb55 100644
+--- a/frontend/components/listing/details/PropertyDetailsGrid.tsx
++++ b/frontend/components/listing/details/PropertyDetailsGrid.tsx
+@@ -16,6 +16,7 @@ interface PropertyDetailsGridProps {
+   livingArea: string;
+   hiddenLabels?: string[];
+   hideZeroValueLabels?: string[];
++  title?: string;
+ }
+ 
+ export default function PropertyDetailsGrid({
+@@ -25,6 +26,7 @@ export default function PropertyDetailsGrid({
+   livingArea,
+   hiddenLabels = [],
+   hideZeroValueLabels = [],
++  title = "Property Records",
+ }: PropertyDetailsGridProps) {
+   const [showAllRooms, setShowAllRooms] = useState(false);
+   const [expandedSections, setExpandedSections] = useState<
+@@ -32,16 +34,18 @@ export default function PropertyDetailsGrid({
+   >({});
+   const isPrivileged = getListingIsPrivileged();
+   const sections = useMemo(() => {
+-    const hiddenLabelSet = new Set(hiddenLabels.map((label) => label.toLowerCase()));
++    const hiddenLabelSet = new Set(
++      hiddenLabels.map((label) => label.toLowerCase()),
++    );
+     const zeroValueLabelSet = new Set(
+       hideZeroValueLabels.map((label) => label.toLowerCase()),
+     );
+ 
+     return getPropertyDetailSections(
+-        property,
+-        { price, type, livingArea },
+-        { isPrivileged },
+-      )
++      property,
++      { price, type, livingArea },
++      { isPrivileged },
++    )
+       .map((section) => ({
+         ...section,
+         items: section.items.filter((item) => {
+@@ -107,7 +111,9 @@ export default function PropertyDetailsGrid({
+ 
+   return (
+     <div className="space-y-6">
+-      <h2 className={`${ds.h3}`}>Property Records</h2>
++      <h2 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
++        {title}
++      </h2>
+ 
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         {sections.map((section, idx) => {
+@@ -117,9 +123,9 @@ export default function PropertyDetailsGrid({
+           return (
+             <div
+               key={idx}
+-              className={`border border-ds-card-border rounded-xl overflow-hidden shadow-sm${isOrphanedSection ? " md:col-span-2" : ""}`}
++              className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_36px_-28px_rgba(15,23,42,0.6)]${isOrphanedSection ? " md:col-span-2" : ""}`}
+             >
+-              <div className="bg-ds-card px-4 py-3 border-b border-ds-card-border">
++              <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+                 <h3 className="text-sm font-bold text-ds-heading">
+                   {section.title}
+                 </h3>
+@@ -159,9 +165,9 @@ export default function PropertyDetailsGrid({
+         {/* Room Details if available */}
+         {rooms.length > 0 && (
+           <div
+-            className={`border border-ds-card-border rounded-xl overflow-hidden shadow-sm${hasOrphan ? " md:col-span-2" : ""}`}
++            className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_36px_-28px_rgba(15,23,42,0.6)]${hasOrphan ? " md:col-span-2" : ""}`}
+           >
+-            <div className="bg-ds-card px-4 py-3 border-b border-ds-card-border">
++            <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+               <h3 className="text-sm font-bold text-ds-heading">
+                 Room Details
+               </h3>
+diff --git a/frontend/components/listing/details/PropertyHeader.tsx b/frontend/components/listing/details/PropertyHeader.tsx
+index 8808055..20993f7 100644
+--- a/frontend/components/listing/details/PropertyHeader.tsx
++++ b/frontend/components/listing/details/PropertyHeader.tsx
+@@ -1,8 +1,5 @@
+-// frontend/components/listing/details/PropertyHeader.tsx
+-// This component is responsible for rendering the header section of a property listing detail page. It displays the headline, property type, location, price, and status of the listing. It also supports custom tags and a "Featured" badge for highlighted listings.
+-
+ import React from "react";
+-import { ds } from "@/lib/design-system-utils";
++import { Building2, MapPin } from "lucide-react";
+ import { cn } from "@/lib/utils";
+ 
+ interface PropertyHeaderProps {
+@@ -10,8 +7,9 @@ interface PropertyHeaderProps {
+   propertyType: string;
+   city: string;
+   address: string;
+-  status: string;
++  status?: string;
+   price: string;
++  developer?: string;
+   isFeaturedTag?: boolean;
+   labelTags?: string[];
+   customTags?: string[];
+@@ -21,6 +19,16 @@ interface PropertyHeaderProps {
+   rightActions?: React.ReactNode;
+ }
+ 
++function isMeaningfulTag(value: string): boolean {
++  const normalized = value.trim().toLowerCase();
++  return Boolean(
++    normalized &&
++      !["status unavailable", "unavailable", "n/a", "unknown"].includes(
++        normalized,
++      ),
++  );
++}
++
+ export default function PropertyHeader({
+   headline,
+   propertyType,
+@@ -28,6 +36,7 @@ export default function PropertyHeader({
+   address,
+   status,
+   price,
++  developer,
+   isFeaturedTag = false,
+   labelTags = [],
+   customTags = [],
+@@ -36,64 +45,74 @@ export default function PropertyHeader({
+   priceClassName,
+   rightActions,
+ }: PropertyHeaderProps) {
+-  const visibleStatusTags = statusTags.length > 0 ? statusTags : [status].filter(Boolean);
+-  const visibleCustomTags = customTags.slice(0, 2);
+-  const hiddenCustomTagCount = Math.max(customTags.length - visibleCustomTags.length, 0);
++  const allTags = [
++    ...(statusTags.length > 0 ? statusTags : status ? [status] : []),
++    ...labelTags,
++    ...customTags,
++  ]
++    .map((tag) => String(tag || "").trim())
++    .filter(isMeaningfulTag);
++
++  const visibleTags = Array.from(
++    new Map(allTags.map((tag) => [tag.toLowerCase(), tag])).values(),
++  ).slice(0, 4);
+ 
+   return (
+-    <div className="flex flex-col md:flex-row items-start justify-between mb-8 gap-4">
+-      <div className="min-w-0 flex-1">
+-        <div className="mb-3 flex max-w-4xl flex-wrap items-center gap-2">
++    <header className="grid gap-6 pb-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-10">
++      <div className="min-w-0">
++        <div className="mb-4 flex flex-wrap items-center gap-2">
++          <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-ds-primary">
++            {propertyType}
++          </span>
+           {isFeaturedTag ? (
+-            <span className="shrink-0 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-white shadow-sm">
++            <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-800">
+               Featured
+             </span>
+           ) : null}
+-          {visibleStatusTags.map((tag) => (
+-            <span
+-              key={tag}
+-              className="shrink-0 rounded-full bg-ds-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-ds-primary"
+-            >
+-              {tag}
+-            </span>
+-          ))}
+-          {labelTags.map((tag) => (
++          {visibleTags.map((tag) => (
+             <span
+               key={tag}
+-              className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"
++              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+             >
+               {tag}
+             </span>
+           ))}
+-          {visibleCustomTags.map((tag) => (
+-            <span
+-              key={tag}
+-              className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-gray-700"
+-            >
+-              {tag}
+-            </span>
+-          ))}
+-          {hiddenCustomTagCount > 0 ? (
+-            <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-gray-600">
+-              +{hiddenCustomTagCount} more
+-            </span>
+-          ) : null}
+-          <span className="text-sm font-medium text-ds-body">
+-            {propertyType}
+-          </span>
+         </div>
+-        <h1 className={`${ds.h2} mb-2`}>{headline}</h1>
+-        <p className={`${ds.bodyRegular} text-ds-body flex items-center gap-2`}>
+-          {address}
++
++        <h1 className="max-w-4xl text-3xl font-extrabold leading-[1.08] tracking-[-0.035em] text-slate-950 sm:text-4xl lg:text-[46px]">
++          {headline}
++        </h1>
++
++        {developer ? (
++          <p className="mt-3 inline-flex items-center gap-2 text-base font-semibold text-slate-700">
++            <Building2 className="h-4 w-4 text-ds-primary" aria-hidden />
++            By {developer}
++          </p>
++        ) : null}
++
++        <p className="mt-3 flex items-start gap-2 text-sm leading-6 text-slate-600 sm:text-base">
++          <MapPin
++            className="mt-0.5 h-4 w-4 shrink-0 text-slate-400"
++            aria-hidden
++          />
++          <span>{address || city}</span>
+         </p>
+       </div>
+-      <div className="md:text-right">
+-        <p className="text-sm text-ds-body font-medium mb-1">{priceLabel}</p>
+-        <p className={cn(ds.h1, "text-ds-primary", priceClassName)}>{price}</p>
+-        {rightActions ? (
+-          <div className="mt-3 md:ml-auto md:max-w-sm">{rightActions}</div>
+-        ) : null}
++
++      <div className="flex min-w-[240px] flex-col items-start lg:items-end">
++        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
++          {priceLabel}
++        </p>
++        <p
++          className={cn(
++            "mt-1 text-4xl font-extrabold leading-none tracking-[-0.035em] text-ds-primary sm:text-5xl",
++            priceClassName,
++          )}
++        >
++          {price}
++        </p>
++        {rightActions ? <div className="mt-4">{rightActions}</div> : null}
+       </div>
+-    </div>
++    </header>
+   );
+ }
+diff --git a/frontend/components/listing/details/PropertyNotesPanel.tsx b/frontend/components/listing/details/PropertyNotesPanel.tsx
+index 1ca5846..711d46b 100644
+--- a/frontend/components/listing/details/PropertyNotesPanel.tsx
++++ b/frontend/components/listing/details/PropertyNotesPanel.tsx
+@@ -49,6 +49,18 @@ export default function PropertyNotesPanel({
+       .finally(() => setLoading(false));
+   }, [user, listingKey, authHeader]);
+ 
++  const formattedSavedAt = (() => {
++    if (!savedAt) return null;
++    const parsed = new Date(savedAt);
++    if (Number.isNaN(parsed.getTime())) return null;
++    return parsed.toLocaleString("en-US", {
++      month: "short",
++      day: "numeric",
++      hour: "numeric",
++      minute: "2-digit",
++    });
++  })();
++
+   const save = () => {
+     if (!user) return;
+     setSaving(true);
+@@ -77,7 +89,7 @@ export default function PropertyNotesPanel({
+ 
+   if (!user) {
+     return (
+-      <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
++      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_14px_40px_-32px_rgba(15,23,42,0.6)]">
+         <h2 className={`${ds.h3} mb-2`}>{title}</h2>
+         <p className="text-sm text-ds-body mb-3">
+           Sign in to save private notes for this listing.
+@@ -93,7 +105,7 @@ export default function PropertyNotesPanel({
+   }
+ 
+   return (
+-    <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
++    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_14px_40px_-32px_rgba(15,23,42,0.6)]">
+       <h2 className={`${ds.h3} mb-2`}>{title}</h2>
+       <p className="text-xs text-ds-body mb-3">
+         Visible only to your account. Not shared with listing agents.
+@@ -115,8 +127,10 @@ export default function PropertyNotesPanel({
+         >
+           {saving ? "Saving…" : "Save"}
+         </button>
+-        {savedAt ? (
+-          <span className="text-[11px] text-ds-body">Updated {savedAt}</span>
++        {formattedSavedAt ? (
++          <span className="text-xs text-slate-500">
++            Saved {formattedSavedAt}
++          </span>
+         ) : null}
+       </div>
+     </section>
+diff --git a/frontend/components/listing/details/PropertySidebar.tsx b/frontend/components/listing/details/PropertySidebar.tsx
+index eb59efa..ad768df 100644
+--- a/frontend/components/listing/details/PropertySidebar.tsx
++++ b/frontend/components/listing/details/PropertySidebar.tsx
+@@ -1,11 +1,7 @@
+ "use client";
+ 
+ import { FormEvent, useEffect, useMemo, useState } from "react";
+-import {
+-  MapPin,
+-  Navigation,
+-  ExternalLink,
+-} from "lucide-react";
++import { MapPin, Navigation, ExternalLink, CheckCircle2 } from "lucide-react";
+ import Link from "next/link";
+ import { useWatched } from "@/contexts/WatchedContext";
+ import { useUserAuth } from "@/contexts/UserAuthContext";
+@@ -25,6 +21,10 @@ interface PropertySidebarProps {
+   city: string;
+   showLocationMap?: boolean;
+   showSecondaryActions?: boolean;
++  title?: string;
++  description?: string;
++  primaryActionLabel?: string;
++  showTrustPoints?: boolean;
+ }
+ 
+ export default function PropertySidebar({
+@@ -32,6 +32,10 @@ export default function PropertySidebar({
+   city,
+   showLocationMap = true,
+   showSecondaryActions = true,
++  title = "Interested?",
++  description = "Get in touch with an expert about this property.",
++  primaryActionLabel = "Request Information",
++  showTrustPoints = false,
+ }: PropertySidebarProps) {
+   const { user, isLoading: authLoading } = useUserAuth();
+   const lat = property.latitude;
+@@ -43,9 +47,9 @@ export default function PropertySidebar({
+   const [phone, setPhone] = useState("");
+   const [message, setMessage] = useState("");
+   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
+-  const [inquiryState, setInquiryState] = useState<"idle" | "success" | "error">(
+-    "idle",
+-  );
++  const [inquiryState, setInquiryState] = useState<
++    "idle" | "success" | "error"
++  >("idle");
+   const [alertPreviewText, setAlertPreviewText] = useState("");
+ 
+   const inferredIntent = useMemo<PropertyInquiryIntent>(() => {
+@@ -82,7 +86,9 @@ export default function PropertySidebar({
+   }, [message, property]);
+ 
+   const canSubmitInquiry =
+-    firstName.trim().length > 0 && email.trim().length > 2 && message.trim().length >= 10;
++    firstName.trim().length > 0 &&
++    email.trim().length > 2 &&
++    message.trim().length >= 10;
+ 
+   const handleInquirySubmit = async (e: FormEvent<HTMLFormElement>) => {
+     e.preventDefault();
+@@ -98,8 +104,10 @@ export default function PropertySidebar({
+         intent: inferredIntent,
+         phone: phone.trim() || undefined,
+         preferred_locations: city || property?.city || undefined,
+-        property_types: property?.property_sub_type || property?.PropertySubType || undefined,
+-        page_url: typeof window !== "undefined" ? window.location.href : undefined,
++        property_types:
++          property?.property_sub_type || property?.PropertySubType || undefined,
++        page_url:
++          typeof window !== "undefined" ? window.location.href : undefined,
+       };
+       await submitPropertyInquiry(payload);
+       setInquiryState("success");
+@@ -126,58 +134,84 @@ export default function PropertySidebar({
+     });
+     const preview = await fetchWatchedAlertPreview(14);
+     if (preview?.events?.length) {
+-      setAlertPreviewText(`${preview.events.length} alert-worthy update(s) in last ${preview.window_days || 14} days.`);
++      setAlertPreviewText(
++        `${preview.events.length} alert-worthy update(s) in last ${preview.window_days || 14} days.`,
++      );
+     } else if (preview?.message) {
+       setAlertPreviewText(preview.message);
+     } else {
+-      setAlertPreviewText("Alerts are enabled. You'll receive updates when watched listings change.");
++      setAlertPreviewText(
++        "Alerts are enabled. You'll receive updates when watched listings change.",
++      );
+     }
+   };
+ 
+   return (
+     <div className="space-y-6">
+-      {/* Interested? CTA — primary lead-gen goal, topmost */}
+-      <div className="bg-ds-primary text-white rounded-xl p-6 shadow-xl shadow-ds-primary/10">
+-        <h3 className="text-lg font-bold mb-2 text-white ">Interested?</h3>
+-        <p className="text-sm text-white/80 mb-6">
+-          Get in touch with an expert about this property.
++      {/* Primary lead-generation card */}
++      <div className="overflow-hidden rounded-[28px] bg-gradient-to-br from-[#173579] via-ds-primary to-[#13285f] p-7 text-white shadow-[0_24px_60px_-30px_rgba(30,58,138,0.85)]">
++        <p className="text-xs font-bold uppercase tracking-[0.15em] text-blue-100">
++          Private consultation
+         </p>
++        <h3 className="mt-3 text-2xl font-bold leading-tight text-white">
++          {title}
++        </h3>
++        <p className="mt-3 text-sm leading-6 text-white/80">{description}</p>
++
+         {!isInquiryOpen ? (
+-          <div className="space-y-2">
++          <div className="mt-6 space-y-3">
+             <button
++              type="button"
+               onClick={() => setIsInquiryOpen(true)}
+-              className="w-full py-3 bg-white text-ds-primary font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
++              className="w-full rounded-xl bg-white px-4 py-3.5 text-sm font-extrabold text-ds-primary shadow-lg transition hover:-translate-y-0.5 hover:bg-blue-50"
+             >
+-              Request Information
++              {primaryActionLabel}
+             </button>
+             {scheduleUrl ? (
+               <a
+                 href={scheduleUrl}
+                 target="_blank"
+                 rel="noreferrer"
+-                className="w-full inline-flex items-center justify-center py-3 bg-white/15 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/25 transition-colors"
++                className="inline-flex w-full items-center justify-center rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/20"
+               >
+-                Schedule a Viewing
++                Book a consultation
+               </a>
+             ) : null}
+             <button
++              type="button"
+               onClick={enableAlerts}
+-              className="w-full py-3 bg-white/15 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/25 transition-colors"
++              className="w-full rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/90 transition hover:bg-white/10"
+             >
+-              {alertPreferences.email_enabled ? "Alerts Enabled" : "Notify Me"}
++              {alertPreferences.email_enabled
++                ? "Updates enabled"
++                : "Notify me of updates"}
+             </button>
++            {showTrustPoints ? (
++              <div className="space-y-2 border-t border-white/15 pt-4 text-xs text-white/80">
++                <p className="flex items-center gap-2">
++                  <CheckCircle2 className="h-4 w-4 text-emerald-300" />
++                  No obligation
++                </p>
++                <p className="flex items-center gap-2">
++                  <CheckCircle2 className="h-4 w-4 text-emerald-300" />
++                  Latest pricing and availability
++                </p>
++              </div>
++            ) : null}
+             {alertPreviewText ? (
+-              <p className="text-[11px] text-white/85">{alertPreviewText}</p>
++              <p className="text-xs leading-5 text-white/75">
++                {alertPreviewText}
++              </p>
+             ) : null}
+           </div>
+         ) : (
+-          <form onSubmit={handleInquirySubmit} className="space-y-3">
++          <form onSubmit={handleInquirySubmit} className="mt-6 space-y-3">
+             <input
+               value={firstName}
+               onChange={(e) => setFirstName(e.target.value)}
+               placeholder="First name"
+               required
+-              className="w-full rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-white/70"
++              className="w-full rounded-xl border border-white/30 bg-white px-3.5 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-200"
+             />
+             <input
+               value={email}
+@@ -185,29 +219,29 @@ export default function PropertySidebar({
+               type="email"
+               placeholder="Email"
+               required
+-              className="w-full rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-white/70"
++              className="w-full rounded-xl border border-white/30 bg-white px-3.5 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-200"
+             />
+             <input
+               value={phone}
+               onChange={(e) => setPhone(e.target.value)}
+               placeholder="Phone (optional)"
+-              className="w-full rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-white/70"
++              className="w-full rounded-xl border border-white/30 bg-white px-3.5 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-200"
+             />
+             <textarea
+               value={message}
+               onChange={(e) => setMessage(e.target.value)}
+-              rows={4}
++              rows={5}
+               required
+-              className="w-full rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-white/70 resize-y"
++              className="w-full resize-y rounded-xl border border-white/30 bg-white px-3.5 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-200"
+             />
+ 
+             {inquiryState === "success" ? (
+-              <p className="text-xs text-green-100">
++              <p className="rounded-lg bg-emerald-400/15 px-3 py-2 text-xs text-emerald-100">
+                 Thanks! Your request has been sent to our realtor team.
+               </p>
+             ) : null}
+             {inquiryState === "error" ? (
+-              <p className="text-xs text-red-100">
++              <p className="rounded-lg bg-red-400/15 px-3 py-2 text-xs text-red-100">
+                 We couldn&apos;t send your request. Please try again.
+               </p>
+             ) : null}
+@@ -216,14 +250,14 @@ export default function PropertySidebar({
+               <button
+                 type="submit"
+                 disabled={!canSubmitInquiry || isSubmittingInquiry}
+-                className="flex-1 py-2.5 bg-white text-ds-primary font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
++                className="flex-1 rounded-xl bg-white px-4 py-3 text-sm font-extrabold text-ds-primary disabled:cursor-not-allowed disabled:opacity-60"
+               >
+-                {isSubmittingInquiry ? "Sending..." : "Send Request"}
++                {isSubmittingInquiry ? "Sending..." : "Send request"}
+               </button>
+               <button
+                 type="button"
+                 onClick={() => setIsInquiryOpen(false)}
+-                className="px-3 py-2.5 border border-white/60 text-white rounded-lg text-sm hover:bg-white/10 transition-colors"
++                className="rounded-xl border border-white/30 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10"
+               >
+                 Cancel
+               </button>

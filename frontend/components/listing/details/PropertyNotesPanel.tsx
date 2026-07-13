@@ -49,6 +49,18 @@ export default function PropertyNotesPanel({
       .finally(() => setLoading(false));
   }, [user, listingKey, authHeader]);
 
+  const formattedSavedAt = (() => {
+    if (!savedAt) return null;
+    const parsed = new Date(savedAt);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  })();
+
   const save = () => {
     if (!user) return;
     setSaving(true);
@@ -77,7 +89,7 @@ export default function PropertyNotesPanel({
 
   if (!user) {
     return (
-      <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_14px_40px_-32px_rgba(15,23,42,0.6)]">
         <h2 className={`${ds.h3} mb-2`}>{title}</h2>
         <p className="text-sm text-ds-body mb-3">
           Sign in to save private notes for this listing.
@@ -93,7 +105,7 @@ export default function PropertyNotesPanel({
   }
 
   return (
-    <section className="bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_14px_40px_-32px_rgba(15,23,42,0.6)]">
       <h2 className={`${ds.h3} mb-2`}>{title}</h2>
       <p className="text-xs text-ds-body mb-3">
         Visible only to your account. Not shared with listing agents.
@@ -115,8 +127,10 @@ export default function PropertyNotesPanel({
         >
           {saving ? "Saving…" : "Save"}
         </button>
-        {savedAt ? (
-          <span className="text-[11px] text-ds-body">Updated {savedAt}</span>
+        {formattedSavedAt ? (
+          <span className="text-xs text-slate-500">
+            Saved {formattedSavedAt}
+          </span>
         ) : null}
       </div>
     </section>

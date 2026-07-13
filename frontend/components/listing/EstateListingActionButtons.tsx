@@ -20,9 +20,8 @@ export default function EstateListingActionButtons({
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading, refreshProfile } = useUserAuth();
-  const [pendingButton, setPendingButton] = useState<ListingActionButton | null>(
-    null,
-  );
+  const [pendingButton, setPendingButton] =
+    useState<ListingActionButton | null>(null);
   const [loadingButtonId, setLoadingButtonId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -90,11 +89,19 @@ export default function EstateListingActionButtons({
   };
 
   return (
-    <section className="mb-10 bg-white border border-ds-card-border rounded-2xl p-6 shadow-sm">
-      <h2 className="text-2xl md:text-3xl font-bold text-ds-heading mb-4">
-        Listing Documents
-      </h2>
-      <div className="flex flex-wrap gap-3">
+    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.65)] sm:p-8">
+      <div className="mb-5">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-ds-primary">
+          Resources
+        </p>
+        <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+          Plans and documents
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Open the available price lists, brochures and floor-plan documents.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
         {buttons.map((button) => {
           const isBusy = loadingButtonId === button.id;
           return (
@@ -103,7 +110,7 @@ export default function EstateListingActionButtons({
               type="button"
               onClick={() => handleClick(button)}
               disabled={isBusy || isLoading}
-              className="inline-flex items-center gap-2 rounded-xl border border-ds-card-border bg-white px-4 py-2.5 text-sm font-semibold text-ds-heading shadow-sm transition-colors hover:bg-ds-card disabled:opacity-60"
+              className="group flex min-h-[76px] w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left text-sm font-bold text-slate-900 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50/60 hover:shadow-sm disabled:opacity-60"
             >
               {isBusy ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -112,8 +119,11 @@ export default function EstateListingActionButtons({
               ) : (
                 <FileText className="h-4 w-4 text-ds-primary" aria-hidden />
               )}
-              <span>{button.label}</span>
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+              <span className="min-w-0 flex-1">{button.label}</span>
+              <ExternalLink
+                className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-ds-primary"
+                aria-hidden
+              />
             </button>
           );
         })}
