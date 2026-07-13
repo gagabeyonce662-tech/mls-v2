@@ -3,14 +3,14 @@
  *
  * This is a server component that aggregates and displays all information for a specific property.
  * It handles:
- * - Core property data fetching with fallback support.
+ * - Core property data fetching with a real not-found state.
  * - SEO Metadata generation.
  * - Parallel fetching of market stats, school data, and demographics.
  * - Responsive UI layout with multiple specialized detail components.
  */
 
-import React from "react";
-import { Metadata } from "next";
+import { cache } from "react";
+import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PropertyMediaShowcase from "@/components/listing/PropertyMediaShowcase";
@@ -29,8 +29,7 @@ import { notFound } from "next/navigation";
 import PropertyHeader from "@/components/listing/details/PropertyHeader";
 import PropertyDetailsGrid from "@/components/listing/details/PropertyDetailsGrid";
 import PropertySidebar from "@/components/listing/details/PropertySidebar";
-import ListingAISummary from "@/components/listing/details/ListingAISummary";
-import NearestSchoolsSection from "../../../../components/listing/details/NearestSchoolsSection";
+import NearestSchoolsSection from "@/components/listing/details/NearestSchoolsSection";
 import SimilarProperties from "@/components/listing/SimilarProperties";
 import { PropertyViewerTracker } from "@/components/listing/PropertyViewerTracker";
 import ListingCatalogStatsSection from "@/components/listing/details/ListingCatalogStatsSection";
@@ -45,6 +44,7 @@ import {
   getBedroomDisplayLabel,
   getDescription,
   getLivingAreaSummary,
+  getPhotos,
   getPropertySizeSummary,
   getPropertyType,
   postalToFsa,
@@ -69,80 +69,34 @@ interface ListingPageProps {
 
 // --- CONFIGURATION & CONSTANTS ---
 export const dynamic = "force-dynamic";
-const FORCE_TEMP_ESTATE_LISTING = false;
-const TEMP_ESTATE_SAMPLE_IMAGE =
-  "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1600&q=80";
 
-// TEMPORARY: hardcoded fallback while estate backend data path is being stabilized.
-// Remove this once estate detail API is fully reliable.
-function getTemporaryEstateListing(id: string): Property {
-  const key = String(id || "estate_1");
-  const cleanId = key.replace(/^estate_/i, "") || "1";
-  return {
-    id: cleanId,
-    listing_key: `estate_${cleanId}`,
-    ListingKey: `estate_${cleanId}`,
-    PropertyKey: `estate_${cleanId}`,
-    listing_id: `EST-${cleanId}`,
-    project_name: "Lakeview Residences",
-    property_title: "Lakeview Residences",
-    property_sub_type: "Condo",
-    PropertySubType: "Condo",
-    city: "Toronto",
-    City: "Toronto",
-    state_or_province: "ON",
-    StateOrProvince: "ON",
-    unparsed_address: "120 Queens Quay E, Toronto, ON",
-    postal_code: "M5A 1B6",
-    standard_status: "For Sale",
-    StandardStatus: "For Sale",
-    list_price: 2000000,
-    ListPrice: 2000000,
-    bedrooms_total: 3,
-    BedroomsTotal: 3,
-    bathrooms_total_integer: 2,
-    BathroomsTotalInteger: 2,
-    building_area_total: 1650,
-    year_built: 2026,
-    developer: "Estate4u Development Group",
-    occupancy_year: 2027,
-    tax_annual_amount: 8400,
-    tax_year: 2026,
-    lot_size_dimensions: "32 x 95",
-    featured_image_url: TEMP_ESTATE_SAMPLE_IMAGE,
-    media: [
-      {
-        media_url: TEMP_ESTATE_SAMPLE_IMAGE,
-        media_category: "Property Photo",
-        is_preferred: true,
-        order: 1,
-      },
-    ],
-    Media: [
-      {
-        media_url: TEMP_ESTATE_SAMPLE_IMAGE,
-        media_category: "Property Photo",
-        is_preferred: true,
-        order: 1,
-      },
-    ],
-    public_remarks:
-      "Temporary hardcoded estate listing for UI validation while backend mapping is finalized.",
-    property_description:
-      "<p>Temporary hardcoded estate listing for UI validation while backend mapping is finalized.</p>",
-    description_sections_json: [
-      {
-        id: "legacy-overview",
-        title: "Overview",
-        body_html:
-          "<p>Temporary hardcoded estate listing for UI validation while backend mapping is finalized.</p>",
-        order: 0,
-      },
-    ],
-    latitude: "43.6425",
-    longitude: "-79.3684",
-    ModificationTimestamp: new Date().toISOString(),
-  };
+const getEstateProperty = cache(
+  async (id: string): Promise<Property | null> =>
+    fetchEstatePropertyById(id),
+);
+
+function richTextToPlainText(value: unknown): string {
+  const html = String(value ?? "").trim();
+  if (!html) return "";
+
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p\s*>/gi, "\n\n")
+    .replace(/<\/h[1-6]\s*>/gi, "\n\n")
+    .replace(/<li\b[^>]*>/gi, "• ")
+    .replace(/<\/li\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '\"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /**
@@ -153,40 +107,42 @@ export async function generateMetadata({
   params,
 }: ListingPageProps): Promise<Metadata> {
   const id = (await params).id;
-  const property = FORCE_TEMP_ESTATE_LISTING
-    ? getTemporaryEstateListing(id)
-    : ((await fetchEstatePropertyById(id)) ?? getTemporaryEstateListing(id));
+  const property = await getEstateProperty(id);
+
+  if (!property) {
+    return {
+      title: "Listing not found | Estate-4u",
+      robots: { index: false, follow: false },
+    };
+  }
 
   const metaPriv = getListingIsPrivileged();
   const address =
+    String(property.unparsed_address || property.address || "").trim() ||
     getDisplayAddress(property, { isPrivileged: metaPriv }) ||
     "Property Details";
-
+  const rawCity = String(property.city || property.City || "").trim();
+  const city = ["unknown city", "n/a"].includes(rawCity.toLowerCase())
+    ? ""
+    : rawCity;
   const description =
     getDescription(property) ||
-    `Check out this property at ${address}. View photos, details and more on Estate-4u.`;
-
-  const images =
-    property.media && property.media.length > 0
-      ? property.media
-          .map((m: any) => m.media_url)
-          .filter(Boolean)
-          .slice(0, 5)
-      : ["https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"];
+    `View photos and property details for ${address} on Estate-4u.`;
+  const images = getPhotos(property).filter(Boolean).slice(0, 5);
 
   return {
-    title: `${address} | Toronto Real Estate`,
+    title: `${address} | ${city ? `${city} Real Estate` : "Real Estate"}`,
     description: description.substring(0, 160),
     openGraph: {
       title: `${address} | Estate-4u`,
       description: description.substring(0, 160),
-      images: images,
+      ...(images.length > 0 ? { images } : {}),
     },
     twitter: {
       card: "summary_large_image",
       title: `${address} | Estate-4u`,
       description: description.substring(0, 160),
-      images: images[0],
+      ...(images[0] ? { images: [images[0]] } : {}),
     },
   };
 }
@@ -195,10 +151,7 @@ export default async function ListingPage(props: ListingPageProps) {
   // --- 1. INITIAL DATA RESOLUTION ---
   // Resolves params and fetches core property data.
   const params = await props.params;
-  const property = FORCE_TEMP_ESTATE_LISTING
-    ? getTemporaryEstateListing(params.id)
-    : ((await fetchEstatePropertyById(params.id)) ??
-      getTemporaryEstateListing(params.id));
+  const property = await getEstateProperty(params.id);
 
   if (!property) {
     notFound();
@@ -236,7 +189,7 @@ export default async function ListingPage(props: ListingPageProps) {
     "";
   const fsa = postalToFsa(postal);
   const listingKeyStr = String(
-    property.listing_key || property.ListingKey || (await props.params).id,
+    property.listing_key || property.ListingKey || params.id,
   );
 
   const [catalogStats, census] = await Promise.all([
@@ -249,15 +202,14 @@ export default async function ListingPage(props: ListingPageProps) {
 
   // --- 4. UI DATA FORMATTING ---
   // Normalizes raw property data into display-ready labels and arrays.
-  const propertyImages =
-    property.media && property.media.length > 0
-      ? property.media.map((m: any) => m.media_url).filter(Boolean)
-      : [TEMP_ESTATE_SAMPLE_IMAGE];
+  const propertyImages = getPhotos(property).filter(Boolean);
 
   const getBedCount = () =>
-    property.bedrooms_total || property.BedroomsTotal || null;
+    property.bedrooms_total ?? property.BedroomsTotal ?? null;
   const getBathCount = () =>
-    property.bathrooms_total_integer || property.BathroomsTotalInteger || null;
+    property.bathrooms_total_integer ??
+    property.BathroomsTotalInteger ??
+    null;
   const getCity = () => getResolvedCity() || "N/A";
 
   const uiPropertyType = getPropertyType(property);
@@ -272,7 +224,7 @@ export default async function ListingPage(props: ListingPageProps) {
     ).trim() || "Listing";
 
   const livingArea = getLivingAreaSummary(property);
-  const propertySize = getPropertySizeSummary(property) || livingArea;
+  const propertySize = livingArea || getPropertySizeSummary(property) || "";
 
   const currentListNumeric = getMortgageInitialPrice(property, {
     isPrivileged,
@@ -294,11 +246,12 @@ export default async function ListingPage(props: ListingPageProps) {
     }
   };
   const parseBoolean = (value: unknown): boolean => {
-    if (typeof value === "boolean") return value;
-    if (typeof value === "number") return value !== 0;
-    if (typeof value === "string") {
+    const unwrapped = Array.isArray(value) ? value[0] : value;
+    if (typeof unwrapped === "boolean") return unwrapped;
+    if (typeof unwrapped === "number") return unwrapped !== 0;
+    if (typeof unwrapped === "string") {
       return ["1", "true", "yes", "y", "on"].includes(
-        value.trim().toLowerCase(),
+        unwrapped.trim().toLowerCase(),
       );
     }
     return false;
@@ -331,7 +284,11 @@ export default async function ListingPage(props: ListingPageProps) {
     (property as { wp_meta_json?: unknown }).wp_meta_json,
   );
   const videoUrl = String(
-    (property as { video_url?: unknown }).video_url ?? wpMeta.video_url ?? "",
+    (property as { video_url?: unknown }).video_url ??
+      property.video_tour_url ??
+      wpMeta.fave_video_url ??
+      wpMeta.video_url ??
+      "",
   ).trim();
   const wpTerms = parseJsonObject(
     (property as { wp_terms_json?: unknown }).wp_terms_json,
@@ -355,6 +312,16 @@ export default async function ListingPage(props: ListingPageProps) {
     .split(",")
     .map((tag) => tag.trim())
     .filter(Boolean);
+  const directStatus = String(
+    property.StandardStatus || property.standard_status || "",
+  ).trim();
+  const listingStatus =
+    statusTags[0] ||
+    (["publish", "published", "draft", "pending", "private"].includes(
+      directStatus.toLowerCase(),
+    )
+      ? ""
+      : directStatus);
   const isFeaturedTag = parseBoolean(
     (property as { is_featured?: unknown }).is_featured ??
       wpMeta.fave_featured ??
@@ -378,9 +345,18 @@ export default async function ListingPage(props: ListingPageProps) {
     (getBathCount() != null ? String(getBathCount()) : "");
   const builtYear = property.year_built || property.YearBuilt;
   const parseNumericLike = (value: unknown): number | null => {
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string") {
-      const parsed = Number(value.replace(/[^0-9.-]+/g, ""));
+    const unwrapped = Array.isArray(value) ? value[0] : value;
+    if (typeof unwrapped === "number" && Number.isFinite(unwrapped)) {
+      return unwrapped;
+    }
+    if (typeof unwrapped === "string") {
+      const cleaned = unwrapped.trim().replace(/[^0-9.-]+/g, "");
+      if (!cleaned || cleaned === "-" || cleaned === ".") return null;
+      if (/^\d+(?:\.\d+)?-\d+(?:\.\d+)?$/.test(cleaned)) {
+        const first = Number(cleaned.split("-")[0]);
+        return Number.isFinite(first) ? first : null;
+      }
+      const parsed = Number(cleaned);
       return Number.isFinite(parsed) ? parsed : null;
     }
     return null;
@@ -403,11 +379,11 @@ export default async function ListingPage(props: ListingPageProps) {
   const wpMetaMaxBathrooms = parseNumericLike(wpMeta.max_bathrooms);
   const wpMetaMaxGarages = parseNumericLike(wpMeta.max_garages);
   const bedroomRange = formatRange(
-    property.bedrooms_total || property.BedroomsTotal,
+    property.bedrooms_total ?? property.BedroomsTotal,
     property.max_bedrooms,
   );
   const bathroomRange = formatRange(
-    property.bathrooms_total_integer || property.BathroomsTotalInteger,
+    property.bathrooms_total_integer ?? property.BathroomsTotalInteger,
     property.max_bathrooms ?? wpMetaMaxBathrooms,
   );
   const garageRange = formatRange(
@@ -455,10 +431,10 @@ export default async function ListingPage(props: ListingPageProps) {
     getDescription(property) ||
     property.PrivateRemarks ||
     property.Description ||
-    `This ${uiPropertyType} is located in ${getCity()}, ${property.StateOrProvince || "Ontario"}${builtYear ? `. Built in ${builtYear}` : ""}${beds || baths ? `, this property features ${beds ? `${beds} bedrooms` : ""}${beds && baths ? " and " : ""}${baths ? `${baths} bathrooms` : ""}` : ""}${livingArea ? ` with ${livingArea} of living space` : ""}.`;
-  const aboutHtml = String(
-    (property as { property_description?: string }).property_description || "",
-  ).trim();
+    `This ${uiPropertyType}${cityForStats ? ` is located in ${cityForStats}` : ""}${property.StateOrProvince || property.state_or_province ? `, ${property.StateOrProvince || property.state_or_province}` : ""}${builtYear ? `. Built in ${builtYear}` : ""}${beds || baths ? `, this property features ${beds ? `${beds} bedrooms` : ""}${beds && baths ? " and " : ""}${baths ? `${baths} bathrooms` : ""}` : ""}${livingArea ? ` with ${livingArea} of living space` : ""}.`;
+  const aboutText = richTextToPlainText(
+    (property as { property_description?: string }).property_description,
+  );
   const descriptionSections = (() => {
     const source = (property as { description_sections_json?: unknown })
       .description_sections_json;
@@ -480,7 +456,7 @@ export default async function ListingPage(props: ListingPageProps) {
         return {
           id: String(typed.id || `section-${idx + 1}`),
           title: String(typed.title || "").trim(),
-          bodyHtml: String(typed.body_html || "").trim(),
+          bodyText: richTextToPlainText(typed.body_html),
           order:
             typeof typed.order === "number"
               ? typed.order
@@ -493,9 +469,9 @@ export default async function ListingPage(props: ListingPageProps) {
         ): section is {
           id: string;
           title: string;
-          bodyHtml: string;
+          bodyText: string;
           order: number;
-        } => Boolean(section && section.bodyHtml),
+        } => Boolean(section && section.bodyText),
       )
       .sort((a, b) => a.order - b.order);
   })();
@@ -527,17 +503,11 @@ export default async function ListingPage(props: ListingPageProps) {
   let schoolFetchFailed = false;
 
   if (hasValidCoordinates) {
-    try {
-      nearestSchoolsData = await fetchNearestSchools(
-        latitude,
-        longitude,
-        schoolRadiusMeters,
-      );
-      nearbyAmenities = await fetchNearbyAmenities(latitude, longitude, 1800);
-    } catch (error) {
-      console.error("Failed to fetch nearest schools:", error);
-      schoolFetchFailed = true;
-    }
+    [nearestSchoolsData, nearbyAmenities] = await Promise.all([
+      fetchNearestSchools(latitude, longitude, schoolRadiusMeters),
+      fetchNearbyAmenities(latitude, longitude, 1800),
+    ]);
+    schoolFetchFailed = nearestSchoolsData === null;
   }
 
   // --- 7. RENDER LAYOUT ---
@@ -554,9 +524,7 @@ export default async function ListingPage(props: ListingPageProps) {
           propertyType={uiPropertyType}
           city={getCity()}
           address={displayAddress}
-          status={
-            property.StandardStatus || property.standard_status || "Active"
-          }
+          status={listingStatus || "Status unavailable"}
           price={displayPrice}
           isFeaturedTag={isFeaturedTag}
           labelTags={labelTags}
@@ -574,11 +542,7 @@ export default async function ListingPage(props: ListingPageProps) {
             statusLabel={
               isFeaturedTag
                 ? "Featured"
-                : String(
-                    property.StandardStatus ||
-                      property.standard_status ||
-                      "For Sale",
-                  )
+                : listingStatus || "Status unavailable"
             }
             latitude={latitude}
             longitude={longitude}
@@ -645,10 +609,9 @@ export default async function ListingPage(props: ListingPageProps) {
                       </h4>
                     ) : null}
                     <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
-                      <div
-                        className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
-                        dangerouslySetInnerHTML={{ __html: section.bodyHtml }}
-                      />
+                      <div className="whitespace-pre-line text-sm leading-7 text-ds-body">
+                        {section.bodyText}
+                      </div>
                     </section>
                   </div>
                 ))}
@@ -658,11 +621,10 @@ export default async function ListingPage(props: ListingPageProps) {
                 <h2 className="text-2xl md:text-3xl font-bold text-ds-heading mb-3">
                   {t("aboutTitle")}
                 </h2>
-                {aboutHtml ? (
-                  <div
-                    className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-a:text-ds-primary prose-a:underline"
-                    dangerouslySetInnerHTML={{ __html: aboutHtml }}
-                  />
+                {aboutText ? (
+                  <div className="whitespace-pre-line text-sm leading-7 text-ds-body">
+                    {aboutText}
+                  </div>
                 ) : (
                   <OverviewExcerpt text={description} maxChars={400} />
                 )}
@@ -670,9 +632,6 @@ export default async function ListingPage(props: ListingPageProps) {
             )}
 
             <EstateListingActionButtons property={property} />
-
-            {/* 2. AI summary */}
-            {/* <ListingAISummary property={property} /> */}
 
             {/* 3. Property Records — detailed specs early in the flow */}
             <PropertyDetailsGrid
@@ -756,3 +715,4 @@ export default async function ListingPage(props: ListingPageProps) {
     </div>
   );
 }
+
