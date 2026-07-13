@@ -6,6 +6,8 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import serializers
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiTypes, extend_schema, inline_serializer
 from django.db.models import FloatField
 from django.db.models.functions import Cast
 
@@ -28,6 +30,39 @@ class PropertyFilterView(APIView):
     No DDF API calls -> No 400/500 errors -> Super fast
     """
 
+    @extend_schema(
+        summary="Filter properties",
+        description="Search local MLS properties using text, location, map bounds, status, and date filters.",
+        parameters=[
+            OpenApiParameter("limit", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Page size, capped at 100. Defaults to 6."),
+            OpenApiParameter("offset", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("search", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("city", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("status", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("has_lease", OpenApiTypes.BOOL, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("lat_min", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("lat_max", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("lng_min", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("lng_max", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("sold_days", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("modified_since", OpenApiTypes.DATETIME, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("orderby", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+        ],
+        responses={
+            200: OpenApiResponse(response=inline_serializer(
+                name="PropertyFilterResponse",
+                fields={
+                    "count": serializers.IntegerField(),
+                    "next": serializers.IntegerField(allow_null=True),
+                    "previous": serializers.IntegerField(allow_null=True),
+                    "results": PropertySerializer(many=True),
+                    "fallback_applied": serializers.BooleanField(required=False),
+                },
+            )),
+            400: OpenApiResponse(description="Invalid query parameter."),
+        },
+        auth=[],
+    )
     def get(self, request):
         filter_cache_key = _build_property_filter_cache_key(request)
         cached_payload = cache.get(filter_cache_key)

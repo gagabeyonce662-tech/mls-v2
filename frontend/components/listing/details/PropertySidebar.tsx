@@ -1,11 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import {
-  MapPin,
-  Navigation,
-  ExternalLink,
-} from "lucide-react";
+import { MapPin, Navigation, ExternalLink, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useWatched } from "@/contexts/WatchedContext";
 import { useUserAuth } from "@/contexts/UserAuthContext";
@@ -25,6 +21,10 @@ interface PropertySidebarProps {
   city: string;
   showLocationMap?: boolean;
   showSecondaryActions?: boolean;
+  title?: string;
+  description?: string;
+  primaryActionLabel?: string;
+  showTrustPoints?: boolean;
 }
 
 export default function PropertySidebar({
@@ -32,6 +32,10 @@ export default function PropertySidebar({
   city,
   showLocationMap = true,
   showSecondaryActions = true,
+  title = "Interested?",
+  description = "Get in touch with an expert about this property.",
+  primaryActionLabel = "Request Information",
+  showTrustPoints = false,
 }: PropertySidebarProps) {
   const { user, isLoading: authLoading } = useUserAuth();
   const lat = property.latitude;
@@ -43,9 +47,9 @@ export default function PropertySidebar({
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
-  const [inquiryState, setInquiryState] = useState<"idle" | "success" | "error">(
-    "idle",
-  );
+  const [inquiryState, setInquiryState] = useState<
+    "idle" | "success" | "error"
+  >("idle");
   const [alertPreviewText, setAlertPreviewText] = useState("");
 
   const inferredIntent = useMemo<PropertyInquiryIntent>(() => {
@@ -82,7 +86,9 @@ export default function PropertySidebar({
   }, [message, property]);
 
   const canSubmitInquiry =
-    firstName.trim().length > 0 && email.trim().length > 2 && message.trim().length >= 10;
+    firstName.trim().length > 0 &&
+    email.trim().length > 2 &&
+    message.trim().length >= 10;
 
   const handleInquirySubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -98,8 +104,10 @@ export default function PropertySidebar({
         intent: inferredIntent,
         phone: phone.trim() || undefined,
         preferred_locations: city || property?.city || undefined,
-        property_types: property?.property_sub_type || property?.PropertySubType || undefined,
-        page_url: typeof window !== "undefined" ? window.location.href : undefined,
+        property_types:
+          property?.property_sub_type || property?.PropertySubType || undefined,
+        page_url:
+          typeof window !== "undefined" ? window.location.href : undefined,
       };
       await submitPropertyInquiry(payload);
       setInquiryState("success");
@@ -126,58 +134,84 @@ export default function PropertySidebar({
     });
     const preview = await fetchWatchedAlertPreview(14);
     if (preview?.events?.length) {
-      setAlertPreviewText(`${preview.events.length} alert-worthy update(s) in last ${preview.window_days || 14} days.`);
+      setAlertPreviewText(
+        `${preview.events.length} alert-worthy update(s) in last ${preview.window_days || 14} days.`,
+      );
     } else if (preview?.message) {
       setAlertPreviewText(preview.message);
     } else {
-      setAlertPreviewText("Alerts are enabled. You'll receive updates when watched listings change.");
+      setAlertPreviewText(
+        "Alerts are enabled. You'll receive updates when watched listings change.",
+      );
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Interested? CTA — primary lead-gen goal, topmost */}
-      <div className="bg-ds-primary text-white rounded-xl p-6 shadow-xl shadow-ds-primary/10">
-        <h3 className="text-lg font-bold mb-2 text-white ">Interested?</h3>
-        <p className="text-sm text-white/80 mb-6">
-          Get in touch with an expert about this property.
+      {/* Primary lead-generation card */}
+      <div className="overflow-hidden rounded-[28px] bg-gradient-to-br from-[#173579] via-ds-primary to-[#13285f] p-7 text-white shadow-[0_24px_60px_-30px_rgba(30,58,138,0.85)]">
+        <p className="text-xs font-bold uppercase tracking-[0.15em] text-blue-100">
+          Private consultation
         </p>
+        <h3 className="mt-3 text-2xl font-bold leading-tight text-white">
+          {title}
+        </h3>
+        <p className="mt-3 text-sm leading-6 text-white/80">{description}</p>
+
         {!isInquiryOpen ? (
-          <div className="space-y-2">
+          <div className="mt-6 space-y-3">
             <button
+              type="button"
               onClick={() => setIsInquiryOpen(true)}
-              className="w-full py-3 bg-white text-ds-primary font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+              className="w-full rounded-xl bg-white px-4 py-3.5 text-sm font-extrabold text-ds-primary shadow-lg transition hover:-translate-y-0.5 hover:bg-blue-50"
             >
-              Request Information
+              {primaryActionLabel}
             </button>
             {scheduleUrl ? (
               <a
                 href={scheduleUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="w-full inline-flex items-center justify-center py-3 bg-white/15 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/25 transition-colors"
+                className="inline-flex w-full items-center justify-center rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/20"
               >
-                Schedule a Viewing
+                Book a consultation
               </a>
             ) : null}
             <button
+              type="button"
               onClick={enableAlerts}
-              className="w-full py-3 bg-white/15 border border-white/40 text-white font-semibold rounded-lg hover:bg-white/25 transition-colors"
+              className="w-full rounded-xl border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/90 transition hover:bg-white/10"
             >
-              {alertPreferences.email_enabled ? "Alerts Enabled" : "Notify Me"}
+              {alertPreferences.email_enabled
+                ? "Updates enabled"
+                : "Notify me of updates"}
             </button>
+            {showTrustPoints ? (
+              <div className="space-y-2 border-t border-white/15 pt-4 text-xs text-white/80">
+                <p className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                  No obligation
+                </p>
+                <p className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                  Latest pricing and availability
+                </p>
+              </div>
+            ) : null}
             {alertPreviewText ? (
-              <p className="text-[11px] text-white/85">{alertPreviewText}</p>
+              <p className="text-xs leading-5 text-white/75">
+                {alertPreviewText}
+              </p>
             ) : null}
           </div>
         ) : (
-          <form onSubmit={handleInquirySubmit} className="space-y-3">
+          <form onSubmit={handleInquirySubmit} className="mt-6 space-y-3">
             <input
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               placeholder="First name"
               required
-              className="w-full rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-white/70"
+              className="w-full rounded-xl border border-white/30 bg-white px-3.5 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-200"
             />
             <input
               value={email}
@@ -185,29 +219,29 @@ export default function PropertySidebar({
               type="email"
               placeholder="Email"
               required
-              className="w-full rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-white/70"
+              className="w-full rounded-xl border border-white/30 bg-white px-3.5 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-200"
             />
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="Phone (optional)"
-              className="w-full rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-white/70"
+              className="w-full rounded-xl border border-white/30 bg-white px-3.5 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-200"
             />
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              rows={4}
+              rows={5}
               required
-              className="w-full rounded-lg border border-white/40 bg-white/95 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-white/70 resize-y"
+              className="w-full resize-y rounded-xl border border-white/30 bg-white px-3.5 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-200"
             />
 
             {inquiryState === "success" ? (
-              <p className="text-xs text-green-100">
+              <p className="rounded-lg bg-emerald-400/15 px-3 py-2 text-xs text-emerald-100">
                 Thanks! Your request has been sent to our realtor team.
               </p>
             ) : null}
             {inquiryState === "error" ? (
-              <p className="text-xs text-red-100">
+              <p className="rounded-lg bg-red-400/15 px-3 py-2 text-xs text-red-100">
                 We couldn&apos;t send your request. Please try again.
               </p>
             ) : null}
@@ -216,14 +250,14 @@ export default function PropertySidebar({
               <button
                 type="submit"
                 disabled={!canSubmitInquiry || isSubmittingInquiry}
-                className="flex-1 py-2.5 bg-white text-ds-primary font-bold rounded-lg hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                className="flex-1 rounded-xl bg-white px-4 py-3 text-sm font-extrabold text-ds-primary disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmittingInquiry ? "Sending..." : "Send Request"}
+                {isSubmittingInquiry ? "Sending..." : "Send request"}
               </button>
               <button
                 type="button"
                 onClick={() => setIsInquiryOpen(false)}
-                className="px-3 py-2.5 border border-white/60 text-white rounded-lg text-sm hover:bg-white/10 transition-colors"
+                className="rounded-xl border border-white/30 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10"
               >
                 Cancel
               </button>

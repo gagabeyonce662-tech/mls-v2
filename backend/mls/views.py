@@ -15,6 +15,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    OpenApiTypes,
+    extend_schema,
+    inline_serializer,
+)
+from rest_framework import serializers
 from django.db.models import Q, FloatField, Count, Value, F
 from django.db.models.functions import Cast, Substr, Lower, Replace, Upper
 from django.core.paginator import Paginator
@@ -611,6 +619,22 @@ class FeedbackAPIView(APIView):
     Create user feedback submissions.
     """
 
+    @extend_schema(
+        summary="Submit user feedback",
+        description="Create a feedback submission from a visitor or signed-in user.",
+        request=UserFeedbackSerializer,
+        responses={
+            201: inline_serializer(
+                name="FeedbackCreatedResponse",
+                fields={
+                    "id": serializers.IntegerField(),
+                    "message": serializers.CharField(),
+                },
+            ),
+            400: OpenApiResponse(description="Invalid feedback payload."),
+        },
+        auth=[],
+    )
     def post(self, request):
         serializer = UserFeedbackSerializer(data=request.data)
         if not serializer.is_valid():
@@ -634,6 +658,22 @@ class PropertyInquiryAPIView(APIView):
 
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        summary="Create a property inquiry",
+        description="Submit a property search or Find My Home inquiry for the realtor.",
+        request=PropertyInquirySerializer,
+        responses={
+            201: inline_serializer(
+                name="InquiryCreatedResponse",
+                fields={
+                    "id": serializers.IntegerField(),
+                    "message": serializers.CharField(),
+                },
+            ),
+            400: OpenApiResponse(description="Invalid inquiry payload."),
+        },
+        auth=[],
+    )
     def post(self, request):
         serializer = PropertyInquirySerializer(data=request.data)
         if not serializer.is_valid():
@@ -668,6 +708,23 @@ class PropertyInquiryAPIView(APIView):
 class WatchedOverviewAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Get watched properties overview",
+        description="Return the authenticated user's favorites, history, toured properties, followed areas, and alert preferences.",
+        responses={
+            200: inline_serializer(
+                name="WatchedOverviewResponse",
+                fields={
+                    "favorites": UserFavoriteSerializer(many=True),
+                    "history": UserHistorySerializer(many=True),
+                    "toured": UserTouredSerializer(many=True),
+                    "followed_areas": UserFollowedAreaSerializer(many=True),
+                    "alert_preferences": UserAlertPreferenceSerializer(),
+                },
+            ),
+            401: OpenApiResponse(description="Authentication credentials were not provided or are invalid."),
+        },
+    )
     def get(self, request):
         favorites = UserFavorite.objects.filter(user=request.user).order_by("-created_at")
         history = UserHistory.objects.filter(user=request.user).order_by("-viewed_at")
@@ -689,6 +746,19 @@ class WatchedOverviewAPIView(APIView):
 class WatchedFavoriteToggleAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Toggle a watched favorite",
+        description="Add a property to favorites, or remove it if it is already favorited.",
+        request=WatchedMutationSerializer,
+        responses={
+            200: inline_serializer(
+                name="FavoriteToggleResponse",
+                fields={"is_favorite": serializers.BooleanField()},
+            ),
+            400: OpenApiResponse(description="Invalid property payload."),
+            401: OpenApiResponse(description="Authentication credentials were not provided or are invalid."),
+        },
+    )
     def post(self, request):
         serializer = WatchedMutationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -1367,6 +1437,20 @@ class PropertyDetailView(APIView):
     Supports both path-style and function-style access.
     """
 
+    @extend_schema(
+        summary="Get a property by listing key",
+        description="Fetch a single property from the DDF API by its PropertyKey.",
+        parameters=[
+            OpenApiParameter("PropertyKey", OpenApiTypes.STR, OpenApiParameter.PATH, description="DDF property/listing key."),
+            OpenApiParameter("$select", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Comma-separated DDF fields to return."),
+        ],
+        responses={
+            200: OpenApiResponse(response=OpenApiTypes.OBJECT, description="DDF property payload."),
+            400: OpenApiResponse(description="The DDF request failed."),
+            404: OpenApiResponse(description="Property was not found."),
+        },
+        auth=[],
+    )
     def get(self, request, PropertyKey):
 
         property_keys = request.GET.getlist('PropertyKey')
@@ -1439,6 +1523,34 @@ class ExclusivePropertiesAPIView(APIView):
         )
         return final_qs, limit, offset, updated_count, fallback_meta
 
+    @extend_schema(
+        summary="List exclusive properties",
+        description="Return listings tagged exclusive or containing exclusive language in the first 400 characters of the remarks.",
+        parameters=[
+            OpenApiParameter("limit", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Page size, capped at 100. Defaults to 6."),
+            OpenApiParameter("offset", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Number of results to skip. Defaults to 0."),
+            OpenApiParameter("search", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("city", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("property_type", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("min_price", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("max_price", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, required=False),
+        ],
+        responses={
+            200: OpenApiResponse(response=inline_serializer(
+                name="ExclusivePropertiesResponse",
+                fields={
+                    "count": serializers.IntegerField(),
+                    "next": serializers.IntegerField(allow_null=True),
+                    "previous": serializers.IntegerField(allow_null=True),
+                    "updated_to_exclusive": serializers.IntegerField(),
+                    "results": PropertySerializer(many=True),
+                    "fallback_applied": serializers.BooleanField(required=False),
+                },
+            )),
+            400: OpenApiResponse(description="Invalid query parameter."),
+        },
+        auth=[],
+    )
     def get(self, request):
         cache_key = _build_query_params_cache_key(
             "exclusive-properties", request.query_params
@@ -2024,6 +2136,32 @@ class NearbyAmenitiesAPIView(APIView):
 
 
 class NewlyListedPropertiesAPIView(APIView):
+    @extend_schema(
+        summary="List newly listed properties",
+        description="Return active properties ordered by their original listing timestamp, with optional lease filters.",
+        parameters=[
+            OpenApiParameter("limit", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Page size, capped at 100. Defaults to 6."),
+            OpenApiParameter("offset", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Number of results to skip. Defaults to 0."),
+            OpenApiParameter("lease_amount_min", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("lease_amount_max", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("city", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("search", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+        ],
+        responses={
+            200: OpenApiResponse(response=inline_serializer(
+                name="NewlyListedPropertiesResponse",
+                fields={
+                    "count": serializers.IntegerField(),
+                    "next": serializers.IntegerField(allow_null=True),
+                    "previous": serializers.IntegerField(allow_null=True),
+                    "results": PropertySerializer(many=True),
+                    "fallback_applied": serializers.BooleanField(required=False),
+                },
+            )),
+            400: OpenApiResponse(description="Invalid query parameter."),
+        },
+        auth=[],
+    )
     def get(self, request):
         cache_key = _build_query_params_cache_key(
             "newly-listed-properties", request.query_params
@@ -2615,6 +2753,5 @@ class PropertyNoteAPIView(APIView):
         return Response(
             {"listing_key": lk, "body": note.body, "updated_at": note.updated_at}
         )
-
 
 
