@@ -390,3 +390,99 @@ h6 {
 .animate-spin-slow {
   animation: spin-slow 3s linear infinite;
 }
+
+.rich-text-content {
+  line-height: 1.7;
+}
+
+.rich-text-content p {
+  margin: 0 0 1rem;
+}
+
+.rich-text-content h1,
+.rich-text-content h2,
+.rich-text-content h3,
+.rich-text-content h4,
+.rich-text-content h5,
+.rich-text-content h6 {
+  margin: 1.5rem 0 0.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.rich-text-content h1 {
+  font-size: 2rem;
+}
+
+.rich-text-content h2 {
+  font-size: 1.5rem;
+}
+
+.rich-text-content h3 {
+  font-size: 1.25rem;
+}
+
+.rich-text-content h4 {
+  font-size: 1.125rem;
+}
+
+.rich-text-content ul {
+  margin: 1rem 0;
+  padding-left: 2rem;
+  list-style: disc;
+}
+
+.rich-text-content ol {
+  margin: 1rem 0;
+  padding-left: 2rem;
+  list-style: decimal;
+}
+
+.rich-text-content li {
+  margin: 0.25rem 0;
+}
+
+.rich-text-content table {
+  width: 100%;
+  margin: 1rem 0;
+  border-collapse: collapse;
+}
+
+.rich-text-content th,
+.rich-text-content td {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #d1d5db;
+  text-align: left;
+  vertical-align: top;
+}
+
+.rich-text-content th {
+  background: #f3f4f6;
+  font-weight: 700;
+}
+
+.rich-text-content strong,
+.rich-text-content b {
+  font-weight: 700;
+}
+
+.rich-text-content em,
+.rich-text-content i {
+  font-style: italic;
+}
+
+.rich-text-content a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.rich-text-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.rich-text-content blockquote {
+  margin: 1rem 0;
+  padding-left: 1rem;
+  border-left: 4px solid #d1d5db;
+}

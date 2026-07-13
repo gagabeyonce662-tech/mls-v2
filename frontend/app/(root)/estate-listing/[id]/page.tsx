@@ -71,8 +71,7 @@ interface ListingPageProps {
 export const dynamic = "force-dynamic";
 
 const getEstateProperty = cache(
-  async (id: string): Promise<Property | null> =>
-    fetchEstatePropertyById(id),
+  async (id: string): Promise<Property | null> => fetchEstatePropertyById(id),
 );
 
 function richTextToPlainText(value: unknown): string {
@@ -207,9 +206,7 @@ export default async function ListingPage(props: ListingPageProps) {
   const getBedCount = () =>
     property.bedrooms_total ?? property.BedroomsTotal ?? null;
   const getBathCount = () =>
-    property.bathrooms_total_integer ??
-    property.BathroomsTotalInteger ??
-    null;
+    property.bathrooms_total_integer ?? property.BathroomsTotalInteger ?? null;
   const getCity = () => getResolvedCity() || "N/A";
 
   const uiPropertyType = getPropertyType(property);
@@ -294,7 +291,9 @@ export default async function ListingPage(props: ListingPageProps) {
     (property as { wp_terms_json?: unknown }).wp_terms_json,
   );
   const formatTaxonomyValues = (value: unknown): string => {
-    const rawValues = Array.isArray(value) ? value : String(value ?? "").split(",");
+    const rawValues = Array.isArray(value)
+      ? value
+      : String(value ?? "").split(",");
     const cleaned = rawValues
       .map((item) => {
         if (item && typeof item === "object") {
@@ -307,8 +306,11 @@ export default async function ListingPage(props: ListingPageProps) {
     return Array.from(new Set(cleaned)).join(", ");
   };
   const propertyTypeDetailsValue =
-    formatTaxonomyValues(wpTerms.type || wpTerms.property_type) || uiPropertyType;
-  const statusTags = formatTaxonomyValues(wpTerms.status || wpTerms.property_status)
+    formatTaxonomyValues(wpTerms.type || wpTerms.property_type) ||
+    uiPropertyType;
+  const statusTags = formatTaxonomyValues(
+    wpTerms.status || wpTerms.property_status,
+  )
     .split(",")
     .map((tag) => tag.trim())
     .filter(Boolean);
@@ -432,9 +434,9 @@ export default async function ListingPage(props: ListingPageProps) {
     property.PrivateRemarks ||
     property.Description ||
     `This ${uiPropertyType}${cityForStats ? ` is located in ${cityForStats}` : ""}${property.StateOrProvince || property.state_or_province ? `, ${property.StateOrProvince || property.state_or_province}` : ""}${builtYear ? `. Built in ${builtYear}` : ""}${beds || baths ? `, this property features ${beds ? `${beds} bedrooms` : ""}${beds && baths ? " and " : ""}${baths ? `${baths} bathrooms` : ""}` : ""}${livingArea ? ` with ${livingArea} of living space` : ""}.`;
-  const aboutText = richTextToPlainText(
-    (property as { property_description?: string }).property_description,
-  );
+  const aboutHtml = String(
+    (property as { property_description?: string }).property_description ?? "",
+  ).trim();
   const descriptionSections = (() => {
     const source = (property as { description_sections_json?: unknown })
       .description_sections_json;
@@ -456,7 +458,7 @@ export default async function ListingPage(props: ListingPageProps) {
         return {
           id: String(typed.id || `section-${idx + 1}`),
           title: String(typed.title || "").trim(),
-          bodyText: richTextToPlainText(typed.body_html),
+          bodyHtml: String(typed.body_html ?? "").trim(),
           order:
             typeof typed.order === "number"
               ? typed.order
@@ -469,9 +471,9 @@ export default async function ListingPage(props: ListingPageProps) {
         ): section is {
           id: string;
           title: string;
-          bodyText: string;
+          bodyHtml: string;
           order: number;
-        } => Boolean(section && section.bodyText),
+        } => Boolean(section && section.bodyHtml),
       )
       .sort((a, b) => a.order - b.order);
   })();
@@ -540,9 +542,7 @@ export default async function ListingPage(props: ListingPageProps) {
             images={propertyImages}
             media={property.media || property.Media || []}
             statusLabel={
-              isFeaturedTag
-                ? "Featured"
-                : listingStatus || "Status unavailable"
+              isFeaturedTag ? "Featured" : listingStatus || "Status unavailable"
             }
             latitude={latitude}
             longitude={longitude}
@@ -609,9 +609,10 @@ export default async function ListingPage(props: ListingPageProps) {
                       </h4>
                     ) : null}
                     <section className="bg-white border border-ds-card-border rounded-2xl p-5 shadow-sm">
-                      <div className="whitespace-pre-line text-sm leading-7 text-ds-body">
-                        {section.bodyText}
-                      </div>
+                      <div
+                        className="rich-text-content overflow-x-auto text-sm leading-7 text-ds-body"
+                        dangerouslySetInnerHTML={{ __html: section.bodyHtml }}
+                      />
                     </section>
                   </div>
                 ))}
@@ -621,10 +622,11 @@ export default async function ListingPage(props: ListingPageProps) {
                 <h2 className="text-2xl md:text-3xl font-bold text-ds-heading mb-3">
                   {t("aboutTitle")}
                 </h2>
-                {aboutText ? (
-                  <div className="whitespace-pre-line text-sm leading-7 text-ds-body">
-                    {aboutText}
-                  </div>
+                {aboutHtml ? (
+                  <div
+                    className="rich-text-content overflow-x-auto text-sm leading-7 text-ds-body"
+                    dangerouslySetInnerHTML={{ __html: aboutHtml }}
+                  />
                 ) : (
                   <OverviewExcerpt text={description} maxChars={400} />
                 )}
@@ -639,7 +641,12 @@ export default async function ListingPage(props: ListingPageProps) {
               price={displayPrice}
               type={uiPropertyType}
               livingArea={livingArea}
-              hiddenLabels={["Status", "MLS® #", "Coordinates", "Publish Status"]}
+              hiddenLabels={[
+                "Status",
+                "MLS® #",
+                "Coordinates",
+                "Publish Status",
+              ]}
               hideZeroValueLabels={["Parking"]}
             />
 
@@ -715,4 +722,3 @@ export default async function ListingPage(props: ListingPageProps) {
     </div>
   );
 }
-
