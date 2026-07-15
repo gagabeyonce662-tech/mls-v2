@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import PreConstructionPageClient from "@/components/preconstruction/PreConstructionPageClient";
-import { fetchPreConnProperties } from "@/lib/api/properties";
-export const revalidate = 300;
+import {
+  fetchEstateProjects,
+  getEstateProjectUrl,
+} from "@/lib/api/estate";
+export const dynamic = "force-dynamic";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const PAGE_URL = `${SITE_URL}/pre-construction`;
@@ -34,15 +37,13 @@ export const metadata: Metadata = {
 };
 
 export default async function PreConstructionPage() {
-  const response = await fetchPreConnProperties({ limit: 24 });
-  const itemList = (response.results || [])
-    .slice(0, 24)
-    .map((p: any, idx: number) => ({
+  const projects = await fetchEstateProjects();
+  const itemList = projects.map((project, index) => ({
       "@type": "ListItem",
-      position: idx + 1,
-      url: `${PAGE_URL}#${p.listing_key || p.ListingKey || `project-${idx + 1}`}`,
-      name: p.project_name || p.address || "Pre-Construction Project",
-    }));
+      position: index + 1,
+      url: `${SITE_URL}${getEstateProjectUrl(project)}`,
+      name: project.title,
+  }));
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -52,7 +53,7 @@ export default async function PreConstructionPage() {
     url: PAGE_URL,
     mainEntity: {
       "@type": "ItemList",
-      numberOfItems: response.count || itemList.length,
+      numberOfItems: projects.length,
       itemListElement: itemList,
     },
   };
@@ -63,7 +64,7 @@ export default async function PreConstructionPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <PreConstructionPageClient />
+      <PreConstructionPageClient initialProjects={projects} />
     </>
   );
 }
