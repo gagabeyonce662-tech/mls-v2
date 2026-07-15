@@ -7,6 +7,7 @@ from cloudinary import api as cloudinary_api
 from cloudinary.exceptions import Error as CloudinaryError
 from django.conf import settings
 from django.core.files.storage import default_storage
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db import DataError, DatabaseError, IntegrityError
 from django.db.models import Q
@@ -16,11 +17,35 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated, SAFE_METHODS
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework import generics, serializers
+from drf_spectacular.utils import (
+    OpenApiResponse,
+    extend_schema,
+    extend_schema_view,
+    inline_serializer,
+)
 
-from .models import EstateProperty, UserPropertyInteraction
+from .models import (
+    EstateDocument,
+    EstateDocumentIntent,
+    EstateProject,
+    EstateProperty,
+    UserPropertyInteraction,
+)
 from .serializers import EstatePropertyWriteSerializer
+from .serializers_estate import EstateProjectListSerializer, EstateProjectSerializer
 
 logger = logging.getLogger(__name__)
+
+ESTATE_PREFETCHES = (
+    "sections",
+    "unit_types",
+    "prices",
+    "deposit_plans__installments",
+    "incentives",
+    "amenities",
+    "documents",
+)
 
 
 class EstatePropertyAPIViewMixin:
@@ -1375,3 +1400,111 @@ class EstatePropertyButtonClickAPIView(EstatePropertyAPIViewMixinMethods, APIVie
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+@extend_schema_view(get=extend_schema(tags=["Estate Projects"]))
+class EstateProjectListAPIView(generics.ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = EstateProjectListSerializer
+
+    def get_queryset(self):
+        return EstateProject.objects.filter(
+            publication_status__in=["publish", "published"]
+        )
+
+
+@extend_schema_view(get=extend_schema(tags=["Estate Projects"]))
+class EstateProjectDetailAPIView(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = EstateProjectSerializer
+    queryset = EstateProject.objects.filter(
+        publication_status__in=["publish", "published"]
+    ).prefetch_related(*ESTATE_PREFETCHES)
+
+    def get_object(self):
+        value = self.kwargs["lookup"]
+        queryset = self.get_queryset()
+        lookup = {"pk": value} if value.isdigit() else {"slug": value}
+        return get_object_or_404(queryset, **lookup)
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Estate Project Documents"],
+        request=inline_serializer(
+            name="EstateDocumentIntentRequest",
+            fields={"phone": serializers.CharField(required=False)},
+        ),
+        responses={
+            201: inline_serializer(
+                name="EstateDocumentIntentResponse",
+                fields={
+                    "intent_id": serializers.IntegerField(),
+                    "verification_required": serializers.BooleanField(),
+                },
+            ),
+            400: OpenApiResponse(description="Phone number required."),
+        },
+    )
+)
+class EstateDocumentIntentAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, document_id):
+        document = get_object_or_404(EstateDocument, pk=document_id)
+        phone = str(request.data.get("phone") or request.user.phone or "").strip()
+        if document.requires_phone_verification and not phone:
+            return Response(
+                {"detail": "A phone number is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        intent = EstateDocumentIntent.objects.create(
+            document=document,
+            user=request.user,
+            phone=phone,
+        )
+        return Response(
+            {
+                "intent_id": intent.id,
+                "verification_required": (
+                    document.requires_phone_verification
+                    and not request.user.phone_verified
+                ),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Estate Project Documents"],
+        request=None,
+        responses={
+            200: inline_serializer(
+                name="EstateDocumentAccessResponse",
+                fields={"access_url": serializers.URLField()},
+            ),
+            403: OpenApiResponse(description="Intent or phone verification required."),
+        },
+    )
+)
+class EstateDocumentAccessAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, document_id):
+        document = get_object_or_404(EstateDocument, pk=document_id)
+        intent = document.intents.filter(user=request.user).first()
+        if not intent:
+            return Response(
+                {"detail": "Document intent must be captured first."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if document.requires_phone_verification and not request.user.phone_verified:
+            return Response(
+                {"detail": "Phone verification required."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if request.user.phone_verified and not intent.verified_at:
+            intent.verified_at = timezone.now()
+            intent.save(update_fields=["verified_at"])
+        return Response({"access_url": document.source_url})

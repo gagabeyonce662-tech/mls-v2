@@ -866,3 +866,112 @@ class AgentServiceArea(models.Model):
 
     def __str__(self):
         return f"{self.agent_id}:{self.kind}:{self.key}"
+class EstateProject(models.Model):
+    source = models.CharField(max_length=40, default="wordpress")
+    source_id = models.CharField(max_length=200)
+    source_updated_at = models.DateTimeField(null=True, blank=True)
+    title = models.CharField(max_length=500)
+    slug = models.SlugField(max_length=500, unique=True)
+    publication_status = models.CharField(max_length=40, default="draft", db_index=True)
+    developer = models.CharField(max_length=500, blank=True)
+    occupancy_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    address = models.CharField(max_length=1000, blank=True)
+    city = models.CharField(max_length=255, blank=True, db_index=True)
+    province = models.CharField(max_length=255, blank=True)
+    postal_code = models.CharField(max_length=20, blank=True)
+    country = models.CharField(max_length=100, blank=True)
+    latitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    featured_image_url = models.URLField(max_length=2000, blank=True)
+    is_featured = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_featured", "title"]
+        constraints = [models.UniqueConstraint(fields=["source", "source_id"], name="uniq_estate_source_id")]
+        indexes = [models.Index(fields=["publication_status", "city"])]
+
+
+class EstateOrderedModel(models.Model):
+    display_order = models.PositiveIntegerField(default=0)
+    class Meta:
+        abstract = True
+        ordering = ["display_order", "id"]
+
+
+class EstateContentSection(EstateOrderedModel):
+    project = models.ForeignKey(EstateProject, related_name="sections", on_delete=models.CASCADE)
+    heading = models.CharField(max_length=500, blank=True)
+    html = models.TextField(blank=True)
+
+
+class EstateUnitType(EstateOrderedModel):
+    project = models.ForeignKey(EstateProject, related_name="unit_types", on_delete=models.CASCADE)
+    name = models.CharField(max_length=500)
+    description = models.TextField(blank=True)
+
+
+class EstatePrice(EstateOrderedModel):
+    project = models.ForeignKey(EstateProject, related_name="prices", on_delete=models.CASCADE)
+    unit_type = models.ForeignKey(EstateUnitType, related_name="prices", null=True, blank=True, on_delete=models.SET_NULL)
+    display_text = models.CharField(max_length=1000)
+    amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=3, blank=True)
+
+
+class EstateDepositPlan(EstateOrderedModel):
+    project = models.ForeignKey(EstateProject, related_name="deposit_plans", on_delete=models.CASCADE)
+    unit_type = models.ForeignKey(EstateUnitType, related_name="deposit_plans", null=True, blank=True, on_delete=models.SET_NULL)
+    title = models.CharField(max_length=500)
+
+
+class EstateDepositInstallment(EstateOrderedModel):
+    plan = models.ForeignKey(EstateDepositPlan, related_name="installments", on_delete=models.CASCADE)
+    milestone = models.CharField(max_length=500)
+    amount_text = models.CharField(max_length=1000)
+    amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    percentage = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
+
+
+class EstateIncentive(EstateOrderedModel):
+    project = models.ForeignKey(EstateProject, related_name="incentives", on_delete=models.CASCADE)
+    description = models.TextField()
+
+
+class EstateAmenity(EstateOrderedModel):
+    project = models.ForeignKey(EstateProject, related_name="amenities", on_delete=models.CASCADE)
+    description = models.TextField()
+    travel_time_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
+
+
+class EstateDocument(EstateOrderedModel):
+    TYPE_CHOICES = [("floor_plan", "Floor plan"), ("brochure", "Brochure"), ("price_list", "Price list"), ("other", "Other")]
+    project = models.ForeignKey(EstateProject, related_name="documents", on_delete=models.CASCADE)
+    label = models.CharField(max_length=500)
+    document_type = models.CharField(max_length=30, choices=TYPE_CHOICES, default="other")
+    source_url = models.URLField(max_length=3000)
+    requires_phone_verification = models.BooleanField(default=True)
+
+
+class EstateSourceSnapshot(models.Model):
+    project = models.OneToOneField(EstateProject, related_name="source_snapshot", on_delete=models.CASCADE)
+    raw_html = models.TextField(blank=True)
+    raw_metadata = models.JSONField(default=dict, blank=True)
+    raw_terms = models.JSONField(default=dict, blank=True)
+    raw_post = models.JSONField(default=dict, blank=True)
+    warnings = models.JSONField(default=list, blank=True)
+    source_updated_at = models.DateTimeField(null=True, blank=True)
+    imported_at = models.DateTimeField(auto_now=True)
+
+
+class EstateDocumentIntent(models.Model):
+    document = models.ForeignKey(EstateDocument, related_name="intents", on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="estate_document_intents", on_delete=models.CASCADE)
+    phone = models.CharField(max_length=30, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["user", "document", "-created_at"])]

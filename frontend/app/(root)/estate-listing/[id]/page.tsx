@@ -59,6 +59,8 @@ import { getTranslations } from "next-intl/server";
 import ListingQuickActions from "@/components/listing/details/ListingQuickActions";
 import ListingFactsStrip from "@/components/listing/details/ListingFactsStrip";
 import ListingSectionNav from "@/components/listing/details/ListingSectionNav";
+import { fetchEstateProject } from "@/lib/api/estate";
+import EstateProjectDetail from "@/components/preconstruction/EstateProjectDetail";
 
 interface ListingPageProps {
   params: Promise<{
@@ -125,6 +127,15 @@ export default async function ListingPage(props: ListingPageProps) {
   // --- 1. INITIAL DATA RESOLUTION ---
   // Resolves params and fetches core property data.
   const params = await props.params;
+  if (params.id.startsWith("estate_")) {
+    let project;
+    try {
+      project = await fetchEstateProject(params.id.slice(7));
+    } catch {
+      notFound();
+    }
+    return <EstateProjectDetail project={project} />;
+  }
   const property = await getEstateProperty(params.id);
 
   if (!property) {
