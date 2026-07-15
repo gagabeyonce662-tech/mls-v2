@@ -1,7 +1,20 @@
 # admin.py
+import uuid
+
 from django.contrib import admin
-from .models import Property, Room, Media, UserFeedback, PropertyInquiry
+from django import forms
+from django.utils.html import format_html
+from .models import (
+    EstateProperty,
+    EstatePropertyImage,
+    Media,
+    Property,
+    PropertyInquiry,
+    Room,
+    UserFeedback,
+)
 from .admin_ui import SectionedAdminMixin
+
 
 class RoomInline(admin.TabularInline):
     model = Room
@@ -236,7 +249,7 @@ class PropertyInquiryAdmin(SectionedAdminMixin, admin.ModelAdmin):
                     "preferred_locations",
                     "property_types",
                     "budget_min",
-                    "budget_max",
+                    "budget_max",   
                     "bedrooms_min",
                     "bathrooms_min",
                     "timeline",
@@ -260,7 +273,47 @@ class PropertyInquiryAdmin(SectionedAdminMixin, admin.ModelAdmin):
     )
 
 
-admin.site.register(Property, PropertyAdmin)
+
 admin.site.register(Room, RoomAdmin)
 admin.site.register(Media, MediaAdmin)
 admin.site.register(UserFeedback, UserFeedbackAdmin)
+
+
+
+
+@admin.register(EstateProperty)
+class EstatePropertyAdmin(admin.ModelAdmin):
+    list_display = (
+        "listing_key",
+        "property_title",
+        "publish_status",
+        "city",
+        "list_price",
+        "is_featured",
+    )
+
+    list_filter = (
+        "publish_status",
+        "is_featured",
+        "city",
+        "standard_status",
+    )
+
+    search_fields = (
+        "listing_key",
+        "listing_id",
+        "property_title",
+        "property_slug",
+        "city",
+        "unparsed_address",
+    )
+
+    readonly_fields = (
+        "id",
+        "listing_key",
+        "modification_timestamp",
+    )
+
+    ordering = (
+        "-modification_timestamp",
+    )

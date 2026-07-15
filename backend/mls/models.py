@@ -1,5 +1,8 @@
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
+from PIL import Image, UnidentifiedImageError
 from datetime import timedelta
 from django.utils import timezone
 from .helpers import regenerate_access_token_with_refresh_token
@@ -207,6 +210,18 @@ class EstateProperty(models.Model):
     Keep this model unmanaged so Django does not try to create/alter/drop it
     automatically, while still giving us a first-class model contract.
     """
+    
+    class PublishStatus(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PUBLISHED = "publish", "Published"
+        PENDING = "pending", "Pending Review"
+        PRIVATE = "private", "Private"
+
+    publish_status = models.CharField(
+        max_length=320,
+        choices=PublishStatus.choices,
+        default=PublishStatus.DRAFT,
+    )
 
     id = models.BigAutoField(primary_key=True)
     listing_key = models.CharField(max_length=2000, unique=True)
@@ -214,9 +229,14 @@ class EstateProperty(models.Model):
 
     property_title = models.TextField(null=True, blank=True)
     property_slug = models.CharField(max_length=255, null=True, blank=True)
-    publish_status = models.CharField(max_length=32, default="draft", null=True, blank=True)
+    # publish_status = models.CharField(max_length=32, default="draft", null=True, blank=True)
     property_description = models.TextField(null=True, blank=True)
     featured_image_url = models.TextField(null=True, blank=True)
+    featured_image = models.ImageField(
+        upload_to="mls/estate-properties/featured",
+        blank=True,
+        null=True,
+    )
     listing_url = models.URLField(null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
 
@@ -277,6 +297,80 @@ class EstateProperty(models.Model):
 
     def __str__(self):
         return f"EstateProperty<{self.listing_key}>"
+
+    def clean(self):
+        super().clean()
+        if self.featured_image:
+            if not settings.ESTATE_IMAGE_STORAGE_CONFIGURED:
+                raise ValidationError(
+                    {"featured_image": "Cloudinary must be configured before uploading estate images."}
+                )
+            validate_estate_image(self.featured_image)
+
+    @property
+    def effective_featured_image_url(self):
+        if self.featured_image:
+            return estate_image_url(self.featured_image.name)
+        return self.featured_image_url
+
+
+def estate_image_url(name):
+    """Return a delivery URL for a stored estate image without persisting it."""
+    if not name:
+        return None
+    try:
+        return default_storage.url(name)
+    except (ValueError, OSError):
+        return None
+
+
+def validate_estate_image(upload):
+    """Validate uploads before storage; Django's ImageField validates again in forms."""
+    if not upload:
+        return
+    max_bytes = settings.ESTATE_IMAGE_MAX_UPLOAD_MB * 1024 * 1024
+    if upload.size > max_bytes:
+        raise ValidationError(
+            f"Image must be {settings.ESTATE_IMAGE_MAX_UPLOAD_MB} MB or smaller."
+        )
+    try:
+        image = Image.open(upload)
+        image.verify()
+        if image.format not in {"JPEG", "PNG", "WEBP"}:
+            raise ValidationError("Upload a JPEG, PNG, or WebP image.")
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise ValidationError("Upload a valid JPEG, PNG, or WebP image.") from exc
+    finally:
+        upload.seek(0)
+
+
+def estate_gallery_upload_path(instance, filename):
+    # The database identifier is stable and avoids deriving public IDs from titles.
+    return f"mls/estate-properties/gallery/{instance.estate_property_id}/{filename}"
+
+
+class EstatePropertyImage(models.Model):
+    estate_property = models.ForeignKey(
+        EstateProperty,
+        related_name="gallery_images",
+        on_delete=models.CASCADE,
+        db_constraint=False,
+    )
+    image = models.ImageField(upload_to=estate_gallery_upload_path, validators=[validate_estate_image])
+    caption = models.CharField(max_length=500, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def clean(self):
+        super().clean()
+        if self.image and not settings.ESTATE_IMAGE_STORAGE_CONFIGURED:
+            raise ValidationError({"image": "Cloudinary must be configured before uploading estate images."})
+
+    @property
+    def image_url(self):
+        return estate_image_url(self.image.name) if self.image else None
 
 
 class CommunityListing(models.Model):

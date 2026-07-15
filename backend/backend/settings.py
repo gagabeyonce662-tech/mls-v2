@@ -49,7 +49,6 @@ ALLOWED_HOSTS = ['staging.vsell4u.ca', 'localhost', '127.0.0.1', '.vercel.app', 
 # Application definition
 
 INSTALLED_APPS = [
-    "unfold",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -81,12 +80,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# Local-only: writes to disk; Vercel's filesystem under /var/task is read-only.
-if not IS_VERCEL:
-    MIDDLEWARE.insert(
-        4,
-        'backend.debug_middleware.AdminContextDebugMiddleware',
-    )
 
 ROOT_URLCONF = 'backend.urls'
 
@@ -206,6 +199,11 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
 
+# Estate image uploads are intentionally Cloudinary-only.  Keeping this
+# separate from the default storage setting prevents an admin upload from
+# quietly landing on a transient application filesystem.
+ESTATE_IMAGE_MAX_UPLOAD_MB = int(os.environ.get("ESTATE_IMAGE_MAX_UPLOAD_MB", "10"))
+
 # Enable Cloudinary storage only when configuration is complete.
 # This avoids runtime failures when only partial credentials are present.
 _cloudinary_url = (os.environ.get("CLOUDINARY_URL") or "").strip()
@@ -235,6 +233,8 @@ if _cloudinary_url or _cloudinary_complete:
     STORAGES["default"]["BACKEND"] = "cloudinary_storage.storage.MediaCloudinaryStorage"
     # Keep compatibility with codepaths still checking this setting.
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+
+ESTATE_IMAGE_STORAGE_CONFIGURED = bool(_cloudinary_url or _cloudinary_complete)
 
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")  

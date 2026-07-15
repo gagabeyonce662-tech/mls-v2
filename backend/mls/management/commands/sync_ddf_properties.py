@@ -88,6 +88,7 @@ class Command(BaseCommand):
             headers=headers,
             filter_expression=filter_expression,
             max_pages=options["max_pages"],
+            progress_callback=self.stdout.write,
         )
 
         self.stdout.write(

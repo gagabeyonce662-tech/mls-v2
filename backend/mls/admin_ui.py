@@ -1,8 +1,9 @@
 class SectionedAdminMixin:
-    change_form_template = "admin/sectioned_change_form.html"
+    """
+    Compatibility mixin retained while the custom admin UI is disabled.
 
-    class Media:
-        css = {
-            "all": ("admin/css/sectioned-admin.css",),
-        }
-        js = ("admin/js/sectioned-admin.js",)
+    Existing ModelAdmin classes still inherit from this class, but it no
+    longer overrides Django's default change-form template or static assets.
+    """
+
+    pass

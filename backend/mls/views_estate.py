@@ -21,7 +21,9 @@ from drf_spectacular.utils import OpenApiTypes, extend_schema
 
 from .models import (
     EstateProperty,
+    EstatePropertyImage,
     UserPropertyInteraction,
+    estate_image_url,
 )
 from .serializers import EstatePropertyWriteSerializer
 
@@ -882,6 +884,32 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
     def schema_response(self, request):
         return Response({"table": self.table_name, "columns": self._columns()})
 
+    @staticmethod
+    def _with_image_urls(rows):
+        """Preserve the legacy featured_image_url contract and add gallery data."""
+        if not rows:
+            return rows
+        gallery_by_property = {}
+        gallery = EstatePropertyImage.objects.filter(
+            estate_property_id__in=[row["id"] for row in rows]
+        ).order_by("sort_order", "id")
+        for item in gallery:
+            gallery_by_property.setdefault(item.estate_property_id, []).append(
+                {
+                    "id": item.id,
+                    "url": item.image_url,
+                    "caption": item.caption,
+                    "sort_order": item.sort_order,
+                }
+            )
+        for row in rows:
+            uploaded_name = row.pop("featured_image", None)
+            row["featured_image_url"] = (
+                estate_image_url(uploaded_name) or row.get("featured_image_url")
+            )
+            row["gallery_images"] = gallery_by_property.get(row["id"], [])
+        return rows
+
     def list(self, request):
         page = max(int(request.query_params.get("page", 1)), 1)
         page_size = min(max(int(request.query_params.get("page_size", 20)), 1), 100)
@@ -938,13 +966,13 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
             )
         )
 
-        return Response({"count": total, "page": page, "page_size": page_size, "results": rows})
+        return Response({"count": total, "page": page, "page_size": page_size, "results": self._with_image_urls(rows)})
 
     def retrieve(self, request, pk=None):
         row = EstateProperty.objects.filter(id=pk).values(*self._column_names()).first()
         if not row:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        return Response(row)
+        return Response(self._with_image_urls([row])[0])
 
     def create(self, request):
         serializer = EstatePropertyWriteSerializer(data={"payload": request.data})
@@ -1090,6 +1118,11 @@ class EstatePropertyMediaUploadAPIView(EstatePropertyAPIViewMixinMethods, APIVie
 
     @extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
     def post(self, request, *args, **kwargs):
+        if not settings.ESTATE_IMAGE_STORAGE_CONFIGURED:
+            return Response(
+                {"detail": "Cloudinary must be configured before uploading estate images."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         files = request.FILES.getlist("images")
         logger.warning(
             "[estate:media-upload] incoming files=%s storage_backend=%s",
@@ -1126,12 +1159,13 @@ class EstatePropertyMediaUploadAPIView(EstatePropertyAPIViewMixinMethods, APIVie
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             file_size = int(getattr(file_obj, "size", 0) or 0)
-            if file_size > self.MAX_MEDIA_UPLOAD_SIZE_BYTES:
+            max_size_bytes = settings.ESTATE_IMAGE_MAX_UPLOAD_MB * 1024 * 1024
+            if file_size > max_size_bytes:
                 return Response(
                     {
                         "detail": (
                             f"File too large for item #{index + 1}. "
-                            f"Max size is {self.MAX_MEDIA_UPLOAD_SIZE_BYTES // (1024 * 1024)}MB."
+                            f"Max size is {settings.ESTATE_IMAGE_MAX_UPLOAD_MB}MB."
                         )
                     },
                     status=status.HTTP_400_BAD_REQUEST,
