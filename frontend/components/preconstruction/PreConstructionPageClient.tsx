@@ -1,240 +1,112 @@
 "use client";
 
-import React, { useMemo } from "react";
-import Image from "next/image";
-import Header from "@/components/Header";
+import { useEffect, useMemo, useState } from "react";
+import { HardHat, SlidersHorizontal } from "lucide-react";
 import Footer from "@/components/Footer";
-import { PropertyGridLayout } from "@/components/listing/PropertyGridLayout";
-import { usePropertyInteractions } from "@/hooks/usePropertyInteractions";
-import { useUserAuth } from "@/contexts/UserAuthContext";
-import { fetchEstateProjects } from "@/lib/api/estate";
-import { Property } from "@/lib/api/types";
-import { SlidersHorizontal, HardHat } from "lucide-react";
+import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { colors } from "@/config/design-system";
-import PropertyFilter from "@/components/PropertyFilter";
+import type { EstateProjectCardData } from "@/lib/api/estate";
+import EstateProjectCard from "./EstateProjectCard";
 
-export default function PreConstructionPageClient() {
-  const { user } = useUserAuth();
-  const isLoggedIn = !!user;
-  const interactions = usePropertyInteractions();
+interface PreConstructionPageClientProps {
+  initialProjects?: EstateProjectCardData[];
+}
 
-  const [properties, setProperties] = React.useState<Property[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [showAll, setShowAll] = React.useState(false);
-  const [initialLimit, setInitialLimit] = React.useState(8);
-  const [searchQuery] = React.useState("");
+const EMPTY_PROJECTS: EstateProjectCardData[] = [];
 
-  React.useEffect(() => {
-    const calculateInitialItems = () => {
-      if (typeof window === "undefined") return 8;
-      const width = window.innerWidth;
-      if (width >= 1800) return 16;
-      if (width >= 1536) return 12;
-      if (width >= 1280) return 8;
-      if (width >= 1024) return 6;
-      if (width >= 640) return 4;
-      return 4;
-    };
+function getInitialLimit(width: number): number {
+  if (width >= 1536) return 10;
+  if (width >= 1024) return 8;
+  if (width >= 768) return 6;
+  if (width >= 640) return 4;
+  return 4;
+}
 
-    setInitialLimit(calculateInitialItems());
-    const handleResize = () => setInitialLimit(calculateInitialItems());
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+export default function PreConstructionPageClient({
+  initialProjects,
+}: PreConstructionPageClientProps) {
+  const [showAll, setShowAll] = useState(false);
+  const [initialLimit, setInitialLimit] = useState(4);
+  const isLoading = initialProjects === undefined;
+  const projects = initialProjects ?? EMPTY_PROJECTS;
+
+  useEffect(() => {
+    const updateInitialLimit = () => setInitialLimit(getInitialLimit(window.innerWidth));
+    updateInitialLimit();
+    window.addEventListener("resize", updateInitialLimit);
+    return () => window.removeEventListener("resize", updateInitialLimit);
   }, []);
 
-  // the fetchEstateProperties function is used here to get the builder logos and other details that are not available in the pre-constructionAPI.
-  // I am breadcrumbing my way to the backend to add the feature for the suer to add multiple tables to the estate-listing/[id] page.
-
-  React.useEffect(() => {
-    let mounted = true;
-
-    const mapEstateToProperty = (row: any): Property => {
-      const key = `estate_${row?.id}`;
-      const candidateMediaUrl = row?.featured_image_url || row?.media_url || row?.primary_image_url || "";
-      const isLikelyImageUrl =
-        typeof candidateMediaUrl === "string" &&
-        /^https?:\/\//i.test(candidateMediaUrl) &&
-        /\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i.test(candidateMediaUrl);
-      const mediaUrl = isLikelyImageUrl
-        ? candidateMediaUrl
-        : "https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png";
-
-      return {
-        ...row,
-        listing_key: key,
-        listing_id: row?.listing_id || key,
-        ListingKey: key,
-        PropertyKey: key,
-        address: row?.unparsed_address || "",
-        city: row?.city || "Pre-Construction",
-        City: row?.city || "Pre-Construction",
-        list_price: row?.list_price,
-        ListPrice: row?.list_price,
-        bedrooms_total: row?.bedrooms_total,
-        bathrooms_total_integer: row?.bathrooms_total_integer,
-        building_area_total: row?.building_area_total,
-        standard_status: row?.standard_status || "Pre-Construction",
-        StandardStatus: row?.standard_status || "Pre-Construction",
-        property_sub_type: row?.property_sub_type || "Pre-Construction",
-        PropertySubType: row?.property_sub_type || "Pre-Construction",
-        public_remarks: row?.public_remarks || "",
-        PublicRemarks: row?.public_remarks || "",
-        media: [{ media_url: mediaUrl, is_preferred: true, order: 1 } as any],
-        project_name:
-          row?.project_name ||
-          row?.unparsed_address ||
-          row?.listing_key ||
-          "Estate Project",
-      };
-    };
-
-    const fetchPrecons = async () => {
-      setIsLoading(true);
-      try {
-        const estateData = await fetchEstateProjects();
-
-        const estateMapped = (estateData || []).map(mapEstateToProperty);
-        const merged = [...estateMapped];
-
-        if (mounted) setProperties(merged);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (mounted) setIsLoading(false);
-      }
-    };
-    fetchPrecons();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const filteredProperties = useMemo(() => {
-    if (!searchQuery.trim()) return properties;
-    const q = searchQuery.toLowerCase();
-    return properties.filter((p) => {
-      const name = (p.project_name || "").toLowerCase();
-      const addr = (p.address || "").toLowerCase();
-      const dev = ((p as any).developer || "").toLowerCase();
-      return name.includes(q) || addr.includes(q) || dev.includes(q);
-    });
-  }, [properties, searchQuery]);
-
-  const displayedProperties = useMemo(() => {
-    return showAll
-      ? filteredProperties
-      : filteredProperties.slice(0, initialLimit);
-  }, [filteredProperties, showAll, initialLimit]);
-
-  const builderLogoUrl = useMemo(() => {
-    const detectedLogo = properties
-      .map(
-        (p: any) =>
-          p?.builder_logo || p?.developer_logo || p?.logo_url || p?.logo,
-      )
-      .find(
-        (url: string | undefined) =>
-          typeof url === "string" && url.trim().length > 0,
-      );
-
-    return (
-      detectedLogo ||
-      "https://estate-4u.com/wp-content/uploads/2024/06/Logo-2.png"
-    );
-  }, [properties]);
-
-  const emptyMessage = (
-    <div className="bg-white rounded-2xl border border-dashed border-gray-300 py-32 text-center shadow-inner">
-      <div className="max-w-md mx-auto space-y-4">
-        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto text-gray-400">
-          <SlidersHorizontal className="w-8 h-8" />
-        </div>
-        <h3 className="text-xl font-bold text-ds-heading">
-          No Pre-Construction Properties Found
-        </h3>
-        <p className="text-ds-body leading-relaxed">
-          We couldn&apos;t find any pre-construction projects at this time.
-        </p>
-      </div>
-    </div>
+  const displayedProjects = useMemo(
+    () => (showAll ? projects : projects.slice(0, initialLimit)),
+    [initialLimit, projects, showAll],
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50/50">
+    <div className="flex min-h-screen flex-col bg-gray-50/50">
       <Header />
 
-      <main className="flex-1 pt-32 pb-16 px-4 lg:px-6">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-ds-primary">
-              <HardHat className="w-5 h-5 text-orange-500" />
-              <span className="text-sm font-bold uppercase tracking-wider text-orange-600">
-                New Developments
-              </span>
-            </div>
-            <h1 className="text-4xl font-extrabold text-ds-heading font-inter">
-              Pre-Construction Projects
-            </h1>
-            <p className="text-ds-body text-lg">
-              Explore the latest builder developments, townhomes, and condos
-              before they are built.
-            </p>
+      <main className="flex-1 px-4 pb-16 pt-32 lg:px-6">
+        <div className="mb-8">
+          <div className="flex items-center gap-2 text-ds-primary">
+            <HardHat className="h-5 w-5 text-orange-500" aria-hidden="true" />
+            <span className="text-sm font-bold uppercase tracking-wider text-orange-600">
+              New Developments
+            </span>
           </div>
+          <h1 className="mt-2 font-inter text-4xl font-extrabold text-ds-heading">
+            Pre-Construction Projects
+          </h1>
+          <p className="mt-2 text-lg text-ds-body">
+            Explore the latest builder developments, townhomes, and condos before
+            they are built.
+          </p>
         </div>
 
-        <div
-          className="-mx-4 lg:-mx-6 px-4 lg:px-6 pb-2 pt-2 transition-all duration-300 origin-top"
-          style={{ backgroundColor: colors.cards }}
-        >
-          <PropertyFilter variant="horizontal" />
-        </div>
-
-        <PropertyGridLayout
-          properties={displayedProperties as any}
-          isLoading={isLoading}
-          isFetchingNextPage={false}
-          hasNextPage={false}
-          fetchNextPage={() => {}}
-          isLoggedIn={isLoggedIn}
-          interactions={interactions}
-          cardLayout="compact"
-          emptyMessage={emptyMessage}
-        />
-
-        {!showAll && properties.length > initialLimit && !isLoading && (
-          <div className="mt-16 flex justify-center">
-            <Button
-              onClick={() => setShowAll(true)}
-              className="px-12 py-7 rounded-full text-lg font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all text-white bg-ds-primary"
-            >
-              View All {properties.length} Projects
-            </Button>
+        {isLoading ? (
+          <div
+            className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5"
+            aria-label="Loading pre-construction projects"
+          >
+            {Array.from({ length: 8 }, (_, index) => (
+              <div
+                key={index}
+                className="aspect-[3/4] animate-pulse rounded-2xl bg-gray-200"
+              />
+            ))}
+          </div>
+        ) : displayedProjects.length > 0 ? (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+            {displayedProjects.map((project) => (
+              <EstateProjectCard key={project.id} project={project} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white py-32 text-center shadow-inner">
+            <div className="mx-auto max-w-md space-y-4">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-400">
+                <SlidersHorizontal className="h-8 w-8" aria-hidden="true" />
+              </div>
+              <h2 className="text-xl font-bold text-ds-heading">
+                No Pre-Construction Projects Found
+              </h2>
+              <p className="leading-relaxed text-ds-body">
+                We couldn&apos;t find any pre-construction projects at this time.
+              </p>
+            </div>
           </div>
         )}
 
-        <section className="mt-16 sm:mt-20">
-          <div className="relative overflow-hidden rounded-3xl border border-amber-200/60 bg-gradient-to-br from-white via-amber-50/50 to-orange-50/60 px-6 py-10 sm:px-10 sm:py-12 shadow-[0_20px_60px_-30px_rgba(146,64,14,0.45)]">
-            <div className="pointer-events-none absolute -top-16 -right-16 h-44 w-44 rounded-full bg-amber-200/20 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-14 -left-10 h-36 w-36 rounded-full bg-orange-200/20 blur-3xl" />
-
-            <div className="relative mx-auto max-w-3xl text-center">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700/80">
-                Featured Builder
-              </p>
-
-              <div className="mt-5 rounded-2xl border border-white/80 bg-white/80 px-6 py-8 sm:px-12 sm:py-10 backdrop-blur-sm shadow-[0_14px_36px_-24px_rgba(0,0,0,0.45)]">
-                <Image
-                  src={builderLogoUrl}
-                  alt="Builder Logo"
-                  width={520}
-                  height={170}
-                  className="mx-auto h-28 sm:h-32 md:h-36 w-auto object-contain"
-                />
-              </div>
-            </div>
+        {!showAll && projects.length > initialLimit && !isLoading && (
+          <div className="mt-16 flex justify-center">
+            <Button
+              onClick={() => setShowAll(true)}
+              className="rounded-full bg-ds-primary px-12 py-7 text-lg font-bold text-white shadow-2xl transition-all hover:scale-105 active:scale-95"
+            >
+              View All {projects.length} Projects
+            </Button>
           </div>
-        </section>
+        )}
       </main>
 
       <Footer />

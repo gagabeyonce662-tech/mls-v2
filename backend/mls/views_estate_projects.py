@@ -1,4 +1,5 @@
 from django.http import StreamingHttpResponse
+from django.db.models import OuterRef, Subquery
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from drf_spectacular.utils import (
@@ -13,7 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import EstateProject
+from .models import EstatePrice, EstateProject
 from .serializers_estate import (
     EstateDocumentAccessResponseSerializer,
     EstateDocumentIntentRequestSerializer,
@@ -65,7 +66,15 @@ class EstateProjectListAPIView(generics.ListAPIView):
     serializer_class = EstateProjectListSerializer
 
     def get_queryset(self):
-        return EstateProject.objects.filter(publication_status__in=PUBLISHED_STATUSES)
+        lowest_price = EstatePrice.objects.filter(
+            project_id=OuterRef("pk"),
+            amount__isnull=False,
+        ).order_by("amount", "display_order", "id")
+        return EstateProject.objects.filter(
+            publication_status__in=PUBLISHED_STATUSES
+        ).annotate(
+            lowest_price_display=Subquery(lowest_price.values("display_text")[:1])
+        )
 
 
 @extend_schema_view(

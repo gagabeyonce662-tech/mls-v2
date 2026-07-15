@@ -147,6 +147,8 @@ class EstateProjectSerializer(serializers.ModelSerializer):
 
 
 class EstateProjectListSerializer(serializers.ModelSerializer):
+    lowest_price_display = serializers.CharField(read_only=True, allow_null=True)
+
     class Meta:
         model = EstateProject
         fields = [
@@ -161,4 +163,5 @@ class EstateProjectListSerializer(serializers.ModelSerializer):
             "province",
             "featured_image_url",
             "is_featured",
+            "lowest_price_display",
         ]
