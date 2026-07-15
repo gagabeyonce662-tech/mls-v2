@@ -59,7 +59,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'email', 'phone', 'phone_verified', 'date_joined')
         read_only_fields = ('id', 'email', 'phone_verified', 'date_joined')
 
-    def get_name(self, obj):
+    def get_name(self, obj) -> str:
         return obj.full_name
 
 

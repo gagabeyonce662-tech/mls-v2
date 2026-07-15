@@ -350,6 +350,32 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'SERVE_AUTHENTICATION': ['rest_framework_simplejwt.authentication.JWTAuthentication'],
     'COMPONENT_SPLIT_REQUEST': True,
+    'TAGS': [
+        {'name': 'Health', 'description': 'Application liveness and database readiness checks.'},
+        {'name': 'Authentication', 'description': 'Account registration, authentication, verification, and profile operations.'},
+        {'name': 'Estate Projects', 'description': 'Published canonical estate project data.'},
+        {'name': 'Estate Documents', 'description': 'Phone-aware access to canonical estate project documents.'},
+        {'name': 'Estate Properties (Legacy)', 'description': 'Legacy estate-property administration and compatibility endpoints.'},
+        {'name': 'MLS Properties', 'description': 'MLS listing retrieval and related property data.'},
+        {'name': 'Property Search', 'description': 'Structured property search and filtering.'},
+        {'name': 'Maps', 'description': 'Location, school, amenity, and census data.'},
+        {'name': 'Valuation', 'description': 'Property valuation lookup and estimates.'},
+        {'name': 'Inquiries', 'description': 'Property inquiries and visitor feedback.'},
+        {'name': 'User Activity', 'description': 'Listing engagement, views, and property notes.'},
+        {'name': 'Watched Properties', 'description': 'Favorites, history, tours, and followed areas.'},
+        {'name': 'Alerts', 'description': 'Watched-property alert preferences and previews.'},
+        {'name': 'Vlogs', 'description': 'Published vlog content.'},
+    ],
+    'SWAGGER_UI_SETTINGS': {
+        'persistAuthorization': True,
+        'docExpansion': 'none',
+        'filter': True,
+        'defaultModelsExpandDepth': -1,
+    },
+    'POSTPROCESSING_HOOKS': [
+        'drf_spectacular.hooks.postprocess_schema_enums',
+        'backend.schema.assign_api_tags',
+    ],
 }
 
 ESTATE_DOCUMENT_ALLOWED_HOSTS = [

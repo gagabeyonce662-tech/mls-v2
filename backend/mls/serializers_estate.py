@@ -1,41 +1,110 @@
 from rest_framework import serializers
+
 from .models import (
-    EstateAmenity, EstateContentSection, EstateDepositInstallment, EstateDepositPlan,
-    EstateDocument, EstateIncentive, EstatePrice, EstateProject, EstateUnitType,
+    EstateAmenity,
+    EstateContentSection,
+    EstateDepositInstallment,
+    EstateDepositPlan,
+    EstateDocument,
+    EstateIncentive,
+    EstatePrice,
+    EstateProject,
+    EstateUnitType,
 )
 
 
 class EstateUnitTypeSerializer(serializers.ModelSerializer):
-    class Meta: model = EstateUnitType; fields = ["id", "name", "description", "display_order"]
+    class Meta:
+        model = EstateUnitType
+        fields = ["id", "name", "description", "display_order"]
 
 
 class EstatePriceSerializer(serializers.ModelSerializer):
-    class Meta: model = EstatePrice; fields = ["id", "unit_type_id", "display_text", "amount", "currency", "display_order"]
+    class Meta:
+        model = EstatePrice
+        fields = [
+            "id",
+            "unit_type_id",
+            "display_text",
+            "amount",
+            "currency",
+            "display_order",
+        ]
 
 
 class EstateInstallmentSerializer(serializers.ModelSerializer):
-    class Meta: model = EstateDepositInstallment; fields = ["id", "milestone", "amount_text", "amount", "percentage", "display_order"]
+    class Meta:
+        model = EstateDepositInstallment
+        fields = [
+            "id",
+            "milestone",
+            "amount_text",
+            "amount",
+            "percentage",
+            "display_order",
+        ]
 
 
 class EstateDepositPlanSerializer(serializers.ModelSerializer):
     installments = EstateInstallmentSerializer(many=True, read_only=True)
-    class Meta: model = EstateDepositPlan; fields = ["id", "unit_type_id", "title", "display_order", "installments"]
+
+    class Meta:
+        model = EstateDepositPlan
+        fields = [
+            "id",
+            "unit_type_id",
+            "title",
+            "display_order",
+            "installments",
+        ]
 
 
 class EstateSectionSerializer(serializers.ModelSerializer):
-    class Meta: model = EstateContentSection; fields = ["id", "heading", "html", "display_order"]
+    class Meta:
+        model = EstateContentSection
+        fields = ["id", "heading", "html", "display_order"]
 
 
 class EstateIncentiveSerializer(serializers.ModelSerializer):
-    class Meta: model = EstateIncentive; fields = ["id", "description", "display_order"]
+    class Meta:
+        model = EstateIncentive
+        fields = ["id", "description", "display_order"]
 
 
 class EstateAmenitySerializer(serializers.ModelSerializer):
-    class Meta: model = EstateAmenity; fields = ["id", "description", "travel_time_minutes", "display_order"]
+    class Meta:
+        model = EstateAmenity
+        fields = [
+            "id",
+            "description",
+            "travel_time_minutes",
+            "display_order",
+        ]
 
 
 class EstateDocumentSerializer(serializers.ModelSerializer):
-    class Meta: model = EstateDocument; fields = ["id", "label", "document_type", "requires_phone_verification", "display_order"]
+    class Meta:
+        model = EstateDocument
+        fields = [
+            "id",
+            "label",
+            "document_type",
+            "requires_phone_verification",
+            "display_order",
+        ]
+
+
+class EstateDocumentIntentRequestSerializer(serializers.Serializer):
+    phone = serializers.CharField(required=False, allow_blank=True, max_length=30)
+
+
+class EstateDocumentIntentResponseSerializer(serializers.Serializer):
+    intent_id = serializers.IntegerField()
+    verification_required = serializers.BooleanField()
+
+
+class EstateDocumentAccessResponseSerializer(serializers.Serializer):
+    access_url = serializers.URLField()
 
 
 class EstateProjectSerializer(serializers.ModelSerializer):
@@ -46,19 +115,50 @@ class EstateProjectSerializer(serializers.ModelSerializer):
     incentives = EstateIncentiveSerializer(many=True, read_only=True)
     amenities = EstateAmenitySerializer(many=True, read_only=True)
     documents = EstateDocumentSerializer(many=True, read_only=True)
+
     class Meta:
         model = EstateProject
         fields = [
-            "id", "title", "slug", "publication_status", "developer",
-            "occupancy_year", "address", "city", "province", "postal_code",
-            "country", "latitude", "longitude", "featured_image_url",
-            "is_featured", "created_at", "updated_at", "sections",
-            "unit_types", "prices", "deposit_plans", "incentives",
-            "amenities", "documents",
+            "id",
+            "title",
+            "slug",
+            "publication_status",
+            "developer",
+            "occupancy_year",
+            "address",
+            "city",
+            "province",
+            "postal_code",
+            "country",
+            "latitude",
+            "longitude",
+            "featured_image_url",
+            "is_featured",
+            "created_at",
+            "updated_at",
+            "sections",
+            "unit_types",
+            "prices",
+            "deposit_plans",
+            "incentives",
+            "amenities",
+            "documents",
         ]
 
 
 class EstateProjectListSerializer(serializers.ModelSerializer):
     class Meta:
         model = EstateProject
-        fields = ["id", "title", "slug", "publication_status", "developer", "occupancy_year", "address", "city", "province", "featured_image_url", "is_featured"]
+        fields = [
+            "id",
+            "title",
+            "slug",
+            "publication_status",
+            "developer",
+            "occupancy_year",
+            "address",
+            "city",
+            "province",
+            "featured_image_url",
+            "is_featured",
+        ]

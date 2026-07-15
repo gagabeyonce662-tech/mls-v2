@@ -16,8 +16,10 @@ from .views_valuation import (
     ValuationLookupAPIView,
     ValuationEstimateAPIView,
 )
-from .views_estate import (
-    EstateDocumentAccessAPIView, EstateDocumentIntentAPIView, EstateDocumentProxyAPIView,
+from .views_estate_projects import (
+    EstateDocumentAccessAPIView,
+    EstateDocumentIntentAPIView,
+    EstateDocumentProxyAPIView,
     EstateProjectDetailAPIView, EstateProjectListAPIView,
 )
 
