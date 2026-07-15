@@ -7,6 +7,14 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework import serializers
+from drf_spectacular.utils import (
+    OpenApiResponse,
+    OpenApiTypes,
+    extend_schema,
+    extend_schema_view,
+    inline_serializer,
+)
 from rest_framework_simplejwt.tokens import RefreshToken
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
@@ -76,6 +84,7 @@ def _issue_token_and_respond(user, extra: dict = None):
 # Registration
 # ---------------------------------------------------------------------------
 
+@extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Register an account", request=RegisterSerializer, responses={201: OpenApiResponse(description="Account created; email verification is required."), 400: OpenApiResponse(description="Invalid registration request.")}, auth=[]))
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -113,6 +122,7 @@ class RegisterView(APIView):
 # Login
 # ---------------------------------------------------------------------------
 
+@extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Sign in", request=LoginSerializer, responses={200: OpenApiTypes.OBJECT, 400: OpenApiResponse(description="Invalid login request."), 401: OpenApiResponse(description="Invalid credentials."), 403: OpenApiResponse(description="Email verification is required.")}, auth=[]))
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -149,6 +159,7 @@ class LoginView(APIView):
 # Email Verification
 # ---------------------------------------------------------------------------
 
+@extend_schema_view(get=extend_schema(tags=["Authentication"], summary="Verify an email address", responses={200: OpenApiTypes.OBJECT, 404: OpenApiResponse(description="Verification token was not found."), 410: OpenApiResponse(description="Verification token expired.")}, auth=[]))
 class VerifyEmailView(APIView):
     """
     GET /api/auth/verify-email/<uuid:token>/
@@ -197,6 +208,7 @@ class VerifyEmailView(APIView):
 # Resend Verification
 # ---------------------------------------------------------------------------
 
+@extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Resend email verification", request=ResendVerificationSerializer, responses={200: OpenApiResponse(description="Verification request accepted."), 400: OpenApiResponse(description="Invalid request.")}, auth=[]))
 class ResendVerificationView(APIView):
     """
     POST /api/auth/resend-verification/   Body: {"email": "..."}
@@ -254,6 +266,7 @@ class ResendVerificationView(APIView):
 # Google OAuth
 # ---------------------------------------------------------------------------
 
+@extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Authenticate with Google", request=GoogleAuthSerializer, responses={200: OpenApiTypes.OBJECT, 400: OpenApiResponse(description="Google authentication failed.")}, auth=[]))
 class GoogleAuthView(APIView):
     permission_classes = [AllowAny]
 
@@ -366,6 +379,7 @@ class GoogleAuthView(APIView):
 # Facebook OAuth
 # ---------------------------------------------------------------------------
 
+@extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Authenticate with Facebook", request=FacebookAuthSerializer, responses={200: OpenApiTypes.OBJECT, 400: OpenApiResponse(description="Facebook authentication failed.")}, auth=[]))
 class FacebookAuthView(APIView):
     permission_classes = [AllowAny]
 
@@ -546,6 +560,7 @@ def _get_twilio_client():
     return TwilioClient(sid, token), service, ''
 
 
+@extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Send a phone verification code", request=inline_serializer(name="SendOtpRequest", fields={"phone": serializers.CharField()}), responses={200: OpenApiResponse(description="Verification code sent."), 400: OpenApiResponse(description="Invalid phone request."), 401: OpenApiResponse(description="Authentication is required."), 503: OpenApiResponse(description="SMS service is unavailable.")}))
 class SendOtpView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -571,6 +586,7 @@ class SendOtpView(APIView):
         return Response({'detail': 'Verification code sent.'})
 
 
+@extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Verify a phone code", request=inline_serializer(name="VerifyOtpRequest", fields={"phone": serializers.CharField(), "code": serializers.CharField()}), responses={200: UserProfileSerializer, 400: OpenApiResponse(description="Invalid or expired verification code."), 401: OpenApiResponse(description="Authentication is required."), 503: OpenApiResponse(description="SMS service is unavailable.")}))
 class VerifyOtpView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -609,6 +625,10 @@ class VerifyOtpView(APIView):
 # Profile
 # ---------------------------------------------------------------------------
 
+@extend_schema_view(
+    get=extend_schema(tags=["Authentication"], summary="Retrieve the account profile", responses={200: UserProfileSerializer, 401: OpenApiResponse(description="Authentication is required.")}),
+    put=extend_schema(tags=["Authentication"], summary="Update the account profile", request=UserProfileSerializer, responses={200: UserProfileSerializer, 400: OpenApiResponse(description="Invalid profile request."), 401: OpenApiResponse(description="Authentication is required.")}),
+)
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -629,6 +649,10 @@ class ProfileView(APIView):
         }
 
         serializer.save()
+
+        if "phone" in changed:
+            user.phone_verified = False
+            user.save(update_fields=["phone_verified"])
 
         # Sync any changed fields to GHL
         if changed and user.ghl_contact_id:

@@ -1,2 +1,3 @@
 .vercel
 schema.yml
+.env*.local

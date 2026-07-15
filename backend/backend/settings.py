@@ -112,11 +112,12 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+_database_url = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_9JxAXdt5ZbNn@ep-young-river-adbytfzk-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require')
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_9JxAXdt5ZbNn@ep-young-river-adbytfzk-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require'),
+        default=_database_url,
         conn_max_age=600,
-        ssl_require=True
+        ssl_require=_database_url.startswith(("postgres://", "postgresql://")),
     )
 }
 
@@ -349,7 +350,44 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'SERVE_AUTHENTICATION': ['rest_framework_simplejwt.authentication.JWTAuthentication'],
     'COMPONENT_SPLIT_REQUEST': True,
+    'TAGS': [
+        {'name': 'Health', 'description': 'Application liveness and database readiness checks.'},
+        {'name': 'Authentication', 'description': 'Account registration, authentication, verification, and profile operations.'},
+        {'name': 'Estate Projects', 'description': 'Published canonical estate project data.'},
+        {'name': 'Estate Documents', 'description': 'Phone-aware access to canonical estate project documents.'},
+        {'name': 'Estate Properties (Legacy)', 'description': 'Legacy estate-property administration and compatibility endpoints.'},
+        {'name': 'MLS Properties', 'description': 'MLS listing retrieval and related property data.'},
+        {'name': 'Property Search', 'description': 'Structured property search and filtering.'},
+        {'name': 'Maps', 'description': 'Location, school, amenity, and census data.'},
+        {'name': 'Valuation', 'description': 'Property valuation lookup and estimates.'},
+        {'name': 'Inquiries', 'description': 'Property inquiries and visitor feedback.'},
+        {'name': 'User Activity', 'description': 'Listing engagement, views, and property notes.'},
+        {'name': 'Watched Properties', 'description': 'Favorites, history, tours, and followed areas.'},
+        {'name': 'Alerts', 'description': 'Watched-property alert preferences and previews.'},
+        {'name': 'Vlogs', 'description': 'Published vlog content.'},
+    ],
+    'SWAGGER_UI_SETTINGS': {
+        'persistAuthorization': True,
+        'docExpansion': 'none',
+        'filter': True,
+        'defaultModelsExpandDepth': -1,
+    },
+    'POSTPROCESSING_HOOKS': [
+        'drf_spectacular.hooks.postprocess_schema_enums',
+        'backend.schema.assign_api_tags',
+    ],
 }
+
+ESTATE_DOCUMENT_ALLOWED_HOSTS = [
+    host.strip().lower()
+    for host in os.environ.get(
+        "ESTATE_DOCUMENT_ALLOWED_HOSTS",
+        "estate-4u.com,res.cloudinary.com",
+    ).split(",")
+    if host.strip()
+]
+ESTATE_DOCUMENT_ACCESS_MAX_AGE = int(os.environ.get("ESTATE_DOCUMENT_ACCESS_MAX_AGE", "300"))
+ESTATE_DOCUMENT_MAX_BYTES = int(os.environ.get("ESTATE_DOCUMENT_MAX_BYTES", str(25 * 1024 * 1024)))
 
 # JWT
 SIMPLE_JWT = {
@@ -358,3 +396,5 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': False,
 }
+if os.environ.get("DJANGO_TEST_WITHOUT_MIGRATIONS") == "1":
+    MIGRATION_MODULES = {"mls": None}

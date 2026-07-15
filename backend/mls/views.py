@@ -589,6 +589,10 @@ class FetchProperties(APIView):
     API view to fetch properties from the REALTOR.ca API
     """
 
+    @extend_schema(
+        operation_id="mls_properties_list",
+        responses={200: OpenApiTypes.OBJECT},
+    )
     def get(self, request):
         access_token = get_access_token()
 
@@ -1438,6 +1442,7 @@ class PropertyDetailView(APIView):
     """
 
     @extend_schema(
+        operation_id="mls_properties_retrieve",
         summary="Get a property by listing key",
         description="Fetch a single property from the DDF API by its PropertyKey.",
         parameters=[

@@ -7,6 +7,7 @@ from cloudinary import api as cloudinary_api
 from cloudinary.exceptions import Error as CloudinaryError
 from django.conf import settings
 from django.core.files.storage import default_storage
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db import DataError, DatabaseError, IntegrityError
 from django.db.models import Q
@@ -16,12 +17,15 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated, SAFE_METHODS
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from drf_spectacular.utils import OpenApiTypes, extend_schema
 
-from .models import EstateProperty, UserPropertyInteraction
+from .models import (
+    EstateProperty,
+    UserPropertyInteraction,
+)
 from .serializers import EstatePropertyWriteSerializer
 
 logger = logging.getLogger(__name__)
-
 
 class EstatePropertyAPIViewMixin:
     permission_classes = [AllowAny]
@@ -1048,28 +1052,35 @@ class EstatePropertyAPIViewMixinMethods(EstatePropertyAPIViewMixin):
 
 class EstatePropertyListCreateAPIView(EstatePropertyAPIViewMixinMethods, APIView):
     permission_classes = [AllowAny]
+    @extend_schema(operation_id="legacy_estate_properties_list", responses=OpenApiTypes.OBJECT)
     def get(self, request, *args, **kwargs):
         return self.list(request)
 
+    @extend_schema(request=EstatePropertyWriteSerializer, responses=OpenApiTypes.OBJECT)
     def post(self, request, *args, **kwargs):
         return self.create(request)
 
 
 class EstatePropertyDetailAPIView(EstatePropertyAPIViewMixinMethods, APIView):
+    @extend_schema(operation_id="legacy_estate_properties_retrieve", responses=OpenApiTypes.OBJECT)
     def get(self, request, pk, *args, **kwargs):
         return self.retrieve(request, pk=pk)
 
+    @extend_schema(request=EstatePropertyWriteSerializer, responses=OpenApiTypes.OBJECT)
     def put(self, request, pk, *args, **kwargs):
         return self.update(request, pk=pk)
 
+    @extend_schema(request=EstatePropertyWriteSerializer, responses=OpenApiTypes.OBJECT)
     def patch(self, request, pk, *args, **kwargs):
         return self.partial_update(request, pk=pk)
 
+    @extend_schema(responses={204: None})
     def delete(self, request, pk, *args, **kwargs):
         return self.destroy(request, pk=pk)
 
 
 class EstatePropertySchemaAPIView(EstatePropertyAPIViewMixinMethods, APIView):
+    @extend_schema(responses=OpenApiTypes.OBJECT)
     def get(self, request, *args, **kwargs):
         return self.schema_response(request)
 
@@ -1077,6 +1088,7 @@ class EstatePropertySchemaAPIView(EstatePropertyAPIViewMixinMethods, APIView):
 class EstatePropertyMediaUploadAPIView(EstatePropertyAPIViewMixinMethods, APIView):
     parser_classes = (MultiPartParser, FormParser)
 
+    @extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
     def post(self, request, *args, **kwargs):
         files = request.FILES.getlist("images")
         logger.warning(
@@ -1196,6 +1208,7 @@ class EstatePropertyCloudinaryAssetsAPIView(EstatePropertyAPIViewMixinMethods, A
     def get_permissions(self):
         return [IsAdminUser()]
 
+    @extend_schema(responses=OpenApiTypes.OBJECT)
     def get(self, request, *args, **kwargs):
         cloudinary_settings = getattr(settings, "CLOUDINARY_STORAGE", {}) or {}
         cloud_name = str(
@@ -1303,6 +1316,7 @@ class EstatePropertyButtonClickAPIView(EstatePropertyAPIViewMixinMethods, APIVie
                 return button
         return None
 
+    @extend_schema(request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
     def post(self, request, *args, **kwargs):
         estate_id = request.data.get("estate_property_id") or request.data.get("property_id")
         listing_key = str(request.data.get("listing_key") or "").strip()
