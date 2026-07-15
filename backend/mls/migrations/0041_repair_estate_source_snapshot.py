@@ -45,7 +45,7 @@ def remove_snapshot_columns(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        # Keep the dependency Django generated here.
+        ("mls", "0040_repair_estate_parser_constraints"),
     ]
 
     operations = [

@@ -32,57 +32,34 @@ class Command(BaseCommand):
             help='Optional safety cap for pages during testing. 0 means no cap.',
         )
 
-        def build_incremental_filter(self, force_full=False):
-            """
-            Build the DDF filter used for an incremental sync.
+    def build_incremental_filter(self, force_full=False):
+        """
+        Build the DDF filter used for an incremental sync.
 
-            A full sync returns None, meaning no timestamp filter.
-            """
-            if force_full:
-                return None
+        A full sync returns None, meaning no timestamp filter.
+        """
+        if force_full:
+            return None
 
-            latest_property = Property.objects.order_by(
-                "-modification_timestamp"
-            ).first()
+        latest_property = Property.objects.order_by(
+            "-modification_timestamp"
+        ).first()
 
-            if not latest_property:
-                return None
+        if not latest_property:
+            return None
 
-            if not latest_property.modification_timestamp:
-                return None
+        if not latest_property.modification_timestamp:
+            return None
 
-            cutoff = (
-                latest_property.modification_timestamp
-                - timedelta(minutes=10)
-            )
+        cutoff = (
+            latest_property.modification_timestamp
+            - timedelta(minutes=10)
+        )
 
-            return (
-                "ModificationTimestamp gt "
-                f"{cutoff.isoformat()}Z"
-            )
-
-            if force_full:
-                return None
-
-            latest_property = Property.objects.order_by(
-                "-modification_timestamp"
-            ).first()
-
-            if not latest_property:
-                return None
-
-            if not latest_property.modification_timestamp:
-                return None
-
-            cutoff = (
-                latest_property.modification_timestamp
-                - timedelta(minutes=10)
-            )
-
-            return (
-                "ModificationTimestamp gt "
-                f"{cutoff.isoformat()}Z"
-            )
+        # return (
+        #     "ModificationTimestamp gt "
+        #     f"{cutoff.isoformat()}Z"
+        # )
 
     def handle(self, *args, **options):
         start_time = time.time()
@@ -140,19 +117,16 @@ class Command(BaseCommand):
             batch_size=options["batch_size"],
         )
 
-       
-        if not all_properties:
-            self.stdout.write("No properties returned.")
-            return
 
-        # Track keys for cleanup
-        processed_keys = {p.get("ListingKey") for p in all_properties if p.get("ListingKey")}
-
-        self.stdout.write(f"Starting bulk upsert of {len(all_properties):,} properties...")
-        self.bulk_upsert(all_properties, batch_size=options['batch_size'])
-
-        # Run Cleanup
-        self.cleanup_orphaned_properties(processed_keys)
+        if options["full"]:
+            self.stdout.write(
+                "Full sync completed; checking for orphaned properties..."
+            )
+            self.cleanup_orphaned_properties(processed_keys)
+        else:
+            self.stdout.write(
+                "Incremental sync: skipping orphan cleanup."
+            )
 
         self.stdout.write("Rebuilding H3 map aggregates...")
         aggregate_cells = rebuild_h3_aggregates()
