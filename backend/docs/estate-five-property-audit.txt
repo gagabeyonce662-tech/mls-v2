@@ -1,0 +1,1361 @@
+===== WORDPRESS IMPORT COMMAND =====
+     1	"""Import Estate4U WordPress property listings into mls_estateproperty.
+     2	
+     3	Place this file at:
+     4	    backend/mls/management/commands/import_estate4u_xml.py
+     5	"""
+     6	
+     7	from __future__ import annotations
+     8	
+     9	import re
+    10	import xml.etree.ElementTree as ET
+    11	from collections import Counter
+    12	from datetime import datetime, timezone as datetime_timezone
+    13	from decimal import Decimal, InvalidOperation
+    14	from pathlib import Path
+    15	from typing import Any
+    16	
+    17	from django.core.management.base import BaseCommand, CommandError
+    18	from django.db import transaction
+    19	
+    20	from mls.models import EstateProperty
+    21	
+    22	
+    23	WP_NS = "http://wordpress.org/export/1.2/"
+    24	CONTENT_NS = "http://purl.org/rss/1.0/modules/content/"
+    25	EXCERPT_NS = "http://wordpress.org/export/1.2/excerpt/"
+    26	DC_NS = "http://purl.org/dc/elements/1.1/"
+    27	
+    28	NS = {
+    29	    "wp": WP_NS,
+    30	    "content": CONTENT_NS,
+    31	    "excerpt": EXCERPT_NS,
+    32	    "dc": DC_NS,
+    33	}
+    34	
+    35	NUMBER_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+    36	YEAR_RE = re.compile(r"(?:19|20)\d{2}")
+    37	
+    38	TAXONOMY_MAP = {
+    39	    "property_type": "type",
+    40	    "property_status": "status",
+    41	    "property_feature": "features",
+    42	    "property_label": "labels",
+    43	    "property_city": "city",
+    44	    "property_state": "state",
+    45	    "property_country": "country",
+    46	}
+    47	
+    48	
+    49	class Command(BaseCommand):
+    50	    help = (
+    51	        "Import Estate4U WordPress WXR property records into EstateProperty "
+    52	        "while keeping estate-4u.com image URLs remote."
+    53	    )
+    54	
+    55	    def add_arguments(self, parser):
+    56	        parser.add_argument(
+    57	            "xml_path",
+    58	            help="Path to the WordPress WXR XML export.",
+    59	        )
+    60	        parser.add_argument(
+    61	            "--dry-run",
+    62	            action="store_true",
+    63	            help=(
+    64	                "Execute and validate database writes inside a transaction, "
+    65	                "then roll the entire import back."
+    66	            ),
+    67	        )
+    68	        parser.add_argument(
+    69	            "--parse-only",
+    70	            action="store_true",
+    71	            help="Parse and map the XML without connecting to the database.",
+    72	        )
+    73	        parser.add_argument(
+    74	            "--include-drafts",
+    75	            action="store_true",
+    76	            help="Also import WordPress draft properties. Published properties are imported by default.",
+    77	        )
+    78	        parser.add_argument(
+    79	            "--limit",
+    80	            type=int,
+    81	            default=None,
+    82	            help="Import only the first N matching properties. Useful for testing.",
+    83	        )
+    84	        parser.add_argument(
+    85	            "--listing-key-prefix",
+    86	            default="estate4u-wp-",
+    87	            help="Prefix used for deterministic listing_key values.",
+    88	        )
+    89	
+    90	    def handle(self, *args, **options):
+    91	        if options["dry_run"] and options["parse_only"]:
+    92	            raise CommandError("Use either --dry-run or --parse-only, not both.")
+    93	
+    94	        xml_path = Path(options["xml_path"]).expanduser().resolve()
+    95	        if not xml_path.is_file():
+    96	            raise CommandError(f"XML file does not exist: {xml_path}")
+    97	
+    98	        if options["limit"] is not None and options["limit"] < 1:
+    99	            raise CommandError("--limit must be at least 1.")
+   100	
+   101	        self.stdout.write(f"Reading WordPress export: {xml_path}")
+   102	        channel = self._parse_channel(xml_path)
+   103	        items = channel.findall("item")
+   104	        attachment_urls = self._build_attachment_lookup(items)
+   105	
+   106	        property_items = [
+   107	            item
+   108	            for item in items
+   109	            if self._text(item, "wp:post_type") == "property"
+   110	        ]
+   111	
+   112	        include_drafts = options["include_drafts"]
+   113	        selected_items = []
+   114	        skipped_statuses = Counter()
+   115	
+   116	        for item in property_items:
+   117	            status = self._text(item, "wp:status") or "draft"
+   118	            if status != "publish" and not include_drafts:
+   119	                skipped_statuses[status] += 1
+   120	                continue
+   121	            selected_items.append(item)
+   122	
+   123	        if options["limit"] is not None:
+   124	            selected_items = selected_items[: options["limit"]]
+   125	
+   126	        self.stdout.write(
+   127	            f"Found {len(property_items)} WordPress properties, "
+   128	            f"{len(attachment_urls)} attachment URLs, "
+   129	            f"and selected {len(selected_items)} properties."
+   130	        )
+   131	        if skipped_statuses:
+   132	            skipped_text = ", ".join(
+   133	                f"{status}={count}" for status, count in sorted(skipped_statuses.items())
+   134	            )
+   135	            self.stdout.write(f"Skipped by publication status: {skipped_text}")
+   136	
+   137	        mapped_rows = []
+   138	        mapping_failures = 0
+   139	        prefix = str(options["listing_key_prefix"])
+   140	
+   141	        for item in selected_items:
+   142	            post_id = self._text(item, "wp:post_id") or "unknown"
+   143	            try:
+   144	                mapped_rows.append(
+   145	                    self._map_property(
+   146	                        item=item,
+   147	                        attachment_urls=attachment_urls,
+   148	                        listing_key_prefix=prefix,
+   149	                    )
+   150	                )
+   151	            except Exception as exc:
+   152	                mapping_failures += 1
+   153	                self.stderr.write(
+   154	                    self.style.ERROR(f"Could not map WordPress post {post_id}: {exc}")
+   155	                )
+   156	
+   157	        if options["parse_only"]:
+   158	            self._print_parse_summary(mapped_rows, mapping_failures)
+   159	            return
+   160	
+   161	        counters = Counter()
+   162	        dry_run = options["dry_run"]
+   163	
+   164	        with transaction.atomic():
+   165	            for row in mapped_rows:
+   166	                listing_key = row["listing_key"]
+   167	                defaults = row["defaults"]
+   168	                title = defaults.get("property_title") or listing_key
+   169	
+   170	                try:
+   171	                    # The inner transaction creates a savepoint. A bad row can roll
+   172	                    # back safely without breaking the remaining import.
+   173	                    with transaction.atomic():
+   174	                        existing = EstateProperty.objects.filter(
+   175	                            listing_key=listing_key
+   176	                        ).first()
+   177	
+   178	                        if existing is None:
+   179	                            EstateProperty.objects.create(
+   180	                                listing_key=listing_key,
+   181	                                **defaults,
+   182	                            )
+   183	                            counters["created"] += 1
+   184	                            action = "CREATE"
+   185	                        else:
+   186	                            changed_fields = [
+   187	                                field_name
+   188	                                for field_name, value in defaults.items()
+   189	                                if getattr(existing, field_name) != value
+   190	                            ]
+   191	
+   192	                            if not changed_fields:
+   193	                                counters["unchanged"] += 1
+   194	                                action = "UNCHANGED"
+   195	                            else:
+   196	                                for field_name in changed_fields:
+   197	                                    setattr(existing, field_name, defaults[field_name])
+   198	                                existing.save(update_fields=changed_fields)
+   199	                                counters["updated"] += 1
+   200	                                action = "UPDATE"
+   201	
+   202	                        if options["verbosity"] >= 2:
+   203	                            self.stdout.write(
+   204	                                f"{action:9} {listing_key}  {title}"
+   205	                            )
+   206	                except Exception as exc:
+   207	                    counters["failed"] += 1
+   208	                    self.stderr.write(
+   209	                        self.style.ERROR(
+   210	                            f"FAILED    {listing_key}  {title}: {exc}"
+   211	                        )
+   212	                    )
+   213	
+   214	            if dry_run:
+   215	                transaction.set_rollback(True)
+   216	
+   217	        counters["mapping_failed"] = mapping_failures
+   218	        self._print_database_summary(counters, dry_run=dry_run)
+   219	
+   220	    def _parse_channel(self, xml_path: Path) -> ET.Element:
+   221	        try:
+   222	            root = ET.parse(xml_path).getroot()
+   223	        except ET.ParseError as exc:
+   224	            raise CommandError(f"Invalid XML: {exc}") from exc
+   225	        except OSError as exc:
+   226	            raise CommandError(f"Could not read XML: {exc}") from exc
+   227	
+   228	        channel = root.find("channel")
+   229	        if channel is None:
+   230	            raise CommandError("The XML does not contain an RSS channel element.")
+   231	        return channel
+   232	
+   233	    def _build_attachment_lookup(self, items: list[ET.Element]) -> dict[str, str]:
+   234	        attachment_urls = {}
+   235	        for item in items:
+   236	            if self._text(item, "wp:post_type") != "attachment":
+   237	                continue
+   238	
+   239	            post_id = self._text(item, "wp:post_id")
+   240	            if not post_id:
+   241	                continue
+   242	
+   243	            attachment_url = self._text(item, "wp:attachment_url")
+   244	            if not attachment_url:
+   245	                attachment_url = self._text(item, "guid")
+   246	
+   247	            if self._is_http_url(attachment_url):
+   248	                attachment_urls[post_id] = attachment_url
+   249	
+   250	        return attachment_urls
+   251	
+   252	    def _map_property(
+   253	        self,
+   254	        *,
+   255	        item: ET.Element,
+   256	        attachment_urls: dict[str, str],
+   257	        listing_key_prefix: str,
+   258	    ) -> dict[str, Any]:
+   259	        post_id = self._text(item, "wp:post_id")
+   260	        if not post_id:
+   261	            raise ValueError("Missing wp:post_id")
+   262	
+   263	        title = self._text(item, "title")
+   264	        slug = self._text(item, "wp:post_name")
+   265	        publish_status = self._text(item, "wp:status") or "draft"
+   266	        description = self._text(item, "content:encoded")
+   267	        excerpt = self._text(item, "excerpt:encoded")
+   268	        listing_url = self._text(item, "link")
+   269	        author = self._text(item, "dc:creator")
+   270	
+   271	        meta = self._collect_meta(item)
+   272	        terms, raw_terms = self._collect_terms(item)
+   273	
+   274	        gallery_urls = self._resolve_gallery_urls(meta, attachment_urls)
+   275	        featured_image_url = self._resolve_featured_image(
+   276	            meta=meta,
+   277	            attachment_urls=attachment_urls,
+   278	            gallery_urls=gallery_urls,
+   279	        )
+   280	        if featured_image_url and featured_image_url not in gallery_urls:
+   281	            gallery_urls.insert(0, featured_image_url)
+   282	
+   283	        bedrooms_min, bedrooms_max = self._integer_range(
+   284	            self._meta_first(meta, "fave_property_bedrooms")
+   285	        )
+   286	        bathrooms_min, _bathrooms_max = self._integer_range(
+   287	            self._meta_first(meta, "fave_property_bathrooms")
+   288	        )
+   289	        garages_min, _garages_max = self._integer_range(
+   290	            self._meta_first(meta, "fave_property_garage")
+   291	        )
+   292	        area_min, _area_max = self._decimal_range(
+   293	            self._meta_first(meta, "fave_property_size")
+   294	        )
+   295	
+   296	        explicit_max_bedrooms = self._first_integer(
+   297	            self._meta_first(meta, "fave_max-bedroom")
+   298	            or self._meta_first(meta, "fave_property_max_bedrooms")
+   299	        )
+   300	        if explicit_max_bedrooms is not None and explicit_max_bedrooms > 0:
+   301	            bedrooms_max = explicit_max_bedrooms
+   302	
+   303	        status_terms = terms.get("status", [])
+   304	        type_terms = terms.get("type", [])
+   305	        standard_status = status_terms[0] if status_terms else None
+   306	        if standard_status is None and any(
+   307	            value.strip().lower() == "pre construction" for value in type_terms
+   308	        ):
+   309	            standard_status = "Pre-Construction"
+   310	
+   311	        city_terms = terms.get("city", [])
+   312	        state_terms = terms.get("state", [])
+   313	        country_terms = terms.get("country", [])
+   314	        label_terms = terms.get("labels", [])
+   315	        feature_terms = terms.get("features", [])
+   316	
+   317	        mls_id = self._meta_first(meta, "fave_mls-id")
+   318	        property_id_code = (
+   319	            self._meta_first(meta, "fave_property_id")
+   320	            or mls_id
+   321	            or f"WP-{post_id}"
+   322	        )
+   323	
+   324	        completion_raw = self._meta_first(meta, "fave_estimated-completion")
+   325	        deposit_raw = self._meta_first(meta, "fave_deposit-structure")
+   326	        signing_amount = None
+   327	        if deposit_raw and "%" not in deposit_raw:
+   328	            signing_amount = self._first_decimal(deposit_raw)
+   329	
+   330	        modified_gmt = self._text(item, "wp:post_modified_gmt")
+   331	        modified_local = self._text(item, "wp:post_modified")
+   332	        modification_timestamp = self._parse_wordpress_datetime(
+   333	            modified_gmt or modified_local
+   334	        )
+   335	
+   336	        meta_for_json = dict(meta)
+   337	        meta_for_json["gallery_image_urls"] = gallery_urls
+   338	        meta_for_json["featured_image_url"] = featured_image_url
+   339	
+   340	        canonical_terms = {
+   341	            **terms,
+   342	            "raw_taxonomies": raw_terms,
+   343	        }
+   344	
+   345	        wp_post_json = {
+   346	            "source": "wordpress_wxr",
+   347	            "post_id": post_id,
+   348	            "post_title": title,
+   349	            "post_name": slug,
+   350	            "post_status": publish_status,
+   351	            "post_date": self._text(item, "wp:post_date"),
+   352	            "post_date_gmt": self._text(item, "wp:post_date_gmt"),
+   353	            "post_modified": modified_local,
+   354	            "post_modified_gmt": modified_gmt,
+   355	            "post_parent": self._text(item, "wp:post_parent"),
+   356	            "menu_order": self._text(item, "wp:menu_order"),
+   357	            "author": author,
+   358	            "guid": self._text(item, "guid"),
+   359	            "permalink": listing_url,
+   360	            "excerpt": excerpt,
+   361	            "images": gallery_urls,
+   362	            "gallery": gallery_urls,
+   363	        }
+   364	
+   365	        detail_items = self._compact_detail_items(
+   366	            [
+   367	                ("Developer", self._meta_first(meta, "fave_developer")),
+   368	                ("Estimated completion", completion_raw),
+   369	                ("Deposit structure", deposit_raw),
+   370	                ("Property types", ", ".join(type_terms)),
+   371	                ("Features", ", ".join(feature_terms)),
+   372	            ]
+   373	        )
+   374	        custom_detail_blocks = (
+   375	            [
+   376	                {
+   377	                    "id": "wordpress-project-details",
+   378	                    "title": "Project details",
+   379	                    "order": 0,
+   380	                    "items": detail_items,
+   381	                }
+   382	            ]
+   383	            if detail_items
+   384	            else []
+   385	        )
+   386	
+   387	        description_sections = (
+   388	            [
+   389	                {
+   390	                    "id": "wordpress-overview",
+   391	                    "title": "Overview",
+   392	                    "body_html": description,
+   393	                    "order": 0,
+   394	                }
+   395	            ]
+   396	            if description
+   397	            else []
+   398	        )
+   399	
+   400	        defaults = {
+   401	            "listing_id": mls_id or f"wp-{post_id}",
+   402	            "property_title": title or None,
+   403	            "property_slug": self._truncate(slug, 255),
+   404	            "publish_status": self._truncate(publish_status, 32),
+   405	            "property_description": description or None,
+   406	            "featured_image_url": featured_image_url or None,
+   407	            "listing_url": self._truncate(listing_url, 200),
+   408	            "list_price": self._first_decimal(
+   409	                self._meta_first(meta, "fave_property_price")
+   410	            ),
+   411	            "second_price": self._first_decimal(
+   412	                self._meta_first(meta, "fave_property_sec_price")
+   413	            ),
+   414	            "enable_price_placeholder": self._to_bool(
+   415	                self._meta_first(meta, "fave_show_price_placeholder")
+   416	            ),
+   417	            "price_placeholder": self._truncate(
+   418	                self._meta_first(meta, "fave_property_price_placeholder"), 255
+   419	            ),
+   420	            "price_prefix": self._truncate(
+   421	                self._meta_first(meta, "fave_property_price_prefix"), 255
+   422	            ),
+   423	            "after_price": self._truncate(
+   424	                self._meta_first(meta, "fave_property_price_postfix"), 255
+   425	            ),
+   426	            "building_area_total": area_min,
+   427	            "size_postfix": self._truncate(
+   428	                self._meta_first(meta, "fave_property_size_prefix")
+   429	                or self._meta_first(meta, "fave_property_size_postfix"),
+   430	                64,
+   431	            ),
+   432	            "land_area": self._first_decimal(
+   433	                self._meta_first(meta, "fave_property_land")
+   434	            ),
+   435	            "land_area_size_postfix": self._truncate(
+   436	                self._meta_first(meta, "fave_property_land_postfix"), 64
+   437	            ),
+   438	            "bedrooms_total": bedrooms_min,
+   439	            "rooms": self._first_integer(
+   440	                self._meta_first(meta, "fave_property_rooms")
+   441	            ),
+   442	            "bathrooms_total_integer": bathrooms_min,
+   443	            "garages": garages_min,
+   444	            "garage_size": self._truncate(
+   445	                self._meta_first(meta, "fave_property_garage_size"), 128
+   446	            ),
+   447	            "year_built": self._first_integer(
+   448	                self._meta_first(meta, "fave_property_year")
+   449	            ),
+   450	            "property_id_code": self._truncate(property_id_code, 128),
+   451	            "max_bedrooms": bedrooms_max,
+   452	            "developer": self._meta_first(meta, "fave_developer") or None,
+   453	            "occupancy_year": self._extract_year(completion_raw),
+   454	            "signing_amount": signing_amount,
+   455	            "lot_size": self._truncate(
+   456	                self._meta_first(meta, "fave_lot-size")
+   457	                or self._meta_first(meta, "fave_property_lot_size"),
+   458	                128,
+   459	            ),
+   460	            "kitchens": self._first_integer(
+   461	                self._meta_first(meta, "fave_kitchens")
+   462	                or self._meta_first(meta, "fave_property_kitchens")
+   463	            ),
+   464	            "tax_annual_amount": self._first_decimal(
+   465	                self._meta_first(meta, "fave_taxes")
+   466	            ),
+   467	            "tax_year": self._first_integer(
+   468	                self._meta_first(meta, "fave_tax-year")
+   469	            ),
+   470	            "basement": self._meta_first(meta, "fave_basement") or None,
+   471	            "exterior_features": self._meta_first(meta, "fave_exterior") or None,
+   472	            "unparsed_address": self._truncate(
+   473	                self._meta_first(meta, "fave_property_address")
+   474	                or self._meta_first(meta, "fave_property_map_address")
+   475	                or title,
+   476	                2000,
+   477	            ),
+   478	            "city": self._truncate(city_terms[0] if city_terms else None, 2000),
+   479	            "state_or_province": self._truncate(
+   480	                state_terms[0] if state_terms else None, 2000
+   481	            ),
+   482	            "postal_code": self._truncate(
+   483	                self._meta_first(meta, "fave_property_zip"), 20
+   484	            ),
+   485	            "country": self._truncate(
+   486	                country_terms[0] if country_terms else None, 50
+   487	            ),
+   488	            "latitude": self._first_decimal(
+   489	                self._meta_first(meta, "houzez_geolocation_lat")
+   490	            ),
+   491	            "longitude": self._first_decimal(
+   492	                self._meta_first(meta, "houzez_geolocation_long")
+   493	            ),
+   494	            "standard_status": self._truncate(standard_status, 50),
+   495	            "modification_timestamp": modification_timestamp,
+   496	            "is_featured": self._to_bool(
+   497	                self._meta_first(meta, "fave_featured")
+   498	            ),
+   499	            "custom_tags": ", ".join(label_terms) or None,
+   500	            "wp_meta_json": meta_for_json,
+   501	            "wp_terms_json": canonical_terms,
+   502	            "wp_post_json": wp_post_json,
+   503	            "description_sections_json": description_sections,
+   504	            "custom_detail_blocks_json": custom_detail_blocks,
+   505	            "detail_blocks_layout_json": [],
+   506	            "listing_buttons_json": [],
+   507	        }
+   508	
+   509	        return {
+   510	            "listing_key": f"{listing_key_prefix}{post_id}",
+   511	            "defaults": defaults,
+   512	        }
+   513	
+   514	    def _collect_meta(self, item: ET.Element) -> dict[str, Any]:
+   515	        meta: dict[str, Any] = {}
+   516	
+   517	        for postmeta in item.findall("wp:postmeta", NS):
+   518	            key = self._text(postmeta, "wp:meta_key")
+   519	            if not key:
+   520	                continue
+   521	            value = self._text(postmeta, "wp:meta_value")
+   522	
+   523	            if key not in meta:
+   524	                meta[key] = value
+   525	            elif isinstance(meta[key], list):
+   526	                meta[key].append(value)
+   527	            else:
+   528	                meta[key] = [meta[key], value]
+   529	
+   530	        return meta
+   531	
+   532	    def _collect_terms(
+   533	        self, item: ET.Element
+   534	    ) -> tuple[dict[str, list[str]], dict[str, list[dict[str, str]]]]:
+   535	        canonical: dict[str, list[str]] = {
+   536	            "type": [],
+   537	            "status": [],
+   538	            "features": [],
+   539	            "labels": [],
+   540	            "city": [],
+   541	            "state": [],
+   542	            "country": [],
+   543	        }
+   544	        raw: dict[str, list[dict[str, str]]] = {}
+   545	
+   546	        for category in item.findall("category"):
+   547	            domain = str(category.attrib.get("domain") or "").strip()
+   548	            if not domain.startswith("property_"):
+   549	                continue
+   550	
+   551	            name = str(category.text or "").strip()
+   552	            slug = str(category.attrib.get("nicename") or "").strip()
+   553	            raw.setdefault(domain, []).append({"name": name, "slug": slug})
+   554	
+   555	            canonical_key = TAXONOMY_MAP.get(domain)
+   556	            if canonical_key and name and name not in canonical[canonical_key]:
+   557	                canonical[canonical_key].append(name)
+   558	
+   559	        return canonical, raw
+   560	
+   561	    def _resolve_gallery_urls(
+   562	        self,
+   563	        meta: dict[str, Any],
+   564	        attachment_urls: dict[str, str],
+   565	    ) -> list[str]:
+   566	        urls = []
+   567	        seen = set()
+   568	
+   569	        for attachment_id in self._meta_values(meta, "fave_property_images"):
+   570	            url = attachment_urls.get(str(attachment_id).strip(), "")
+   571	            if url and url not in seen:
+   572	                seen.add(url)
+   573	                urls.append(url)
+   574	
+   575	        return urls
+   576	
+   577	    def _resolve_featured_image(
+   578	        self,
+   579	        *,
+   580	        meta: dict[str, Any],
+   581	        attachment_urls: dict[str, str],
+   582	        gallery_urls: list[str],
+   583	    ) -> str:
+   584	        thumbnail_id = self._meta_first(meta, "_thumbnail_id")
+   585	        if thumbnail_id:
+   586	            thumbnail_url = attachment_urls.get(thumbnail_id, "")
+   587	            if thumbnail_url:
+   588	                return thumbnail_url
+   589	
+   590	        for key in (
+   591	            "_yoast_wpseo_opengraph-image",
+   592	            "fave_property_featured_image",
+   593	            "featured_image_url",
+   594	        ):
+   595	            candidate = self._meta_first(meta, key)
+   596	            if self._is_http_url(candidate):
+   597	                return candidate
+   598	
+   599	        return gallery_urls[0] if gallery_urls else ""
+   600	
+   601	    def _print_parse_summary(
+   602	        self,
+   603	        mapped_rows: list[dict[str, Any]],
+   604	        mapping_failures: int,
+   605	    ) -> None:
+   606	        status_counts = Counter(
+   607	            row["defaults"].get("standard_status") or "Unspecified"
+   608	            for row in mapped_rows
+   609	        )
+   610	        gallery_count = sum(
+   611	            len(row["defaults"]["wp_meta_json"].get("gallery_image_urls", []))
+   612	            for row in mapped_rows
+   613	        )
+   614	
+   615	        self.stdout.write(self.style.SUCCESS("Parse-only validation completed."))
+   616	        self.stdout.write(f"Mapped rows: {len(mapped_rows)}")
+   617	        self.stdout.write(f"Mapping failures: {mapping_failures}")
+   618	        self.stdout.write(f"Remote gallery URLs linked: {gallery_count}")
+   619	        self.stdout.write(
+   620	            "Statuses: "
+   621	            + ", ".join(
+   622	                f"{name}={count}" for name, count in sorted(status_counts.items())
+   623	            )
+   624	        )
+   625	
+   626	        if mapped_rows:
+   627	            self.stdout.write("Sample mapped listings:")
+   628	            for row in mapped_rows[:5]:
+   629	                defaults = row["defaults"]
+   630	                image_count = len(
+   631	                    defaults["wp_meta_json"].get("gallery_image_urls", [])
+   632	                )
+   633	                self.stdout.write(
+   634	                    f"  {row['listing_key']} | "
+   635	                    f"{defaults.get('property_title')} | "
+   636	                    f"{defaults.get('city')} | "
+   637	                    f"price={defaults.get('list_price')} | "
+   638	                    f"images={image_count}"
+   639	                )
+   640	
+   641	    def _print_database_summary(self, counters: Counter, *, dry_run: bool) -> None:
+   642	        prefix = "DRY RUN — would have " if dry_run else "Import completed — "
+   643	        message = (
+   644	            f"{prefix}created={counters['created']}, "
+   645	            f"updated={counters['updated']}, "
+   646	            f"unchanged={counters['unchanged']}, "
+   647	            f"failed={counters['failed']}, "
+   648	            f"mapping_failed={counters['mapping_failed']}."
+   649	        )
+   650	        self.stdout.write(self.style.SUCCESS(message))
+   651	        if dry_run:
+   652	            self.stdout.write(
+   653	                self.style.WARNING("No database changes were committed.")
+   654	            )
+   655	
+   656	    @staticmethod
+   657	    def _text(element: ET.Element, path: str) -> str:
+   658	        value = element.findtext(path, default="", namespaces=NS)
+   659	        return str(value or "").strip()
+   660	
+   661	    @staticmethod
+   662	    def _meta_values(meta: dict[str, Any], key: str) -> list[str]:
+   663	        value = meta.get(key)
+   664	        if value is None:
+   665	            return []
+   666	        if isinstance(value, list):
+   667	            return [str(item or "").strip() for item in value]
+   668	        return [str(value or "").strip()]
+   669	
+   670	    @classmethod
+   671	    def _meta_first(cls, meta: dict[str, Any], key: str) -> str:
+   672	        for value in cls._meta_values(meta, key):
+   673	            if value:
+   674	                return value
+   675	        return ""
+   676	
+   677	    @staticmethod
+   678	    def _is_http_url(value: Any) -> bool:
+   679	        text = str(value or "").strip().lower()
+   680	        return text.startswith("http://") or text.startswith("https://")
+   681	
+   682	    @staticmethod
+   683	    def _truncate(value: Any, max_length: int) -> str | None:
+   684	        if value is None:
+   685	            return None
+   686	        text = str(value).strip()
+   687	        return text[:max_length] if text else None
+   688	
+   689	    @staticmethod
+   690	    def _to_bool(value: Any) -> bool:
+   691	        if isinstance(value, bool):
+   692	            return value
+   693	        return str(value or "").strip().lower() in {
+   694	            "1",
+   695	            "true",
+   696	            "yes",
+   697	            "y",
+   698	            "on",
+   699	            "show",
+   700	        }
+   701	
+   702	    @staticmethod
+   703	    def _numbers(value: Any) -> list[Decimal]:
+   704	        text = str(value or "").replace("\xa0", " ")
+   705	        numbers = []
+   706	        for match in NUMBER_RE.findall(text):
+   707	            try:
+   708	                numbers.append(Decimal(match.replace(",", "")))
+   709	            except InvalidOperation:
+   710	                continue
+   711	        return numbers
+   712	
+   713	    @classmethod
+   714	    def _first_decimal(cls, value: Any) -> Decimal | None:
+   715	        numbers = cls._numbers(value)
+   716	        return numbers[0] if numbers else None
+   717	
+   718	    @classmethod
+   719	    def _decimal_range(
+   720	        cls, value: Any
+   721	    ) -> tuple[Decimal | None, Decimal | None]:
+   722	        numbers = cls._numbers(value)
+   723	        if not numbers:
+   724	            return None, None
+   725	        return min(numbers), max(numbers)
+   726	
+   727	    @classmethod
+   728	    def _first_integer(cls, value: Any) -> int | None:
+   729	        number = cls._first_decimal(value)
+   730	        return int(number) if number is not None else None
+   731	
+   732	    @classmethod
+   733	    def _integer_range(cls, value: Any) -> tuple[int | None, int | None]:
+   734	        minimum, maximum = cls._decimal_range(value)
+   735	        if minimum is None:
+   736	            return None, None
+   737	        return int(minimum), int(maximum)
+   738	
+   739	    @staticmethod
+   740	    def _extract_year(value: Any) -> int | None:
+   741	        match = YEAR_RE.search(str(value or ""))
+   742	        return int(match.group(0)) if match else None
+   743	
+   744	    @staticmethod
+   745	    def _parse_wordpress_datetime(value: str) -> datetime | None:
+   746	        text = str(value or "").strip()
+   747	        if not text or text == "0000-00-00 00:00:00":
+   748	            return None
+   749	        try:
+   750	            parsed = datetime.strptime(text, "%Y-%m-%d %H:%M:%S")
+   751	        except ValueError:
+   752	            return None
+   753	        return parsed.replace(tzinfo=datetime_timezone.utc)
+   754	
+   755	    @staticmethod
+   756	    def _compact_detail_items(
+   757	        entries: list[tuple[str, Any]],
+   758	    ) -> list[dict[str, str]]:
+   759	        items = []
+   760	        for label, value in entries:
+   761	            text = str(value or "").strip()
+   762	            if text:
+   763	                items.append({"label": label, "value": text})
+   764	        return items
+
+===== CANONICAL ESTATE IMPORTER =====
+     1	from dataclasses import dataclass, field
+     2	
+     3	from django.db import transaction
+     4	from django.utils.text import slugify
+     5	
+     6	from mls.models import (
+     7	    EstateAmenity,
+     8	    EstateContentSection,
+     9	    EstateDepositInstallment,
+    10	    EstateDepositPlan,
+    11	    EstateDocument,
+    12	    EstateIncentive,
+    13	    EstatePrice,
+    14	    EstateProject,
+    15	    EstateProperty,
+    16	    EstateSourceSnapshot,
+    17	    EstateUnitType,
+    18	)
+    19	from mls.services.estate_content import parse_estate_content
+    20	
+    21	
+    22	PARSER_VERSION = 2
+    23	
+    24	
+    25	class LegacyEstateNotFound(Exception):
+    26	    pass
+    27	
+    28	
+    29	@dataclass
+    30	class EstateImportRunResult:
+    31	    totals: dict = field(
+    32	        default_factory=lambda: {
+    33	            "created": 0,
+    34	            "updated": 0,
+    35	            "skipped": 0,
+    36	            "warnings": 0,
+    37	            "failed": 0,
+    38	        }
+    39	    )
+    40	    failures: list[str] = field(default_factory=list)
+    41	
+    42	
+    43	def _json_value(value):
+    44	    if value is None or isinstance(value, (str, int, float, bool)):
+    45	        return value
+    46	    return str(value)
+    47	
+    48	
+    49	class EstateProjectImporter:
+    50	    """Reconcile legacy WordPress estate rows into canonical projects."""
+    51	
+    52	    def run(self, *, legacy_id=None, limit=None, dry_run=False):
+    53	        queryset = EstateProperty.objects.all().order_by("id")
+    54	        if legacy_id:
+    55	            queryset = queryset.filter(pk=legacy_id)
+    56	        if limit:
+    57	            queryset = queryset[:limit]
+    58	
+    59	        legacy_rows = list(queryset)
+    60	        if legacy_id and not legacy_rows:
+    61	            raise LegacyEstateNotFound("Legacy estate record not found.")
+    62	
+    63	        result = EstateImportRunResult()
+    64	        for legacy in legacy_rows:
+    65	            try:
+    66	                with transaction.atomic():
+    67	                    imported = self.import_legacy(legacy)
+    68	                    if imported is None:
+    69	                        result.totals["skipped"] += 1
+    70	                    else:
+    71	                        created, warning_count = imported
+    72	                        outcome = "created" if created else "updated"
+    73	                        result.totals[outcome] += 1
+    74	                        result.totals["warnings"] += warning_count
+    75	                    if dry_run:
+    76	                        transaction.set_rollback(True)
+    77	            except Exception as exc:
+    78	                result.totals["failed"] += 1
+    79	                result.failures.append(f"legacy {legacy.pk}: {exc}")
+    80	        return result
+    81	
+    82	    def _source_values(self, legacy, title, slug):
+    83	        return {
+    84	            "source_updated_at": legacy.modification_timestamp,
+    85	            "title": title,
+    86	            "slug": slug,
+    87	            "publication_status": legacy.publish_status or "draft",
+    88	            "developer": legacy.developer or "",
+    89	            "occupancy_year": legacy.occupancy_year,
+    90	            "address": legacy.unparsed_address or "",
+    91	            "city": legacy.city or "",
+    92	            "province": legacy.state_or_province or "",
+    93	            "postal_code": legacy.postal_code or "",
+    94	            "country": legacy.country or "",
+    95	            "latitude": legacy.latitude,
+    96	            "longitude": legacy.longitude,
+    97	            "featured_image_url": legacy.featured_image_url or "",
+    98	            "is_featured": bool(legacy.is_featured),
+    99	        }
+   100	
+   101	    def _reconcile_project(self, project, snapshot, incoming, warnings):
+   102	        previous = snapshot.imported_project_values if snapshot else {}
+   103	        imported_values = {}
+   104	        changed_fields = []
+   105	
+   106	        for field_name, incoming_value in incoming.items():
+   107	            current_value = getattr(project, field_name)
+   108	            current_json = _json_value(current_value)
+   109	            incoming_json = _json_value(incoming_value)
+   110	
+   111	            if previous and field_name in previous:
+   112	                if current_json == previous[field_name]:
+   113	                    if current_value != incoming_value:
+   114	                        setattr(project, field_name, incoming_value)
+   115	                        changed_fields.append(field_name)
+   116	                    imported_values[field_name] = incoming_json
+   117	                else:
+   118	                    imported_values[field_name] = previous[field_name]
+   119	                    if current_json != incoming_json:
+   120	                        warnings.append(
+   121	                            f"Preserved manually changed project field: {field_name}."
+   122	                        )
+   123	            else:
+   124	                # Parser-v1 projects have no import baseline. Preserve current values
+   125	                # and establish that baseline without guessing ownership.
+   126	                imported_values[field_name] = current_json
+   127	
+   128	        if changed_fields:
+   129	            project.save(update_fields=[*changed_fields, "updated_at"])
+   130	        return imported_values
+   131	
+   132	    def _upsert(
+   133	        self,
+   134	        model,
+   135	        parent_filter,
+   136	        source_key,
+   137	        defaults,
+   138	        legacy_match,
+   139	        adopt_legacy,
+   140	        warnings,
+   141	    ):
+   142	        existing = model.objects.filter(
+   143	            **parent_filter,
+   144	            source_key=source_key,
+   145	        ).first()
+   146	        if existing and not existing.parser_owned:
+   147	            warnings.append(
+   148	                f"Preserved manually maintained {model.__name__} "
+   149	                f"with source key {source_key}."
+   150	            )
+   151	            return existing
+   152	
+   153	        if not existing and adopt_legacy:
+   154	            legacy = (
+   155	                model.objects.filter(
+   156	                    **parent_filter,
+   157	                    source_key="",
+   158	                    parser_owned=False,
+   159	                    **legacy_match,
+   160	                )
+   161	                .order_by("id")
+   162	                .first()
+   163	            )
+   164	            if legacy:
+   165	                legacy.source_key = source_key
+   166	                legacy.parser_owned = True
+   167	                legacy.save(update_fields=["source_key", "parser_owned"])
+   168	
+   169	        obj, _ = model.objects.update_or_create(
+   170	            **parent_filter,
+   171	            source_key=source_key,
+   172	            defaults={**defaults, "parser_owned": True},
+   173	        )
+   174	        return obj
+   175	
+   176	    @staticmethod
+   177	    def _delete_stale(model, parent_filter, active_keys):
+   178	        model.objects.filter(
+   179	            **parent_filter,
+   180	            parser_owned=True,
+   181	        ).exclude(source_key__in=active_keys).delete()
+   182	
+   183	    def _reconcile_children(self, project, parsed, adopt_legacy, warnings):
+   184	        unit_objects = {}
+   185	        unit_keys = []
+   186	        for order, item in enumerate(parsed.unit_types):
+   187	            obj = self._upsert(
+   188	                EstateUnitType,
+   189	                {"project": project},
+   190	                item.source_key,
+   191	                {
+   192	                    "name": item.text,
+   193	                    "description": "",
+   194	                    "display_order": order,
+   195	                },
+   196	                {"name": item.text},
+   197	                adopt_legacy,
+   198	                warnings,
+   199	            )
+   200	            unit_objects[item.source_key] = obj
+   201	            unit_keys.append(item.source_key)
+   202	
+   203	        section_keys = []
+   204	        for order, section in enumerate(parsed.sections):
+   205	            self._upsert(
+   206	                EstateContentSection,
+   207	                {"project": project},
+   208	                section.source_key,
+   209	                {
+   210	                    "heading": section.heading,
+   211	                    "html": section.html,
+   212	                    "display_order": order,
+   213	                },
+   214	                {"heading": section.heading, "html": section.html},
+   215	                adopt_legacy,
+   216	                warnings,
+   217	            )
+   218	            section_keys.append(section.source_key)
+   219	
+   220	        price_keys = []
+   221	        for order, item in enumerate(parsed.prices):
+   222	            unit = unit_objects.get(item.unit_type_key)
+   223	            self._upsert(
+   224	                EstatePrice,
+   225	                {"project": project},
+   226	                item.source_key,
+   227	                {
+   228	                    "unit_type": unit,
+   229	                    "display_text": item.text,
+   230	                    "amount": item.amount,
+   231	                    "currency": "CAD" if "$" in item.text else "",
+   232	                    "display_order": order,
+   233	                },
+   234	                {"display_text": item.text},
+   235	                adopt_legacy,
+   236	                warnings,
+   237	            )
+   238	            price_keys.append(item.source_key)
+   239	
+   240	        plan_keys = []
+   241	        for plan_order, parsed_plan in enumerate(parsed.deposit_plans):
+   242	            unit = unit_objects.get(parsed_plan.unit_type_key)
+   243	            plan = self._upsert(
+   244	                EstateDepositPlan,
+   245	                {"project": project},
+   246	                parsed_plan.source_key,
+   247	                {
+   248	                    "unit_type": unit,
+   249	                    "title": parsed_plan.title,
+   250	                    "display_order": plan_order,
+   251	                },
+   252	                {"title": parsed_plan.title},
+   253	                adopt_legacy,
+   254	                warnings,
+   255	            )
+   256	            plan_keys.append(parsed_plan.source_key)
+   257	
+   258	            installment_keys = []
+   259	            for order, item in enumerate(parsed_plan.installments):
+   260	                self._upsert(
+   261	                    EstateDepositInstallment,
+   262	                    {"plan": plan},
+   263	                    item.source_key,
+   264	                    {
+   265	                        "milestone": item.milestone or item.text,
+   266	                        "amount_text": item.text,
+   267	                        "amount": item.amount,
+   268	                        "percentage": item.percentage,
+   269	                        "display_order": order,
+   270	                    },
+   271	                    {
+   272	                        "milestone": item.milestone or item.text,
+   273	                        "amount_text": item.text,
+   274	                    },
+   275	                    adopt_legacy,
+   276	                    warnings,
+   277	                )
+   278	                installment_keys.append(item.source_key)
+   279	            self._delete_stale(
+   280	                EstateDepositInstallment,
+   281	                {"plan": plan},
+   282	                installment_keys,
+   283	            )
+   284	
+   285	        incentive_keys = []
+   286	        for order, item in enumerate(parsed.incentives):
+   287	            self._upsert(
+   288	                EstateIncentive,
+   289	                {"project": project},
+   290	                item.source_key,
+   291	                {"description": item.text, "display_order": order},
+   292	                {"description": item.text},
+   293	                adopt_legacy,
+   294	                warnings,
+   295	            )
+   296	            incentive_keys.append(item.source_key)
+   297	
+   298	        amenity_keys = []
+   299	        for order, item in enumerate(parsed.amenities):
+   300	            self._upsert(
+   301	                EstateAmenity,
+   302	                {"project": project},
+   303	                item.source_key,
+   304	                {"description": item.text, "display_order": order},
+   305	                {"description": item.text},
+   306	                adopt_legacy,
+   307	                warnings,
+   308	            )
+   309	            amenity_keys.append(item.source_key)
+   310	
+   311	        document_keys = []
+   312	        for order, item in enumerate(parsed.documents):
+   313	            label = item.text.lower()
+   314	            if "floor" in label:
+   315	                document_type = "floor_plan"
+   316	            elif "price" in label:
+   317	                document_type = "price_list"
+   318	            elif "brochure" in label:
+   319	                document_type = "brochure"
+   320	            else:
+   321	                document_type = "other"
+   322	
+   323	            self._upsert(
+   324	                EstateDocument,
+   325	                {"project": project},
+   326	                item.source_key,
+   327	                {
+   328	                    "label": item.text,
+   329	                    "document_type": document_type,
+   330	                    "source_url": item.url,
+   331	                    "requires_phone_verification": True,
+   332	                    "display_order": order,
+   333	                },
+   334	                {"source_url": item.url},
+   335	                adopt_legacy,
+   336	                warnings,
+   337	            )
+   338	            document_keys.append(item.source_key)
+   339	
+   340	        self._delete_stale(
+   341	            EstateContentSection,
+   342	            {"project": project},
+   343	            section_keys,
+   344	        )
+   345	        self._delete_stale(EstatePrice, {"project": project}, price_keys)
+   346	        self._delete_stale(
+   347	            EstateDepositPlan,
+   348	            {"project": project},
+   349	            plan_keys,
+   350	        )
+   351	        self._delete_stale(
+   352	            EstateIncentive,
+   353	            {"project": project},
+   354	            incentive_keys,
+   355	        )
+   356	        self._delete_stale(
+   357	            EstateAmenity,
+   358	            {"project": project},
+   359	            amenity_keys,
+   360	        )
+   361	
+   362	        stale_documents = EstateDocument.objects.filter(
+   363	            project=project,
+   364	            parser_owned=True,
+   365	        ).exclude(source_key__in=document_keys)
+   366	        for document in stale_documents:
+   367	            if document.intents.exists():
+   368	                document.parser_owned = False
+   369	                document.source_key = ""
+   370	                document.save(update_fields=["parser_owned", "source_key"])
+   371	                warnings.append(
+   372	                    f"Preserved stale document {document.id} because it has "
+   373	                    "access intents."
+   374	                )
+   375	            else:
+   376	                document.delete()
+   377	
+   378	        self._delete_stale(EstateUnitType, {"project": project}, unit_keys)
+   379	
+   380	    def import_legacy(self, legacy):
+   381	        source_id = str(legacy.listing_id or legacy.listing_key or legacy.pk)
+   382	        title = (
+   383	            legacy.property_title
+   384	            or legacy.unparsed_address
+   385	            or f"Estate project {source_id}"
+   386	        )
+   387	        desired_slug = (
+   388	            slugify(legacy.property_slug or title)[:450]
+   389	            or f"estate-{legacy.pk}"
+   390	        )
+   391	        existing = EstateProject.objects.filter(
+   392	            source="wordpress",
+   393	            source_id=source_id,
+   394	        ).first()
+   395	        slug = desired_slug
+   396	        slug_conflict = EstateProject.objects.exclude(
+   397	            source="wordpress",
+   398	            source_id=source_id,
+   399	        ).filter(slug=slug)
+   400	        if slug_conflict.exists():
+   401	            slug = f"{desired_slug[:430]}-{legacy.pk}"
+   402	
+   403	        incoming = self._source_values(legacy, title, slug)
+   404	        snapshot = (
+   405	            EstateSourceSnapshot.objects.filter(project=existing).first()
+   406	            if existing
+   407	            else None
+   408	        )
+   409	        if snapshot and snapshot.parser_version == PARSER_VERSION:
+   410	            source_unchanged = (
+   411	                snapshot.raw_html == (legacy.property_description or "")
+   412	                and snapshot.raw_metadata == (legacy.wp_meta_json or {})
+   413	                and snapshot.raw_terms == (legacy.wp_terms_json or {})
+   414	                and snapshot.raw_post == (legacy.wp_post_json or {})
+   415	                and snapshot.source_updated_at == legacy.modification_timestamp
+   416	            )
+   417	            if source_unchanged:
+   418	                return None
+   419	
+   420	        if existing:
+   421	            project = existing
+   422	            created = False
+   423	        else:
+   424	            project = EstateProject.objects.create(
+   425	                source="wordpress",
+   426	                source_id=source_id,
+   427	                **incoming,
+   428	            )
+   429	            created = True
+   430	
+   431	        parsed = parse_estate_content(
+   432	            legacy.property_description or "",
+   433	            legacy.wp_meta_json,
+   434	            legacy.wp_terms_json,
+   435	        )
+   436	        warnings = list(parsed.warnings)
+   437	        if created:
+   438	            imported_values = {
+   439	                field_name: _json_value(value)
+   440	                for field_name, value in incoming.items()
+   441	            }
+   442	        else:
+   443	            imported_values = self._reconcile_project(
+   444	                project,
+   445	                snapshot,
+   446	                incoming,
+   447	                warnings,
+   448	            )
+   449	
+   450	        adopt_legacy = bool(
+   451	            snapshot and snapshot.parser_version < PARSER_VERSION
+   452	        )
+   453	        self._reconcile_children(project, parsed, adopt_legacy, warnings)
+   454	        EstateSourceSnapshot.objects.update_or_create(
+   455	            project=project,
+   456	            defaults={
+   457	                "raw_html": legacy.property_description or "",
+   458	                "raw_metadata": legacy.wp_meta_json or {},
+   459	                "raw_terms": legacy.wp_terms_json or {},
+   460	                "raw_post": legacy.wp_post_json or {},
+   461	                "warnings": warnings,
+   462	                "imported_project_values": imported_values,
+   463	                "parser_version": PARSER_VERSION,
+   464	                "source_updated_at": legacy.modification_timestamp,
+   465	            },
+   466	        )
+   467	        return created, len(warnings)
+
+===== ESTATE PARSER TESTS =====
+     1	from django.test import TestCase
+     2	
+     3	from .services.estate_content import parse_estate_content
+     4	
+     5	
+     6	class EstateParserTests(TestCase):
+     7	    def test_preserves_residual_rich_html_exactly(self):
+     8	        rich_html = (
+     9	            '<h2 data-id="overview">Overview</h2>'
+    10	            '<p class="lead">Text <strong>bold</strong> '
+    11	            '<a href="https://example.com/about">link</a>.</p>'
+    12	            '<ul class="features"><li>First</li><li><em>Second</em></li></ul>'
+    13	            '<table><tr><th>Label</th><td>Value</td></tr></table>'
+    14	        )
+    15	        parsed = parse_estate_content(rich_html)
+    16	
+    17	        self.assertEqual(
+    18	            parsed.sections[0].html,
+    19	            rich_html[rich_html.index("<p"):],
+    20	        )
+    21	
+    22	    def test_uses_metadata_and_taxonomies_as_supporting_inputs(self):
+    23	        parsed = parse_estate_content(
+    24	            "<p>Overview</p>",
+    25	            {"fave_property_price": "$899,000"},
+    26	            {"type": ["Townhomes"], "features": ["Closing credit"]},
+    27	        )
+    28	
+    29	        self.assertEqual(parsed.unit_types[0].text, "Townhomes")
+    30	        self.assertEqual(parsed.prices[0].amount, 899000)
+    31	        self.assertEqual(parsed.incentives[0].text, "Closing credit")
+    32	
+    33	    def test_groups_deposit_installments_under_one_plan(self):
+    34	        parsed = parse_estate_content(
+    35	            "<h2>Deposit Schedule</h2><ul>"
+    36	            "<li>Signing: 5%</li><li>30 days: $25,000</li></ul>"
+    37	        )
+    38	
+    39	        self.assertEqual(len(parsed.deposit_plans), 1)
+    40	        self.assertEqual(len(parsed.deposit_plans[0].installments), 2)
+    41	        self.assertEqual(parsed.deposit_plans[0].installments[0].percentage, 5)
+    42	
+    43	    def test_warns_and_preserves_ambiguous_content(self):
+    44	        parsed = parse_estate_content(
+    45	            "<h2>Pricing</h2><p>$500,000 to $700,000</p>"
+    46	            "<h2>Deposit Schedule</h2><p>Contact us for details</p>"
+    47	        )
+    48	
+    49	        self.assertIsNone(parsed.prices[0].amount)
+    50	        self.assertTrue(
+    51	            any("Ambiguous price" in warning for warning in parsed.warnings)
+    52	        )
+    53	        self.assertTrue(
+    54	            any(
+    55	                "Ambiguous or unsupported deposits" in warning
+    56	                for warning in parsed.warnings
+    57	            )
+    58	        )
+    59	        self.assertIn("Contact us for details", parsed.sections[0].html)
+
+===== ESTATE API TESTS =====
+     1	from django.test import TestCase
+     2	from rest_framework.test import APIClient
+     3	
+     4	from .models import EstateDocument, EstatePrice, EstateProject
+     5	
+     6	
+     7	class EstateProjectApiTests(TestCase):
+     8	    def setUp(self):
+     9	        self.project = EstateProject.objects.create(
+    10	            source_id="1",
+    11	            title="Example",
+    12	            slug="example",
+    13	            publication_status="publish",
+    14	        )
+    15	        EstatePrice.objects.create(
+    16	            project=self.project,
+    17	            display_text="From $500,000",
+    18	            amount=500000,
+    19	            currency="CAD",
+    20	        )
+    21	        self.document = EstateDocument.objects.create(
+    22	            project=self.project,
+    23	            label="Floor plan",
+    24	            document_type="floor_plan",
+    25	            source_url="https://example.com/private.pdf",
+    26	        )
+    27	        self.client = APIClient()
+    28	
+    29	    def test_public_detail_is_structured_and_never_exposes_source_url(self):
+    30	        response = self.client.get("/api/mls/estate-projects/example/")
+    31	
+    32	        self.assertEqual(response.status_code, 200)
+    33	        self.assertEqual(response.data["prices"][0]["amount"], "500000.00")
+    34	        self.assertNotIn("source_url", response.data["documents"][0])
+    35	        self.assertNotIn("https://example.com/private.pdf", str(response.data))
+    36	        self.assertNotIn("source_id", response.data)
+    37	        self.assertNotIn("source_snapshot", response.data)
+    38	
+    39	    def test_list_includes_the_lowest_real_price_without_extra_queries(self):
+    40	        EstatePrice.objects.create(
+    41	            project=self.project,
+    42	            display_text="From $650,000",
+    43	            amount=650000,
+    44	            currency="CAD",
+    45	        )
+    46	
+    47	        with self.assertNumQueries(1):
+    48	            response = self.client.get("/api/mls/estate-projects/")
+    49	
+    50	        self.assertEqual(response.status_code, 200)
+    51	        self.assertEqual(response.data[0]["lowest_price_display"], "From $500,000")
+    52	
+    53	    def test_draft_project_returns_404(self):
+    54	        self.project.publication_status = "draft"
+    55	        self.project.save(update_fields=["publication_status"])
+    56	
+    57	        response = self.client.get("/api/mls/estate-projects/example/")
+    58	
+    59	        self.assertEqual(response.status_code, 404)
+
+===== WORDPRESS EXPORT FILES =====
+./estate4u.WordPress.2026-03-06.xml | 10403051 bytes
+./frontend/.next/export-marker.json | 111 bytes
+./frontend/data/wp-posts.json | 328726 bytes

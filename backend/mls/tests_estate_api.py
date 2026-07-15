@@ -36,6 +36,20 @@ class EstateProjectApiTests(TestCase):
         self.assertNotIn("source_id", response.data)
         self.assertNotIn("source_snapshot", response.data)
 
+    def test_list_includes_the_lowest_real_price_without_extra_queries(self):
+        EstatePrice.objects.create(
+            project=self.project,
+            display_text="From $650,000",
+            amount=650000,
+            currency="CAD",
+        )
+
+        with self.assertNumQueries(1):
+            response = self.client.get("/api/mls/estate-projects/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[0]["lowest_price_display"], "From $500,000")
+
     def test_draft_project_returns_404(self):
         self.project.publication_status = "draft"
         self.project.save(update_fields=["publication_status"])

@@ -4,6 +4,29 @@ import { env } from "../env";
 
 export const API_BASE_URL = env.NEXT_PUBLIC_API_URL;
 
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly responseBody: string,
+  ) {
+    super(`API_ERROR:${status}:${responseBody}`);
+    this.name = "ApiError";
+  }
+}
+
+export function isApiError(error: unknown): error is ApiError {
+  return error instanceof ApiError;
+}
+
+function isDynamicServerUsageError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const digest = "digest" in error ? error.digest : undefined;
+  return (
+    digest === "DYNAMIC_SERVER_USAGE" ||
+    error.message.includes("DYNAMIC_SERVER_USAGE")
+  );
+}
+
 /**
  * Enhanced fetch wrapper with better error handling
  */
@@ -56,21 +79,16 @@ export async function fetchAPI<T>(
         );
       }
 
-      throw new Error(`API_ERROR:${response.status}:${errorMessage}`);
+      throw new ApiError(response.status, errorMessage);
     }
 
     const data = await response.json();
     return data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Avoid double logging if it's already logged above
     if (error instanceof Error && !error.message.startsWith("API_ERROR:")) {
       // Ignore Next.js dynamic server usage errors (bailouts from static generation)
-      const err = error as any;
-      if (
-        err.digest === "DYNAMIC_SERVER_USAGE" ||
-        (typeof err.message === "string" &&
-          err.message.includes("DYNAMIC_SERVER_USAGE"))
-      ) {
+      if (isDynamicServerUsageError(error)) {
         throw error;
       }
       console.error(`Network error fetching ${url}:`, error);
