@@ -352,6 +352,17 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
 }
 
+ESTATE_DOCUMENT_ALLOWED_HOSTS = [
+    host.strip().lower()
+    for host in os.environ.get(
+        "ESTATE_DOCUMENT_ALLOWED_HOSTS",
+        "estate-4u.com,res.cloudinary.com",
+    ).split(",")
+    if host.strip()
+]
+ESTATE_DOCUMENT_ACCESS_MAX_AGE = int(os.environ.get("ESTATE_DOCUMENT_ACCESS_MAX_AGE", "300"))
+ESTATE_DOCUMENT_MAX_BYTES = int(os.environ.get("ESTATE_DOCUMENT_MAX_BYTES", str(25 * 1024 * 1024)))
+
 # JWT
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),

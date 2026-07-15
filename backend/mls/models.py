@@ -895,6 +895,9 @@ class EstateProject(models.Model):
 
 class EstateOrderedModel(models.Model):
     display_order = models.PositiveIntegerField(default=0)
+    source_key = models.CharField(max_length=255, blank=True, default="")
+    parser_owned = models.BooleanField(default=False)
+
     class Meta:
         abstract = True
         ordering = ["display_order", "id"]
@@ -905,11 +908,17 @@ class EstateContentSection(EstateOrderedModel):
     heading = models.CharField(max_length=500, blank=True)
     html = models.TextField(blank=True)
 
+    class Meta(EstateOrderedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["project", "source_key"], condition=~models.Q(source_key=""), name="uniq_estate_section_source")]
+
 
 class EstateUnitType(EstateOrderedModel):
     project = models.ForeignKey(EstateProject, related_name="unit_types", on_delete=models.CASCADE)
     name = models.CharField(max_length=500)
     description = models.TextField(blank=True)
+
+    class Meta(EstateOrderedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["project", "source_key"], condition=~models.Q(source_key=""), name="uniq_estate_unit_source")]
 
 
 class EstatePrice(EstateOrderedModel):
@@ -919,11 +928,17 @@ class EstatePrice(EstateOrderedModel):
     amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     currency = models.CharField(max_length=3, blank=True)
 
+    class Meta(EstateOrderedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["project", "source_key"], condition=~models.Q(source_key=""), name="uniq_estate_price_source")]
+
 
 class EstateDepositPlan(EstateOrderedModel):
     project = models.ForeignKey(EstateProject, related_name="deposit_plans", on_delete=models.CASCADE)
     unit_type = models.ForeignKey(EstateUnitType, related_name="deposit_plans", null=True, blank=True, on_delete=models.SET_NULL)
     title = models.CharField(max_length=500)
+
+    class Meta(EstateOrderedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["project", "source_key"], condition=~models.Q(source_key=""), name="uniq_estate_deposit_source")]
 
 
 class EstateDepositInstallment(EstateOrderedModel):
@@ -933,16 +948,25 @@ class EstateDepositInstallment(EstateOrderedModel):
     amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     percentage = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
 
+    class Meta(EstateOrderedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["plan", "source_key"], condition=~models.Q(source_key=""), name="uniq_estate_installment_source")]
+
 
 class EstateIncentive(EstateOrderedModel):
     project = models.ForeignKey(EstateProject, related_name="incentives", on_delete=models.CASCADE)
     description = models.TextField()
+
+    class Meta(EstateOrderedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["project", "source_key"], condition=~models.Q(source_key=""), name="uniq_estate_incentive_source")]
 
 
 class EstateAmenity(EstateOrderedModel):
     project = models.ForeignKey(EstateProject, related_name="amenities", on_delete=models.CASCADE)
     description = models.TextField()
     travel_time_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    class Meta(EstateOrderedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["project", "source_key"], condition=~models.Q(source_key=""), name="uniq_estate_amenity_source")]
 
 
 class EstateDocument(EstateOrderedModel):
@@ -953,6 +977,9 @@ class EstateDocument(EstateOrderedModel):
     source_url = models.URLField(max_length=3000)
     requires_phone_verification = models.BooleanField(default=True)
 
+    class Meta(EstateOrderedModel.Meta):
+        constraints = [models.UniqueConstraint(fields=["project", "source_key"], condition=~models.Q(source_key=""), name="uniq_estate_document_source")]
+
 
 class EstateSourceSnapshot(models.Model):
     project = models.OneToOneField(EstateProject, related_name="source_snapshot", on_delete=models.CASCADE)
@@ -961,6 +988,8 @@ class EstateSourceSnapshot(models.Model):
     raw_terms = models.JSONField(default=dict, blank=True)
     raw_post = models.JSONField(default=dict, blank=True)
     warnings = models.JSONField(default=list, blank=True)
+    imported_project_values = models.JSONField(default=dict, blank=True)
+    parser_version = models.PositiveSmallIntegerField(default=0)
     source_updated_at = models.DateTimeField(null=True, blank=True)
     imported_at = models.DateTimeField(auto_now=True)
 

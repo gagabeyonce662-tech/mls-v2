@@ -48,7 +48,14 @@ class EstateProjectSerializer(serializers.ModelSerializer):
     documents = EstateDocumentSerializer(many=True, read_only=True)
     class Meta:
         model = EstateProject
-        exclude = ["source_id"]
+        fields = [
+            "id", "title", "slug", "publication_status", "developer",
+            "occupancy_year", "address", "city", "province", "postal_code",
+            "country", "latitude", "longitude", "featured_image_url",
+            "is_featured", "created_at", "updated_at", "sections",
+            "unit_types", "prices", "deposit_plans", "incentives",
+            "amenities", "documents",
+        ]
 
 
 class EstateProjectListSerializer(serializers.ModelSerializer):

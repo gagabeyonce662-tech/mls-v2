@@ -1,13 +1,18 @@
 import json
 import logging
 import os
+from urllib.parse import urlparse
 from uuid import uuid4
 
+import requests
 from cloudinary import api as cloudinary_api
 from cloudinary.exceptions import Error as CloudinaryError
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.shortcuts import get_object_or_404
+from django.core import signing
+from django.http import StreamingHttpResponse
+from django.urls import reverse
 from django.utils import timezone
 from django.db import DataError, DatabaseError, IntegrityError
 from django.db.models import Q
@@ -1451,7 +1456,12 @@ class EstateDocumentIntentAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, document_id):
-        document = get_object_or_404(EstateDocument, pk=document_id)
+        document = get_object_or_404(
+            EstateDocument.objects.filter(
+                project__publication_status__in=["publish", "published"]
+            ),
+            pk=document_id,
+        )
         phone = str(request.data.get("phone") or request.user.phone or "").strip()
         if document.requires_phone_verification and not phone:
             return Response(
@@ -1492,7 +1502,12 @@ class EstateDocumentAccessAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, document_id):
-        document = get_object_or_404(EstateDocument, pk=document_id)
+        document = get_object_or_404(
+            EstateDocument.objects.filter(
+                project__publication_status__in=["publish", "published"]
+            ),
+            pk=document_id,
+        )
         intent = document.intents.filter(user=request.user).first()
         if not intent:
             return Response(
@@ -1507,4 +1522,85 @@ class EstateDocumentAccessAPIView(APIView):
         if request.user.phone_verified and not intent.verified_at:
             intent.verified_at = timezone.now()
             intent.save(update_fields=["verified_at"])
-        return Response({"access_url": document.source_url})
+        token = signing.dumps(
+            {"document_id": document.id, "user_id": request.user.id},
+            salt="estate-document-access",
+        )
+        proxy_path = reverse("estate-document-proxy")
+        return Response({"access_url": request.build_absolute_uri(f"{proxy_path}?token={token}")})
+
+
+@extend_schema_view(
+    get=extend_schema(
+        tags=["Estate Project Documents"],
+        responses={200: OpenApiResponse(description="Proxied document stream."), 404: OpenApiResponse(description="Invalid, expired, missing, or disallowed document.")},
+    )
+)
+class EstateDocumentProxyAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    @staticmethod
+    def _allowed_host(hostname):
+        hostname = str(hostname or "").lower().rstrip(".")
+        return any(
+            hostname == allowed or hostname.endswith(f".{allowed}")
+            for allowed in settings.ESTATE_DOCUMENT_ALLOWED_HOSTS
+        )
+
+    def get(self, request):
+        try:
+            payload = signing.loads(
+                request.query_params.get("token", ""),
+                salt="estate-document-access",
+                max_age=settings.ESTATE_DOCUMENT_ACCESS_MAX_AGE,
+            )
+        except signing.BadSignature:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        document = get_object_or_404(
+            EstateDocument.objects.filter(
+                project__publication_status__in=["publish", "published"],
+                intents__user_id=payload.get("user_id"),
+                intents__verified_at__isnull=False,
+            ).distinct(),
+            pk=payload.get("document_id"),
+        )
+        parsed_url = urlparse(document.source_url)
+        if parsed_url.scheme != "https" or not self._allowed_host(parsed_url.hostname):
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        try:
+            upstream = requests.get(
+                document.source_url,
+                stream=True,
+                timeout=(5, 20),
+                allow_redirects=False,
+            )
+        except requests.RequestException:
+            logger.exception("Unable to fetch estate document %s", document.id)
+            return Response(status=status.HTTP_502_BAD_GATEWAY)
+        if upstream.status_code != 200:
+            upstream.close()
+            return Response(status=status.HTTP_502_BAD_GATEWAY)
+        content_length = int(upstream.headers.get("Content-Length") or 0)
+        if content_length > settings.ESTATE_DOCUMENT_MAX_BYTES:
+            upstream.close()
+            return Response(status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+
+        def stream():
+            total = 0
+            try:
+                for chunk in upstream.iter_content(64 * 1024):
+                    total += len(chunk)
+                    if total > settings.ESTATE_DOCUMENT_MAX_BYTES:
+                        break
+                    if chunk:
+                        yield chunk
+            finally:
+                upstream.close()
+
+        response = StreamingHttpResponse(
+            stream(),
+            content_type=upstream.headers.get("Content-Type", "application/octet-stream"),
+        )
+        response["Content-Disposition"] = f'attachment; filename="estate-document-{document.id}"'
+        response["Cache-Control"] = "private, no-store"
+        return response

@@ -17,7 +17,7 @@ from .views_valuation import (
     ValuationEstimateAPIView,
 )
 from .views_estate import (
-    EstateDocumentAccessAPIView, EstateDocumentIntentAPIView,
+    EstateDocumentAccessAPIView, EstateDocumentIntentAPIView, EstateDocumentProxyAPIView,
     EstateProjectDetailAPIView, EstateProjectListAPIView,
 )
 
@@ -26,6 +26,7 @@ urlpatterns = [
     path('estate-projects/<str:lookup>/', EstateProjectDetailAPIView.as_view(), name='estate-project-detail'),
     path('estate-documents/<int:document_id>/intent/', EstateDocumentIntentAPIView.as_view(), name='estate-document-intent'),
     path('estate-documents/<int:document_id>/access/', EstateDocumentAccessAPIView.as_view(), name='estate-document-access'),
+    path('estate-documents/proxy/', EstateDocumentProxyAPIView.as_view(), name='estate-document-proxy'),
     path('valuation/autocomplete/', ValuationAutocompleteAPIView.as_view(), name='valuation-autocomplete'),
     path('valuation/lookup/', ValuationLookupAPIView.as_view(), name='valuation-lookup'),
     path('valuation/estimate/', ValuationEstimateAPIView.as_view(), name='valuation-estimate'),
