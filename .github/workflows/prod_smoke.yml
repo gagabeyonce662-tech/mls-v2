@@ -32,7 +32,7 @@ jobs:
 
       - name: Run production smoke suite
         env:
-          SMOKE_BASE_URL: ${{ vars.SMOKE_BASE_URL || 'https://mls-backend-v2.vercel.app' }}
+          SMOKE_BASE_URL: ${{ vars.SMOKE_BASE_URL || 'http://localhost:8000' }}
           SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
           SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
           SMOKE_TIMEOUT_SECONDS: "25"

@@ -20,7 +20,7 @@ from typing import Any
 from urllib import error, parse, request
 
 
-BASE_URL = os.environ.get("SMOKE_BASE_URL", "https://mls-backend-v2.vercel.app").rstrip("/")
+BASE_URL = os.environ.get("SMOKE_BASE_URL", "http://localhost:8000").rstrip("/")
 SMOKE_EMAIL = os.environ.get("SMOKE_TEST_EMAIL", "").strip()
 SMOKE_PASSWORD = os.environ.get("SMOKE_TEST_PASSWORD", "").strip()
 TIMEOUT_SECONDS = int(os.environ.get("SMOKE_TIMEOUT_SECONDS", "25"))

@@ -5,12 +5,18 @@ from django.contrib import admin
 from django import forms
 from django.utils.html import format_html
 from .models import (
+    Attachment,
+    Author,
+    Content,
+    ContentMeta,
     EstateProperty,
     EstatePropertyImage,
     Media,
+    PreComProperty,
     Property,
     PropertyInquiry,
     Room,
+    Taxonomy,
     UserFeedback,
 )
 from .admin_ui import SectionedAdminMixin
@@ -277,6 +283,73 @@ class PropertyInquiryAdmin(SectionedAdminMixin, admin.ModelAdmin):
 admin.site.register(Room, RoomAdmin)
 admin.site.register(Media, MediaAdmin)
 admin.site.register(UserFeedback, UserFeedbackAdmin)
+
+
+@admin.register(Author)
+class AuthorAdmin(admin.ModelAdmin):
+    list_display = ("wp_id", "login", "display_name", "email")
+    search_fields = ("login", "display_name", "email", "first_name", "last_name")
+    ordering = ("display_name",)
+
+
+@admin.register(Taxonomy)
+class TaxonomyAdmin(admin.ModelAdmin):
+    list_display = ("wp_id", "taxonomy", "name", "slug", "parent")
+    list_filter = ("taxonomy",)
+    search_fields = ("name", "slug")
+    ordering = ("taxonomy", "name")
+
+
+class ContentMetaInline(admin.TabularInline):
+    model = ContentMeta
+    extra = 0
+    classes = ("collapse",)
+
+
+class AttachmentInline(admin.TabularInline):
+    model = Attachment
+    extra = 0
+    classes = ("collapse",)
+
+
+@admin.register(Content)
+class ContentAdmin(admin.ModelAdmin):
+    list_display = ("wp_id", "content_type", "title", "slug", "status", "published_at", "author")
+    list_filter = ("content_type", "status")
+    search_fields = ("title", "slug", "wp_id")
+    autocomplete_fields = ("author",)
+    filter_horizontal = ("taxonomies",)
+    inlines = [ContentMetaInline, AttachmentInline]
+    ordering = ("-published_at", "-id")
+
+
+@admin.register(ContentMeta)
+class ContentMetaAdmin(admin.ModelAdmin):
+    list_display = ("content", "key", "value")
+    search_fields = ("key", "value")
+
+
+@admin.register(Attachment)
+class AttachmentAdmin(admin.ModelAdmin):
+    list_display = ("content", "url", "mime_type", "title")
+    search_fields = ("url", "title", "mime_type")
+
+
+@admin.register(PreComProperty)
+class PreComPropertyAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "content",
+        "price",
+        "bedrooms",
+        "bathrooms",
+        "area",
+        "latitude",
+        "longitude",
+    )
+    search_fields = ("content__title", "content__slug", "content__wp_id", "address")
+    autocomplete_fields = ("content",)
+    ordering = ("-id",)
 
 
 

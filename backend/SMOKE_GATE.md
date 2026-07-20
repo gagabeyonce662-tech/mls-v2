@@ -21,7 +21,7 @@ Checks covered:
 - `SMOKE_TEST_PASSWORD`
 
 ### Variables
-- `SMOKE_BASE_URL` (optional; defaults to `https://mls-backend-v2.vercel.app`)
+- `SMOKE_BASE_URL` (optional; defaults to `http://localhost:8000`)
 
 ## Logging and transparency
 

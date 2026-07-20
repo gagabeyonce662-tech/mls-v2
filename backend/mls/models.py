@@ -1098,3 +1098,182 @@ class EstateDocumentIntent(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["user", "document", "-created_at"])]
+
+
+
+class Author(models.Model):
+    wp_id = models.IntegerField(unique=True)
+    login = models.CharField(max_length=100)
+    email = models.EmailField(blank=True)
+    display_name = models.CharField(max_length=255)
+    first_name = models.CharField(max_length=100, blank=True)
+    last_name = models.CharField(max_length=100, blank=True)
+
+    def __str__(self):
+        return self.display_name
+
+
+class Taxonomy(models.Model):
+    CATEGORY = "category"
+    TAG = "tag"
+    PROPERTY_CITY = "property_city"
+    PROPERTY_TYPE = "property_type"
+    PROPERTY_STATUS = "property_status"
+    PROPERTY_LABEL = "property_label"
+    PROPERTY_FEATURE = "property_feature"
+
+    TYPES = [
+        (CATEGORY, "Category"),
+        (TAG, "Tag"),
+        (PROPERTY_CITY, "Property City"),
+        (PROPERTY_TYPE, "Property Type"),
+        (PROPERTY_STATUS, "Property Status"),
+        (PROPERTY_LABEL, "Property Label"),
+        (PROPERTY_FEATURE, "Property Feature"),
+    ]
+
+    wp_id = models.IntegerField(unique=True)
+    taxonomy = models.CharField(max_length=50, choices=TYPES)
+
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255)
+
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="children",
+    )
+
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name
+
+class Content(models.Model):
+
+    POST = "post"
+    PAGE = "page"
+    PROPERTY = "property"
+
+    TYPES = [
+        (POST, "Post"),
+        (PAGE, "Page"),
+        (PROPERTY, "Property"),
+    ]
+
+    wp_id = models.BigIntegerField(unique=True)
+
+    content_type = models.CharField(max_length=30, choices=TYPES)
+
+    title = models.CharField(max_length=500)
+
+    slug = models.SlugField(max_length=500)
+
+    content = models.TextField(blank=True)
+
+    excerpt = models.TextField(blank=True)
+
+    status = models.CharField(max_length=30)
+
+    published_at = models.DateTimeField(null=True)
+
+    author = models.ForeignKey(
+        Author,
+        null=True,
+        on_delete=models.SET_NULL
+    )
+
+    taxonomies = models.ManyToManyField(
+        Taxonomy,
+        blank=True
+    )
+
+    def __str__(self):
+        return self.title
+    
+
+class ContentMeta(models.Model):
+    content = models.ForeignKey(
+        Content,
+        related_name="meta",
+        on_delete=models.CASCADE
+    )
+
+    key = models.CharField(max_length=255)
+
+    value = models.TextField()
+
+    class Meta:
+        unique_together = ("content", "key")
+
+
+class Attachment(models.Model):
+    content = models.ForeignKey(
+        Content,
+        related_name="attachments",
+        on_delete=models.CASCADE
+    )
+
+    url = models.URLField()
+
+    mime_type = models.CharField(max_length=100)
+
+    title = models.CharField(max_length=255, blank=True)
+
+
+class PreComProperty(models.Model):
+    content = models.OneToOneField(
+        Content,
+        on_delete=models.CASCADE,
+        related_name="property"
+    )
+
+    price = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    bedrooms = models.PositiveIntegerField(null=True, blank=True)
+
+    bathrooms = models.DecimalField(
+        max_digits=4,
+        decimal_places=1,
+        null=True,
+        blank=True
+    )
+
+    garages = models.PositiveIntegerField(null=True, blank=True)
+
+    area = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    lot_size = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    latitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True
+    )
+
+    longitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True
+    )
+
+    address = models.TextField(blank=True)

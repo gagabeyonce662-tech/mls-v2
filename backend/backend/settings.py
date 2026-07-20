@@ -38,7 +38,7 @@ for _env_path in (
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-oaaa%9e+w*u8tv-u==dtu9(9rlp_akhahh!+5udiy%m3syaivx')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 IS_VERCEL = os.environ.get("VERCEL") == "1" or bool(os.environ.get("VERCEL_ENV"))
 
 LOCAL_NETWORK_IP = os.environ.get("LOCAL_NETWORK_IP", "192.168.1.29")
@@ -265,6 +265,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://(.+\.)?vercel\.app$",
+    r"^http://(localhost|127\.0\.0\.1):\d+$",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
@@ -291,7 +292,7 @@ FACEBOOK_APP_ID = os.environ.get('FACEBOOK_APP_ID', '').strip()
 FACEBOOK_APP_SECRET = os.environ.get('FACEBOOK_APP_SECRET', '').strip()
 FACEBOOK_REDIRECT_URI = os.environ.get(
     'FACEBOOK_REDIRECT_URI',
-    'http://localhost:3000/auth/facebook/callback',
+    'http://localhost:8000:3000/auth/facebook/callback',
 ).strip()
 FACEBOOK_GRAPH_VERSION = os.environ.get('FACEBOOK_GRAPH_VERSION', 'v19.0').strip().lstrip('/')
 # Comma-separated list of extra redirect URIs allowed when client sends redirect_uri (e.g. staging + prod)

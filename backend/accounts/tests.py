@@ -228,7 +228,7 @@ class LoginViewTests(TestCase):
 @override_settings(
     FACEBOOK_APP_ID="test_app_id",
     FACEBOOK_APP_SECRET="test_secret",
-    FACEBOOK_REDIRECT_URI="http://localhost:3000/auth/facebook/callback",
+    FACEBOOK_REDIRECT_URI="http://localhost:8000:3000/auth/facebook/callback",
     FACEBOOK_ALLOWED_REDIRECT_URIS="",
     FACEBOOK_GRAPH_VERSION="v19.0",
 )
@@ -271,7 +271,7 @@ class FacebookAuthViewTests(TestCase):
             "/api/auth/facebook/",
             {
                 "code": "valid_code",
-                "redirect_uri": "http://localhost:3000/auth/facebook/callback",
+                "redirect_uri": "http://localhost:8000:3000/auth/facebook/callback",
             },
             format="json",
         )
@@ -304,7 +304,7 @@ class FacebookAuthViewTests(TestCase):
             "/api/auth/facebook/",
             {
                 "code": "valid_code",
-                "redirect_uri": "http://localhost:3000/auth/facebook/callback",
+                "redirect_uri": "http://localhost:8000:3000/auth/facebook/callback",
             },
             format="json",
         )
@@ -334,7 +334,7 @@ class FacebookAuthViewTests(TestCase):
             "/api/auth/facebook/",
             {
                 "code": "valid_code",
-                "redirect_uri": "http://localhost:3000/auth/facebook/callback",
+                "redirect_uri": "http://localhost:8000:3000/auth/facebook/callback",
             },
             format="json",
         )
@@ -351,7 +351,7 @@ class FacebookAuthViewTests(TestCase):
             "/api/auth/facebook/",
             {
                 "code": "valid_code",
-                "redirect_uri": "http://localhost:3000/auth/facebook/callback",
+                "redirect_uri": "http://localhost:8000:3000/auth/facebook/callback",
             },
             format="json",
         )
@@ -396,7 +396,7 @@ class PhoneOtpViewTests(TestCase):
     @override_settings(
         FACEBOOK_APP_ID="test_app_id",
         FACEBOOK_APP_SECRET="test_secret",
-        FACEBOOK_REDIRECT_URI="http://localhost:3000/auth/facebook/callback",
+        FACEBOOK_REDIRECT_URI="http://localhost:8000:3000/auth/facebook/callback",
         FACEBOOK_ALLOWED_REDIRECT_URIS="",
         FACEBOOK_GRAPH_VERSION="v19.0",
     )
@@ -418,7 +418,7 @@ class PhoneOtpViewTests(TestCase):
             "/api/auth/facebook/",
             {
                 "code": "bad",
-                "redirect_uri": "http://localhost:3000/auth/facebook/callback",
+                "redirect_uri": "http://localhost:8000:3000/auth/facebook/callback",
             },
             format="json",
         )
@@ -427,7 +427,7 @@ class PhoneOtpViewTests(TestCase):
     @override_settings(
         FACEBOOK_APP_ID="test_app_id",
         FACEBOOK_APP_SECRET="test_secret",
-        FACEBOOK_REDIRECT_URI="http://localhost:3000/auth/facebook/callback",
+        FACEBOOK_REDIRECT_URI="http://localhost:8000:3000/auth/facebook/callback",
     )
     def test_facebook_login_rejects_invalid_redirect_uri(self):
         r = self.client.post(
@@ -444,7 +444,7 @@ class PhoneOtpViewTests(TestCase):
     @override_settings(
         FACEBOOK_APP_ID="test_app_id",
         FACEBOOK_APP_SECRET="test_secret",
-        FACEBOOK_REDIRECT_URI="http://localhost:3000/auth/facebook/callback",
+        FACEBOOK_REDIRECT_URI="http://localhost:8000:3000/auth/facebook/callback",
         FACEBOOK_ALLOWED_REDIRECT_URIS="",
         FACEBOOK_GRAPH_VERSION="v19.0",
     )
@@ -455,7 +455,7 @@ class PhoneOtpViewTests(TestCase):
             "/api/auth/facebook/",
             {
                 "code": "any",
-                "redirect_uri": "http://localhost:3000/auth/facebook/callback",
+                "redirect_uri": "http://localhost:8000:3000/auth/facebook/callback",
             },
             format="json",
         )
