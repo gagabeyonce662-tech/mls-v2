@@ -329,47 +329,108 @@ class EstatePropertyAdmin(admin.ModelAdmin):
         "-modification_timestamp",
     )
 
+
+class EstateUnitTypeInline(admin.TabularInline):
+    model = EstateUnitType
+    extra = 0
+    fields = (
+        "name",
+        "description",
+        "display_order",
+    )
+
+
+class EstatePriceInline(admin.TabularInline):
+    model = EstatePrice
+    extra = 0
+    fields = (
+        "unit_type",
+        "display_text",
+        "amount",
+        "currency",
+        "display_order",
+    )
+
+
+class EstateIncentiveInline(admin.TabularInline):
+    model = EstateIncentive
+    extra = 0
+    fields = (
+        "description",
+        "display_order",
+    )
+
+
+class EstateAmenityInline(admin.TabularInline):
+    model = EstateAmenity
+    extra = 0
+    fields = (
+        "description",
+        "display_order",
+    )
+
+
+class EstateDocumentInline(admin.TabularInline):
+    model = EstateDocument
+    extra = 0
+    fields = (
+        "label",
+        "document_type",
+        "source_url",
+        "requires_phone_verification",
+        "display_order",
+    )
     
 
-    @admin.register(EstateProject)
-    class EstateProjectAdmin(admin.ModelAdmin):
-        list_display = (
-            "title",
-            "developer",
-            "city",
-            "publication_status",
-            "occupancy_year",
-            "is_featured",
-        )
+@admin.register(EstateProject)
+class EstateProjectAdmin(admin.ModelAdmin):
 
-        list_filter = (
-            "publication_status",
-            "is_featured",
-            "province",
-            "city",
-        )
+    inlines = (
+        EstateUnitTypeInline,
+        EstatePriceInline,
+        EstateIncentiveInline,
+        EstateAmenityInline,
+        EstateDocumentInline,
+    )
 
-        search_fields = (
-            "title",
-            "developer",
-            "address",
-            "city",
-            "source_id",
-        )
+    list_display = (
+        "title",
+        "developer",
+        "city",
+        "publication_status",
+        "occupancy_year",
+        "is_featured",
+    )
 
-        readonly_fields = (
-            "source",
-            "source_id",
-            "source_updated_at",
-            "created_at",
-            "updated_at",
-        )
+    list_filter = (
+        "publication_status",
+        "is_featured",
+        "province",
+        "city",
+    )
 
-        prepopulated_fields = {
-            "slug": ("title",),
-        }
+    search_fields = (
+        "title",
+        "developer",
+        "address",
+        "city",
+        "source_id",
+    )
 
-        ordering = (
-            "-is_featured",
-            "title",
-        )
+    readonly_fields = (
+        "source",
+        "source_id",
+        "source_updated_at",
+        "created_at",
+        "updated_at",
+    )
+
+    prepopulated_fields = {
+        "slug": ("title",),
+    }
+
+    ordering = (
+        "-is_featured",
+        "title",
+    )
+
