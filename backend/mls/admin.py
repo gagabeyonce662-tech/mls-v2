@@ -5,6 +5,7 @@ from django.contrib import admin
 from django import forms
 from django.utils.html import format_html
 from .models import (
+    EstateProject,
     EstateProperty,
     EstatePropertyImage,
     Media,
@@ -14,6 +15,16 @@ from .models import (
     UserFeedback,
 )
 from .admin_ui import SectionedAdminMixin
+from .models import (
+    EstateAmenity,
+    EstateDepositInstallment,
+    EstateDepositPlan,
+    EstateDocument,
+    EstateIncentive,
+    EstatePrice,
+    EstateProject,
+    EstateUnitType,
+)
 
 
 class RoomInline(admin.TabularInline):
@@ -317,3 +328,48 @@ class EstatePropertyAdmin(admin.ModelAdmin):
     ordering = (
         "-modification_timestamp",
     )
+
+    
+
+    @admin.register(EstateProject)
+    class EstateProjectAdmin(admin.ModelAdmin):
+        list_display = (
+            "title",
+            "developer",
+            "city",
+            "publication_status",
+            "occupancy_year",
+            "is_featured",
+        )
+
+        list_filter = (
+            "publication_status",
+            "is_featured",
+            "province",
+            "city",
+        )
+
+        search_fields = (
+            "title",
+            "developer",
+            "address",
+            "city",
+            "source_id",
+        )
+
+        readonly_fields = (
+            "source",
+            "source_id",
+            "source_updated_at",
+            "created_at",
+            "updated_at",
+        )
+
+        prepopulated_fields = {
+            "slug": ("title",),
+        }
+
+        ordering = (
+            "-is_featured",
+            "title",
+        )

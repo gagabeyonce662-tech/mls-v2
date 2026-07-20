@@ -1,0 +1,19 @@
+]633;E;{     echo "===== import_estate4u_xml.py ====="\x3b     nl -ba backend/mls/management/commands/import_estate4u_xml.py\x3b      echo\x3b     echo "===== estate_project_import.py ====="\x3b     nl -ba backend/mls/services/estate_project_import.py\x3b      echo\x3b     echo "===== parser.py ====="\x3b     nl -ba backend/mls/services/estate_content/parser.py\x3b      echo\x3b     echo "===== normalizers.py ====="\x3b     nl -ba backend/mls/services/estate_content/normalizers.py\x3b      echo\x3b     echo "===== schemas.py ====="\x3b     nl -ba backend/mls/services/estate_content/schemas.py\x3b      echo\x3b     echo "===== parser tests ====="\x3b     nl -ba backend/mls/tests_estate_parser.py\x3b      echo\x3b     echo "===== existing audit files ====="\x3b     for file in         backend/docs/alister-parser-audit.txt         backend/docs/estate-five-property-audit.txt         backend/docs/estate-project-list.json\x3b     do         echo\x3b         echo "===== $file ====="\x3b         nl -ba "$file"\x3b     done\x3b } > estate-import-review.txt;3bd42435-b9a2-4e0f-8f68-f5d5bfae3baf]633;C===== import_estate4u_xml.py =====
+
+===== estate_project_import.py =====
+
+===== parser.py =====
+
+===== normalizers.py =====
+
+===== schemas.py =====
+
+===== parser tests =====
+
+===== existing audit files =====
+
+===== backend/docs/alister-parser-audit.txt =====
+
+===== backend/docs/estate-five-property-audit.txt =====
+
+===== backend/docs/estate-project-list.json =====
