@@ -434,3 +434,35 @@ class EstateProjectAdmin(admin.ModelAdmin):
         "title",
     )
 
+
+class EstateDepositInstallmentInline(admin.TabularInline):
+    model = EstateDepositInstallment
+    extra = 0
+    fields = (
+        "milestone",
+        "amount_text",
+        "amount",
+        "percentage",
+        "display_order",
+    )
+
+
+@admin.register(EstateDepositPlan)
+class EstateDepositPlanAdmin(admin.ModelAdmin):
+    inlines = (
+        EstateDepositInstallmentInline,
+    )
+
+    list_display = (
+        "title",
+        "project",
+        "unit_type",
+        "display_order",
+    )
+    list_filter = (
+        "project",
+    )
+    search_fields = (
+        "title",
+        "project__title",
+    )
