@@ -13,9 +13,6 @@ from .models import (
     PropertyInquiry,
     Room,
     UserFeedback,
-)
-from .admin_ui import SectionedAdminMixin
-from .models import (
     EstateAmenity,
     EstateDepositInstallment,
     EstateDepositPlan,
@@ -25,7 +22,7 @@ from .models import (
     EstateProject,
     EstateUnitType,
 )
-
+from .admin_ui import SectionedAdminMixin
 
 class RoomInline(admin.TabularInline):
     model = Room
