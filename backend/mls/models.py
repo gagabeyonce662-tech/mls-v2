@@ -292,6 +292,8 @@ class EstateProperty(models.Model):
     listing_buttons_json = models.JSONField(default=list, blank=True)
 
     class Meta:
+        verbose_name = "Estate property"
+        verbose_name_plural = "Estate properties"
         db_table = "mls_estateproperty"
         managed = False
 

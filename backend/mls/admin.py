@@ -9,6 +9,7 @@ from .models import (
     Author,
     Content,
     ContentMeta,
+    EstateProject,
     EstateProperty,
     EstatePropertyImage,
     Media,
@@ -18,9 +19,16 @@ from .models import (
     Room,
     Taxonomy,
     UserFeedback,
+    EstateAmenity,
+    EstateDepositInstallment,
+    EstateDepositPlan,
+    EstateDocument,
+    EstateIncentive,
+    EstatePrice,
+    EstateProject,
+    EstateUnitType,
 )
 from .admin_ui import SectionedAdminMixin
-
 
 class RoomInline(admin.TabularInline):
     model = Room
@@ -389,4 +397,142 @@ class EstatePropertyAdmin(admin.ModelAdmin):
 
     ordering = (
         "-modification_timestamp",
+    )
+
+
+class EstateUnitTypeInline(admin.TabularInline):
+    model = EstateUnitType
+    extra = 0
+    fields = (
+        "name",
+        "description",
+        "display_order",
+    )
+
+
+class EstatePriceInline(admin.TabularInline):
+    model = EstatePrice
+    extra = 0
+    fields = (
+        "unit_type",
+        "display_text",
+        "amount",
+        "currency",
+        "display_order",
+    )
+
+
+class EstateIncentiveInline(admin.TabularInline):
+    model = EstateIncentive
+    extra = 0
+    fields = (
+        "description",
+        "display_order",
+    )
+
+
+class EstateAmenityInline(admin.TabularInline):
+    model = EstateAmenity
+    extra = 0
+    fields = (
+        "description",
+        "display_order",
+    )
+
+
+class EstateDocumentInline(admin.TabularInline):
+    model = EstateDocument
+    extra = 0
+    fields = (
+        "label",
+        "document_type",
+        "source_url",
+        "requires_phone_verification",
+        "display_order",
+    )
+    
+
+@admin.register(EstateProject)
+class EstateProjectAdmin(admin.ModelAdmin):
+
+    inlines = (
+        EstateUnitTypeInline,
+        EstatePriceInline,
+        EstateIncentiveInline,
+        EstateAmenityInline,
+        EstateDocumentInline,
+    )
+
+    list_display = (
+        "title",
+        "developer",
+        "city",
+        "publication_status",
+        "occupancy_year",
+        "is_featured",
+    )
+
+    list_filter = (
+        "publication_status",
+        "is_featured",
+        "province",
+        "city",
+    )
+
+    search_fields = (
+        "title",
+        "developer",
+        "address",
+        "city",
+        "source_id",
+    )
+
+    readonly_fields = (
+        "source",
+        "source_id",
+        "source_updated_at",
+        "created_at",
+        "updated_at",
+    )
+
+    prepopulated_fields = {
+        "slug": ("title",),
+    }
+
+    ordering = (
+        "-is_featured",
+        "title",
+    )
+
+
+class EstateDepositInstallmentInline(admin.TabularInline):
+    model = EstateDepositInstallment
+    extra = 0
+    fields = (
+        "milestone",
+        "amount_text",
+        "amount",
+        "percentage",
+        "display_order",
+    )
+
+
+@admin.register(EstateDepositPlan)
+class EstateDepositPlanAdmin(admin.ModelAdmin):
+    inlines = (
+        EstateDepositInstallmentInline,
+    )
+
+    list_display = (
+        "title",
+        "project",
+        "unit_type",
+        "display_order",
+    )
+    list_filter = (
+        "project",
+    )
+    search_fields = (
+        "title",
+        "project__title",
     )
