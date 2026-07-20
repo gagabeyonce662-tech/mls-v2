@@ -14,7 +14,7 @@ const navigation = [
   { name: "Map Search", href: "/map-search" },
   { name: "Community Listings", href: "/community-listings" },
   { name: "Find My Home", href: "/find-my-property" },
-  { name: "Pre-Construction", href: "/Precon" },
+  { name: "PreCon", href: "/precon-listings" },
   { name: "Home Valuation", href: "/valuation" },
   { name: "Blog", href: "/blog" },
 ];

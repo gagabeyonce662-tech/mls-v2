@@ -6,7 +6,7 @@ import {
 } from "@/lib/api/estate";
 export const dynamic = "force-dynamic";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:8000:3000";
 const PAGE_URL = `${SITE_URL}/pre-construction`;
 const PAGE_TITLE = "Pre-Construction Projects in GTA | Estate-4u";
 const PAGE_DESCRIPTION =

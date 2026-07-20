@@ -10,6 +10,7 @@ export default function Header() {
     { name: "Home Valuation", href: "/valuation" },
     { name: "Watched", href: "/watched" },
     { name: "Our Properties", href: "/pre-construction" },
+    { name: "PreCon", href: "/precon-listings" },
     { name: "Blog", href: "/blog" },
   ];
 

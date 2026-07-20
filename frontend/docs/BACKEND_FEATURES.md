@@ -1,6 +1,6 @@
 # Backend Features & API Documentation
 
-Based on codebase analysis of `frontend/lib/api.ts` and application logic, here is a summary of the features provided by the backend at `https://mls-backend-v2.vercel.app`.
+Based on codebase analysis of `frontend/lib/api.ts` and application logic, here is a summary of the features provided by the backend at `http://localhost:8000`.
 
 ## 1. Property Management
 

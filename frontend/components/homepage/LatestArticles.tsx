@@ -12,7 +12,7 @@ const FALLBACK_THUMBNAIL =
 
 function shouldBypassOptimization(src: string): boolean {
   return (
-    src.startsWith("http://localhost:") ||
+    src.startsWith("http://localhost:8000:") ||
     src.startsWith("https://localhost:") ||
     src.startsWith("http://127.0.0.1:") ||
     src.startsWith("https://127.0.0.1:")

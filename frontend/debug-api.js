@@ -1,7 +1,7 @@
 async function testApi() {
   const urls = [
     "http://127.0.0.1:8000/api/mls/properties/newly-listed-properties/?limit=6&offset=0",
-    "https://mls-backend-v2.vercel.app/api/mls/properties/newly-listed-properties/?limit=6&offset=0",
+    "http://localhost:8000/api/mls/properties/newly-listed-properties/?limit=6&offset=0",
   ];
 
   for (const url of urls) {
