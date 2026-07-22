@@ -366,10 +366,6 @@ export default function PreconDetailPage() {
 
   const purchaseNotes = parseStringArray(data?.meta.purchase_notes_json);
 
-  const demoDataNotice = data?.meta.demo_data_notice?.trim() || null;
-
-  const isDemoData = data?.meta.data_classification === "demo";
-
   const fallbackDepositSteps = splitMetaValue(
     data?.meta.deposit_structure,
     ";",
@@ -566,17 +562,11 @@ export default function PreconDetailPage() {
                     </div>
                   </SectionCard>
 
-                  {(data.excerpt || overviewHtml) && (
+                  {overviewHtml && (
                     <SectionCard
                       title="About the project"
                       icon={<Building2 className="h-5 w-5" />}
                     >
-                      {data.excerpt ? (
-                        <p className="mb-5 border-l-4 border-orange-500 pl-4 text-lg font-medium italic leading-8 text-slate-700">
-                          {data.excerpt}
-                        </p>
-                      ) : null}
-
                       {overviewHtml ? (
                         <div
                           className="prose prose-slate max-w-none prose-headings:font-extrabold prose-headings:text-slate-950 prose-p:leading-8"
@@ -595,19 +585,24 @@ export default function PreconDetailPage() {
                       icon={<CalendarDays className="h-5 w-5" />}
                     >
                       {depositPlans.length > 0 ? (
-                        <div className="space-y-6">
-                          {depositPlans.map((plan) => (
-                            <article
+                        <div className="space-y-3">
+                          {depositPlans.map((plan, planIndex) => (
+                            <details
                               key={plan.title}
-                              className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                              open={planIndex === 0}
+                              className="group overflow-hidden rounded-2xl border border-slate-200 bg-white"
                             >
-                              <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+                              <summary className="flex cursor-pointer list-none items-center justify-between bg-slate-50 px-5 py-4">
                                 <h3 className="text-base font-extrabold text-slate-950">
                                   {plan.title}
                                 </h3>
-                              </div>
 
-                              <div className="divide-y divide-slate-200">
+                                <span className="text-xl font-bold text-slate-500 transition group-open:rotate-45">
+                                  +
+                                </span>
+                              </summary>
+
+                              <div className="divide-y divide-slate-200 border-t border-slate-200">
                                 {plan.installments.map((installment, index) => (
                                   <div
                                     key={`${plan.title}-${index}`}
@@ -623,7 +618,7 @@ export default function PreconDetailPage() {
                                   </div>
                                 ))}
                               </div>
-                            </article>
+                            </details>
                           ))}
                         </div>
                       ) : (
@@ -854,18 +849,6 @@ export default function PreconDetailPage() {
                         </ul>
                       </div>
                     </SectionCard>
-                  )}
-
-                  {isDemoData && demoDataNotice && (
-                    <div className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4">
-                      <p className="text-xs font-extrabold uppercase tracking-wide text-blue-700">
-                        Demonstration data
-                      </p>
-
-                      <p className="mt-1 text-sm leading-6 text-blue-950">
-                        {demoDataNotice}
-                      </p>
-                    </div>
                   )}
 
                   {imageAttachments.length > 0 && (
