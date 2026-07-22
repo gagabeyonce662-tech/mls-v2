@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -42,6 +43,21 @@ function formatNumber(value: string | number | null): string {
   const num = Number(value);
   if (Number.isNaN(num)) return "-";
   return num % 1 === 0 ? num.toLocaleString() : num.toString();
+}
+
+function getPropertyImageUrl(prop: {
+  featured_image_url?: string | null;
+  featured_image?: string | null;
+  image_url?: string | null;
+  thumbnail_url?: string | null;
+}): string | null {
+  return (
+    prop.featured_image_url ||
+    prop.featured_image ||
+    prop.image_url ||
+    prop.thumbnail_url ||
+    null
+  );
 }
 
 export default function PreconListingsPage() {
@@ -148,7 +164,8 @@ export default function PreconListingsPage() {
                 <div>
                   <p className="font-bold text-ds-heading">Bulk Upload</p>
                   <p className="text-sm text-gray-500">
-                    Upload a CSV or Excel file to create pre-construction properties.
+                    Upload a CSV or Excel file to create pre-construction
+                    properties.
                   </p>
                 </div>
               </div>
@@ -175,7 +192,8 @@ export default function PreconListingsPage() {
                 <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold">
-                    Created {uploadResult.created}, updated {uploadResult.updated}
+                    Created {uploadResult.created}, updated{" "}
+                    {uploadResult.updated}
                     {uploadResult.skipped > 0
                       ? `, skipped ${uploadResult.skipped}`
                       : ""}
@@ -216,13 +234,111 @@ export default function PreconListingsPage() {
               <Button onClick={() => loadPage(page)}>Retry</Button>
             </div>
           ) : isLoading && !data ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-64 rounded-2xl bg-white border animate-pulse"
-                />
-              ))}
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {data?.results.map((prop) => {
+                const imageUrl = getPropertyImageUrl(prop);
+
+                return (
+                  <Link
+                    key={prop.id}
+                    href={`/precon-listings/${prop.id}`}
+                    className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+                  >
+                    <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
+                      {imageUrl ? (
+                        <Image
+                          src={imageUrl}
+                          alt={
+                            prop.title ||
+                            `Pre-construction property ${prop.wp_id}`
+                          }
+                          fill
+                          sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw"
+                          className="object-cover transition duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center bg-gradient-to-br from-purple-100 to-blue-100">
+                          <Building2
+                            className="h-12 w-12 text-purple-400"
+                            aria-hidden="true"
+                          />
+                          <span className="sr-only">
+                            Property image unavailable
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-1 flex-col p-5">
+                      <div>
+                        <h2 className="min-h-12 line-clamp-2 text-lg font-bold leading-6 text-ds-heading">
+                          {prop.title || `Property #${prop.wp_id}`}
+                        </h2>
+
+                        {prop.address && (
+                          <p className="mt-2 flex min-h-5 items-start gap-1.5 text-sm text-gray-500">
+                            <MapPin
+                              className="mt-0.5 h-4 w-4 shrink-0"
+                              aria-hidden="true"
+                            />
+                            <span className="line-clamp-1">{prop.address}</span>
+                          </p>
+                        )}
+                      </div>
+
+                      <p className="mt-4 text-xl font-extrabold text-purple-700">
+                        {formatPrice(prop.price)}
+                      </p>
+
+                      <dl className="mt-auto grid grid-cols-4 gap-2 border-t border-gray-100 pt-4 text-gray-600">
+                        <div className="flex flex-col items-center gap-1">
+                          <Bed
+                            className="h-4 w-4 text-gray-400"
+                            aria-hidden="true"
+                          />
+                          <dt className="sr-only">Bedrooms</dt>
+                          <dd className="text-xs font-semibold">
+                            {formatNumber(prop.bedrooms)}
+                          </dd>
+                        </div>
+
+                        <div className="flex flex-col items-center gap-1">
+                          <Bath
+                            className="h-4 w-4 text-gray-400"
+                            aria-hidden="true"
+                          />
+                          <dt className="sr-only">Bathrooms</dt>
+                          <dd className="text-xs font-semibold">
+                            {formatNumber(prop.bathrooms)}
+                          </dd>
+                        </div>
+
+                        <div className="flex flex-col items-center gap-1">
+                          <Car
+                            className="h-4 w-4 text-gray-400"
+                            aria-hidden="true"
+                          />
+                          <dt className="sr-only">Garages</dt>
+                          <dd className="text-xs font-semibold">
+                            {formatNumber(prop.garages)}
+                          </dd>
+                        </div>
+
+                        <div className="flex flex-col items-center gap-1">
+                          <Ruler
+                            className="h-4 w-4 text-gray-400"
+                            aria-hidden="true"
+                          />
+                          <dt className="sr-only">Area</dt>
+                          <dd className="text-xs font-semibold">
+                            {formatNumber(prop.area)}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           ) : (data?.results?.length ?? 0) === 0 ? (
             <div className="text-center py-24 bg-white rounded-2xl border border-dashed">

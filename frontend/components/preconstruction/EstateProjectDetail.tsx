@@ -34,13 +34,12 @@ export default function EstateProjectDetail({
     <div className="min-h-screen bg-slate-50">
       <Header />
 
-      <main className="pb-20 pt-28">
+      <main className="pb-20 pt-12">
         <section className="border-b border-slate-200 bg-white">
-          <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-orange-600">
               Pre-Construction
             </p>
-
             <div className="mt-3 grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
               <div>
                 <h1 className="max-w-4xl text-4xl font-extrabold leading-tight text-slate-950 sm:text-5xl">
@@ -68,7 +67,6 @@ export default function EstateProjectDetail({
                 </p>
               </div>
             </div>
-
             {facts.length > 0 && (
               <dl className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {facts.map((fact) => (
