@@ -121,26 +121,27 @@ class PreComPropertyListAPIView(ListAPIView):
     """
 
     queryset = (
-        PreComProperty.objects.select_related("content")
-        .only(
-            "id",
-            "price",
-            "bedrooms",
-            "bathrooms",
-            "garages",
-            "area",
-            "lot_size",
-            "latitude",
-            "longitude",
-            "address",
-            "content__id",
-            "content__wp_id",
-            "content__title",
-            "content__slug",
-            "content__status",
-        )
-        .order_by("-id")
+    PreComProperty.objects.select_related("content")
+    .prefetch_related("content__attachments")
+    .only(
+        "id",
+        "price",
+        "bedrooms",
+        "bathrooms",
+        "garages",
+        "area",
+        "lot_size",
+        "latitude",
+        "longitude",
+        "address",
+        "content__id",
+        "content__wp_id",
+        "content__title",
+        "content__slug",
+        "content__status",
     )
+    .order_by("-id")
+)
     serializer_class = PreComPropertySerializer
     pagination_class = PreComPagination
     permission_classes = [AllowAny]

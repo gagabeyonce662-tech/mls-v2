@@ -15,6 +15,7 @@ export interface PreconProperty {
   latitude: string | null;
   longitude: string | null;
   address: string;
+  featured_image_url: string | null;
 }
 
 export interface PreconAuthor {
@@ -82,10 +83,15 @@ export function fetchPreconProperties(
   const query = search.toString();
   return fetchAPI<PreconPage>(
     `${API_BASE_URL}/api/mls/precon-properties/${query ? `?${query}` : ""}`,
+    {
+      cache: "no-store",
+    },
   );
 }
 
-export function fetchPreconProperty(id: number | string): Promise<PreconPropertyDetail> {
+export function fetchPreconProperty(
+  id: number | string,
+): Promise<PreconPropertyDetail> {
   return fetchAPI<PreconPropertyDetail>(
     `${API_BASE_URL}/api/mls/precon-properties/${encodeURIComponent(String(id))}/`,
   );

@@ -116,12 +116,13 @@ class PreComPropertyDetailSerializer(serializers.ModelSerializer):
 
 
 class PreComPropertySerializer(serializers.ModelSerializer):
-    """Flat list serializer — no nested Content payload, keeps the response tiny."""
+    """Flat list serializer with one representative image URL."""
 
     wp_id = serializers.IntegerField(source="content.wp_id", read_only=True)
     title = serializers.CharField(source="content.title", read_only=True)
     slug = serializers.CharField(source="content.slug", read_only=True)
     status = serializers.CharField(source="content.status", read_only=True)
+    featured_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = PreComProperty
@@ -140,8 +141,29 @@ class PreComPropertySerializer(serializers.ModelSerializer):
             "latitude",
             "longitude",
             "address",
+            "featured_image_url",
         ]
 
+    def get_featured_image_url(self, obj):
+        if not obj.content_id:
+            return None
+
+        attachment = next(
+            (
+                item
+                for item in obj.content.attachments.all()
+                if item.url
+                and (
+                    (item.mime_type or "").startswith("image/")
+                    or item.url.lower().split("?")[0].endswith(
+                        (".jpg", ".jpeg", ".png", ".webp", ".gif")
+                    )
+                )
+            ),
+            None,
+        )
+
+        return attachment.url if attachment else None
 
 class PreComBulkUploadSerializer(serializers.Serializer):
     file = serializers.FileField(
