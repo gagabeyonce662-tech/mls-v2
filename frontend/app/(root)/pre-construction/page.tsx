@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
 import PreConstructionPageClient from "@/components/preconstruction/PreConstructionPageClient";
-import {
-  fetchEstateProjects,
-  getEstateProjectUrl,
-} from "@/lib/api/estate";
+import { fetchEstateProjects, getEstateProjectUrl } from "@/lib/api/estate";
 export const dynamic = "force-dynamic";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:8000:3000";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:8000";
 const PAGE_URL = `${SITE_URL}/pre-construction`;
 const PAGE_TITLE = "Pre-Construction Projects in GTA | Estate-4u";
 const PAGE_DESCRIPTION =
@@ -39,10 +36,10 @@ export const metadata: Metadata = {
 export default async function PreConstructionPage() {
   const projects = await fetchEstateProjects();
   const itemList = projects.map((project, index) => ({
-      "@type": "ListItem",
-      position: index + 1,
-      url: `${SITE_URL}${getEstateProjectUrl(project)}`,
-      name: project.title,
+    "@type": "ListItem",
+    position: index + 1,
+    url: `${SITE_URL}${getEstateProjectUrl(project)}`,
+    name: project.title,
   }));
 
   const jsonLd = {

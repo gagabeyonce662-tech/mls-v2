@@ -42,16 +42,23 @@ export interface EstateDepositInstallment {
   id: number;
   milestone: string;
   amount_text: string;
+  amount: string | null;
   percentage: string | null;
+  display_order: number;
 }
 
 export interface EstateDepositPlan {
   id: number;
+  unit_type_id: number | null;
   title: string;
+  display_order: number;
   installments: EstateDepositInstallment[];
 }
 
-export interface EstateProject extends Omit<EstateProjectCardData, "lowest_price_display"> {
+export interface EstateProject extends Omit<
+  EstateProjectCardData,
+  "lowest_price_display"
+> {
   postal_code: string | null;
   country: string | null;
   latitude: string | null;
@@ -76,7 +83,10 @@ export interface EstateProject extends Omit<EstateProjectCardData, "lowest_price
   }>;
 }
 
-type ProjectLocation = Pick<EstateProjectCardData, "address" | "city" | "province">;
+type ProjectLocation = Pick<
+  EstateProjectCardData,
+  "address" | "city" | "province"
+>;
 type ProjectPrice = Pick<EstateProjectCardData, "lowest_price_display">;
 type ProjectFacts = Pick<EstateProjectCardData, "developer" | "occupancy_year">;
 
@@ -104,7 +114,9 @@ export function getEstateProjectPriceLabel(project: ProjectPrice): string {
   return project.lowest_price_display?.trim() || "Contact for pricing";
 }
 
-export function getEstateProjectFacts(project: ProjectFacts): EstateProjectFact[] {
+export function getEstateProjectFacts(
+  project: ProjectFacts,
+): EstateProjectFact[] {
   const facts: EstateProjectFact[] = [];
   const developer = project.developer?.trim();
   if (developer) facts.push({ label: "Developer", value: developer });
@@ -115,16 +127,17 @@ export function getEstateProjectFacts(project: ProjectFacts): EstateProjectFact[
 }
 
 export const fetchEstateProjects = () =>
-  fetchAPI<EstateProjectCardData[]>(
-    `${API_BASE_URL}/api/mls/estate-projects/`,
-  );
+  fetchAPI<EstateProjectCardData[]>(`${API_BASE_URL}/api/mls/estate-projects/`);
 
 export const fetchEstateProject = (idOrSlug: string) =>
   fetchAPI<EstateProject>(
     `${API_BASE_URL}/api/mls/estate-projects/${encodeURIComponent(idOrSlug)}/`,
   );
 
-export async function requestEstateDocument(documentId: number, phone?: string) {
+export async function requestEstateDocument(
+  documentId: number,
+  phone?: string,
+) {
   return fetchAPI<{ intent_id: number; verification_required: boolean }>(
     `${API_BASE_URL}/api/mls/estate-documents/${documentId}/intent/`,
     { method: "POST", body: JSON.stringify({ phone }) },
