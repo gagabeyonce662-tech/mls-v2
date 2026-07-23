@@ -1,0 +1,52 @@
+from unittest.mock import Mock, patch
+
+import requests
+from django.test import SimpleTestCase
+
+from mls.services.ddf.client import get_page_with_retries
+
+
+class DDFClientTests(SimpleTestCase):
+    @patch("mls.services.ddf.client.time.sleep")
+    @patch("mls.services.ddf.client.requests.get")
+    def test_retries_timeout_then_returns_successful_response(
+        self,
+        mock_get,
+        mock_sleep,
+    ):
+        response = Mock(status_code=200)
+        mock_get.side_effect = [
+            requests.exceptions.ReadTimeout("timed out"),
+            response,
+        ]
+
+        result = get_page_with_retries(
+            "https://example.test/properties",
+            headers={"Authorization": "Bearer token"},
+            params={"$top": 100},
+        )
+
+        self.assertIs(result, response)
+        self.assertEqual(mock_get.call_count, 2)
+        mock_sleep.assert_called_once_with(1)
+
+    @patch("mls.services.ddf.client.time.sleep")
+    @patch("mls.services.ddf.client.requests.get")
+    def test_retries_transient_http_error(
+        self,
+        mock_get,
+        mock_sleep,
+    ):
+        unavailable_response = Mock(status_code=503)
+        success_response = Mock(status_code=200)
+        mock_get.side_effect = [unavailable_response, success_response]
+
+        result = get_page_with_retries(
+            "https://example.test/properties",
+            headers={},
+            params=None,
+        )
+
+        self.assertIs(result, success_response)
+        unavailable_response.close.assert_called_once_with()
+        mock_sleep.assert_called_once_with(1)

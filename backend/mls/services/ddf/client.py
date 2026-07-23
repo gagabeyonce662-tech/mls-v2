@@ -4,6 +4,47 @@ import requests
 
 
 DDF_PROPERTIES_URL = "https://ddfapi.realtor.ca/odata/v1/Property"
+REQUEST_TIMEOUT_SECONDS = 30
+MAX_REQUEST_ATTEMPTS = 5
+RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+
+
+def get_page_with_retries(url, headers, params, progress_callback=None):
+    """Fetch one DDF page, retrying temporary API and network failures."""
+    last_error = None
+
+    for attempt in range(1, MAX_REQUEST_ATTEMPTS + 1):
+        try:
+            response = requests.get(
+                url,
+                headers=headers,
+                params=params,
+                timeout=REQUEST_TIMEOUT_SECONDS,
+            )
+
+            if response.status_code not in RETRYABLE_STATUS_CODES:
+                response.raise_for_status()
+                return response
+
+            last_error = requests.exceptions.HTTPError(
+                f"DDF API returned HTTP {response.status_code}",
+                response=response,
+            )
+            response.close()
+        except requests.exceptions.RequestException as error:
+            last_error = error
+
+        if attempt == MAX_REQUEST_ATTEMPTS:
+            raise last_error
+
+        delay_seconds = 2 ** (attempt - 1)
+        if progress_callback:
+            progress_callback(
+                f"DDF request failed ({last_error}). Retrying in "
+                f"{delay_seconds}s (attempt {attempt + 1}/"
+                f"{MAX_REQUEST_ATTEMPTS})..."
+            )
+        time.sleep(delay_seconds)
 
 
 def fetch_all_properties(
@@ -51,11 +92,11 @@ def fetch_all_properties(
 
         page_started_at = time.monotonic()
 
-        response = requests.get(
+        response = get_page_with_retries(
             url,
             headers=headers,
             params=params if page_count == 0 else None,
-            timeout=30,
+            progress_callback=progress_callback,
         )
 
         request_elapsed = (
