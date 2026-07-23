@@ -10,7 +10,7 @@ from django.contrib import admin
 from django.contrib import messages
 from django import forms
 from django.core.exceptions import ValidationError
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from .models import (
     Attachment,
     Author,
@@ -50,6 +50,93 @@ def infer_attachment_mime_type(url):
     path = urlparse(url or "").path
     mime_type, _ = mimetypes.guess_type(path)
     return mime_type or "application/octet-stream"
+
+
+PRECON_META_KEY_GUIDE = (
+    ("developer", "Builder or developer name", "Empire Communities"),
+    ("occupancy_year", "Expected occupancy/completion year", "2028"),
+    ("property_types", "Comma-separated home types", "Townhomes, Detached Homes"),
+    ("price_display", "Marketing price shown to visitors", "From $699,900"),
+    ("bedrooms_min", "Lowest bedroom count", "2"),
+    ("bedrooms_max", "Highest bedroom count", "4"),
+    ("bathrooms_min", "Lowest bathroom count", "2"),
+    ("bathrooms_max", "Highest bathroom count", "3"),
+    ("area_min", "Smallest interior area", "1200"),
+    ("area_max", "Largest interior area", "2400"),
+    ("area_unit", "Unit shown beside area", "sq. ft."),
+    ("garage_count", "Garage spaces", "1"),
+    ("incentives", "Benefits separated with |", "$10,000 décor credit|Free assignment"),
+    ("amenities", "Amenities separated with |", "Parks nearby|Minutes to GO"),
+    ("floor_plan_url", "External floor-plan link", "https://example.com/floor-plans.pdf"),
+    ("deposit_structure", "Simple deposit steps separated with ;", "$10K on signing;$10K in 30 days"),
+    ("deposit_plans_json", "Detailed deposit plan (JSON)", '[{"title":"Standard deposit","installments":[{"milestone":"On signing","amount":"$10,000"}]}]'),
+    ("community_highlights_json", "Community highlights (JSON list)", '["Parks and trails","Near transit"]'),
+    ("interior_features_json", "Interior features (JSON list)", '["9 ft ceilings","Quartz counters"]'),
+    ("exterior_features_json", "Exterior features (JSON list)", '["Private balcony","Brick exterior"]'),
+    ("nearby_places_json", "Nearby places (JSON list)", '[{"name":"GO Station","category":"Transit","travel_time":"10 min"}]'),
+    ("buyer_information_json", "Buyer information (JSON list)", '[{"label":"Assignment","value":"Permitted"}]'),
+    ("home_collections_json", "Home collections (JSON list)", '[{"name":"The Aspen","home_type":"Townhome","bedrooms":"3","bathrooms":"2.5","area":"1,800 sq. ft.","starting_price":"From $799,900"}]'),
+    ("purchase_notes_json", "Purchase notes (JSON list)", '["Prices and availability are subject to change."]'),
+    ("seo_title", "Browser/SEO page title", "Example Townhomes | Estate-4u"),
+)
+
+
+class PreConMetaKeyInput(forms.TextInput):
+    """Text input with suggestions, without blocking imported/custom metadata."""
+
+    def render(self, name, value, attrs=None, renderer=None):
+        input_id = (attrs or {}).get("id") or name.replace("-", "_")
+        suggestion_id = f"{input_id}-precon-meta-key-suggestions"
+        attrs = {
+            **(attrs or {}),
+            "list": suggestion_id,
+            "data-precon-meta-key": "true",
+        }
+        input_html = super().render(name, value, attrs, renderer)
+        options = format_html_join(
+            "",
+            '<option value="{}" label="{} — {}"></option>',
+            ((key, label, example) for key, label, example in PRECON_META_KEY_GUIDE),
+        )
+        return format_html(
+            '{}<datalist id="{}">{}</datalist>',
+            input_html,
+            suggestion_id,
+            options,
+        )
+
+
+class ContentMetaAdminForm(forms.ModelForm):
+    """Document the metadata contract used by the public pre-con project page."""
+
+    class Meta:
+        model = ContentMeta
+        fields = "__all__"
+        widgets = {
+            "key": PreConMetaKeyInput(attrs={"placeholder": "Choose or type a field name"}),
+            "value": forms.Textarea(attrs={"class": "precon-meta-value", "placeholder": "Choose a key to see its expected value"}),
+        }
+        help_texts = {
+            "key": "Choose a suggested PreCon field, or type a custom/legacy key.",
+            "value": "Examples and JSON formats are shown when a suggested key is selected.",
+        }
+
+    class Media:
+        js = ("admin/js/precon-meta-guide.js",)
+
+
+def precon_meta_guide_html():
+    rows = format_html_join(
+        "",
+        "<tr><td><code>{}</code></td><td>{}</td><td><code>{}</code></td></tr>",
+        PRECON_META_KEY_GUIDE,
+    )
+    return format_html(
+        "<details open><summary><strong>PreCon project fields</strong> — select a key below; custom keys remain supported.</summary>"
+        "<table><thead><tr><th>Key</th><th>Shown as</th><th>Example value</th></tr></thead>"
+        "<tbody>{}</tbody></table></details>",
+        rows,
+    )
 
 
 class PreConAssetFileInput(forms.ClearableFileInput):
@@ -443,6 +530,7 @@ class TaxonomyAdmin(admin.ModelAdmin):
 
 class ContentMetaInline(admin.TabularInline):
     model = ContentMeta
+    form = ContentMetaAdminForm
     extra = 1
     fields = ("key", "value")
     verbose_name = "Project detail"
@@ -536,8 +624,15 @@ class ContentAdmin(admin.ModelAdmin):
 
 @admin.register(ContentMeta)
 class ContentMetaAdmin(admin.ModelAdmin):
+    form = ContentMetaAdminForm
     list_display = ("content", "key", "value")
     search_fields = ("key", "value")
+    fieldsets = (
+        (
+            "Pre-construction project field guide",
+            {"description": precon_meta_guide_html(), "fields": ("content", "key", "value")},
+        ),
+    )
 
 
 @admin.register(Attachment)
