@@ -444,6 +444,7 @@ class ContentMetaAdmin(admin.ModelAdmin):
 
 @admin.register(Attachment)
 class AttachmentAdmin(admin.ModelAdmin):
+    form = AttachmentAdminForm
     list_display = ("content", "url", "mime_type", "title")
     search_fields = ("url", "title", "mime_type")
 
