@@ -26,6 +26,7 @@ const isAllowedCountry = (result: NominatimResult) => {
 };
 
 export const useGeocoding = (
+  apiBaseUrl: string,
   inputRef: React.RefObject<HTMLInputElement | null>,
   onSelectCallback?: (result: {
     lat: number;
@@ -44,23 +45,28 @@ export const useGeocoding = (
   const [searchError, setSearchError] = useState<string | null>(null);
   const [resultsOpen, setResultsOpen] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const requestController = useRef<AbortController | null>(null);
 
   const fetchResults = async (q: string) => {
+    if (q.length < 3) {
+      setSearchResults([]);
+      setResultsOpen(false);
+      return;
+    }
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
     setSearching(true);
     setSearchError(null);
     setSearchResults([]);
     try {
-      const url =
-        `https://nominatim.openstreetmap.org/search` +
-        `?q=${encodeURIComponent(q)}` +
-        `&format=json` +
-        `&limit=10` +
-        `&addressdetails=1` +
-        `&countrycodes=ca,us`;
-      const res = await fetch(url, { headers: { "Accept-Language": "en" } });
+      const res = await fetch(
+        `${apiBaseUrl}/api/mls/locations/geocode/?q=${encodeURIComponent(q)}`,
+        { signal: controller.signal },
+      );
       if (!res.ok) throw new Error(`Geocoding error: ${res.status}`);
-      const data = (await res.json()) as NominatimResult[];
-      const filtered = (data ?? [])
+      const data = (await res.json()) as { results?: NominatimResult[] };
+      const filtered = (data.results ?? [])
         .filter((item) => {
           const lat = Number(item.lat);
           const lon = Number(item.lon);
@@ -76,10 +82,13 @@ export const useGeocoding = (
       }
       setAnchorRect(inputRef.current?.getBoundingClientRect() ?? null);
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       console.error(err);
       setSearchError("Failed to fetch results. Try again.");
     } finally {
-      setSearching(false);
+      if (requestController.current === controller) {
+        setSearching(false);
+      }
     }
   };
 
@@ -99,7 +108,7 @@ export const useGeocoding = (
         setSearchResults([]);
         setResultsOpen(false);
       }
-    }, 400),
+    }, 500),
   ).current;
 
   const onInputChange = (value: string) => {
@@ -134,6 +143,7 @@ export const useGeocoding = (
   };
 
   const clearSearch = () => {
+    requestController.current?.abort();
     setSearchQuery("");
     setSearchResult(null);
     setSearchError(null);

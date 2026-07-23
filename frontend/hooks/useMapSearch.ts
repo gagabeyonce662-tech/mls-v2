@@ -80,6 +80,7 @@ export const useMapSearch = (API_BASE_URL: string) => {
   );
   const [loadingApi, setLoadingApi] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [mapResultCount, setMapResultCount] = useState(0);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(
     null,
   );
@@ -101,10 +102,8 @@ export const useMapSearch = (API_BASE_URL: string) => {
       if (typeof value === "string" && value.trim() === "") return;
       if (typeof value === "boolean" && !value) return;
       if (
-        key === "garage" ||
         key === "statuses" ||
         key === "active_listed_within" ||
-        key === "transaction_type" ||
         key === "watched_area_key" ||
         key === "watched_area_label"
       ) {
@@ -173,7 +172,10 @@ export const useMapSearch = (API_BASE_URL: string) => {
     filtersForMap?: Record<string, string | boolean>,
     signal?: AbortSignal,
   ) {
-    const effectiveFilters = filtersForMap ?? buildMapFilterParams();
+    const effectiveFilters = {
+      ...buildMapFilterParams(),
+      ...(filtersForMap ?? {}),
+    };
     return await fetchFilteredProperties(
       {
         lat_min: bbox.latitude_min,
@@ -200,6 +202,7 @@ export const useMapSearch = (API_BASE_URL: string) => {
 
     try {
       const data = await fetchFilteredProperties(buildMapFilterParams());
+      setMapResultCount(Number(data.count ?? 0));
 
       const markers = (data.results ?? [])
         .map((p: Property, idx: number) => {
@@ -313,6 +316,7 @@ export const useMapSearch = (API_BASE_URL: string) => {
             controller.signal,
           );
           if (!isLatestRequest(requestId)) return;
+          setMapResultCount(Number(data.count ?? 0));
           const markers = (data.results ?? [])
             .map((p: any, idx: number) => ({
               id: String(p.listing_key || idx),
@@ -338,6 +342,7 @@ export const useMapSearch = (API_BASE_URL: string) => {
           controller.signal,
         );
         if (!isLatestRequest(requestId)) return;
+        setMapResultCount(Number(data.count ?? 0));
         const markers = (data.results ?? [])
           .map((p: any, idx: number) => ({
             id: String(p.listing_key || idx),
@@ -382,6 +387,8 @@ export const useMapSearch = (API_BASE_URL: string) => {
     setLoadingApi,
     apiError,
     setApiError,
+    mapResultCount,
+    setMapResultCount,
     selectedPropertyId,
     setSelectedPropertyId,
     showSearchThisArea,

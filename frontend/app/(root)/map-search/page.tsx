@@ -191,6 +191,8 @@ function MapOnlyPageInner() {
     setLoadingApi,
     apiError,
     setApiError,
+    mapResultCount,
+    setMapResultCount,
     selectedPropertyId,
     setSelectedPropertyId,
     showSearchThisArea,
@@ -245,7 +247,7 @@ function MapOnlyPageInner() {
     setSearchError,
     setSearchResults,
     setAnchorRect,
-  } = useGeocoding(inputRef, (res) => {
+  } = useGeocoding(API_BASE_URL, inputRef, (res) => {
     flyToGeocodeResultAndFetchArea(res.lat, res.lng);
   });
 
@@ -253,6 +255,7 @@ function MapOnlyPageInner() {
     async ({ mode, bbox, polygon }: DrawnSearchArea) => {
       setLoadingApi(true);
       setApiError(null);
+      setMapResultCount(0);
       setApiMarkers([]);
       setAggregateMarkers([]);
       setMapDataMode("listings");
@@ -262,18 +265,14 @@ function MapOnlyPageInner() {
       resetMapFetchDedupe();
 
       try {
-        const data = await fetchExclusivePropertiesForBBox(bbox);
+        const data = await fetchExclusivePropertiesForBBox(
+          bbox,
+          mode === "polygon" && polygon
+            ? { polygon: JSON.stringify(polygon) }
+            : undefined,
+        );
+        setMapResultCount(Number(data?.count ?? 0));
         let results = data?.results ?? [];
-        if (mode === "polygon" && polygon && polygon.length >= 4) {
-          results = results.filter((p: Property) => {
-            const latRaw = p.latitude ?? p.Latitude ?? p.lat ?? p.coords?.lat;
-            const lonRaw = p.longitude ?? p.Longitude ?? p.lon ?? p.coords?.lng;
-            const lat = latRaw !== undefined ? Number(latRaw) : NaN;
-            const lng = lonRaw !== undefined ? Number(lonRaw) : NaN;
-            if (Number.isNaN(lat) || Number.isNaN(lng)) return false;
-            return isPointInPolygon({ lat, lng }, polygon);
-          });
-        }
         const markers: PropertyMarker[] = results
           .map((p: Property, idx: number) => {
             const latRaw = p.latitude ?? p.Latitude ?? p.lat ?? p.coords?.lat;
@@ -321,6 +320,7 @@ function MapOnlyPageInner() {
       setApiMarkers,
       setLoadingApi,
       setMapDataMode,
+      setMapResultCount,
       setSelectedPropertyId,
       setShowSearchThisArea,
     ],
@@ -509,6 +509,7 @@ function MapOnlyPageInner() {
     setAggregateMarkers([]);
     setMapDataMode("listings");
     setApiError(null);
+    setMapResultCount(0);
     setLoadingApi(false);
     setSelectedPropertyId(null);
     setSelectedAggregateId(null);
@@ -783,6 +784,11 @@ function MapOnlyPageInner() {
                   : undefined
               }
             />
+            {mapDataMode === "listings" && mapResultCount > apiMarkers.length && (
+              <div className="absolute bottom-6 right-6 z-[520] rounded-xl border border-amber-200 bg-white/95 px-4 py-3 text-xs text-slate-700 shadow-lg backdrop-blur-sm">
+                Showing {apiMarkers.length} of {mapResultCount.toLocaleString()} matches. Zoom in for more pins.
+              </div>
+            )}
           </div>
         </div>
 

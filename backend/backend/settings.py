@@ -341,6 +341,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_THROTTLE_RATES': {
         'listing_ai_summary': '10/hour',
+        'map_geocoding': '30/minute',
     },
 }
 

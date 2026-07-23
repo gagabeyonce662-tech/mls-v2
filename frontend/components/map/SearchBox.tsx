@@ -25,7 +25,7 @@ export default function SearchBox({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder="Enter neighborhood or city..."
+        placeholder="Search a city, neighbourhood, or address..."
         className="w-full pl-12 pr-12 py-4 rounded-xl border border-ds-card-border focus:ring-2 focus:ring-ds-primary focus:border-transparent outline-none bg-white shadow-sm text-ds-heading font-medium placeholder:text-ds-body/40 transition-all"
         autoComplete="off"
       />

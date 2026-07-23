@@ -25,9 +25,16 @@ export interface MapFilterParams {
   province?: string;
   postal_code?: string;
   property_type?: string;
+  transaction_type?: "sale" | "rent";
   status?: string;
   has_lease?: boolean;
   has_photos?: boolean;
+  garage?: string;
+  building_area_min?: string | number;
+  building_area_max?: string | number;
+  lot_size_min?: string | number;
+  lot_size_max?: string | number;
+  parking_min?: string | number;
   keywords?: string;
   search?: string;
 }

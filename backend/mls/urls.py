@@ -54,6 +54,7 @@ urlpatterns = [
     path('watched/toured/clear/', WatchedClearTouredAPIView.as_view(), name='watched-toured-clear'),
     path('watched/areas/clear/', WatchedAreaClearAPIView.as_view(), name='watched-areas-clear'),
     path('properties/map-aggregates/', MapAggregatesAPIView.as_view(), name='map-aggregates'),
+    path('locations/geocode/', MapGeocodingAPIView.as_view(), name='map-geocoding'),
     path('properties/property-types/', PropertyTypesAPIView.as_view(), name='property-types'),
     path('properties/exclusive-properties/', ExclusivePropertiesAPIView.as_view(), name='exclusive_properties'),
     path('properties/newly-listed-properties/', NewlyListedPropertiesAPIView.as_view(), name='exclusive_properties'),

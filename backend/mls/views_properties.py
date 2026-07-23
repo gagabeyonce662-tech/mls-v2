@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 
 from django.core.cache import cache
@@ -9,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework import serializers
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiTypes, extend_schema, inline_serializer
 from django.db.models import FloatField
+from django.db.models import Q
 from django.db.models.functions import Cast
 
 from .models import Property, SearchEvent
@@ -20,6 +22,19 @@ from .services.query_helpers import (
 from .views import (
     MAP_VIEW_CACHE_TTL_SECONDS,
 )
+
+
+def _point_in_polygon(lat, lng, polygon):
+    inside = False
+    previous = polygon[-1]
+    for current in polygon:
+        cy, cx = current["lat"], current["lng"]
+        py, px = previous["lat"], previous["lng"]
+        intersects = (cy > lat) != (py > lat) and lng < (px - cx) * (lat - cy) / (py - cy) + cx
+        if intersects:
+            inside = not inside
+        previous = current
+    return inside
 
 
 class PropertyFilterView(APIView):
@@ -76,7 +91,7 @@ class PropertyFilterView(APIView):
         if request.GET.get("status"):
             qs = qs.filter(standard_status=request.GET.get("status", "").strip())
         if request.GET.get("has_lease") in ("true", "1", "True"):
-            qs = qs.filter(lease_amount__gt=0)
+            qs = qs.filter(Q(lease_amount__gt=0) | Q(total_actual_rent__gt=0))
         if all(k in request.GET for k in ["lat_min", "lat_max", "lng_min", "lng_max"]):
             qs = qs.annotate(
                 lat_float=Cast("latitude", FloatField()),
@@ -96,6 +111,28 @@ class PropertyFilterView(APIView):
 
         order_by = request.GET.get("orderby", "-modification_timestamp")
         final_qs, fallback_meta = _apply_fallback_pipeline(qs, request.GET, (order_by,))
+
+        polygon = None
+        if request.GET.get("polygon"):
+            try:
+                raw_polygon = json.loads(request.GET["polygon"])
+                if not isinstance(raw_polygon, list) or len(raw_polygon) < 3:
+                    raise ValueError
+                polygon = [
+                    {"lat": float(point["lat"]), "lng": float(point["lng"])}
+                    for point in raw_polygon
+                ]
+            except (TypeError, ValueError, KeyError, json.JSONDecodeError):
+                return Response({"error": "polygon must contain at least three lat/lng points"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if polygon:
+            final_qs = [
+                prop
+                for prop in final_qs.iterator(chunk_size=1000)
+                if prop.latitude is not None
+                and prop.longitude is not None
+                and _point_in_polygon(float(prop.latitude), float(prop.longitude), polygon)
+            ]
 
         paginator = Paginator(final_qs, limit)
         page = paginator.get_page((offset // limit) + 1)

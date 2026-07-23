@@ -26,6 +26,12 @@ MAP_FILTER_KEYS = {
     "status_group",
     "modified_within_days",
     "parking_min",
+    "garage",
+    "transaction_type",
+    "building_area_min",
+    "building_area_max",
+    "lot_size_min",
+    "lot_size_max",
     "community_slug",
 }
 
@@ -177,10 +183,17 @@ def _apply_common_filters(
         search_term = params.get("search", "").strip()
         if search_term:
             qs = qs.filter(_build_search_q(search_term))
+    price_field = "lease_amount" if params.get("transaction_type") == "rent" else "list_price"
     if params.get("price_min"):
-        qs = qs.filter(list_price__gte=float(params.get("price_min")))
+        qs = qs.filter(**{f"{price_field}__gte": float(params.get("price_min"))})
     if params.get("price_max"):
-        qs = qs.filter(list_price__lte=float(params.get("price_max")))
+        qs = qs.filter(**{f"{price_field}__lte": float(params.get("price_max"))})
+    if params.get("transaction_type") == "rent":
+        qs = qs.filter(Q(lease_amount__gt=0) | Q(total_actual_rent__gt=0))
+    elif params.get("transaction_type") == "sale":
+        qs = qs.filter(lease_amount__isnull=True, total_actual_rent__isnull=True)
+    if params.get("has_lease") in ("true", "1", "True"):
+        qs = qs.filter(Q(lease_amount__gt=0) | Q(total_actual_rent__gt=0))
     if params.get("bedrooms"):
         qs = qs.filter(bedrooms_total__gte=int(params.get("bedrooms")))
     if params.get("bathrooms"):
@@ -208,8 +221,12 @@ def _apply_common_filters(
         )
     if params.get("building_area_min"):
         qs = qs.filter(building_area_total__gte=float(params.get("building_area_min")))
+    if params.get("building_area_max"):
+        qs = qs.filter(building_area_total__lte=float(params.get("building_area_max")))
     if params.get("lot_size_min"):
         qs = qs.filter(lot_size_area__gte=float(params.get("lot_size_min")))
+    if params.get("lot_size_max"):
+        qs = qs.filter(lot_size_area__lte=float(params.get("lot_size_max")))
     if params.get("year_built_min"):
         qs = qs.filter(year_built__gte=int(params.get("year_built_min")))
     if params.get("keywords"):
@@ -233,6 +250,12 @@ def _apply_common_filters(
         qs = qs.filter(modification_timestamp__gte=timezone.now() - timedelta(days=days))
     if params.get("parking_min"):
         qs = qs.filter(parking_total__gte=int(params.get("parking_min")))
+    if params.get("garage"):
+        garage = params.get("garage", "").strip().lower()
+        if garage == "none":
+            qs = qs.filter(Q(parking_total=0) | Q(parking_total__isnull=True))
+        elif garage in {"attached", "detached"}:
+            qs = qs.filter(parking_features__icontains=garage)
     if params.get("community_slug"):
         qs = qs.filter(
             community_listings__community_slug__in=_split_csv(params.get("community_slug", ""))

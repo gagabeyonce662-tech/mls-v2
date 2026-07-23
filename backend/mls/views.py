@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.throttling import UserRateThrottle
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
@@ -166,6 +166,12 @@ MAP_FILTER_KEYS = {
     "status_group",
     "modified_within_days",
     "parking_min",
+    "garage",
+    "transaction_type",
+    "building_area_min",
+    "building_area_max",
+    "lot_size_min",
+    "lot_size_max",
     "community_slug",
 }
 SEARCH_TEXT_FIELDS = [
@@ -324,6 +330,14 @@ def _apply_common_filters(
         qs = qs.filter(bedrooms_total__gte=int(params.get("bedrooms")))
     if params.get("bathrooms"):
         qs = qs.filter(bathrooms_total_integer__gte=int(params.get("bathrooms")))
+    if params.get("building_area_min"):
+        qs = qs.filter(building_area_total__gte=float(params.get("building_area_min")))
+    if params.get("building_area_max"):
+        qs = qs.filter(building_area_total__lte=float(params.get("building_area_max")))
+    if params.get("lot_size_min"):
+        qs = qs.filter(lot_size_area__gte=float(params.get("lot_size_min")))
+    if params.get("lot_size_max"):
+        qs = qs.filter(lot_size_area__lte=float(params.get("lot_size_max")))
     if params.get("property_type"):
         types = _split_csv(params.get("property_type", ""))
         if types:
@@ -492,10 +506,15 @@ def _build_query_params_cache_key(prefix: str, params) -> str:
 
 
 def _apply_map_filters_to_queryset(qs, params):
+    price_field = "lease_amount" if params.get("transaction_type") == "rent" else "list_price"
     if params.get("price_min"):
-        qs = qs.filter(list_price__gte=float(params.get("price_min")))
+        qs = qs.filter(**{f"{price_field}__gte": float(params.get("price_min"))})
     if params.get("price_max"):
-        qs = qs.filter(list_price__lte=float(params.get("price_max")))
+        qs = qs.filter(**{f"{price_field}__lte": float(params.get("price_max"))})
+    if params.get("transaction_type") == "rent":
+        qs = qs.filter(Q(lease_amount__gt=0) | Q(total_actual_rent__gt=0))
+    elif params.get("transaction_type") == "sale":
+        qs = qs.filter(lease_amount__isnull=True, total_actual_rent__isnull=True)
     if params.get("bedrooms"):
         qs = qs.filter(bedrooms_total__gte=int(params.get("bedrooms")))
     if params.get("bathrooms"):
@@ -532,7 +551,7 @@ def _apply_map_filters_to_queryset(qs, params):
     if status_group_q is not None:
         qs = qs.filter(status_group_q)
     if params.get("has_lease") in ("true", "1", "True"):
-        qs = qs.filter(lease_amount__gt=0)
+        qs = qs.filter(Q(lease_amount__gt=0) | Q(total_actual_rent__gt=0))
     if params.get("has_photos") in ("true", "1", "True"):
         qs = qs.filter(photos_count__gt=0)
     if params.get("keywords"):
@@ -580,6 +599,12 @@ def _apply_map_filters_to_queryset(qs, params):
         qs = qs.filter(modification_timestamp__gte=timezone.now() - timedelta(days=days))
     if params.get("parking_min"):
         qs = qs.filter(parking_total__gte=int(params.get("parking_min")))
+    if params.get("garage"):
+        garage = params.get("garage", "").strip().lower()
+        if garage == "none":
+            qs = qs.filter(Q(parking_total=0) | Q(parking_total__isnull=True))
+        elif garage in {"attached", "detached"}:
+            qs = qs.filter(parking_features__icontains=garage)
     if params.get("community_slug"):
         slugs = _split_csv(params.get("community_slug", ""))
         if slugs:
@@ -1312,6 +1337,68 @@ class MapAggregatesAPIView(APIView):
         }
         cache.set(cache_key, payload, MAP_VIEW_CACHE_TTL_SECONDS)
         return Response(payload)
+
+
+class MapGeocodingThrottle(AnonRateThrottle):
+    scope = "map_geocoding"
+
+
+class MapGeocodingAPIView(APIView):
+    """Cached proxy for location search; avoids browser fan-out to Nominatim."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [MapGeocodingThrottle]
+
+    def get(self, request):
+        query = str(request.query_params.get("q", "")).strip()
+        if len(query) < 3:
+            return Response({"results": []})
+
+        cache_key = f"map-geocode:{query.lower()[:200]}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response({"results": cached, "cached": True})
+
+        try:
+            response = requests.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={
+                    "q": query,
+                    "format": "jsonv2",
+                    "limit": 5,
+                    "addressdetails": 1,
+                    "countrycodes": "ca,us",
+                },
+                headers={
+                    "User-Agent": os.environ.get(
+                        "MAP_GEOCODER_USER_AGENT", "MLSMapSearch/1.0"
+                    ),
+                    "Accept-Language": "en",
+                },
+                timeout=8,
+            )
+            response.raise_for_status()
+            results = response.json()
+        except (requests.RequestException, ValueError):
+            logger.exception("Map geocoding request failed")
+            return Response(
+                {"error": "Location search is temporarily unavailable."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        normalized = [
+            {
+                "lat": item.get("lat"),
+                "lon": item.get("lon"),
+                "display_name": item.get("display_name", ""),
+                "country_code": item.get("address", {}).get("country_code", ""),
+                "address": item.get("address", {}),
+            }
+            for item in results
+            if isinstance(item, dict)
+        ]
+        cache.set(cache_key, normalized, 60 * 60 * 24)
+        return Response({"results": normalized, "cached": False})
 
 
 class ListingAISummaryThrottle(UserRateThrottle):
