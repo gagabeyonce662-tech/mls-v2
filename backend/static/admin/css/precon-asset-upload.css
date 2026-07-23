@@ -1,0 +1,11 @@
+.precon-asset-drop-target {
+  border: 2px dashed #9ca3af;
+  border-radius: 6px;
+  padding: 8px;
+  min-width: 260px;
+}
+
+.precon-asset-drop-target.is-dragging {
+  background: #eff6ff;
+  border-color: #2563eb;
+}

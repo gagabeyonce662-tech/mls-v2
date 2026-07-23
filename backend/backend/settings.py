@@ -235,6 +235,9 @@ if _cloudinary_url or _cloudinary_complete:
     DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
 ESTATE_IMAGE_STORAGE_CONFIGURED = bool(_cloudinary_url or _cloudinary_complete)
+# Pre-construction projects use the same Cloudinary account for editor uploads.
+PRECON_ASSET_STORAGE_CONFIGURED = ESTATE_IMAGE_STORAGE_CONFIGURED
+PRECON_ASSET_MAX_UPLOAD_MB = int(os.environ.get("PRECON_ASSET_MAX_UPLOAD_MB", "25"))
 
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")  

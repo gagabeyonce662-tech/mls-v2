@@ -3,9 +3,13 @@ import mimetypes
 import uuid
 from urllib.parse import urlparse
 
+from cloudinary import uploader as cloudinary_uploader
+from cloudinary.exceptions import Error as CloudinaryError
+from django.conf import settings
 from django.contrib import admin
 from django.contrib import messages
 from django import forms
+from django.core.exceptions import ValidationError
 from django.utils.html import format_html
 from .models import (
     Attachment,
@@ -48,8 +52,28 @@ def infer_attachment_mime_type(url):
     return mime_type or "application/octet-stream"
 
 
+class PreConAssetFileInput(forms.ClearableFileInput):
+    """A file input that also accepts files dropped onto it in Django admin."""
+
+    class Media:
+        css = {"all": ("admin/css/precon-asset-upload.css",)}
+        js = ("admin/js/precon-asset-upload.js",)
+
+
 class AttachmentAdminForm(forms.ModelForm):
-    """Infer the media type unless an editor has explicitly supplied one."""
+    """Accept a pasted link or upload a Cloudinary-hosted pre-con asset."""
+
+    upload = forms.FileField(
+        required=False,
+        label="Upload to Cloudinary",
+        widget=PreConAssetFileInput(
+            attrs={
+                "accept": "image/jpeg,image/png,image/webp,image/gif,application/pdf",
+                "class": "precon-asset-upload",
+            }
+        ),
+        help_text="Drag an image or PDF here, or click to choose a file. Uploaded files are stored in Cloudinary.",
+    )
 
     class Meta:
         model = Attachment
@@ -62,6 +86,7 @@ class AttachmentAdminForm(forms.ModelForm):
             ),
         }
         help_texts = {
+            "url": "Paste an external asset or floor-plan link. Leave blank when uploading a file above.",
             "mime_type": (
                 "Leave blank to detect from the link (for example image/jpeg or "
                 "application/pdf). Enter a value only to override detection. "
@@ -71,15 +96,71 @@ class AttachmentAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["url"].required = False
         self.fields["mime_type"].required = False
+        self._uploaded_asset_url = None
+
+    @staticmethod
+    def _validate_upload(upload):
+        max_bytes = settings.PRECON_ASSET_MAX_UPLOAD_MB * 1024 * 1024
+        if upload.size > max_bytes:
+            raise ValidationError(
+                f"Files must be {settings.PRECON_ASSET_MAX_UPLOAD_MB} MB or smaller."
+            )
+
+        supplied_type = str(getattr(upload, "content_type", "") or "").lower()
+        inferred_type = infer_attachment_mime_type(getattr(upload, "name", ""))
+        mime_type = supplied_type if supplied_type.startswith("image/") or supplied_type == "application/pdf" else inferred_type
+        if not (mime_type.startswith("image/") or mime_type == "application/pdf"):
+            raise ValidationError("Upload a JPEG, PNG, WebP, GIF, or PDF file.")
+        return mime_type
 
     def clean(self):
         cleaned_data = super().clean()
+        upload = cleaned_data.get("upload")
+        url = cleaned_data.get("url")
+
+        if not upload and not url and not self.instance.url:
+            raise ValidationError("Provide an external URL or upload an image or PDF.")
+
+        if upload:
+            if not settings.PRECON_ASSET_STORAGE_CONFIGURED:
+                self.add_error("upload", "Cloudinary must be configured before uploading project assets.")
+                return cleaned_data
+            mime_type = self._validate_upload(upload)
+            try:
+                uploaded = cloudinary_uploader.upload(
+                    upload,
+                    resource_type="auto",
+                    folder=f"precon/{self.instance.content_id or 'uploads'}",
+                    use_filename=True,
+                    unique_filename=True,
+                )
+            except CloudinaryError:
+                self.add_error("upload", "Cloudinary could not store this file. Please try again.")
+                return cleaned_data
+
+            self._uploaded_asset_url = str(uploaded.get("secure_url") or "")
+            if not self._uploaded_asset_url:
+                self.add_error("upload", "Cloudinary did not return a delivery URL for this file.")
+                return cleaned_data
+            cleaned_data["url"] = self._uploaded_asset_url
+            cleaned_data["mime_type"] = mime_type
+
         if not cleaned_data.get("mime_type"):
             cleaned_data["mime_type"] = infer_attachment_mime_type(
-                cleaned_data.get("url", "")
+                cleaned_data.get("url") or self.instance.url
             )
         return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if self._uploaded_asset_url:
+            instance.url = self._uploaded_asset_url
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 
 class RoomInline(admin.TabularInline):
@@ -372,7 +453,7 @@ class AttachmentInline(admin.TabularInline):
     model = Attachment
     form = AttachmentAdminForm
     extra = 1
-    fields = ("title", "url", "mime_type")
+    fields = ("title", "upload", "url", "mime_type")
 
 
 class PreComPropertyInline(admin.StackedInline):
@@ -462,6 +543,7 @@ class ContentMetaAdmin(admin.ModelAdmin):
 @admin.register(Attachment)
 class AttachmentAdmin(admin.ModelAdmin):
     form = AttachmentAdminForm
+    fields = ("content", "title", "upload", "url", "mime_type")
     list_display = ("content", "url", "mime_type", "title")
     search_fields = ("url", "title", "mime_type")
 

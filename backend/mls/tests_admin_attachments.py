@@ -1,4 +1,8 @@
+from unittest.mock import patch
+
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.test import override_settings
 
 from mls.admin import AttachmentAdminForm, infer_attachment_mime_type
 from mls.models import Content
@@ -47,3 +51,27 @@ class AttachmentAdminFormTests(TestCase):
             ),
             "application/octet-stream",
         )
+
+    @override_settings(PRECON_ASSET_STORAGE_CONFIGURED=True, PRECON_ASSET_MAX_UPLOAD_MB=25)
+    @patch("mls.admin.cloudinary_uploader.upload")
+    def test_uploads_an_asset_to_cloudinary_and_saves_its_delivery_url(self, upload):
+        upload.return_value = {"secure_url": "https://res.cloudinary.com/example/image/upload/project.webp"}
+        form = AttachmentAdminForm(
+            data={
+                "content": self.content.pk,
+                "url": "",
+                "mime_type": "",
+                "title": "Project rendering",
+            },
+            files={
+                "upload": SimpleUploadedFile(
+                    "project.webp", b"test-image", content_type="image/webp"
+                ),
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        attachment = form.save()
+        self.assertEqual(attachment.url, upload.return_value["secure_url"])
+        self.assertEqual(attachment.mime_type, "image/webp")
+        upload.assert_called_once()
