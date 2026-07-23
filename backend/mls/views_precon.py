@@ -4,11 +4,8 @@ from decimal import Decimal, InvalidOperation
 from io import BytesIO
 
 import pandas as pd
-from django.core.cache import cache
 from django.db import transaction
-from django.utils.decorators import method_decorator
 from django.utils.text import slugify
-from django.views.decorators.cache import cache_page
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.generics import ListAPIView, RetrieveAPIView
@@ -17,8 +14,6 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-PRECON_LIST_CACHE_TTL_SECONDS = 60
 
 from mls.models import Content, PreComFloorPlanIntent, PreComProperty
 from mls.serializers_precon import (
@@ -102,6 +97,7 @@ class PreComPropertyDetailAPIView(RetrieveAPIView):
 
     queryset = (
         PreComProperty.objects.select_related("content", "content__author")
+        .filter(content__status=Content.PUBLISH)
         .prefetch_related(
             "content__taxonomies",
             "content__attachments",
@@ -120,7 +116,10 @@ class PreComPropertyRecommendationsAPIView(APIView):
 
     def get(self, request, pk):
         try:
-            target = PreComProperty.objects.select_related("content").get(pk=pk)
+            target = (
+                PreComProperty.objects.select_related("content")
+                .get(pk=pk, content__status=Content.PUBLISH)
+            )
         except PreComProperty.DoesNotExist:
             return Response(
                 {"detail": "Pre-construction property not found."},
@@ -130,6 +129,7 @@ class PreComPropertyRecommendationsAPIView(APIView):
         limit = max(2, min(int(request.query_params.get("limit", "4")), 8))
         candidates = list(
             PreComProperty.objects.select_related("content")
+            .filter(content__status=Content.PUBLISH)
             .prefetch_related("content__attachments")
             .exclude(pk=target.pk)
             .order_by("-id")[:120]
@@ -219,36 +219,37 @@ class PreComFloorPlanIntentAPIView(APIView):
         )
 
 
-@method_decorator(cache_page(PRECON_LIST_CACHE_TTL_SECONDS), name="dispatch")
 class PreComPropertyListAPIView(ListAPIView):
     """Paginated list of pre-construction properties.
 
-    Response is cached in-process for ``PRECON_LIST_CACHE_TTL_SECONDS``. The
-    bulk-upload endpoint clears the cache so new rows appear immediately.
+    Only published projects are public. The endpoint is intentionally not
+    response-cached: a manual admin save should appear on the frontend
+    immediately.
     """
 
     queryset = (
-    PreComProperty.objects.select_related("content")
-    .prefetch_related("content__attachments")
-    .only(
-        "id",
-        "price",
-        "bedrooms",
-        "bathrooms",
-        "garages",
-        "area",
-        "lot_size",
-        "latitude",
-        "longitude",
-        "address",
-        "content__id",
-        "content__wp_id",
-        "content__title",
-        "content__slug",
-        "content__status",
+        PreComProperty.objects.select_related("content")
+        .filter(content__status=Content.PUBLISH)
+        .prefetch_related("content__attachments")
+        .only(
+            "id",
+            "price",
+            "bedrooms",
+            "bathrooms",
+            "garages",
+            "area",
+            "lot_size",
+            "latitude",
+            "longitude",
+            "address",
+            "content__id",
+            "content__wp_id",
+            "content__title",
+            "content__slug",
+            "content__status",
+        )
+        .order_by("-id")
     )
-    .order_by("-id")
-)
     serializer_class = PreComPropertySerializer
     pagination_class = PreComPagination
     permission_classes = [AllowAny]
@@ -433,9 +434,6 @@ class PreComPropertyBulkUploadAPIView(APIView):
                 PreComProperty.objects.bulk_create(props_to_create)
             if props_to_update:
                 PreComProperty.objects.bulk_update(props_to_update, property_fields)
-
-        # Invalidate the cached list responses so freshly imported rows appear.
-        cache.clear()
 
         payload = {
             "created": created,
