@@ -15,6 +15,7 @@ export default function HeroSection() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [syncStatusLoaded, setSyncStatusLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -22,6 +23,7 @@ export default function HeroSection() {
     void fetchListingSyncStatus().then((status) => {
       if (!cancelled) {
         setLastUpdatedAt(status?.last_successful_at ?? null);
+        setSyncStatusLoaded(true);
       }
     });
 
@@ -218,12 +220,17 @@ export default function HeroSection() {
                 </motion.div>
               )}
 
-              {lastUpdatedLabel && (
-                <p className="mt-3 flex items-center gap-2 text-sm font-medium text-white/85 drop-shadow-md">
-                  <Clock3 className="h-4 w-4" aria-hidden="true" />
-                  MLS listings last updated {lastUpdatedLabel}
-                </p>
-              )}
+              <div
+                className="mt-5 flex min-h-12 items-center justify-center gap-2 rounded-lg border border-white/20 bg-cyan-600/90 px-4 py-3 text-center text-sm font-semibold text-white shadow-lg backdrop-blur-sm"
+                role="status"
+              >
+                <Clock3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {lastUpdatedLabel
+                  ? `MLS data updated on: ${lastUpdatedLabel}`
+                  : syncStatusLoaded
+                    ? "MLS data update status is not available yet."
+                    : "Checking MLS data update status…"}
+              </div>
             </div>
           </motion.div>
         </div>
