@@ -13,6 +13,7 @@ from .models import (
     EstateProperty,
     EstatePropertyImage,
     Media,
+    PreComFloorPlanIntent,
     PreComProperty,
     Property,
     PropertyInquiry,
@@ -358,6 +359,38 @@ class PreComPropertyAdmin(admin.ModelAdmin):
     search_fields = ("content__title", "content__slug", "content__wp_id", "address")
     autocomplete_fields = ("content",)
     ordering = ("-id",)
+
+
+@admin.register(PreComFloorPlanIntent)
+class PreComFloorPlanIntentAdmin(admin.ModelAdmin):
+    """Read-only agent view of high-intent floor-plan requests."""
+
+    list_display = ("created_at", "project", "user", "phone", "source_url")
+    list_filter = ("created_at",)
+    search_fields = (
+        "property__content__title",
+        "property__content__slug",
+        "user__email",
+        "user__name",
+        "user__phone",
+    )
+    list_select_related = ("property__content", "user")
+    readonly_fields = ("property", "user", "source_url", "created_at")
+    ordering = ("-created_at",)
+
+    @admin.display(description="Project", ordering="property__content__title")
+    def project(self, obj):
+        return obj.property.content.title
+
+    @admin.display(description="Phone", ordering="user__phone")
+    def phone(self, obj):
+        return obj.user.phone or "—"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return request.method in ("GET", "HEAD")
 
 
 
