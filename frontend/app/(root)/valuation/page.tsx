@@ -46,6 +46,7 @@ import { BreakdownPanel } from "@/components/valuation/BreakdownPanel";
 import { TrendIndicator } from "@/components/valuation/TrendIndicator";
 import { ComparablesGrid } from "@/components/valuation/ComparablesGrid";
 import { AgentConnectivity } from "@/components/valuation/AgentConnectivity";
+import { submitPropertyInquiry } from "@/lib/api/inquiries";
 
 /* ──────────────────────── hooks ──────────────────────── */
 
@@ -261,10 +262,13 @@ export default function HomeValuation() {
   const [engineBusy, setEngineBusy] = useState(false);
 
   const [propertyAddress, setPropertyAddress] = useState("");
+  const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [comment, setComment] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const onLookupResolved = (payload: ValuationLookupPayload) => {
@@ -283,11 +287,67 @@ export default function HomeValuation() {
   const formRef = useRevealOnScroll();
   const faqRef = useRevealOnScroll();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log({ propertyAddress, phoneNumber, email, comment });
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 4000);
+    setSubmitError(null);
+    setIsSubmitting(true);
+    const [firstName, ...lastNameParts] = fullName.trim().split(/\s+/);
+    if (!firstName) {
+      setSubmitError("Please enter your name.");
+      setIsSubmitting(false);
+      return;
+    }
+    const propertyDetails = lookupPayload
+      ? [
+          lookupPayload.property_sub_type,
+          lookupPayload.bedrooms_total != null
+            ? `${lookupPayload.bedrooms_total} bed`
+            : "",
+          lookupPayload.bathrooms_total != null
+            ? `${lookupPayload.bathrooms_total} bath`
+            : "",
+          lookupPayload.living_area != null
+            ? `${Math.round(lookupPayload.living_area)} sq ft`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" • ")
+      : "";
+
+    try {
+      await submitPropertyInquiry({
+        first_name: firstName,
+        last_name: lastNameParts.join(" "),
+        email,
+        phone: phoneNumber,
+        intent: "sell",
+        message: [
+          `Home evaluation request for ${propertyAddress}.`,
+          propertyDetails ? `Property details: ${propertyDetails}.` : "",
+          estimateResult
+            ? `Preliminary range: ${new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(estimateResult.estimate.low)} to ${new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(estimateResult.estimate.high)}.`
+            : "",
+          comment.trim(),
+        ]
+          .filter(Boolean)
+          .join(" "),
+        preferred_locations: lookupPayload?.city || "",
+        property_types: lookupPayload?.property_sub_type || "",
+        bedrooms_min: lookupPayload?.bedrooms_total ?? null,
+        bathrooms_min: lookupPayload?.bathrooms_total ?? null,
+        page_url:
+          typeof window !== "undefined" ? window.location.href : "/valuation",
+      });
+      setSubmitted(true);
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "We couldn’t send your evaluation request. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -920,6 +980,23 @@ export default function HomeValuation() {
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-5">
+                    <div>
+                      <label
+                        className="block text-sm font-semibold mb-2"
+                        style={{ color: colors.heading }}
+                      >
+                        Your Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Your full name"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="w-full rounded-xl border-2 bg-[#fafbfc] px-4 py-3.5 text-sm focus:border-blue-400 focus:outline-none focus:shadow-sm"
+                        style={{ borderColor: colors.cardsBoarder, color: colors.heading }}
+                        required
+                      />
+                    </div>
                     {/* Address */}
                     <div>
                       <label
@@ -1045,12 +1122,18 @@ export default function HomeValuation() {
 
                     <button
                       type="submit"
+                      disabled={isSubmitting}
                       className="w-full py-4 rounded-xl font-bold text-base transition-all duration-300 hover:shadow-xl hover:scale-[1.01] flex items-center justify-center gap-2 group"
                       style={{ backgroundColor: colors.icon, color: "#fff" }}
                     >
-                      Request Free Consultation
+                      {isSubmitting ? "Sending request…" : "Request Free Consultation"}
                       <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                     </button>
+                    {submitError ? (
+                      <p className="text-sm font-medium text-red-600" role="alert">
+                        {submitError}
+                      </p>
+                    ) : null}
                   </form>
                 )}
               </div>
