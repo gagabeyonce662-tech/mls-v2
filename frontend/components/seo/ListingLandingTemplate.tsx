@@ -50,7 +50,10 @@ export default function ListingLandingTemplate({ landing }: Props) {
                 {landing.heroEyebrow}
               </p>
             ) : null}
-            <h1 className="mb-3 text-3xl font-bold" style={{ color: colors.heading }}>
+            <h1
+              className="mb-3 text-3xl font-bold"
+              style={{ color: colors.heading }}
+            >
               {landing.h1}
             </h1>
             <p className="max-w-4xl text-base leading-relaxed text-gray-700">
@@ -64,21 +67,22 @@ export default function ListingLandingTemplate({ landing }: Props) {
           </section>
 
           <section className="mb-4">
-            <p style={{ color: colors.body }}>
-              {isLoading ? "Loading..." : `${allProperties.length} properties found`}
-              {hasNextPage && !isLoading && " • Scroll to load more"}
-            </p>
+            isLoading ? "Loading..." : `${allProperties.length} properties found
             {landing.provisionalLogic ? (
               <p className="mt-2 text-sm text-amber-700">
-                This category currently uses keyword-based matching. We will upgrade
-                to strict MLS field filters when dedicated source flags are available.
+                This category currently uses keyword-based matching. We will
+                upgrade to strict MLS field filters when dedicated source flags
+                are available.
               </p>
             ) : null}
           </section>
 
           {isError ? (
             <div className="text-center py-16">
-              <div className="text-xl font-semibold mb-2" style={{ color: colors.heading }}>
+              <div
+                className="text-xl font-semibold mb-2"
+                style={{ color: colors.heading }}
+              >
                 Error loading properties
               </div>
               <button
@@ -104,14 +108,21 @@ export default function ListingLandingTemplate({ landing }: Props) {
 
           {landing.faqs && landing.faqs.length > 0 ? (
             <section className="mt-10 rounded-2xl border border-gray-200 p-6 md:p-8">
-              <h2 className="mb-4 text-2xl font-semibold" style={{ color: colors.heading }}>
+              <h2
+                className="mb-4 text-2xl font-semibold"
+                style={{ color: colors.heading }}
+              >
                 Frequently Asked Questions
               </h2>
               <div className="space-y-4">
                 {landing.faqs.map((faq) => (
                   <article key={faq.question}>
-                    <h3 className="font-semibold text-gray-900">{faq.question}</h3>
-                    <p className="mt-1 text-sm leading-relaxed text-gray-600">{faq.answer}</p>
+                    <h3 className="font-semibold text-gray-900">
+                      {faq.question}
+                    </h3>
+                    <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                      {faq.answer}
+                    </p>
                   </article>
                 ))}
               </div>

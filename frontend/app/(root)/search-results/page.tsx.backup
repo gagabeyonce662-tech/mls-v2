@@ -59,26 +59,21 @@ export default function SearchResultsPage() {
   const allProperties = data?.pages.flatMap((page) => page.results) || [];
   const headingCity = filterParams.city?.trim();
   const primaryPageMeta = data?.pages?.[0];
-  const totalProperties =
-    typeof primaryPageMeta?.count === "number"
-      ? primaryPageMeta.count
-      : allProperties.length;
-  const fallbackMessage = primaryPageMeta?.fallback_applied
-    ? primaryPageMeta?.fallback_stage === "nearby_suggestions" &&
-      Array.isArray(primaryPageMeta?.suggested_locations) &&
-      primaryPageMeta.suggested_locations.length > 0
-      ? `No exact matches. Showing nearby results in ${primaryPageMeta.suggested_locations.slice(0, 3).join(", ")}.`
-      : "No exact matches. Showing closest available results."
-    : null;
+  const fallbackMessage =
+    primaryPageMeta?.fallback_applied
+      ? primaryPageMeta?.fallback_stage === "nearby_suggestions" &&
+        Array.isArray(primaryPageMeta?.suggested_locations) &&
+        primaryPageMeta.suggested_locations.length > 0
+        ? `No exact matches. Showing nearby results in ${primaryPageMeta.suggested_locations.slice(0, 3).join(", ")}.`
+        : "No exact matches. Showing closest available results."
+      : null;
 
   return (
     <div className="min-h-screen bg-white">
       <Header />
 
-      <div className="root-content-offset pb-32 pt-8">
-        {" "}
-        <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-8">
-          {" "}
+      <div className="root-content-offset pb-16 pt-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1
               className="text-3xl font-bold mb-2"
@@ -89,18 +84,18 @@ export default function SearchResultsPage() {
                 : "Search Results"}
             </h1>
             <p style={{ color: colors.body }}>
-              {isLoading
-                ? "Loading..."
-                : `${allProperties.length} properties found`}
+              {isLoading ? "Loading..." : `${allProperties.length} properties found`}
               {hasNextPage && !isLoading && " • Scroll to load more"}
             </p>
             {fallbackMessage && (
               <p className="mt-2 text-sm text-amber-700">{fallbackMessage}</p>
             )}
           </div>
+
           <div className="mb-4">
             <PropertyFilter variant="horizontal" initialCity={headingCity} />
           </div>
+
           {isError ? (
             <div className="text-center py-16">
               <div

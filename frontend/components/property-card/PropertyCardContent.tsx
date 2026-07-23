@@ -1,21 +1,29 @@
 "use client";
 
-import { Bed, Bath, CalendarDays, MapPin, Ruler } from "lucide-react";
-import { colors, propertyCard } from "@/config/design-system";
 import {
+  Bath,
+  Bed,
+  Building2,
+  CalendarDays,
+  MapPin,
+  Ruler,
+} from "lucide-react";
+
+import { colors } from "@/config/design-system";
+import type { Property } from "@/lib/api";
+import {
+  formatPrice,
   getBathrooms,
   getBedrooms,
   getCity,
-  getDescription,
   getFullAddress,
   getListingDate,
   getPrice,
   getPropertyType,
   getProvince,
   getSqft,
-  formatPrice,
 } from "@/lib/propertyUtils";
-import type { Property } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 interface PropertyCardContentProps {
   property: Property;
@@ -23,7 +31,9 @@ interface PropertyCardContentProps {
   layoutMode?: "default" | "compact";
 }
 
-const getListingContact = (property: Property): string => {
+function getListingContact(property: Property): string {
+  const record = property as Record<string, unknown>;
+
   const candidateKeys = [
     "list_agent_full_name",
     "ListAgentFullName",
@@ -35,142 +45,197 @@ const getListingContact = (property: Property): string => {
     "ListOfficeName",
     "brokerage_name",
     "BrokerageName",
-  ] as const;
+  ];
 
   for (const key of candidateKeys) {
-    const value = (property as Record<string, unknown>)[key];
+    const value = record[key];
+
     if (typeof value === "string" && value.trim().length > 0) {
       return value.trim();
     }
   }
-  return "MLS Verified Listing";
-};
 
-const getInitials = (value: string): string => {
-  const parts = value.split(" ").filter(Boolean);
-  if (parts.length === 0) return "ML";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-};
+  return "MLS verified listing";
+}
+
+function getInitials(value: string): string {
+  const words = value.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length === 0) {
+    return "MLS";
+  }
+
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${words[0][0]}${words[1][0]}`.toUpperCase();
+}
+
+function getAreaLabel(value: unknown): string {
+  const numericValue = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return "Area n/a";
+  }
+
+  return `${numericValue.toLocaleString("en-CA", {
+    maximumFractionDigits: 0,
+  })} sq ft`;
+}
 
 export function PropertyCardContent({
   property,
   showFooterDivider = true,
   layoutMode = "default",
 }: PropertyCardContentProps) {
+  const record = property as Record<string, unknown>;
+
   const price = getPrice(property);
-  const type = getPropertyType(property);
-  const beds = getBedrooms(property);
-  const baths = getBathrooms(property);
-  const address = String(
-    (property as Record<string, unknown>).unparsed_address ||
-      getFullAddress(property) ||
-      "",
-  ).trim();
-  const sqft = getSqft(property);
+  const propertyType = getPropertyType(property);
+  const bedrooms = getBedrooms(property);
+  const bathrooms = getBathrooms(property);
+  const squareFeet = getSqft(property);
   const city = getCity(property);
   const province = getProvince(property);
-  const description = getDescription(property);
   const listedOn = getListingDate(property);
   const contact = getListingContact(property);
+
+  const directAddress =
+    typeof record.unparsed_address === "string"
+      ? record.unparsed_address.trim()
+      : "";
+
+  const fullAddress = String(
+    directAddress || getFullAddress(property) || "",
+  ).trim();
+
+  const projectName =
+    typeof record.project_name === "string" ? record.project_name.trim() : "";
+
+  const displayTitle =
+    fullAddress || projectName || `${propertyType} in ${city || "Ontario"}`;
+
+  const location = [city, province]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .join(", ");
+
   const initials = getInitials(contact);
   const isCompact = layoutMode === "compact";
-  const hasAddress = Boolean(address);
 
   return (
     <div
-      className={`${propertyCard.layout.contentPadding} flex flex-col ${isCompact ? "min-h-[190px]" : ""}`}
-    >
-      <h3
-        className={`${propertyCard.typography.title} ${isCompact ? "line-clamp-1" : "truncate"}`}
-        style={{ color: colors.heading }}
-        title={property.project_name || `${type} in ${city}`}
-      >
-        {property.project_name ? property.project_name : `${type} in ${city}`}
-      </h3>
-
-      <p
-        className={`${propertyCard.typography.address} mt-2 flex items-start gap-1.5 ${isCompact ? "line-clamp-2 min-h-[32px]" : "line-clamp-1"}`}
-        style={{ color: colors.body }}
-        title={address || undefined}
-      >
-        <MapPin className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${hasAddress ? "opacity-100" : "opacity-0"}`} />
-        <span className={hasAddress ? "opacity-100" : "opacity-0"}>
-          {address || "Address unavailable"}
-        </span>
-      </p>
-
-      <p
-        className={`${propertyCard.typography.addedDate} mt-1 flex items-center gap-1.5`}
-        style={{ color: colors.bodyLight }}
-      >
-        <CalendarDays className="h-3.5 w-3.5" />
-        Added: {listedOn}
-      </p>
-
-      {!isCompact && description && (
-        <p
-          className="mt-2 text-sm leading-relaxed text-gray-600 line-clamp-3"
-          title={description}
-        >
-          {description}
-        </p>
+      className={cn(
+        "flex flex-1 flex-col p-4",
+        isCompact ? "min-h-[220px]" : "min-h-[250px]",
       )}
-
-      <div className="mt-2 grid grid-cols-3 items-center gap-2 min-h-[20px]" style={{ color: colors.body }}>
-        <div className="flex items-center gap-1.5">
-          <Bed className="h-3.5 w-3.5" />
-          <span className={propertyCard.typography.stat}>{beds || 0}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Bath className="h-3.5 w-3.5" />
-          <span className={propertyCard.typography.stat}>{baths || 0}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Ruler className="h-3.5 w-3.5" />
-          <span className={`${propertyCard.typography.stat} truncate`}>
-            {sqft ? `${sqft.toLocaleString("en-US")} sq ft` : province || "N/A"}
-          </span>
-        </div>
-      </div>
-
-      {isCompact ? <div className="mt-2" /> : <div className="mt-2 flex-1" />}
-
-      <div
-        className={`${isCompact ? "my-2" : "my-3"} border-t`}
-        style={{ borderColor: propertyCard.surface.sectionDivider }}
-      />
-
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
-            style={{ backgroundColor: "#efeafc", color: colors.primary }}
-          >
-            {initials}
-          </div>
-          <span
-            className="truncate text-sm font-semibold"
-            style={{ color: colors.heading }}
-            title={contact}
-          >
-            {contact}
-          </span>
-        </div>
+    >
+      <div className="flex items-start justify-between gap-3">
         <p
-          className={propertyCard.typography.price}
-          style={{ color: price > 0 ? colors.primary : colors.body }}
+          className="text-xl font-extrabold tracking-tight sm:text-2xl"
+          style={{
+            color: price > 0 ? colors.primary : colors.body,
+          }}
         >
           {formatPrice(price)}
         </p>
+
+        <span
+          className="max-w-[46%] truncate rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-gray-600"
+          title={propertyType}
+        >
+          {propertyType}
+        </span>
       </div>
 
-      {showFooterDivider && (
-        <div
-          className="mt-3 border-t"
-          style={{ borderColor: propertyCard.surface.sectionDivider }}
-        />
+      <h3
+        className="mt-3 line-clamp-2 min-h-[48px] text-base font-bold leading-6 text-gray-950"
+        title={displayTitle}
+      >
+        {displayTitle}
+      </h3>
+
+      {location && (
+        <p
+          className="mt-1.5 flex items-center gap-1.5 text-sm text-gray-500"
+          title={location}
+        >
+          <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+
+          <span className="truncate">{location}</span>
+        </p>
       )}
+
+      <div className="mt-4 grid grid-cols-3 divide-x divide-gray-200 rounded-xl bg-gray-50 px-2 py-3">
+        <div className="flex min-w-0 items-center justify-center gap-1.5 px-1 text-gray-700">
+          <Bed className="h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
+
+          <span className="truncate text-xs font-semibold">
+            {bedrooms || "—"} beds
+          </span>
+        </div>
+
+        <div className="flex min-w-0 items-center justify-center gap-1.5 px-1 text-gray-700">
+          <Bath className="h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
+
+          <span className="truncate text-xs font-semibold">
+            {bathrooms || "—"} baths
+          </span>
+        </div>
+
+        <div className="flex min-w-0 items-center justify-center gap-1.5 px-1 text-gray-700">
+          <Ruler
+            className="h-4 w-4 shrink-0 text-gray-500"
+            aria-hidden="true"
+          />
+
+          <span
+            className="truncate text-xs font-semibold"
+            title={getAreaLabel(squareFeet)}
+          >
+            {getAreaLabel(squareFeet)}
+          </span>
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          "mt-auto pt-4",
+          showFooterDivider && "border-t border-gray-100",
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+            style={{
+              backgroundColor: "#EEF2FF",
+              color: colors.primary,
+            }}
+          >
+            {initials}
+          </div>
+
+          <div className="min-w-0">
+            <p
+              className="truncate text-sm font-semibold text-gray-800"
+              title={contact}
+            >
+              {contact}
+            </p>
+
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+              <Building2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              Listing representative
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
+          <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          Added {listedOn}
+        </p>
+      </div>
     </div>
   );
 }

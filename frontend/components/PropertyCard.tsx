@@ -1,39 +1,17 @@
-// components/PropertyCard.tsx
-// Reusable client-side property card component used to display
-// individual listings with images, details, and actions.
-//
-// Supports user interactions including favorites, compare,
-// quick view, and navigation to property details.
-//
-// Integrates watched and compare contexts for state management
-// and prefetches property details on hover to improve perceived
-// performance.
-//
-// Uses composable subcomponents (PropertyCardImage,
-// PropertyCardContent) to keep presentation concerns separated.
 "use client";
 
 import Link from "next/link";
-import {
-  ArrowUpRight,
-  Check,
-  GitCompare,
-  Heart,
-  ImageIcon,
-} from "lucide-react";
+import { ArrowUpRight, Check, GitCompare, Heart, Images } from "lucide-react";
+
 import { propertyCard } from "@/config/design-system";
 import type { Property } from "@/lib/api";
-import { getPropertyKey, getDetailUrl } from "@/lib/propertyUtils";
+import { getDetailUrl, getPropertyKey } from "@/lib/propertyUtils";
 import { PropertyCardImage } from "@/components/property-card/PropertyCardImage";
 import { PropertyCardContent } from "@/components/property-card/PropertyCardContent";
 import { usePrefetchProperty } from "@/hooks/react-query";
 import { useWatched } from "@/contexts/WatchedContext";
 import { useCompare } from "@/contexts/CompareContext";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface PropertyCardProps {
   property: Property;
@@ -51,134 +29,185 @@ export default function PropertyCard({
   onQuickView,
 }: PropertyCardProps) {
   const propertyKey = getPropertyKey(property);
+  const detailUrl = getDetailUrl(property);
   const prefetch = usePrefetchProperty();
 
   const { toggleFavorite, isFavorite, addToHistory } = useWatched();
+
   const { addToCompare, removeFromCompare, isPropertySelected } = useCompare();
 
   const saved = isFavorite(propertyKey);
-  const isCompared = isPropertySelected(propertyKey);
-  const detailUrl = getDetailUrl(property);
-  const compactActions = layoutMode === "compact";
-  const actionButtonSpacing = compactActions
-    ? "h-10 flex-col gap-0 pt-0 pb-0.5"
-    : "py-2.5 gap-1.5";
-  const actionIconClass = compactActions
-    ? "w-4 h-4 shrink-0"
-    : "w-3 h-3 shrink-0";
-  const actionLabelClass = compactActions
-    ? "text-[10px] leading-none"
-    : "truncate";
+  const compared = isPropertySelected(propertyKey);
+  const isCompact = layoutMode === "compact";
 
-  const handleToggleFavorite = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleToggleFavorite = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     toggleFavorite(property);
   };
 
-  const handleToggleCompare = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (isCompared) {
+  const handleToggleCompare = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (compared) {
       removeFromCompare(propertyKey);
-    } else {
-      addToCompare(property);
+      return;
     }
+
+    addToCompare(property);
   };
 
-  const handleQuickView = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleQuickView = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     onQuickView?.(property);
   };
 
+  const recordHistory = () => {
+    addToHistory(property);
+  };
+
   return (
-    <div
-      className={`group relative h-full flex flex-col ${propertyCard.layout.borderRadius} overflow-hidden transition-all duration-300 ${propertyCard.animation.hoverLift} animate-fadeInUp`}
+    <article
+      className={cn(
+        "group relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white",
+        "transition duration-300 ease-out",
+        "hover:-translate-y-1 hover:shadow-xl",
+        "animate-fadeInUp",
+      )}
       style={{
-        animationDelay: `${index * propertyCard.animation.staggerDelayMs}ms`,
-        border: `1px solid ${propertyCard.surface.borderColor}`,
-        backgroundColor: propertyCard.surface.cardBg,
+        animationDelay: `${
+          Math.min(index, 12) * propertyCard.animation.staggerDelayMs
+        }ms`,
+        borderColor: propertyCard.surface.borderColor,
         boxShadow: propertyCard.surface.shadow,
       }}
-      onMouseEnter={() => propertyKey && prefetch(propertyKey)}
+      onMouseEnter={() => {
+        if (propertyKey) {
+          prefetch(propertyKey);
+        }
+      }}
     >
+      <div className="relative">
+        <Link
+          href={detailUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={recordHistory}
+          aria-label="Open property details"
+          className="block"
+        >
+          <PropertyCardImage property={property} variant={variant} />
+        </Link>
+
+        <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleToggleFavorite}
+            aria-label={
+              saved ? "Remove from saved properties" : "Save property"
+            }
+            aria-pressed={saved}
+            title={saved ? "Remove from saved properties" : "Save property"}
+            className={cn(
+              "inline-flex h-10 w-10 items-center justify-center rounded-full",
+              "border border-white/70 bg-white/95 shadow-md backdrop-blur-sm",
+              "transition hover:scale-105 hover:bg-white",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700",
+              saved ? "text-red-600" : "text-gray-700 hover:text-red-600",
+            )}
+          >
+            <Heart
+              className={cn("h-4.5 w-4.5", saved && "fill-current")}
+              aria-hidden="true"
+            />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleToggleCompare}
+            aria-label={
+              compared
+                ? "Remove property from comparison"
+                : "Add property to comparison"
+            }
+            aria-pressed={compared}
+            title={compared ? "Remove from comparison" : "Add to comparison"}
+            className={cn(
+              "inline-flex h-10 w-10 items-center justify-center rounded-full",
+              "border border-white/70 bg-white/95 shadow-md backdrop-blur-sm",
+              "transition hover:scale-105 hover:bg-white",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700",
+              compared
+                ? "bg-blue-50 text-blue-800"
+                : "text-gray-700 hover:text-blue-800",
+            )}
+          >
+            {compared ? (
+              <Check className="h-4.5 w-4.5" aria-hidden="true" />
+            ) : (
+              <GitCompare className="h-4.5 w-4.5" aria-hidden="true" />
+            )}
+          </button>
+        </div>
+      </div>
+
       <Link
         href={detailUrl}
-        onClick={() => addToHistory(property)}
         target="_blank"
         rel="noopener noreferrer"
-        className="block flex-1"
+        onClick={recordHistory}
+        className="flex flex-1 flex-col"
       >
-        {/* ── Image ── */}
-        <PropertyCardImage property={property} variant={variant} />
-
-        {/* ── Content ── */}
-        <PropertyCardContent property={property} layoutMode={layoutMode} />
+        <PropertyCardContent
+          property={property}
+          layoutMode={layoutMode}
+          showFooterDivider={false}
+        />
       </Link>
 
-      <div className="relative z-10 grid grid-cols-4 bg-white">
+      <div
+        className={cn(
+          "grid gap-2 border-t border-gray-100 bg-white p-3",
+          isCompact ? "grid-cols-[0.8fr_1.2fr]" : "grid-cols-[1fr_1.5fr]",
+        )}
+      >
         <button
-          onClick={handleToggleFavorite}
-          className={`flex items-center justify-center border-r text-xs font-medium transition-colors hover:bg-gray-50 ${actionButtonSpacing} ${
-            saved ? "text-purple-600" : "text-gray-500"
-          }`}
-          aria-label={saved ? "Saved" : "Save"}
-          title={saved ? "Saved" : "Save"}
-          style={{ borderColor: propertyCard.surface.sectionDivider }}
-        >
-          <Heart className={`${actionIconClass} ${saved ? "fill-current" : ""}`} />
-          <span className={actionLabelClass}>{saved ? "Saved" : "Save"}</span>
-        </button>
-
-        <button
-          onClick={handleToggleCompare}
-          className={`flex items-center justify-center border-r text-xs font-medium transition-colors hover:bg-gray-50 ${actionButtonSpacing} ${
-            isCompared
-              ? "text-purple-600"
-              : "text-gray-500 hover:text-purple-500"
-          }`}
-          style={{ borderColor: propertyCard.surface.sectionDivider }}
-          aria-label={isCompared ? "Remove from Compare" : "Add to Compare"}
-          title={isCompared ? "Remove from Compare" : "Add to Compare"}
-        >
-          {isCompared ? (
-            <Check className={actionIconClass} />
-          ) : (
-            <GitCompare className={actionIconClass} />
+          type="button"
+          onClick={handleQuickView}
+          disabled={!onQuickView}
+          className={cn(
+            "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl",
+            "border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700",
+            "transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-900",
+            "disabled:cursor-not-allowed disabled:opacity-40",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700",
           )}
-          <span className={actionLabelClass}>Compare</span>
-        </button>
+        >
+          <Images className="h-4 w-4 shrink-0" aria-hidden="true" />
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={handleQuickView}
-              className={`flex items-center justify-center border-r text-xs font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-purple-500 ${actionButtonSpacing}`}
-              style={{ borderColor: propertyCard.surface.sectionDivider }}
-              aria-label="Images"
-              title="Images"
-            >
-              <ImageIcon className={actionIconClass} />
-              <span className={actionLabelClass}>Images</span>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">Quick View Gallery</TooltipContent>
-        </Tooltip>
+          <span>Photos</span>
+        </button>
 
         <Link
           href={detailUrl}
-          onClick={(e) => e.stopPropagation()}
           target="_blank"
           rel="noopener noreferrer"
-          className={`flex items-center justify-center text-xs font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-purple-500 ${actionButtonSpacing}`}
-          aria-label="View details"
-          title="View details"
+          onClick={recordHistory}
+          className={cn(
+            "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl",
+            "bg-[#1E3A8A] px-4 text-sm font-bold text-white",
+            "transition hover:bg-[#172f70]",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700",
+            "focus-visible:ring-offset-2",
+          )}
         >
-          <ArrowUpRight className={actionIconClass} />
-          <span className={actionLabelClass}>View</span>
+          <span>View details</span>
+
+          <ArrowUpRight className="h-4 w-4 shrink-0" aria-hidden="true" />
         </Link>
       </div>
-    </div>
+    </article>
   );
 }

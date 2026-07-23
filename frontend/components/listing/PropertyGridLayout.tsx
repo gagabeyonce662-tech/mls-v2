@@ -1,13 +1,10 @@
-// Renders property cards in either a grid or horizontal row layout.
-// Handles loading states with skeleton placeholders and supports
-// infinite scrolling to fetch additional properties as users scroll.
-// Displays an optional empty state when no properties are available.
+components / listing / PropertyGridLayout.tsx;
+import { useCallback, useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 
-import React, { useRef, useCallback } from "react";
 import PropertyCard from "@/components/PropertyCard";
-import { Property } from "@/lib/api";
+import type { Property } from "@/lib/api";
 import { getPropertyKey } from "@/lib/propertyUtils";
-import { colors } from "@/config/design-system";
 import { cn } from "@/lib/utils";
 
 interface PropertyGridLayoutProps {
@@ -15,13 +12,48 @@ interface PropertyGridLayoutProps {
   isLoading: boolean;
   isFetchingNextPage: boolean;
   hasNextPage: boolean;
-  fetchNextPage: () => void;
+  fetchNextPage: () => void | Promise<unknown>;
   isLoggedIn: boolean;
-  interactions: any;
+  interactions: {
+    handleQuickView?: (property: Property) => void;
+  };
   currentCity?: string;
-  emptyMessage?: React.ReactNode;
+  emptyMessage?: ReactNode;
   variant?: "grid" | "row";
   cardLayout?: "default" | "compact";
+}
+
+interface PropertyGridSkeletonProps {
+  variant: "grid" | "row";
+}
+
+function PropertyGridSkeleton({ variant }: PropertyGridSkeletonProps) {
+  return (
+    <div
+      className={cn(
+        "overflow-hidden rounded-2xl border border-gray-200 bg-white",
+        variant === "row" && "min-w-[280px] max-w-[340px]",
+      )}
+    >
+      <div className="aspect-[16/10] animate-pulse bg-gray-200" />
+
+      <div className="space-y-4 p-4">
+        <div className="h-6 w-2/5 animate-pulse rounded bg-gray-200" />
+        <div className="h-5 w-4/5 animate-pulse rounded bg-gray-200" />
+        <div className="h-4 w-3/5 animate-pulse rounded bg-gray-100" />
+
+        <div className="grid grid-cols-3 gap-3 rounded-xl bg-gray-50 p-3">
+          <div className="h-5 animate-pulse rounded bg-gray-200" />
+          <div className="h-5 animate-pulse rounded bg-gray-200" />
+          <div className="h-5 animate-pulse rounded bg-gray-200" />
+        </div>
+
+        <div className="border-t border-gray-100 pt-4">
+          <div className="h-4 w-3/4 animate-pulse rounded bg-gray-100" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function PropertyGridLayout({
@@ -35,117 +67,122 @@ export function PropertyGridLayout({
   variant = "grid",
   cardLayout = "default",
 }: PropertyGridLayoutProps) {
+  const observerRef = useRef<IntersectionObserver | null>(null);
   const handleQuickView = interactions?.handleQuickView;
 
-  const renderSkeletons = () => {
-    return Array.from({ length: 8 }).map((_, index) => (
-      <div
-        key={`skeleton-${index}`}
-        className={cn(
-          "bg-white rounded-xl shadow-md overflow-hidden animate-pulse min-h-[300px]",
-          variant === "row" && "min-w-[220px] max-w-[320px]",
-        )}
-      >
-        <div
-          className="h-48 w-full"
-          style={{ backgroundColor: colors.boarder }}
-        />
-        <div className="p-4 space-y-3">
-          <div
-            className="h-4 w-3/4 rounded"
-            style={{ backgroundColor: colors.boarder }}
-          />
-          <div
-            className="h-6 w-1/2 rounded"
-            style={{ backgroundColor: colors.boarder }}
-          />
-          <div className="flex gap-4 mt-3">
-            <div
-              className="h-3 w-12 rounded"
-              style={{ backgroundColor: colors.boarder }}
-            />
-            <div
-              className="h-3 w-12 rounded"
-              style={{ backgroundColor: colors.boarder }}
-            />
-          </div>
-        </div>
-      </div>
-    ));
-  };
+  useEffect(() => {
+    return () => {
+      observerRef.current?.disconnect();
+    };
+  }, []);
 
-  // Infinite Scroll Observer
-  const observerRef = useRef<IntersectionObserver | null>(null);
   const lastPropertyRef = useCallback(
-    (node: HTMLDivElement) => {
-      if (isLoading || isFetchingNextPage) return;
-      if (observerRef.current) observerRef.current.disconnect();
+    (node: HTMLDivElement | null) => {
+      if (!node || isLoading || isFetchingNextPage) {
+        return;
+      }
+
+      observerRef.current?.disconnect();
 
       observerRef.current = new IntersectionObserver(
         (entries) => {
-          if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-            fetchNextPage();
+          const firstEntry = entries[0];
+
+          if (
+            firstEntry?.isIntersecting &&
+            hasNextPage &&
+            !isFetchingNextPage
+          ) {
+            void fetchNextPage();
           }
         },
         {
-          rootMargin: "100px", // Trigger slightly before the end
-          threshold: 0.1,
+          rootMargin: "300px",
+          threshold: 0.01,
         },
       );
 
-      if (node) observerRef.current.observe(node);
+      observerRef.current.observe(node);
     },
-    [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage],
+    [fetchNextPage, hasNextPage, isFetchingNextPage, isLoading],
   );
 
   const containerClasses =
     variant === "row"
-      ? "flex flex-row flex-nowrap overflow-x-auto gap-4 w-full"
-      : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 gap-6 w-full";
+      ? "flex w-full flex-nowrap gap-5 overflow-x-auto pb-3"
+      : [
+          "grid w-full grid-cols-1 gap-5",
+          "sm:grid-cols-2",
+          "lg:grid-cols-3",
+          "2xl:grid-cols-4",
+        ].join(" ");
 
   const itemClasses =
-    variant === "row" ? "flex-1 min-w-[220px] max-w-[320px]" : "w-full";
+    variant === "row" ? "min-w-[280px] max-w-[340px] flex-1" : "min-w-0";
+
+  const renderSkeletons = (count: number) =>
+    Array.from({ length: count }).map((_, index) => (
+      <PropertyGridSkeleton
+        key={`property-grid-skeleton-${index}`}
+        variant={variant}
+      />
+    ));
+
+  if (isLoading && properties.length === 0) {
+    return (
+      <div className={containerClasses}>
+        {renderSkeletons(variant === "row" ? 4 : 8)}
+      </div>
+    );
+  }
+
+  if (properties.length === 0) {
+    return (
+      <>
+        {emptyMessage || (
+          <div className="w-full rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-16 text-center">
+            <h2 className="text-lg font-semibold text-gray-900">
+              No properties found
+            </h2>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Try changing the location, price range, or property type.
+            </p>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
-    <>
-      {isLoading && properties.length === 0 ? (
-        <div className={containerClasses}>{renderSkeletons()}</div>
-      ) : properties.length > 0 ? (
-        <>
-          <div className={containerClasses}>
-            {properties.map((property: Property, index: number) => {
-              const propertyKey =
-                getPropertyKey(property) ||
-                (property as any).listing_key ||
-                (property as any).PropertyKey ||
-                `grid-${index}`;
+    <div className={containerClasses}>
+      {properties.map((property, index) => {
+        const propertyKey =
+          getPropertyKey(property) ||
+          (property as Record<string, unknown>).listing_key ||
+          (property as Record<string, unknown>).PropertyKey ||
+          `property-grid-${index}`;
 
-              return (
-                <div
-                  key={propertyKey}
-                  ref={index === properties.length - 1 ? lastPropertyRef : null}
-                  className={itemClasses}
-                >
-                  <PropertyCard
-                    property={property}
-                    variant="featured"
-                    layoutMode={cardLayout}
-                    index={index}
-                    onQuickView={handleQuickView}
-                  />
-                </div>
-              );
-            })}
-            {(isLoading || isFetchingNextPage) && renderSkeletons()}
+        const isLastProperty = index === properties.length - 1;
+
+        return (
+          <div
+            key={String(propertyKey)}
+            ref={isLastProperty ? lastPropertyRef : null}
+            className={itemClasses}
+          >
+            <PropertyCard
+              property={property}
+              variant="featured"
+              layoutMode={cardLayout}
+              index={index}
+              onQuickView={handleQuickView}
+            />
           </div>
-        </>
-      ) : (
-        emptyMessage || (
-          <div className="text-center py-16 w-full">
-            <p className="text-ds-body mb-4">No properties found.</p>
-          </div>
-        )
-      )}
-    </>
+        );
+      })}
+
+      {isFetchingNextPage && renderSkeletons(variant === "row" ? 2 : 4)}
+    </div>
   );
 }
