@@ -5,6 +5,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { LocateFixed, MapPin, Search, X } from "lucide-react";
 import MapController from "@/components/map/MapController";
 import { useGeocoding } from "@/hooks/useGeocoding";
+import { API_BASE_URL } from "@/lib/api/client";
 import type { NominatimResult } from "@/components/map/types";
 
 const MapContainer = dynamic(
@@ -114,7 +115,7 @@ export default function LocationPicker({
     onInputChange,
     selectResult,
     setResultsOpen,
-  } = useGeocoding(searchInputRef, onGeocodeSelected);
+  } = useGeocoding(API_BASE_URL, searchInputRef, onGeocodeSelected);
 
   const showResults =
     searchHasFocus && resultsOpen && (searchResults.length > 0 || Boolean(searchError));
