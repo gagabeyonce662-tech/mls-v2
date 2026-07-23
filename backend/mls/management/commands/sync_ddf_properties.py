@@ -1,7 +1,8 @@
 
 import time
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import connections, transaction
+from django.db.models import Q
 from django.utils import timezone
 from mls.helpers import get_access_token
 from datetime import timedelta
@@ -19,10 +20,15 @@ from mls.services.ddf.client import fetch_all_properties
 
 
 class Command(BaseCommand):
-    help = 'Ultra-fast full sync of REALTOR.ca DDF properties'
+    help = 'Maintain a small, recent DDF listing cache.'
+
+    CACHE_POLICY_KEY = "ddf_cache_v2_initialized"
+    # A 24-hour DDF cache is deliberately far below the 300 MB storage budget.
+    CACHE_RETENTION_DAYS = 1
+    INCREMENTAL_OVERLAP_MINUTES = 10
 
     def add_arguments(self, parser):
-        parser.add_argument('--full', action='store_true', help='Force full sync (ignore incremental)')
+        parser.add_argument('--full', action='store_true', help='Unsupported: this cache intentionally never imports the full catalogue.')
         parser.add_argument('--threads', type=int, default=10, help='Deprecated. Kept temporarily for compatibility. Use default threading.'
         "DDF pagination is sequential")
         parser.add_argument('--batch-size', type=int, default=5000, help='Properties per DB batch')
@@ -32,38 +38,54 @@ class Command(BaseCommand):
             default=0,
             help='Optional safety cap for pages during testing. 0 means no cap.',
         )
+        parser.add_argument(
+            '--retention-days',
+            type=int,
+            default=self.CACHE_RETENTION_DAYS,
+            help='Keep DDF listings modified within this many days (default: 1).',
+        )
 
     def build_incremental_filter(self, force_full=False):
         """
         Build the DDF filter used for an incremental sync.
 
-        A full sync returns None, meaning no timestamp filter.
+        An empty cache starts from the overlap window, rather than importing the
+        complete catalogue.  This keeps the cache within the storage budget.
         """
-        if force_full:
-            return None
-
-        latest_property = Property.objects.order_by(
+        latest_property = Property.objects.filter(
+            category_type=Property.DDF
+        ).order_by(
             "-modification_timestamp"
         ).first()
 
-        if not latest_property:
-            return None
-
-        if not latest_property.modification_timestamp:
-            return None
-
-        cutoff = (
+        latest_timestamp = (
             latest_property.modification_timestamp
-            - timedelta(minutes=10)
+            if latest_property else None
+        )
+        cutoff = (latest_timestamp or timezone.now()) - timedelta(
+            minutes=self.INCREMENTAL_OVERLAP_MINUTES
         )
 
-        # return (
-        #     "ModificationTimestamp gt "
-        #     f"{cutoff.isoformat()}Z"
-        # )
+        return (
+            "ModificationTimestamp gt "
+            f"{cutoff.isoformat()}"
+        )
 
     def handle(self, *args, **options):
         start_time = time.time()
+
+        if options["full"]:
+            raise CommandError(
+                "Full DDF imports are disabled because the database is limited "
+                "to a small rolling cache."
+            )
+
+        retention_days = options["retention_days"]
+        if retention_days < 1:
+            raise CommandError("--retention-days must be at least 1.")
+
+        self.initialize_small_cache()
+        self.prune_expired_properties(retention_days)
 
         token = get_access_token()
 
@@ -103,12 +125,6 @@ class Command(BaseCommand):
             )
             return
 
-        processed_keys = {
-            property_data.get("ListingKey")
-            for property_data in all_properties
-            if property_data.get("ListingKey")
-        }
-
         self.stdout.write(
             f"Starting bulk upsert of "
             f"{len(all_properties):,} properties..."
@@ -125,15 +141,7 @@ class Command(BaseCommand):
         )
 
 
-        if options["full"]:
-            self.stdout.write(
-                "Full sync completed; checking for orphaned properties..."
-            )
-            self.cleanup_orphaned_properties(processed_keys)
-        else:
-            self.stdout.write(
-                "Incremental sync: skipping orphan cleanup."
-            )
+        self.prune_expired_properties(retention_days)
 
         self.stdout.write("Rebuilding H3 map aggregates...")
         aggregate_cells = rebuild_h3_aggregates()
@@ -151,6 +159,68 @@ class Command(BaseCommand):
 
         elapsed = time.time() - start_time
         self.stdout.write(self.style.SUCCESS(f"COMPLETED in {elapsed:.1f} seconds ({len(all_properties)/elapsed:.1f} props/sec)"))
+
+    def initialize_small_cache(self):
+        """Discard the old full-catalogue cache exactly once.
+
+        The old cache is what exhausted Neon storage.  After it is removed, an
+        empty cache starts incrementally, so it will only contain listings seen
+        in the recent sync window.  ``VACUUM FULL`` returns the old rows' disk
+        space to Postgres instead of merely marking it reusable.
+        """
+        if ListingSyncStatus.objects.filter(key=self.CACHE_POLICY_KEY).exists():
+            return
+
+        ddf_properties = Property.objects.filter(category_type=Property.DDF)
+        deleted_count = ddf_properties.count()
+        if deleted_count:
+            ddf_properties.delete()
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Removed {deleted_count:,} old DDF listings to initialize "
+                    "the small rolling cache."
+                )
+            )
+            self.vacuum_ddf_tables()
+
+        ListingSyncStatus.objects.update_or_create(
+            key=self.CACHE_POLICY_KEY,
+            defaults={
+                "last_successful_at": timezone.now(),
+                "listing_count": 0,
+            },
+        )
+
+    def vacuum_ddf_tables(self):
+        """Physically reclaim storage after the one-time cache reset."""
+        table_names = [
+            Property._meta.db_table,
+            Room._meta.db_table,
+            Media._meta.db_table,
+        ]
+        connection = connections["default"]
+        quoted_tables = ", ".join(
+            connection.ops.quote_name(table_name)
+            for table_name in table_names
+        )
+        self.stdout.write("Reclaiming database storage from the old DDF cache...")
+        with connection.cursor() as cursor:
+            cursor.execute(f"VACUUM (FULL, ANALYZE) {quoted_tables}")
+
+    def prune_expired_properties(self, retention_days):
+        """Keep only recent DDF records so the rolling cache stays small."""
+        cutoff = timezone.now() - timedelta(days=retention_days)
+        expired = Property.objects.filter(category_type=Property.DDF).filter(
+            Q(modification_timestamp__lt=cutoff)
+            | Q(modification_timestamp__isnull=True)
+        )
+        expired_count = expired.count()
+        if expired_count:
+            expired.delete()
+            self.stdout.write(
+                f"Deleted {expired_count:,} DDF listings older than "
+                f"{retention_days} days."
+            )
 
     def cleanup_orphaned_properties(self, processed_keys):
         """Deletes properties tagged as DDF that were NOT seen in this sync."""
@@ -179,14 +249,15 @@ class Command(BaseCommand):
             self.stdout.write("No orphaned listings found.")
 
 
-    @transaction.atomic
     def bulk_upsert(self, properties_data, batch_size=5000):
-        # We'll process in batches to avoid memory explosion
+        # Commit each batch independently.  A single transaction across the
+        # whole catalogue creates large temporary storage spikes.
         for i in range(0, len(properties_data), batch_size):
             batch = properties_data[i:i + batch_size]
             self.process_batch(batch)
             self.stdout.write(f"Processed batch {i//batch_size + 1}/{(len(properties_data)-1)//batch_size + 1}")
 
+    @transaction.atomic
     def process_batch(self, batch):
         listing_keys = [p["ListingKey"] for p in batch if p.get("ListingKey")]
         existing = Property.objects.filter(listing_key__in=listing_keys).in_bulk(field_name="listing_key")
@@ -200,7 +271,6 @@ class Command(BaseCommand):
 
         for data in batch:
             key = data.get("ListingKey")
-            print(key)
             if not key:
                 continue
 

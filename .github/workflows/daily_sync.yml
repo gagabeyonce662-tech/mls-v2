@@ -2,9 +2,14 @@ name: Daily MLS Data Sync
 
 on:
   schedule:
-    # Runs at 00:00 UTC every day
-    - cron: '0 0 * * *'
+    # GitHub may delay scheduled workflows during heavy load, but this requests
+    # a five-minute sync cadence.
+    - cron: '*/5 * * * *'
   workflow_dispatch: # Allows you to run it manually from the GitHub UI
+
+concurrency:
+  group: daily-mls-data-sync
+  cancel-in-progress: false
 
 jobs:
   sync:
