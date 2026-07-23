@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { colors } from "@/config/design-system";
 import { Property } from "@/lib/api";
-import PropertyCard from "@/components/PropertyCard";
+import { CompactPropertyCard } from "@/components/property-card/CompactPropertyCard";
 import { PropertyCardSkeleton } from "./PropertyCardSkeleton";
 
 interface PropertyGridSectionProps {
@@ -40,7 +40,7 @@ export function PropertyGridSection({
   emptyTitle = "No properties found",
   emptySubtitle = "Try adjusting your filters or search area.",
   variant = "featured",
-  limit = 8,
+  limit = 4,
   oneRowOnly = false,
   onViewAllClick,
   cardLayout = "compact",
@@ -64,15 +64,13 @@ export function PropertyGridSection({
   const getResponsiveVisibility = (index: number) => {
     if (!oneRowOnly) return "block";
 
-    // Synced exactly with useOneRowListing.ts & tailwind.config.ts breakpoints:
-    if (index < 2) return "block";             // mobile + sm → 2 cols
-    if (index === 2) return "hidden md:block"; // 768px+  → 3 cols
-    if (index === 3) return "hidden lg:block"; // 1024px+ → 4 cols
-    if (index < 6) return "hidden 2xl:block"; // 1536px+ → 6 cols
-    if (index < 8) return "hidden 3xl:block"; // 1800px+ → 8 cols
-    return "hidden 4xl:block";                  // 2200px+ → 12 cols
-  };
+    if (index === 0) return "block";
+    if (index === 1) return "hidden sm:block";
+    if (index === 2) return "hidden lg:block";
+    if (index === 3) return "hidden xl:block";
 
+    return "hidden";
+  };
 
   return (
     <div className="py-12">
@@ -126,41 +124,40 @@ export function PropertyGridSection({
         )}
 
         {/* Responsive Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 3xl:grid-cols-8 4xl:grid-cols-12 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {showLoadingSkeletons
             ? [...Array(limit)].map((_, i) => (
-              <PropertyCardSkeleton key={`skeleton-${i}`} index={i} />
-            ))
+                <PropertyCardSkeleton key={`skeleton-${i}`} index={i} />
+              ))
             : displayProperties.length > 0
               ? displayProperties.map((property, index) => (
-                <div
-                  key={
-                    property.listing_key ||
-                    property.PropertyKey ||
-                    `${title}-${index}`
-                  }
-                  className={`w-full ${getResponsiveVisibility(index)}`}
-                >
-                  <PropertyCard
-                    property={property}
-                    variant={variant as any}
-                    layoutMode={cardLayout}
-                    index={index}
-                    onQuickView={onQuickView}
-                  />
-                </div>
-              ))
-              : !showLoadingSkeletons && (
-                <div className="col-span-full text-center py-16">
                   <div
-                    className="text-xl font-semibold mb-2"
-                    style={{ color: colors.heading }}
+                    key={
+                      property.listing_key ||
+                      property.PropertyKey ||
+                      `${title}-${index}`
+                    }
+                    className={`w-full ${getResponsiveVisibility(index)}`}
                   >
-                    {emptyTitle}
+                    <CompactPropertyCard
+                      property={property}
+                      variant={variant === "new" ? "new" : "featured"}
+                      index={index}
+                      onQuickView={onQuickView}
+                    />
                   </div>
-                  <p style={{ color: colors.body }}>{emptySubtitle}</p>
-                </div>
-              )}
+                ))
+              : !showLoadingSkeletons && (
+                  <div className="col-span-full text-center py-16">
+                    <div
+                      className="text-xl font-semibold mb-2"
+                      style={{ color: colors.heading }}
+                    >
+                      {emptyTitle}
+                    </div>
+                    <p style={{ color: colors.body }}>{emptySubtitle}</p>
+                  </div>
+                )}
         </div>
 
         {/* Mobile View All */}
