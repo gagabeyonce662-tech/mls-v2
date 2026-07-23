@@ -59,6 +59,13 @@ function detectCountryCode(): string {
   return "CA";
 }
 
+function isSupportedCountryCode(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    COUNTRIES.some((country) => country.code === value)
+  );
+}
+
 function toInternationalPhoneNumber(localNumber: string, dialCode: string) {
   const trimmed = localNumber.trim();
   if (trimmed.startsWith("+")) {
@@ -86,6 +93,27 @@ export default function PhoneVerificationModal({
 
   React.useEffect(() => {
     setCountryCode(detectCountryCode());
+
+    const controller = new AbortController();
+
+    void fetch("/api/geo/country", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as { countryCode?: unknown };
+      })
+      .then((data) => {
+        if (isSupportedCountryCode(data?.countryCode)) {
+          setCountryCode(data.countryCode);
+        }
+      })
+      .catch(() => {
+        // Browser time zone and locale remain the fallback when IP lookup fails.
+      });
+
+    return () => controller.abort();
   }, []);
 
   const selectedCountry =

@@ -13,13 +13,13 @@ from rest_framework import status
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 PRECON_LIST_CACHE_TTL_SECONDS = 60
 
-from mls.models import Content, PreComProperty
+from mls.models import Content, PreComFloorPlanIntent, PreComProperty
 from mls.serializers_precon import (
     PreComBulkUploadResponseSerializer,
     PreComBulkUploadSerializer,
@@ -110,6 +110,65 @@ class PreComPropertyDetailAPIView(RetrieveAPIView):
     serializer_class = PreComPropertyDetailSerializer
     permission_classes = [AllowAny]
     lookup_field = "pk"
+
+
+class PreComFloorPlanIntentAPIView(APIView):
+    """Record an authenticated user's request before returning its floor-plan URL."""
+
+    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def _floor_plan_url(property):
+        meta = {item.key: item.value for item in property.content.meta.all()}
+        meta_url = str(meta.get("floor_plan_url") or "").strip()
+        if meta_url:
+            return meta_url
+
+        attachment = next(
+            (
+                item
+                for item in property.content.attachments.all()
+                if item.url and "floor" in (item.title or "").lower()
+            ),
+            None,
+        )
+        return attachment.url if attachment else ""
+
+    def post(self, request, pk):
+        try:
+            property = (
+                PreComProperty.objects.select_related("content")
+                .prefetch_related("content__attachments", "content__meta")
+                .get(pk=pk)
+            )
+        except PreComProperty.DoesNotExist:
+            return Response(
+                {"detail": "Pre-construction property not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not request.user.phone_verified:
+            return Response(
+                {"detail": "Phone verification is required."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        source_url = self._floor_plan_url(property)
+        if not source_url:
+            return Response(
+                {"detail": "Floor plans are unavailable for this property."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        intent = PreComFloorPlanIntent.objects.create(
+            property=property,
+            user=request.user,
+            source_url=source_url,
+        )
+        return Response(
+            {"intent_id": intent.id, "access_url": source_url},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 @method_decorator(cache_page(PRECON_LIST_CACHE_TTL_SECONDS), name="dispatch")

@@ -30,6 +30,7 @@ import PhoneVerifiedActionButton from "@/components/listing/PhoneVerifiedActionB
 import { Button } from "@/components/ui/button";
 import {
   fetchPreconProperty,
+  requestPreconFloorPlan,
   type PreconPropertyDetail,
 } from "@/lib/api/precon";
 
@@ -897,13 +898,26 @@ export default function PreconDetailPage() {
                     <div className="mt-6 space-y-3">
                       {floorPlanUrl ? (
                         <PhoneVerifiedActionButton
-                          onAccess={() =>
-                            window.open(
-                              floorPlanUrl,
-                              "_blank",
-                              "noopener,noreferrer",
-                            )
-                          }
+                          onAccess={async () => {
+                            // Reserve the tab while this click still has a user gesture;
+                            // opening it after the API request can be blocked as a popup.
+                            const floorPlanWindow = window.open("", "_blank");
+                            try {
+                              const { access_url } = await requestPreconFloorPlan(
+                                data.id,
+                              );
+                              if (floorPlanWindow) {
+                                floorPlanWindow.opener = null;
+                                floorPlanWindow.location.replace(access_url);
+                                return;
+                              }
+
+                              window.location.assign(access_url);
+                            } catch (error) {
+                              floorPlanWindow?.close();
+                              throw error;
+                            }
+                          }}
                           className="flex w-full items-center justify-center gap-2 rounded-xl bg-ds-primary px-5 py-3 text-sm font-bold text-white transition hover:opacity-90"
                         >
                           <Download className="h-4 w-4" />

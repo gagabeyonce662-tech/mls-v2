@@ -97,6 +97,13 @@ export function fetchPreconProperty(
   );
 }
 
+export function requestPreconFloorPlan(propertyId: number) {
+  return fetchAPI<{ intent_id: number; access_url: string }>(
+    `${API_BASE_URL}/api/mls/precon-properties/${propertyId}/floor-plan-intent/`,
+    { method: "POST" },
+  );
+}
+
 export async function bulkUploadPreconProperties(
   file: File,
 ): Promise<PreconBulkUploadResponse> {

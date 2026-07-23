@@ -1279,3 +1279,27 @@ class PreComProperty(models.Model):
     )
 
     address = models.TextField(blank=True)
+
+
+class PreComFloorPlanIntent(models.Model):
+    """An authenticated, phone-verified request to view a pre-con floor plan."""
+
+    property = models.ForeignKey(
+        PreComProperty,
+        related_name="floor_plan_intents",
+        on_delete=models.CASCADE,
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="precon_floor_plan_intents",
+        on_delete=models.CASCADE,
+    )
+    source_url = models.URLField(max_length=3000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["property", "-created_at"]),
+            models.Index(fields=["user", "-created_at"]),
+        ]

@@ -8,7 +8,7 @@ import { useUserAuth } from "@/contexts/UserAuthContext";
 interface PhoneVerifiedActionButtonProps {
   children: ReactNode;
   className?: string;
-  onAccess: () => void;
+  onAccess: () => void | Promise<void>;
 }
 
 export default function PhoneVerifiedActionButton({
@@ -26,7 +26,7 @@ export default function PhoneVerifiedActionButton({
     ? `${pathname}?${searchParams.toString()}`
     : pathname;
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (isLoading) return;
 
     if (!user) {
@@ -39,13 +39,13 @@ export default function PhoneVerifiedActionButton({
       return;
     }
 
-    onAccess();
+    await onAccess();
   };
 
   const handleVerified = async () => {
     await refreshProfile();
     setShowVerification(false);
-    onAccess();
+    await onAccess();
   };
 
   return (
