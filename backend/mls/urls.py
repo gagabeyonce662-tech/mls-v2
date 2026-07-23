@@ -26,6 +26,7 @@ from .views_precon import (
     PreComPropertyBulkUploadAPIView,
     PreComPropertyDetailAPIView,
     PreComFloorPlanIntentAPIView,
+    PreComPropertyRecommendationsAPIView,
     PreComPropertyListAPIView,
 )
 
@@ -62,6 +63,7 @@ urlpatterns = [
     path('precon-properties/', PreComPropertyListAPIView.as_view(), name='precon-property-list'),
     path('precon-properties/bulk-upload/', PreComPropertyBulkUploadAPIView.as_view(), name='precon-property-bulk-upload'),
     path('precon-properties/<int:pk>/floor-plan-intent/', PreComFloorPlanIntentAPIView.as_view(), name='precon-floor-plan-intent'),
+    path('precon-properties/<int:pk>/recommendations/', PreComPropertyRecommendationsAPIView.as_view(), name='precon-property-recommendations'),
     path('precon-properties/<int:pk>/', PreComPropertyDetailAPIView.as_view(), name='precon-property-detail'),
     path('properties/', FetchProperties.as_view(), name='fetch_properties'),
     path('properties/filter/', PropertyFilterView.as_view(), name='property_filter'),

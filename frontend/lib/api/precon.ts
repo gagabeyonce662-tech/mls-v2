@@ -104,6 +104,12 @@ export function requestPreconFloorPlan(propertyId: number) {
   );
 }
 
+export function fetchPreconRecommendations(propertyId: number) {
+  return fetchAPI<PreconProperty[]>(
+    `${API_BASE_URL}/api/mls/precon-properties/${propertyId}/recommendations/?limit=4`,
+  );
+}
+
 export async function bulkUploadPreconProperties(
   file: File,
 ): Promise<PreconBulkUploadResponse> {

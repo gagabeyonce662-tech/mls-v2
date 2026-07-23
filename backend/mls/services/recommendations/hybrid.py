@@ -30,6 +30,17 @@ def _to_int(value):
         return None
 
 
+def _is_rental(property: Property) -> bool:
+    return bool(property.lease_amount or property.total_actual_rent)
+
+
+def _comparison_price(property: Property):
+    """Use monthly/lease price for rentals and list price for sale listings."""
+    if _is_rental(property):
+        return _to_float(property.lease_amount or property.total_actual_rent)
+    return _to_float(property.list_price)
+
+
 @dataclass
 class _Weights:
     content: float = float(os.environ.get("REC_WEIGHT_CONTENT", "0.55"))
@@ -51,16 +62,16 @@ def _score_content(target: Property, candidate: Property) -> tuple[float, list[s
     ):
         score += 0.30
         reasons.append("same_type")
-    target_price = _to_float(target.list_price)
-    candidate_price = _to_float(candidate.list_price)
+    target_price = _comparison_price(target)
+    candidate_price = _comparison_price(candidate)
     if target_price and candidate_price:
         delta = abs(candidate_price - target_price) / max(target_price, 1)
         if delta <= 0.10:
             score += 0.25
-            reasons.append("similar_price")
+            reasons.append("similar_rent" if _is_rental(target) else "similar_price")
         elif delta <= 0.25:
             score += 0.15
-            reasons.append("close_price")
+            reasons.append("close_rent" if _is_rental(target) else "close_price")
         elif delta <= 0.40:
             score += 0.08
     target_beds = _to_int(target.bedrooms_total)
@@ -165,18 +176,48 @@ def build_recommendation_payload(
         .exclude(listing_key=target_property.listing_key)
         .exclude(listing_key__isnull=True)
     )
+    if _is_rental(target_property):
+        candidates_qs = candidates_qs.filter(
+            Q(lease_amount__isnull=False) | Q(total_actual_rent__isnull=False)
+        )
+    else:
+        candidates_qs = candidates_qs.filter(
+            lease_amount__isnull=True,
+            total_actual_rent__isnull=True,
+        )
+
+    broad_candidates_qs = candidates_qs
     if target_property.city:
         candidates_qs = candidates_qs.filter(
             Q(city__iexact=target_property.city) | Q(city_region__iexact=target_property.city_region or "")
         )
-    if target_property.list_price:
-        base_price = _to_float(target_property.list_price)
-        if base_price:
+    base_price = _comparison_price(target_property)
+    if base_price:
+        if _is_rental(target_property):
+            candidates_qs = candidates_qs.filter(
+                Q(lease_amount__gte=base_price * 0.55, lease_amount__lte=base_price * 1.65)
+                | Q(
+                    total_actual_rent__gte=base_price * 0.55,
+                    total_actual_rent__lte=base_price * 1.65,
+                )
+            )
+        else:
             candidates_qs = candidates_qs.filter(
                 list_price__gte=base_price * 0.55,
                 list_price__lte=base_price * 1.65,
             )
     candidates = list(candidates_qs.order_by("-modification_timestamp")[:220])
+
+    # Sparse markets should still have useful suggestions. Relax city/price only
+    # after preserving transaction type, and never mix rentals with sales.
+    if len(candidates) < limit_per_section:
+        existing_keys = [candidate.listing_key for candidate in candidates]
+        candidates.extend(
+            list(
+                broad_candidates_qs.exclude(listing_key__in=existing_keys)
+                .order_by("-modification_timestamp")[: 220 - len(candidates)]
+            )
+        )
 
     ranked: list[dict] = []
     for candidate in candidates:

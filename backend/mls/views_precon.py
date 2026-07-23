@@ -1,4 +1,5 @@
 import logging
+import re
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 
@@ -110,6 +111,53 @@ class PreComPropertyDetailAPIView(RetrieveAPIView):
     serializer_class = PreComPropertyDetailSerializer
     permission_classes = [AllowAny]
     lookup_field = "pk"
+
+
+class PreComPropertyRecommendationsAPIView(APIView):
+    """Return related pre-construction projects without mixing MLS inventory."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        try:
+            target = PreComProperty.objects.select_related("content").get(pk=pk)
+        except PreComProperty.DoesNotExist:
+            return Response(
+                {"detail": "Pre-construction property not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        limit = max(2, min(int(request.query_params.get("limit", "4")), 8))
+        candidates = list(
+            PreComProperty.objects.select_related("content")
+            .prefetch_related("content__attachments")
+            .exclude(pk=target.pk)
+            .order_by("-id")[:120]
+        )
+
+        target_price = float(target.price) if target.price is not None else None
+        target_terms = {
+            term
+            for term in re.findall(r"[a-z0-9]+", f"{target.content.title} {target.address}".lower())
+            if len(term) > 3 and term not in {"homes", "towns", "community", "communities", "the", "with"}
+        }
+
+        def score(candidate):
+            candidate_terms = set(
+                re.findall(r"[a-z0-9]+", f"{candidate.content.title} {candidate.address}".lower())
+            )
+            shared_terms = len(target_terms & candidate_terms)
+            price_score = 0.0
+            if target_price and candidate.price is not None:
+                delta = abs(float(candidate.price) - target_price) / target_price
+                price_score = max(0.0, 1.0 - min(delta, 1.0))
+            return (shared_terms * 2) + price_score
+
+        candidates.sort(key=score, reverse=True)
+        return Response(
+            PreComPropertySerializer(candidates[:limit], many=True).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class PreComFloorPlanIntentAPIView(APIView):

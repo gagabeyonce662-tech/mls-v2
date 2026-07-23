@@ -27,6 +27,7 @@ import Footer from "@/components/Footer";
 import Container from "@/components/Container";
 import EstateHeroGallery from "@/components/listing/EstateHeroGallery";
 import PhoneVerifiedActionButton from "@/components/listing/PhoneVerifiedActionButton";
+import PreconRecommendations from "@/components/preconstruction/PreconRecommendations";
 import { Button } from "@/components/ui/button";
 import {
   fetchPreconProperty,
@@ -997,6 +998,7 @@ export default function PreconDetailPage() {
                   )}
                 </aside>
               </section>
+              <PreconRecommendations propertyId={data.id} />
             </>
           ) : null}
         </Container>

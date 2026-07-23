@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { fetchRecommendationsForListing } from "@/lib/api";
 import SimilarPropertiesClient from "@/components/listing/SimilarPropertiesClient";
 import { ds } from "@/lib/design-system-utils";
@@ -21,8 +22,27 @@ export default async function SimilarProperties({
     recommendations.people_also_viewed.length > 0 ||
     recommendations.fallback.length > 0;
 
+  const city = String(property.city || property.City || "").trim();
+  const isRental = Boolean(property.lease_amount || property.total_actual_rent);
+  const browseHref = city
+    ? `/listing?city=${encodeURIComponent(city)}`
+    : "/listing";
+
   if (!hasAny) {
-    return null;
+    return (
+      <section className="mt-20 border-t border-ds-card-border pt-16 text-center">
+        <h2 className={`${ds.h2} mb-3`}>Explore more {isRental ? "rentals" : "homes"}</h2>
+        <p className="mx-auto max-w-xl text-sm text-ds-body">
+          We do not have close active matches right now. Browse the latest {isRental ? "rental" : "property"} listings instead.
+        </p>
+        <Link
+          href={browseHref}
+          className="mt-6 inline-flex rounded-xl bg-ds-primary px-5 py-3 text-sm font-bold text-white transition hover:opacity-90"
+        >
+          Browse active {isRental ? "rentals" : "homes"}
+        </Link>
+      </section>
+    );
   }
 
   return (
