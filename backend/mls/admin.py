@@ -1,5 +1,7 @@
 # admin.py
+import mimetypes
 import uuid
+from urllib.parse import urlparse
 
 from django.contrib import admin
 from django import forms
@@ -30,6 +32,54 @@ from .models import (
     EstateUnitType,
 )
 from .admin_ui import SectionedAdminMixin
+
+
+def infer_attachment_mime_type(url):
+    """Return a sensible MIME type for an externally-hosted attachment URL.
+
+    Attachments are links rather than uploaded files, so the URL extension is
+    the only reliable information available without downloading remote content.
+    Unknown links (including many Google Drive share links) are deliberately
+    kept as generic documents; the frontend can still open them normally.
+    """
+    path = urlparse(url or "").path
+    mime_type, _ = mimetypes.guess_type(path)
+    return mime_type or "application/octet-stream"
+
+
+class AttachmentAdminForm(forms.ModelForm):
+    """Infer the media type unless an editor has explicitly supplied one."""
+
+    class Meta:
+        model = Attachment
+        fields = "__all__"
+        widgets = {
+            "mime_type": forms.TextInput(
+                attrs={
+                    "placeholder": "Detected automatically when blank",
+                }
+            ),
+        }
+        help_texts = {
+            "mime_type": (
+                "Leave blank to detect from the link (for example image/jpeg or "
+                "application/pdf). Enter a value only to override detection. "
+                "Google Drive and extensionless links are saved as generic documents."
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["mime_type"].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data.get("mime_type"):
+            cleaned_data["mime_type"] = infer_attachment_mime_type(
+                cleaned_data.get("url", "")
+            )
+        return cleaned_data
+
 
 class RoomInline(admin.TabularInline):
     model = Room
@@ -319,6 +369,7 @@ class ContentMetaInline(admin.TabularInline):
 
 class AttachmentInline(admin.TabularInline):
     model = Attachment
+    form = AttachmentAdminForm
     extra = 1
     fields = ("title", "url", "mime_type")
 
