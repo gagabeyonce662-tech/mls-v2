@@ -45,7 +45,7 @@ interface WatchedContextType {
   unfollowArea: (areaKey: string) => void;
   updateAlertPrefs: (
     payload: Partial<WatchedAlertPreferences>,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   isFavorite: (propertyId: string) => boolean;
   clearFavorites: () => void;
   clearHistory: () => void;
@@ -288,16 +288,23 @@ export const WatchedProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const updateAlertPrefs = useCallback(
     async (payload: Partial<WatchedAlertPreferences>) => {
+      const previous = alertPreferences;
       setAlertPreferences((prev) => ({ ...prev, ...payload }));
       if (
         typeof window !== "undefined" &&
         localStorage.getItem("access_token")
       ) {
         const next = await putAlertPreferences(payload);
-        if (next) setAlertPreferences(next);
+        if (next) {
+          setAlertPreferences(next);
+          return true;
+        }
+        setAlertPreferences(previous);
+        return false;
       }
+      return false;
     },
-    [],
+    [alertPreferences],
   );
 
   const clearFavorites = useCallback(() => {

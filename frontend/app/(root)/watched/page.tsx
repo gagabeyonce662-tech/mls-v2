@@ -6,6 +6,7 @@ import {
   Check,
   Clock,
   Heart,
+  Info,
   LineChart,
   Map,
   Search,
@@ -23,6 +24,7 @@ import { PropertyCard } from "@/components/listing/PropertyCard";
 import { PropertyQuickViewModal } from "@/components/listing/PropertyQuickViewModal";
 import { getDetailUrl } from "@/lib/propertyUtils";
 import { openInNewTab } from "@/lib/navigation/openInNewTab";
+import { NotificationPreferenceGroup } from "@/components/watched/NotificationPreferenceGroup";
 
 export default function WatchedPage() {
   const [showQuickView, setShowQuickView] = useState(false);
@@ -66,6 +68,18 @@ export default function WatchedPage() {
   >("all");
   const [clickedProperty, setClickedProperty] = useState<string | null>(null);
   const [areaInput, setAreaInput] = useState("");
+  const [notificationStatus, setNotificationStatus] = useState<
+    "idle" | "saved" | "error"
+  >("idle");
+
+  const updateNotificationPreference = async (
+    key: "email_recommend" | "email_watched_property" | "email_watched_community" | "email_watched_area" | "push_watched_property",
+    checked: boolean,
+  ) => {
+    setNotificationStatus("idle");
+    const saved = await updateAlertPrefs({ [key]: checked });
+    setNotificationStatus(saved ? "saved" : "error");
+  };
 
   const displayList =
     activeTab === "favorites"
@@ -270,54 +284,56 @@ export default function WatchedPage() {
             </div>
           </div>
 
-          <div className="mb-8 rounded-2xl border border-ds-card-border bg-white p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Bell className="h-4 w-4 text-ds-primary" />
-              <h2 className="text-sm font-bold text-ds-heading">Watched Alerts</h2>
+          <section
+            aria-labelledby="notification-settings-heading"
+            className="mb-8 max-w-xl overflow-hidden rounded-2xl border border-ds-card-border bg-white shadow-sm"
+          >
+            <div className="flex items-center gap-2 border-b border-ds-card-border px-5 py-4">
+              <Bell className="h-5 w-5 text-ds-primary" aria-hidden="true" />
+              <h2 id="notification-settings-heading" className="text-base font-bold text-ds-heading">
+                Notification settings
+              </h2>
             </div>
-            <div className="mb-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ds-body">Email</p>
+            <div className="px-5 py-4">
+              <NotificationPreferenceGroup
+                title="Email"
+                preferences={[
+                  ["email_recommend", "Recommend"],
+                  ["email_watched_property", "Watched property"],
+                  ["email_watched_community", "Watched community"],
+                  ["email_watched_area", "Watched area"],
+                ]}
+                alertPreferences={alertPreferences}
+                onChange={updateNotificationPreference}
+              />
+              <div className="my-4 border-t border-ds-card-border" />
+              <NotificationPreferenceGroup
+                title="Push notification"
+                preferences={[["push_watched_property", "Watched property"]]}
+                alertPreferences={alertPreferences}
+                onChange={updateNotificationPreference}
+              />
+              <p className="mt-4 flex gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-xs leading-5 text-ds-body">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-ds-primary" aria-hidden="true" />
+                <span>
+                  These settings control how you receive watched-listing notifications.
+                  {user?.email ? ` Email notifications are sent to ${user.email}.` : ""}
+                </span>
+              </p>
+              {notificationStatus === "saved" && (
+                <p className="mt-2 text-xs font-medium text-emerald-700" role="status">
+                  Notification preferences saved.
+                </p>
+              )}
+              {notificationStatus === "error" && (
+                <p className="mt-2 text-xs font-medium text-red-600" role="alert">
+                  {isLoggedIn
+                    ? "Couldn’t save notification preferences. Please try again."
+                    : "Sign in to save notification preferences."}
+                </p>
+              )}
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {[
-                ["email_enabled", "Email delivery"],
-                ["email_recommend", "Recommend"],
-                ["email_watched_property", "Watched property"],
-                ["email_watched_community", "Watched community"],
-                ["email_watched_area", "Watched area"],
-              ].map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2 text-sm text-ds-body">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(alertPreferences[key as keyof typeof alertPreferences])}
-                    onChange={(e) =>
-                      void updateAlertPrefs({ [key]: e.target.checked })
-                    }
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
-            <div className="mb-3 mt-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ds-body">Push Notification</p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {[
-                ["push_watched_property", "Watched property"],
-              ].map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2 text-sm text-ds-body">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(alertPreferences[key as keyof typeof alertPreferences])}
-                    onChange={(e) =>
-                      void updateAlertPrefs({ [key]: e.target.checked })
-                    }
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
-          </div>
+          </section>
 
           {/* Search, Filters & Stats */}
           {displayList.length > 0 && activeTab !== "areas" && (

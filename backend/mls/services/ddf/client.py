@@ -31,6 +31,15 @@ def get_page_with_retries(url, headers, params, progress_callback=None):
                 response=response,
             )
             response.close()
+        except requests.exceptions.HTTPError as error:
+            response = error.response
+            if (
+                response is not None
+                and response.status_code not in RETRYABLE_STATUS_CODES
+            ):
+                # A 400-class validation error will never succeed on retry.
+                raise
+            last_error = error
         except requests.exceptions.RequestException as error:
             last_error = error
 
