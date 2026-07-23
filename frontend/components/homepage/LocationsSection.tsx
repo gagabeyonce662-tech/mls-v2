@@ -1,245 +1,57 @@
-"use client";
 import Image from "next/image";
-import { useRef, useState, useEffect } from "react";
-import { useSearch } from "@/contexts/SearchContext";
-import { Search } from "lucide-react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
+import { neighborhoods } from "@/data/neighborhoods";
 
-interface Location {
-  id: number;
-  name: string;
-  image: string;
-}
-
-const LOCATIONS: Location[] = [
-  {
-    id: 1,
-    name: "Toronto",
-    image:
-      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=80",
-  },
-  {
-    id: 2,
-    name: "Brantford",
-    image:
-      "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&q=80",
-  },
-  {
-    id: 3,
-    name: "Kitchener",
-    image:
-      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&q=80",
-  },
-  {
-    id: 4,
-    name: "Mississauga",
-    image:
-      "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=600&q=80",
-  },
-  {
-    id: 5,
-    name: "Oakville",
-    image:
-      "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600&q=80",
-  },
-];
-
+/** A responsive city discovery grid that links into the existing filtered search. */
 export default function LocationsSection() {
-  const { setSearchQuery } = useSearch();
-  const router = useRouter();
-  const trackRef = useRef<HTMLDivElement>(null);
-
-  // Drag state
-  const isDragging = useRef(false);
-  const wasDrag = useRef(false); // survives until after onClick fires
-  const startX = useRef(0);
-
-  const currentX = useRef(0); // accumulated drag offset
-  const dragDelta = useRef(0); // delta during current drag
-  const animStartRef = useRef<number | null>(null); // requestAnimationFrame id
-
-  // CSS animation speed: pixels per second
-  const SPEED = 60; // px/s  (matches 25s for ~1500px track)
-
-  /**
-   * We drive the marquee with rAF instead of a pure CSS keyframe so we can
-   * seamlessly pause/resume at any position.
-   */
-  const positionRef = useRef(0); // current translateX (negative)
-  const lastTimeRef = useRef<number | null>(null);
-  const halfWidthRef = useRef(0); // half the track width (= one set of cards)
-  const pausedRef = useRef(false);
-
-  const animate = (time: number) => {
-    if (!trackRef.current) return;
-
-    if (lastTimeRef.current !== null && !pausedRef.current) {
-      const dt = (time - lastTimeRef.current) / 1000; // seconds
-      positionRef.current -= SPEED * dt;
-
-      // Seamless loop: when we've scrolled one full "set", reset
-      if (
-        halfWidthRef.current > 0 &&
-        positionRef.current <= -halfWidthRef.current
-      ) {
-        positionRef.current += halfWidthRef.current;
-      }
-    }
-
-    lastTimeRef.current = time;
-    trackRef.current.style.transform = `translateX(${positionRef.current + dragDelta.current}px)`;
-    animStartRef.current = requestAnimationFrame(animate);
-  };
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (trackRef.current) {
-        // Track contains locations duplicated x6, so one full set is 1/6th
-        halfWidthRef.current = trackRef.current.scrollWidth / 6;
-      }
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    animStartRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      if (animStartRef.current !== null)
-        cancelAnimationFrame(animStartRef.current);
-    };
-  }, []);
-
-  // ─── Pointer (mouse + touch) drag handlers ────────────────────────────────
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    isDragging.current = true;
-    pausedRef.current = true;
-    startX.current = e.clientX;
-    dragDelta.current = 0;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!isDragging.current) return;
-    dragDelta.current = e.clientX - startX.current;
-  };
-
-  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-
-    // Record whether this gesture was a drag BEFORE resetting delta
-    wasDrag.current = Math.abs(dragDelta.current) > 5;
-
-    // Absorb drag delta into the base position
-    positionRef.current += dragDelta.current;
-    dragDelta.current = 0;
-
-    // Clamp so the loop still works with multiple sets
-    if (halfWidthRef.current > 0) {
-      positionRef.current =
-        ((positionRef.current % halfWidthRef.current) - halfWidthRef.current) %
-        -halfWidthRef.current;
-    }
-
-    // Reset timing so there's no jump when animation resumes
-    lastTimeRef.current = null;
-    pausedRef.current = false;
-
-    // Because the track uses pointer capture for drag, regular card onClick can be
-    // swallowed on some browsers. Trigger location search directly on tap/click.
-    if (!wasDrag.current) {
-      const element = document.elementFromPoint(e.clientX, e.clientY);
-      const locationCard = element?.closest("[data-location-name]") as
-        | HTMLElement
-        | null;
-      const locationName = locationCard?.dataset.locationName;
-      if (locationName) {
-        handleLocationClick(locationName);
-      }
-    }
-  };
-
-  const handleLocationClick = (locationName: string) => {
-    setSearchQuery(locationName);
-    const target = `/search-results?city=${encodeURIComponent(locationName)}`;
-    router.push(target);
-  };
-
-  const marqueeLocations = [
-    ...LOCATIONS,
-    ...LOCATIONS,
-    ...LOCATIONS,
-    ...LOCATIONS,
-    ...LOCATIONS,
-    ...LOCATIONS,
-  ];
-
   return (
-    <div className="py-8 bg-white overflow-hidden select-none">
-      <div className="px-4 lg:px-6 mb-4">
-        <h2 className="text-ds-h2 text-ds-heading font-inter text-[22px] mb-2">
-          Our locations for you
-        </h2>
-      </div>
+    <section className="bg-white py-10 sm:py-14" aria-labelledby="neighborhoods-heading">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
+          <div className="flex min-h-56 flex-col justify-center bg-stone-50 p-6 sm:p-8">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-ds-primary">
+              Explore our
+            </p>
+            <h2
+              id="neighborhoods-heading"
+              className="max-w-xs text-2xl font-semibold leading-tight text-ds-heading sm:text-3xl"
+            >
+              Neighbourhoods
+            </h2>
+            <p className="mt-5 max-w-sm text-sm leading-6 text-ds-body">
+              Discover a community where convenience meets charm. Our
+              neighbourhoods are thoughtfully designed to offer everything you
+              need within easy reach.
+            </p>
+          </div>
 
-      {/* Drag-to-scroll track */}
-      <div
-        className="relative overflow-hidden cursor-grab active:cursor-grabbing"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
-      >
-        <div ref={trackRef} className="flex gap-4 w-max will-change-transform">
-          {marqueeLocations.map((location, i) => (
-            <div
-              key={`${location.id}-${i}`}
-              data-location-name={location.name}
-              className="relative h-72 w-64 rounded-xl overflow-hidden shadow-lg group flex-shrink-0 cursor-pointer"
-              // Direct click handler that respects drag state
-              onClick={() => {
-                if (!wasDrag.current) {
-                  handleLocationClick(location.name);
-                }
-                wasDrag.current = false; // Reset for next interaction
-              }}
-              draggable={false}
+          {neighborhoods.map((neighborhood) => (
+            <Link
+              key={neighborhood.name}
+              href={`/search-results?city=${encodeURIComponent(neighborhood.name)}`}
+              className="group relative min-h-56 overflow-hidden bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-primary focus-visible:ring-offset-2"
+              aria-label={`View homes for sale in ${neighborhood.name}`}
             >
               <Image
-                src={location.image}
-                alt={location.name}
-                width={256}
-                height={288}
-                draggable={false}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 pointer-events-none"
+                src={neighborhood.image}
+                alt=""
+                fill
+                sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                className="object-cover transition-transform duration-500 group-hover:scale-105"
               />
-
-              {/* Semi-transparent "Search" button on top right */}
-              <div
-                className="absolute top-4 right-4 z-20 p-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white/30 cursor-pointer pointer-events-auto shadow-xl"
-                onPointerDown={(e) => e.stopPropagation()}
-                onPointerUp={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation(); // Prevent the card's own onClick from firing twice
-                  handleLocationClick(location.name);
-                }}
-              >
-                <Search className="w-4 h-4" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/10 to-slate-950/10 transition-colors group-hover:from-slate-950/90" />
+              <div className="absolute inset-x-0 top-0 flex items-start justify-between p-4 text-white">
+                <h3 className="text-sm font-medium">{neighborhood.name}</h3>
+                <ArrowUpRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
               </div>
-
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-
-              <div className="absolute inset-0 flex items-end justify-center p-4">
-                <h3 className="text-white text-lg font-semibold tracking-wide">
-                  {location.name}
-                </h3>
-              </div>
-            </div>
+              <span className="absolute bottom-4 left-4 text-[11px] font-semibold uppercase tracking-wider text-white">
+                More details
+              </span>
+            </Link>
           ))}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
