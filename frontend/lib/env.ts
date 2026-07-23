@@ -35,33 +35,12 @@ const envSchema = z.object({
 // We provide safe fallbacks for development to prevent locking out local developers,
 // but in production, missing these will throw loud errors.
 const isDev = process.env.NODE_ENV !== "production";
-const PUBLIC_BACKEND_URL = "http://localhost:8000";
-
-function normalizeApiUrl(rawUrl: string | undefined): string | undefined {
-  if (!rawUrl) return rawUrl;
-
-  try {
-    const parsed = new URL(rawUrl);
-    // Prefer the real backend deployment whenever the configured origin still
-    // points at a stale staging or Vercel preview host.
-    if (
-      parsed.hostname === "staging.vsell4u.ca" ||
-      parsed.hostname.endsWith(".vercel.app")
-    ) {
-      return PUBLIC_BACKEND_URL;
-    }
-    return rawUrl.replace(/\/+$/, "");
-  } catch {
-    return rawUrl.replace(/\/+$/, "");
-  }
-}
 
 const _env = envSchema.safeParse({
   NODE_ENV: process.env.NODE_ENV,
-  NEXT_PUBLIC_API_URL: normalizeApiUrl(
+  NEXT_PUBLIC_API_URL:
     process.env.NEXT_PUBLIC_API_URL ||
-      (isDev ? "http://localhost:8000" : undefined),
-  ),
+    (isDev ? "http://localhost:8000" : undefined),
   NEXT_PUBLIC_ADMIN_PASSPHRASE:
     process.env.NEXT_PUBLIC_ADMIN_PASSPHRASE ||
     (isDev ? "dev-admin-passphrase" : undefined),
