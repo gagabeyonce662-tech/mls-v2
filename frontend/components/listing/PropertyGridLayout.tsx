@@ -1,4 +1,3 @@
-components / listing / PropertyGridLayout.tsx;
 import { useCallback, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 
