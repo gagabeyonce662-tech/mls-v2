@@ -10,6 +10,7 @@ from django.contrib import admin
 from django.contrib import messages
 from django import forms
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from .models import (
     Attachment,
@@ -35,6 +36,8 @@ from .models import (
     EstatePrice,
     EstateProject,
     EstateUnitType,
+    ListingSubmission,
+    ListingSubmissionMedia,
 )
 from .admin_ui import SectionedAdminMixin
 
@@ -731,6 +734,59 @@ class EstatePropertyAdmin(admin.ModelAdmin):
     ordering = (
         "-modification_timestamp",
     )
+
+
+class ListingSubmissionMediaInline(admin.TabularInline):
+    model = ListingSubmissionMedia
+    extra = 0
+    readonly_fields = ("uploaded_at",)
+    fields = ("media_type", "file", "display_order", "uploaded_at")
+
+
+@admin.register(ListingSubmission)
+class ListingSubmissionAdmin(admin.ModelAdmin):
+    """Review submissions here before exposing any owner listing publicly."""
+
+    inlines = (ListingSubmissionMediaInline,)
+    list_display = (
+        "id", "address_line_1", "city", "purpose", "submitter_type", "status",
+        "asking_price", "submitted_at", "reviewed_at",
+    )
+    list_filter = ("status", "purpose", "submitter_type", "province")
+    search_fields = (
+        "address_line_1", "address_line_2", "city", "postal_code",
+        "contact_name", "contact_email", "submitted_by__email",
+    )
+    readonly_fields = ("submitted_by", "submitted_at", "created_at", "updated_at", "reviewed_at")
+    fieldsets = (
+        ("Submission", {"fields": ("submitted_by", "submitter_type", "purpose", "status", "submitted_at", "created_at", "updated_at")}),
+        ("Property", {"fields": ("address_line_1", "address_line_2", "city", "province", "postal_code", "country", "property_type", "bedrooms", "bathrooms", "interior_area_sqft", "asking_price", "available_from", "description")}),
+        ("Private contact and declarations", {"fields": ("contact_name", "contact_email", "contact_phone", "ownership_confirmed", "publication_consent")}),
+        ("Review", {"fields": ("review_note", "reviewed_by", "reviewed_at")}),
+    )
+    actions = ("mark_under_review", "mark_needs_changes", "approve", "reject")
+
+    def save_model(self, request, obj, form, change):
+        if change and "status" in form.changed_data:
+            obj.reviewed_by = request.user
+            obj.reviewed_at = timezone.now()
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description="Mark selected submissions under review")
+    def mark_under_review(self, request, queryset):
+        queryset.update(status=ListingSubmission.Status.UNDER_REVIEW, reviewed_by=request.user, reviewed_at=timezone.now())
+
+    @admin.action(description="Request changes for selected submissions")
+    def mark_needs_changes(self, request, queryset):
+        queryset.update(status=ListingSubmission.Status.NEEDS_CHANGES, reviewed_by=request.user, reviewed_at=timezone.now())
+
+    @admin.action(description="Approve selected submissions for public listing")
+    def approve(self, request, queryset):
+        queryset.update(status=ListingSubmission.Status.APPROVED, reviewed_by=request.user, reviewed_at=timezone.now())
+
+    @admin.action(description="Reject selected submissions")
+    def reject(self, request, queryset):
+        queryset.update(status=ListingSubmission.Status.REJECTED, reviewed_by=request.user, reviewed_at=timezone.now())
 
 
 class EstateUnitTypeInline(admin.TabularInline):

@@ -27,3 +27,4 @@ export * from "./api/testing";
 export * from "./api/wordpress";
 export * from "./api/auth";
 export * from "./api/watched";
+export * from "./api/listingSubmissions";

@@ -165,9 +165,12 @@ class Command(BaseCommand):
             "Downloading DDF properties..."
         )
         if options["priority_cache"]:
-            all_properties, page_count = self.fetch_priority_cache(
+            downloaded_count, page_count = self.sync_priority_cache_in_stages(
                 headers=headers,
                 max_pages=options["max_pages"] or options["max_pages_per_tier"],
+                batch_size=options["batch_size"],
+                insert_new_only=options["insert_new_only"],
+                max_storage_mb=max_storage_mb,
             )
         else:
             filter_expression = self.build_incremental_filter(
@@ -188,34 +191,31 @@ class Command(BaseCommand):
                 max_pages=max_pages,
                 progress_callback=self.stdout.write,
             )
+            downloaded_count = len(all_properties)
 
-        self.stdout.write(
-            f"Downloaded {page_count} pages containing "
-            f"{len(all_properties):,} listings."
-        )
-
-        if not all_properties:
             self.stdout.write(
-                "No properties returned."
+                f"Downloaded {page_count} pages containing "
+                f"{downloaded_count:,} listings."
             )
-            return
 
-        self.stdout.write(
-            f"Starting bulk upsert of "
-            f"{len(all_properties):,} properties..."
-        )
+            if not all_properties:
+                self.stdout.write("No properties returned.")
+                return
 
-        # The download can run for nearly an hour.  Do not reuse the connection
-        # that was opened to determine the incremental filter: managed Postgres
-        # providers may close that idle SSL connection before the first upsert.
-        connections.close_all()
+            self.stdout.write(
+                f"Starting bulk upsert of {downloaded_count:,} properties..."
+            )
 
-        self.bulk_upsert(
-            all_properties,
-            batch_size=options["batch_size"],
-            insert_new_only=options["insert_new_only"],
-            max_storage_mb=max_storage_mb,
-        )
+            # The download can run for nearly an hour.  Do not reuse the
+            # connection that was opened to determine the incremental filter:
+            # managed Postgres providers may close an idle SSL connection.
+            connections.close_all()
+            self.bulk_upsert(
+                all_properties,
+                batch_size=options["batch_size"],
+                insert_new_only=options["insert_new_only"],
+                max_storage_mb=max_storage_mb,
+            )
 
 
         if not options["priority_cache"]:
@@ -232,16 +232,28 @@ class Command(BaseCommand):
             key="ddf_properties",
             defaults={
                 "last_successful_at": timezone.now(),
-                "listing_count": len(all_properties),
+                "listing_count": downloaded_count,
             },
         )
 
         elapsed = time.time() - start_time
-        self.stdout.write(self.style.SUCCESS(f"COMPLETED in {elapsed:.1f} seconds ({len(all_properties)/elapsed:.1f} props/sec)"))
+        self.stdout.write(self.style.SUCCESS(f"COMPLETED in {elapsed:.1f} seconds ({downloaded_count/elapsed:.1f} props/sec)"))
 
-    def fetch_priority_cache(self, headers, max_pages):
-        """Fetch the high-value regions first, preserving that order on disk."""
-        all_properties = []
+    def sync_priority_cache_in_stages(
+        self,
+        headers,
+        max_pages,
+        batch_size,
+        insert_new_only,
+        max_storage_mb,
+    ):
+        """Fetch and commit each priority tier before requesting the next one.
+
+        DDF requests can take many minutes.  A staged commit ensures a timeout
+        or interruption later in the run never loses the listings fetched from
+        the earlier GTA cities.
+        """
+        downloaded_count = 0
         page_count = 0
         seen_listing_keys = set()
 
@@ -272,13 +284,40 @@ class Command(BaseCommand):
                 progress_callback=self.stdout.write,
             )
             page_count += tier_pages
+            unique_properties = []
             for property_data in properties:
                 listing_key = property_data.get("ListingKey")
                 if listing_key and listing_key not in seen_listing_keys:
                     seen_listing_keys.add(listing_key)
-                    all_properties.append(property_data)
+                    unique_properties.append(property_data)
 
-        return all_properties, page_count
+            downloaded_count += len(unique_properties)
+            if not unique_properties:
+                self.stdout.write(f"{tier_name}: no new listing keys to write.")
+                continue
+
+            self.stdout.write(
+                f"{tier_name}: committing {len(unique_properties):,} listings "
+                "before continuing..."
+            )
+            connections.close_all()
+            self.bulk_upsert(
+                unique_properties,
+                batch_size=batch_size,
+                insert_new_only=insert_new_only,
+                max_storage_mb=max_storage_mb,
+            )
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"{tier_name}: committed {len(unique_properties):,} listings."
+                )
+            )
+
+        self.stdout.write(
+            f"Downloaded and checkpointed {page_count:,} pages containing "
+            f"{downloaded_count:,} unique listings."
+        )
+        return downloaded_count, page_count
 
     def initialize_small_cache(self):
         """Discard the old full-catalogue cache exactly once.

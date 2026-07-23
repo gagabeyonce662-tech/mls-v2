@@ -15,6 +15,8 @@ from mls.models import (
     UserAlertPreference,
     PropertyInquiry,
     PropertySnapshot,
+    ListingSubmission,
+    ListingSubmissionMedia,
 )
 
 
@@ -176,6 +178,88 @@ class PropertyInquirySerializer(serializers.ModelSerializer):
                 "Please enter at least 10 characters describing what you are looking for."
             )
         return value
+
+
+class ListingSubmissionMediaSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ListingSubmissionMedia
+        fields = ["id", "media_type", "file", "file_url", "display_order", "uploaded_at"]
+        read_only_fields = ["id", "file_url", "uploaded_at"]
+        extra_kwargs = {"file": {"write_only": True}}
+
+    def get_file_url(self, obj):
+        try:
+            return obj.file.url
+        except (ValueError, AttributeError):
+            return ""
+
+    def validate_file(self, value):
+        allowed_types = {
+            "image/jpeg", "image/png", "image/webp", "application/pdf",
+        }
+        max_bytes = 15 * 1024 * 1024
+        if getattr(value, "size", 0) > max_bytes:
+            raise serializers.ValidationError("Files must be 15 MB or smaller.")
+        content_type = getattr(value, "content_type", "")
+        if content_type and content_type not in allowed_types:
+            raise serializers.ValidationError("Upload a JPEG, PNG, WebP, or PDF file.")
+        return value
+
+
+class ListingSubmissionSerializer(serializers.ModelSerializer):
+    media = ListingSubmissionMediaSerializer(many=True, read_only=True)
+    submitter_type_label = serializers.CharField(source="get_submitter_type_display", read_only=True)
+    purpose_label = serializers.CharField(source="get_purpose_display", read_only=True)
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = ListingSubmission
+        fields = [
+            "id", "submitter_type", "submitter_type_label", "purpose", "purpose_label",
+            "status", "status_label", "address_line_1", "address_line_2", "city",
+            "province", "postal_code", "country", "property_type", "bedrooms", "bathrooms",
+            "interior_area_sqft", "asking_price", "available_from", "description",
+            "contact_name", "contact_email", "contact_phone", "ownership_confirmed",
+            "publication_consent", "review_note", "submitted_at", "reviewed_at", "created_at",
+            "updated_at", "media",
+        ]
+        read_only_fields = [
+            "id", "status", "review_note", "submitted_at", "reviewed_at", "created_at",
+            "updated_at", "media",
+        ]
+
+    def validate(self, attrs):
+        instance = getattr(self, "instance", None)
+        # Users can edit only a draft or a submission returned for changes.
+        if instance and instance.status not in {
+            ListingSubmission.Status.DRAFT,
+            ListingSubmission.Status.NEEDS_CHANGES,
+        }:
+            raise serializers.ValidationError("This submission can no longer be edited.")
+        return attrs
+
+
+class PublicListingSubmissionSerializer(serializers.ModelSerializer):
+    """Safe public representation: no owner contact or private documents."""
+
+    media = serializers.SerializerMethodField()
+    source_label = serializers.CharField(source="get_submitter_type_display", read_only=True)
+
+    class Meta:
+        model = ListingSubmission
+        fields = [
+            "id", "source_label", "purpose", "address_line_1", "address_line_2", "city",
+            "province", "postal_code", "country", "property_type", "bedrooms", "bathrooms",
+            "interior_area_sqft", "asking_price", "available_from", "description", "media",
+        ]
+
+    def get_media(self, obj):
+        return [
+            ListingSubmissionMediaSerializer(item, context=self.context).data
+            for item in obj.media.filter(media_type=ListingSubmissionMedia.MediaType.PHOTO)
+        ]
 
 
 class WatchedMutationSerializer(serializers.Serializer):

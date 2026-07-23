@@ -1338,3 +1338,114 @@ class PreComFloorPlanIntent(models.Model):
             models.Index(fields=["property", "-created_at"]),
             models.Index(fields=["user", "-created_at"]),
         ]
+
+
+class ListingSubmission(models.Model):
+    """A private, user-entered listing intake record.
+
+    This deliberately does not share a table or identifier with DDF-synchronised
+    ``Property`` records. An approved submission may be published later, but it
+    always remains identifiable as an owner/agent/builder supplied listing.
+    """
+
+    class SubmitterType(models.TextChoices):
+        OWNER = "owner", "Owner"
+        AGENT = "agent", "Agent"
+        BUILDER = "builder", "Builder"
+
+    class Purpose(models.TextChoices):
+        SALE = "sale", "For sale"
+        RENT = "rent", "For rent"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SUBMITTED = "submitted", "Submitted"
+        UNDER_REVIEW = "under_review", "Under review"
+        NEEDS_CHANGES = "needs_changes", "Needs changes"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+        WITHDRAWN = "withdrawn", "Withdrawn"
+
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="listing_submissions",
+        on_delete=models.CASCADE,
+    )
+    submitter_type = models.CharField(max_length=16, choices=SubmitterType.choices)
+    purpose = models.CharField(max_length=8, choices=Purpose.choices)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+
+    address_line_1 = models.CharField(max_length=255)
+    address_line_2 = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=120)
+    province = models.CharField(max_length=80, default="ON")
+    postal_code = models.CharField(max_length=16, blank=True)
+    country = models.CharField(max_length=80, default="Canada")
+
+    property_type = models.CharField(max_length=100)
+    bedrooms = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    bathrooms = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    interior_area_sqft = models.PositiveIntegerField(null=True, blank=True)
+    asking_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    available_from = models.DateField(null=True, blank=True)
+    description = models.TextField(blank=True)
+
+    contact_name = models.CharField(max_length=255)
+    contact_email = models.EmailField()
+    contact_phone = models.CharField(max_length=30)
+    ownership_confirmed = models.BooleanField(default=False)
+    publication_consent = models.BooleanField(default=False)
+    review_note = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="reviewed_listing_submissions",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        indexes = [
+            models.Index(fields=["submitted_by", "status"]),
+            models.Index(fields=["status", "-submitted_at"]),
+            models.Index(fields=["city", "postal_code"]),
+        ]
+
+    @property
+    def is_public(self):
+        return self.status == self.Status.APPROVED
+
+    def __str__(self):
+        return f"{self.address_line_1}, {self.city} ({self.get_status_display()})"
+
+
+def listing_submission_media_upload_path(instance, filename):
+    return f"mls/listing-submissions/{instance.submission_id}/{filename}"
+
+
+class ListingSubmissionMedia(models.Model):
+    class MediaType(models.TextChoices):
+        PHOTO = "photo", "Photo"
+        FLOOR_PLAN = "floor_plan", "Floor plan"
+        SUPPORTING_DOCUMENT = "supporting_document", "Supporting document"
+
+    submission = models.ForeignKey(
+        ListingSubmission,
+        related_name="media",
+        on_delete=models.CASCADE,
+    )
+    media_type = models.CharField(max_length=24, choices=MediaType.choices, default=MediaType.PHOTO)
+    file = models.FileField(upload_to=listing_submission_media_upload_path)
+    display_order = models.PositiveIntegerField(default=0)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+
+    def __str__(self):
+        return f"{self.get_media_type_display()} for submission {self.submission_id}"

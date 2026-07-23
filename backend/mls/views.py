@@ -13,7 +13,7 @@ import h3
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from drf_spectacular.utils import (
@@ -48,6 +48,8 @@ from mls.models import (
     PropertyNote,
     PropertySnapshot,
     CensusFSA,
+    ListingSubmission,
+    ListingSubmissionMedia,
 )
 from .serializers import (
     PropertySerializer,
@@ -63,6 +65,9 @@ from .serializers import (
     UserAlertPreferenceSerializer,
     ListingRecommendationsResponseSerializer,
     RecommendationTrackSerializer,
+    ListingSubmissionSerializer,
+    ListingSubmissionMediaSerializer,
+    PublicListingSubmissionSerializer,
 )
 from mls.services.map_aggregates import get_resolution_for_zoom
 from mls.services.inquiry_ghl import sync_inquiry_to_ghl
@@ -735,6 +740,126 @@ class PropertyInquiryAPIView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class ListingSubmissionListCreateAPIView(APIView):
+    """Create and manage private owner/agent/builder listing submissions."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    @extend_schema(
+        tags=["Listing submissions"],
+        summary="Create a listing submission draft",
+        request=ListingSubmissionSerializer,
+        responses={201: ListingSubmissionSerializer},
+    )
+    def post(self, request):
+        serializer = ListingSubmissionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        submission = serializer.save(submitted_by=request.user)
+        return Response(
+            ListingSubmissionSerializer(submission, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class MyListingSubmissionsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=["Listing submissions"], summary="List my listing submissions")
+    def get(self, request):
+        queryset = ListingSubmission.objects.filter(submitted_by=request.user).prefetch_related("media")
+        return Response(ListingSubmissionSerializer(queryset, many=True, context={"request": request}).data)
+
+
+class ListingSubmissionDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def get_object(self, request, pk):
+        return ListingSubmission.objects.prefetch_related("media").filter(pk=pk, submitted_by=request.user).first()
+
+    @extend_schema(tags=["Listing submissions"], summary="Retrieve my listing submission")
+    def get(self, request, pk):
+        submission = self.get_object(request, pk)
+        if not submission:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(ListingSubmissionSerializer(submission, context={"request": request}).data)
+
+    @extend_schema(tags=["Listing submissions"], summary="Update a draft or changes-requested submission")
+    def patch(self, request, pk):
+        submission = self.get_object(request, pk)
+        if not submission:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ListingSubmissionSerializer(submission, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        submission = serializer.save()
+        return Response(ListingSubmissionSerializer(submission, context={"request": request}).data)
+
+
+class ListingSubmissionMediaUploadAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @extend_schema(tags=["Listing submissions"], summary="Upload listing submission media")
+    def post(self, request, pk):
+        submission = ListingSubmission.objects.filter(pk=pk, submitted_by=request.user).first()
+        if not submission:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if submission.status not in {ListingSubmission.Status.DRAFT, ListingSubmission.Status.NEEDS_CHANGES}:
+            return Response({"detail": "Media cannot be changed after submission."}, status=status.HTTP_400_BAD_REQUEST)
+        if submission.media.count() >= 25:
+            return Response({"detail": "A submission may contain at most 25 files."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = ListingSubmissionMediaSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        media = serializer.save(submission=submission)
+        return Response(ListingSubmissionMediaSerializer(media, context={"request": request}).data, status=status.HTTP_201_CREATED)
+
+
+class ListingSubmissionSubmitAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=["Listing submissions"], summary="Submit a listing for review")
+    def post(self, request, pk):
+        submission = ListingSubmission.objects.filter(pk=pk, submitted_by=request.user).first()
+        if not submission:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if submission.status not in {ListingSubmission.Status.DRAFT, ListingSubmission.Status.NEEDS_CHANGES}:
+            return Response({"detail": "This submission cannot be submitted in its current state."}, status=status.HTTP_400_BAD_REQUEST)
+        if not request.user.phone_verified:
+            return Response({"detail": "Verify your phone number before submitting a listing."}, status=status.HTTP_400_BAD_REQUEST)
+        if not submission.ownership_confirmed or not submission.publication_consent:
+            return Response({"detail": "Confirm ownership/authorization and publication consent before submitting."}, status=status.HTTP_400_BAD_REQUEST)
+        submission.status = ListingSubmission.Status.SUBMITTED
+        submission.submitted_at = timezone.now()
+        submission.review_note = ""
+        submission.save(update_fields=["status", "submitted_at", "review_note", "updated_at"])
+        return Response(ListingSubmissionSerializer(submission, context={"request": request}).data)
+
+
+class ListingSubmissionWithdrawAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=["Listing submissions"], summary="Withdraw a listing submission")
+    def post(self, request, pk):
+        submission = ListingSubmission.objects.filter(pk=pk, submitted_by=request.user).first()
+        if not submission:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if submission.status in {ListingSubmission.Status.REJECTED, ListingSubmission.Status.WITHDRAWN}:
+            return Response({"detail": "This submission cannot be withdrawn."}, status=status.HTTP_400_BAD_REQUEST)
+        submission.status = ListingSubmission.Status.WITHDRAWN
+        submission.save(update_fields=["status", "updated_at"])
+        return Response(ListingSubmissionSerializer(submission, context={"request": request}).data)
+
+
+class PublicListingSubmissionListAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(tags=["Listing submissions"], summary="List approved non-MLS listings", auth=[])
+    def get(self, request):
+        queryset = ListingSubmission.objects.filter(status=ListingSubmission.Status.APPROVED).prefetch_related("media")
+        return Response(PublicListingSubmissionSerializer(queryset, many=True, context={"request": request}).data)
 
 
 class WatchedOverviewAPIView(APIView):
