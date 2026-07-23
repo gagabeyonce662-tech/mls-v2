@@ -2,15 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  AlertCircle,
   Bath,
   Bed,
   Building2,
   Car,
-  CheckCircle2,
-  FileUp,
   MapPin,
   Ruler,
 } from "lucide-react";
@@ -19,12 +16,7 @@ import Container from "@/components/Container";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import {
-  bulkUploadPreconProperties,
-  fetchPreconProperties,
-  type PreconBulkUploadResponse,
-  type PreconPage,
-} from "@/lib/api/precon";
+import { fetchPreconProperties, type PreconPage } from "@/lib/api/precon";
 
 const PAGE_SIZE = 12;
 
@@ -64,12 +56,6 @@ export default function PreconListingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] =
-    useState<PreconBulkUploadResponse | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
   const loadPage = useCallback(async (targetPage: number) => {
     setIsLoading(true);
     setError(null);
@@ -95,36 +81,6 @@ export default function PreconListingsPage() {
 
   const properties = data?.results ?? [];
   const totalPages = data ? Math.max(1, Math.ceil(data.count / PAGE_SIZE)) : 1;
-
-  const handleUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ): Promise<void> => {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    setUploading(true);
-    setUploadResult(null);
-    setUploadError(null);
-
-    try {
-      const result = await bulkUploadPreconProperties(file);
-
-      setUploadResult(result);
-      setPage(1);
-      await loadPage(1);
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setUploading(false);
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50/50">
@@ -168,92 +124,6 @@ export default function PreconListingsPage() {
             </div>
           </div>
 
-          <section className="mb-8 rounded-2xl border bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
-                  <FileUp className="h-5 w-5" aria-hidden="true" />
-                </div>
-
-                <div>
-                  <p className="font-bold text-ds-heading">Bulk Upload</p>
-                  <p className="text-sm text-gray-500">
-                    Upload a CSV or Excel file to create pre-construction
-                    properties.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  className="hidden"
-                  onChange={handleUpload}
-                  disabled={uploading}
-                />
-
-                <Button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? "Uploading..." : "Choose file"}
-                </Button>
-              </div>
-            </div>
-
-            {uploadResult && (
-              <div className="mt-4 flex items-start gap-2 rounded-lg bg-green-50 p-3 text-sm text-green-800">
-                <CheckCircle2
-                  className="mt-0.5 h-5 w-5 shrink-0"
-                  aria-hidden="true"
-                />
-
-                <div>
-                  <p className="font-semibold">
-                    Created {uploadResult.created}, updated{" "}
-                    {uploadResult.updated}
-                    {uploadResult.skipped > 0
-                      ? `, skipped ${uploadResult.skipped}`
-                      : ""}
-                    .
-                  </p>
-
-                  {uploadResult.errors.length > 0 && (
-                    <details className="mt-1">
-                      <summary className="cursor-pointer text-xs text-green-900/70">
-                        View {uploadResult.errors.length} row error(s)
-                      </summary>
-
-                      <ul className="mt-2 space-y-1 text-xs">
-                        {uploadResult.errors
-                          .slice(0, 10)
-                          .map((rowError, index) => (
-                            <li key={`${rowError.row}-${index}`}>
-                              Row {rowError.row} (wp_id {rowError.wp_id || "-"}
-                              ): {rowError.error}
-                            </li>
-                          ))}
-                      </ul>
-                    </details>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {uploadError && (
-              <div className="mt-4 flex items-start gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-800">
-                <AlertCircle
-                  className="mt-0.5 h-5 w-5 shrink-0"
-                  aria-hidden="true"
-                />
-                <p>{uploadError}</p>
-              </div>
-            )}
-          </section>
-
           {error ? (
             <div className="rounded-2xl border border-dashed bg-white py-16 text-center">
               <h2 className="mb-2 text-xl font-bold text-ds-heading">
@@ -283,7 +153,7 @@ export default function PreconListingsPage() {
                 No pre-construction listings yet
               </h2>
               <p className="text-sm text-gray-500">
-                Use the bulk upload above to import your first CSV.
+                New projects are added by an administrator.
               </p>
             </div>
           ) : (

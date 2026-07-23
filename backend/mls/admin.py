@@ -4,6 +4,7 @@ import uuid
 from urllib.parse import urlparse
 
 from django.contrib import admin
+from django.contrib import messages
 from django import forms
 from django.utils.html import format_html
 from .models import (
@@ -421,6 +422,22 @@ class ContentAdmin(admin.ModelAdmin):
         }),
         ("Writing", {"fields": ("content", "excerpt")}),
     )
+
+    def save_related(self, request, form, formsets, change):
+        """Warn editors when a published project cannot reach the public list."""
+        super().save_related(request, form, formsets, change)
+        content = form.instance
+        if (
+            content.content_type == Content.PROPERTY
+            and content.status == Content.PUBLISH
+            and not PreComProperty.objects.filter(content=content).exists()
+        ):
+            messages.warning(
+                request,
+                "This Property is published but has no Pre-construction project "
+                "details. It will not appear on the public PreCon listings page "
+                "until those details are added.",
+            )
 
     @admin.display(description="Project details")
     def project_details_link(self, obj):

@@ -68,3 +68,25 @@ class PreConFloorPlanIntentApiTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(PreComFloorPlanIntent.objects.count(), 0)
+
+
+class PreConBulkUploadPermissionTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/api/mls/precon-properties/bulk-upload/"
+        self.user = get_user_model().objects.create_user(
+            email="editor@example.com",
+            password="pass1234",
+        )
+
+    def test_anonymous_visitors_cannot_upload(self):
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_non_staff_users_cannot_upload(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 403)

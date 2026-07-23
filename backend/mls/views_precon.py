@@ -11,7 +11,7 @@ from rest_framework import status
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -265,7 +265,9 @@ class PreComPropertyBulkUploadAPIView(APIView):
     """
 
     parser_classes = [MultiPartParser, FormParser]
-    permission_classes = [AllowAny]
+    # Imports modify public listing data, so they must never be available to
+    # anonymous visitors. Manual entry remains available through Django admin.
+    permission_classes = [IsAdminUser]
 
     @extend_schema(
         request=PreComBulkUploadSerializer,
