@@ -1,7 +1,7 @@
 
 import time
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import connections, transaction
 from mls.helpers import get_access_token
 from datetime import timedelta
 from mls.models import Property, Room, Media  # Replace with your actual app name
@@ -112,6 +112,11 @@ class Command(BaseCommand):
             f"Starting bulk upsert of "
             f"{len(all_properties):,} properties..."
         )
+
+        # The download can run for nearly an hour.  Do not reuse the connection
+        # that was opened to determine the incremental filter: managed Postgres
+        # providers may close that idle SSL connection before the first upsert.
+        connections.close_all()
 
         self.bulk_upsert(
             all_properties,
