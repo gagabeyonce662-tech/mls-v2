@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/estate";
 
 import EstateStructuredContent from "./EstateStructuredContent";
+import EstateProjectFloorPlanButton from "./EstateProjectFloorPlanButton";
 
 interface EstateProjectDetailProps {
   project: EstateProject;
@@ -182,12 +183,7 @@ export default function EstateProjectDetail({
                 </p>
 
                 <div className="mt-6 space-y-3">
-                  <a
-                    href="#documents"
-                    className="flex w-full items-center justify-center rounded-xl bg-ds-primary px-5 py-3 font-bold text-white transition hover:opacity-90"
-                  >
-                    View floor plans
-                  </a>
+                  <EstateProjectFloorPlanButton />
 
                   <a
                     href="/contact"

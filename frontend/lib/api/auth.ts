@@ -45,21 +45,6 @@ export async function apiGoogleAuthCode(code: string) {
 }
 
 /**
- * Authenticate with Facebook OAuth authorization code
- */
-export async function apiFacebookAuthCode(code: string, redirectUri?: string) {
-  const url = `${API_BASE_URL}/api/auth/facebook/`;
-  const body: { code: string; redirect_uri?: string } = { code };
-  if (redirectUri) {
-    body.redirect_uri = redirectUri;
-  }
-  return fetchAPI<any>(url, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-}
-
-/**
  * Refresh JWT access token
  */
 export async function apiRefreshToken(refresh: string) {

@@ -8,7 +8,6 @@ import {
   apiRefreshToken,
   apiGoogleAuth,
   apiGoogleAuthCode,
-  apiFacebookAuthCode,
   apiSendOtp,
   apiVerifyOtp,
 } from "@/lib/api/auth";
@@ -29,7 +28,6 @@ interface UserAuthContextType {
   login: (email: string, password: string) => Promise<void>;
   googleLogin: (idToken: string) => Promise<void>;
   googleLoginWithCode: (code: string) => Promise<void>;
-  facebookLoginWithCode: (code: string, redirectUri?: string) => Promise<void>;
   register: (data: { name: string; email: string; password: string; phone: string }) => Promise<void>;
   loginWithTokens: (data: { access: string; refresh: string; user: User }) => void;
   logout: () => void;
@@ -187,22 +185,6 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const facebookLoginWithCode = async (code: string, redirectUri?: string) => {
-    setIsLoading(true);
-    try {
-      const data = await apiFacebookAuthCode(code, redirectUri);
-      localStorage.setItem("access_token", data.access);
-      localStorage.setItem("refresh_token", data.refresh);
-      setUser(data.user);
-      localStorage.setItem("user_session", JSON.stringify(data.user));
-    } catch (error) {
-      console.error("Facebook OAuth code login failed", error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const refreshProfile = useCallback(async () => {
     const userData = await apiGetProfile();
     setUser(userData);
@@ -233,7 +215,6 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
         login,
         googleLogin,
         googleLoginWithCode,
-        facebookLoginWithCode,
         register,
         loginWithTokens,
         logout,

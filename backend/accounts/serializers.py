@@ -53,11 +53,12 @@ class FacebookAuthSerializer(serializers.Serializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
+    avatar = serializers.URLField(source="avatar_url", read_only=True, allow_null=True)
 
     class Meta:
         model = User
-        fields = ('id', 'name', 'email', 'phone', 'phone_verified', 'date_joined')
-        read_only_fields = ('id', 'email', 'phone_verified', 'date_joined')
+        fields = ('id', 'name', 'email', 'phone', 'phone_verified', 'avatar', 'date_joined')
+        read_only_fields = ('id', 'email', 'phone_verified', 'avatar', 'date_joined')
 
     def get_name(self, obj) -> str:
         return obj.full_name

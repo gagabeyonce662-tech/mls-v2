@@ -115,7 +115,16 @@ export function DesktopHeader({ navigation }: DesktopHeaderProps) {
                     variant="ghost"
                     className="relative h-10 w-10 rounded-full bg-ds-card border border-ds-card-border shadow-sm hover:shadow transition-all"
                   >
-                    <User className="h-5 w-5 text-ds-primary" />
+                    {user.avatar ? (
+                      <span
+                        role="img"
+                        aria-label={`${user.name}'s profile`}
+                        className="absolute inset-0 rounded-full bg-cover bg-center bg-no-repeat"
+                        style={{ backgroundImage: `url("${user.avatar}")` }}
+                      />
+                    ) : (
+                      <User className="h-5 w-5 text-ds-primary" />
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent

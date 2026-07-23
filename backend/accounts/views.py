@@ -329,6 +329,7 @@ class GoogleAuthView(APIView):
         email = id_info.get('email', '').lower()
         first_name = id_info.get('given_name', '')
         last_name = id_info.get('family_name', '')
+        avatar_url = id_info.get('picture', '')
 
         # Try to find by google_id first, then by email
         user = User.objects.filter(google_id=google_id).first()
@@ -340,6 +341,9 @@ class GoogleAuthView(APIView):
                 # Existing email user — link Google account; also activate if not yet active.
                 update_fields = ['google_id']
                 user.google_id = google_id
+                if avatar_url and user.avatar_url != avatar_url:
+                    user.avatar_url = avatar_url
+                    update_fields.append('avatar_url')
                 if not user.is_active:
                     user.is_active = True
                     update_fields.append('is_active')
@@ -353,6 +357,7 @@ class GoogleAuthView(APIView):
                     first_name=first_name,
                     last_name=last_name,
                     google_id=google_id,
+                    avatar_url=avatar_url or None,
                     is_active=True,   # skip email verification for OAuth
                 )
                 is_new = True
@@ -366,6 +371,10 @@ class GoogleAuthView(APIView):
                 if contact_id:
                     user.ghl_contact_id = contact_id
                     user.save(update_fields=['ghl_contact_id'])
+
+        elif avatar_url and user.avatar_url != avatar_url:
+            user.avatar_url = avatar_url
+            user.save(update_fields=['avatar_url'])
 
         tokens = get_tokens_for_user(user)
         return Response({

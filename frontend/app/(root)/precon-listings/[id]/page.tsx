@@ -26,6 +26,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Container from "@/components/Container";
 import EstateHeroGallery from "@/components/listing/EstateHeroGallery";
+import PhoneVerifiedActionButton from "@/components/listing/PhoneVerifiedActionButton";
 import { Button } from "@/components/ui/button";
 import {
   fetchPreconProperty,
@@ -895,15 +896,19 @@ export default function PreconDetailPage() {
 
                     <div className="mt-6 space-y-3">
                       {floorPlanUrl ? (
-                        <a
-                          href={floorPlanUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <PhoneVerifiedActionButton
+                          onAccess={() =>
+                            window.open(
+                              floorPlanUrl,
+                              "_blank",
+                              "noopener,noreferrer",
+                            )
+                          }
                           className="flex w-full items-center justify-center gap-2 rounded-xl bg-ds-primary px-5 py-3 text-sm font-bold text-white transition hover:opacity-90"
                         >
                           <Download className="h-4 w-4" />
                           View floor plans
-                        </a>
+                        </PhoneVerifiedActionButton>
                       ) : null}
 
                       <Link

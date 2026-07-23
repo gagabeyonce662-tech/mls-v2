@@ -93,8 +93,17 @@ export function MobileHeader({ navigation }: MobileHeaderProps) {
               {user && (
                 <div className="mb-6 pb-6 border-b border-ds-card-border">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-ds-card rounded-full flex items-center justify-center border border-ds-card-border">
-                      <User className="h-6 w-6 text-ds-primary" />
+                    <div className="w-12 h-12 overflow-hidden bg-ds-card rounded-full flex items-center justify-center border border-ds-card-border">
+                      {user.avatar ? (
+                        <span
+                          role="img"
+                          aria-label={`${user.name}'s profile`}
+                          className="h-full w-full rounded-full bg-cover bg-center bg-no-repeat"
+                          style={{ backgroundImage: `url("${user.avatar}")` }}
+                        />
+                      ) : (
+                        <User className="h-6 w-6 text-ds-primary" />
+                      )}
                     </div>
                     <div>
                       <div className="font-bold text-ds-heading">

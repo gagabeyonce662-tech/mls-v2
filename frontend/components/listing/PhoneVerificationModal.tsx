@@ -4,6 +4,70 @@ import React, { useRef } from "react";
 import { Phone, ShieldCheck, Loader2, RotateCcw } from "lucide-react";
 import { useUserAuth } from "@/contexts/UserAuthContext";
 
+const COUNTRIES = [
+  { code: "CA", name: "Canada", dialCode: "+1", flag: "🇨🇦" },
+  { code: "US", name: "United States", dialCode: "+1", flag: "🇺🇸" },
+  { code: "GB", name: "United Kingdom", dialCode: "+44", flag: "🇬🇧" },
+  { code: "AU", name: "Australia", dialCode: "+61", flag: "🇦🇺" },
+  { code: "IN", name: "India", dialCode: "+91", flag: "🇮🇳" },
+  { code: "AE", name: "United Arab Emirates", dialCode: "+971", flag: "🇦🇪" },
+  { code: "PK", name: "Pakistan", dialCode: "+92", flag: "🇵🇰" },
+  { code: "PH", name: "Philippines", dialCode: "+63", flag: "🇵🇭" },
+  { code: "CN", name: "China", dialCode: "+86", flag: "🇨🇳" },
+  { code: "FR", name: "France", dialCode: "+33", flag: "🇫🇷" },
+  { code: "DE", name: "Germany", dialCode: "+49", flag: "🇩🇪" },
+  { code: "MX", name: "Mexico", dialCode: "+52", flag: "🇲🇽" },
+  { code: "BR", name: "Brazil", dialCode: "+55", flag: "🇧🇷" },
+] as const;
+
+const TIMEZONE_COUNTRIES: Record<string, string> = {
+  "America/Toronto": "CA",
+  "America/Vancouver": "CA",
+  "America/Edmonton": "CA",
+  "America/Winnipeg": "CA",
+  "America/Halifax": "CA",
+  "America/New_York": "US",
+  "America/Chicago": "US",
+  "America/Denver": "US",
+  "America/Los_Angeles": "US",
+  "Europe/London": "GB",
+  "Asia/Kolkata": "IN",
+  "Australia/Sydney": "AU",
+  "Asia/Dubai": "AE",
+};
+
+function detectCountryCode(): string {
+  const timeZoneCountry =
+    TIMEZONE_COUNTRIES[Intl.DateTimeFormat().resolvedOptions().timeZone];
+  if (timeZoneCountry) return timeZoneCountry;
+
+  const locales = navigator.languages?.length
+    ? navigator.languages
+    : [navigator.language];
+
+  for (const locale of locales) {
+    try {
+      const region = new Intl.Locale(locale).region;
+      if (region && COUNTRIES.some((country) => country.code === region)) {
+        return region;
+      }
+    } catch {
+      // Ignore malformed browser locales and fall back to the time zone.
+    }
+  }
+
+  return "CA";
+}
+
+function toInternationalPhoneNumber(localNumber: string, dialCode: string) {
+  const trimmed = localNumber.trim();
+  if (trimmed.startsWith("+")) {
+    return `+${trimmed.slice(1).replace(/\D/g, "")}`;
+  }
+
+  return `${dialCode}${trimmed.replace(/\D/g, "")}`;
+}
+
 export default function PhoneVerificationModal({
   onVerified,
 }: {
@@ -13,11 +77,23 @@ export default function PhoneVerificationModal({
 
   const [step, setStep] = React.useState<"phone" | "otp">("phone");
   const [phone, setPhone] = React.useState("");
+  const [countryCode, setCountryCode] = React.useState("CA");
   const [otp, setOtp] = React.useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  React.useEffect(() => {
+    setCountryCode(detectCountryCode());
+  }, []);
+
+  const selectedCountry =
+    COUNTRIES.find((country) => country.code === countryCode) || COUNTRIES[0];
+  const internationalPhone = toInternationalPhoneNumber(
+    phone,
+    selectedCountry.dialCode,
+  );
 
   const handleSend = async () => {
     setError("");
@@ -27,7 +103,7 @@ export default function PhoneVerificationModal({
     }
     setLoading(true);
     try {
-      await sendOtp(phone.trim());
+      await sendOtp(internationalPhone);
       setStep("otp");
     } catch (e: any) {
       setError(e?.message || "Failed to send code. Check the number and try again.");
@@ -61,7 +137,7 @@ export default function PhoneVerificationModal({
     setError("");
     setLoading(true);
     try {
-      await verifyOtp(phone.trim(), code);
+      await verifyOtp(internationalPhone, code);
       onVerified?.();
       // verifyOtp refreshes the profile — GalleryGateWrapper re-renders automatically
     } catch (e: any) {
@@ -85,14 +161,37 @@ export default function PhoneVerificationModal({
             </p>
           </div>
           <div className="w-full space-y-2">
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="+1 (416) 555-0100"
-              className="w-full rounded-xl border border-ds-card-border px-4 py-2.5 text-sm text-ds-heading placeholder:text-ds-body/50 outline-none focus:border-ds-primary transition-colors"
-            />
+            <div className="flex overflow-hidden rounded-xl border border-ds-card-border bg-white transition-colors focus-within:border-ds-primary">
+              <label className="sr-only" htmlFor="phone-country-code">
+                Country code
+              </label>
+              <select
+                id="phone-country-code"
+                value={countryCode}
+                onChange={(event) => setCountryCode(event.target.value)}
+                className="w-28 border-r border-ds-card-border bg-slate-50 px-2 text-sm text-ds-heading outline-none"
+              >
+                {COUNTRIES.map((country) => (
+                  <option key={country.code} value={country.code}>
+                    {country.flag} {country.name} ({country.dialCode})
+                  </option>
+                ))}
+              </select>
+              <label className="sr-only" htmlFor="phone-number">
+                Phone number
+              </label>
+              <input
+                id="phone-number"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel-national"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                placeholder="(416) 555-0100"
+                className="min-w-0 flex-1 px-3 py-2.5 text-sm text-ds-heading placeholder:text-ds-body/50 outline-none"
+              />
+            </div>
             {error && <p className="text-xs text-red-500">{error}</p>}
           </div>
           <button
@@ -110,7 +209,7 @@ export default function PhoneVerificationModal({
           </div>
           <div className="text-center space-y-1.5">
             <p className="text-base font-semibold text-ds-heading">Enter the code</p>
-            <p className="text-sm text-ds-body">Sent to {phone}</p>
+            <p className="text-sm text-ds-body">Sent to {internationalPhone}</p>
           </div>
           <div className="flex gap-2 w-full justify-center">
             {otp.map((digit, i) => (

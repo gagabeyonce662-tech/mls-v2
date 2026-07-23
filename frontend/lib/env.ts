@@ -18,9 +18,6 @@ const envSchema = z.object({
     .string()
     .min(1, "Admin passphrase cannot be empty"),
   NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().optional(),
-  NEXT_PUBLIC_FACEBOOK_APP_ID: z.string().optional(),
-  NEXT_PUBLIC_FACEBOOK_REDIRECT_URI: z.string().url().optional(),
-  NEXT_PUBLIC_FACEBOOK_GRAPH_VERSION: z.string().optional(),
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
   NEXT_PUBLIC_API_TOKEN: z.string().optional(),
   NEXT_PUBLIC_ENABLE_DYNAMIC_HOMEPAGE_CATEGORIES: z
@@ -45,11 +42,6 @@ const _env = envSchema.safeParse({
     process.env.NEXT_PUBLIC_ADMIN_PASSPHRASE ||
     (isDev ? "dev-admin-passphrase" : undefined),
   NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-  NEXT_PUBLIC_FACEBOOK_APP_ID: process.env.NEXT_PUBLIC_FACEBOOK_APP_ID,
-  NEXT_PUBLIC_FACEBOOK_REDIRECT_URI:
-    process.env.NEXT_PUBLIC_FACEBOOK_REDIRECT_URI,
-  NEXT_PUBLIC_FACEBOOK_GRAPH_VERSION:
-    process.env.NEXT_PUBLIC_FACEBOOK_GRAPH_VERSION,
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
     (isDev ? "dev-maps-key" : undefined),
