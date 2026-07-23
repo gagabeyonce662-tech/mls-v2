@@ -8,6 +8,7 @@ DEFAULT_GEMINI_MODELS = (
     "gemini-3.1-flash-lite-preview",
     "gemini-3-flash-preview",
 )
+SUMMARY_PROMPT_VERSION = "v2"
 
 
 class AISummaryGenerationError(Exception):
@@ -15,20 +16,37 @@ class AISummaryGenerationError(Exception):
 
 
 def build_summary_prompt(property_payload: dict) -> str:
+    listing_kind = property_payload.get("transaction_type") or "sale"
+    cost_section = (
+        "## Costs and conditions\n"
+        "- List the advertised rent, frequency, utilities, parking, deposits, promotions, "
+        "availability, and lease terms only when explicitly stated.\n"
+        "- Put unclear or incomplete costs under 'Verify before deciding'."
+        if listing_kind == "rent"
+        else "## Ownership costs and conditions\n"
+        "- List price, taxes, fees, parking, and other costs only when explicitly stated.\n"
+        "- Put unclear or incomplete costs under 'Verify before deciding'."
+    )
     return "\n".join(
         [
-            "You are a real-estate assistant.",
-            "Summarize the listing in clean markdown format.",
-            "Keep it concise, factual, and neutral.",
+            "You are a careful real-estate listing assistant.",
+            "Create a concise, decision-useful brief from the supplied listing data.",
+            "Never invent facts, prices, fees, availability, neighbourhood claims, or inferences.",
+            "Use only supplied facts. Treat marketing language as a claim, not a verified fact.",
+            "State missing or unclear information as something to verify; do not guess.",
             "Return only markdown.",
             "",
-            "Structure:",
+            f"Listing type: {listing_kind}",
+            "Required structure:",
             "## Snapshot",
-            "- 4 to 6 bullets with price, type, beds/baths, size, area hints, status.",
-            "## Highlights",
-            "- 3 to 5 bullets from remarks/features only if present.",
-            "## Considerations",
-            "- 2 to 4 bullets of neutral caution points (missing info, verify facts).",
+            "- 3 to 5 bullets covering the core factual details available (price/rent, type, beds/baths, size, location, status).",
+            "## Confirmed listing facts",
+            "- 3 to 6 bullets drawn directly from listing fields or public remarks.",
+            cost_section,
+            "## Verify before deciding",
+            "- 2 to 5 concrete unknowns, qualifiers, or costs that should be confirmed. Never claim a fact is missing if it is supplied.",
+            "## Questions to ask",
+            "- 2 to 4 concise questions tailored to missing information or conditions in this listing.",
             "",
             f"Listing data: {property_payload}",
         ]
@@ -40,7 +58,12 @@ def is_summary_complete(summary: str) -> bool:
         return False
 
     normalized = summary.lower()
-    required_sections = ("## snapshot", "## highlights", "## considerations")
+    required_sections = (
+        "## snapshot",
+        "## confirmed listing facts",
+        "## verify before deciding",
+        "## questions to ask",
+    )
     if not all(section in normalized for section in required_sections):
         return False
 

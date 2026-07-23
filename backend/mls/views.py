@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.throttling import UserRateThrottle
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
@@ -69,6 +70,7 @@ from mls.services.ai_listing_summary import (
     AISummaryGenerationError,
     generate_listing_summary,
     is_summary_complete,
+    SUMMARY_PROMPT_VERSION,
 )
 from mls.services.recommendations import build_recommendation_payload
 
@@ -1312,15 +1314,52 @@ class MapAggregatesAPIView(APIView):
         return Response(payload)
 
 
+class ListingAISummaryThrottle(UserRateThrottle):
+    scope = "listing_ai_summary"
+
+
+def _build_listing_summary_payload(prop):
+    is_rental = bool(prop.lease_amount or prop.total_actual_rent)
+    return {
+        "listing_key": prop.listing_key,
+        "transaction_type": "rent" if is_rental else "sale",
+        "address": prop.unparsed_address,
+        "city": prop.city,
+        "city_region": prop.city_region,
+        "status": prop.standard_status,
+        "property_type": prop.property_sub_type,
+        "list_price": prop.list_price,
+        "rent": prop.lease_amount or prop.total_actual_rent,
+        "rent_frequency": prop.lease_amount_frequency,
+        "bedrooms": prop.bedrooms_total,
+        "bathrooms": prop.bathrooms_total_integer,
+        "size": prop.building_area_total or prop.living_area,
+        "size_unit": prop.building_area_units or prop.living_area_units,
+        "year_built": prop.year_built,
+        "parking_spaces": prop.parking_total,
+        "parking_features": prop.parking_features,
+        "utilities": prop.utilities,
+        "appliances": prop.appliances,
+        "exterior_features": prop.exterior_features,
+        "flooring": prop.flooring,
+        "lot_size": prop.lot_size_area,
+        "annual_taxes": prop.tax_annual_amount,
+        "public_remarks": prop.public_remarks,
+    }
+
+
 class ListingAISummaryAPIView(APIView):
     """
     POST /api/mls/properties/ai-summary/
     Generates or returns cached AI markdown summary and persists in Property table.
     """
 
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [ListingAISummaryThrottle]
+
     def post(self, request):
         listing_key = str(request.data.get("listing_key", "")).strip()
-        property_payload = request.data.get("property", {}) or {}
+        force = request.data.get("force") is True
         logger.info("AI summary request received for listing_key=%s", listing_key)
 
         if not listing_key:
@@ -1336,36 +1375,20 @@ class ListingAISummaryAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if not isinstance(property_payload, dict):
-            return Response(
-                {"error": "property must be an object"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not property_payload:
-            property_payload = {
-                "listing_key": prop.listing_key,
-                "address": prop.unparsed_address,
-                "city": prop.city,
-                "city_region": prop.city_region,
-                "list_price": prop.list_price,
-                "bedrooms_total": prop.bedrooms_total,
-                "bathrooms_total_integer": prop.bathrooms_total_integer,
-                "building_area_total": prop.building_area_total,
-                "property_sub_type": prop.property_sub_type,
-                "year_built": prop.year_built,
-                "standard_status": prop.standard_status,
-                "public_remarks": prop.public_remarks,
-                "parking_total": prop.parking_total,
-                "lot_size_area": prop.lot_size_area,
-                "appliances": prop.appliances,
-            }
+        # Build from the canonical database record, not client-supplied content.
+        property_payload = _build_listing_summary_payload(prop)
 
         payload_hash = hashlib.sha256(
-            json.dumps(property_payload, sort_keys=True, default=str).encode("utf-8")
+            json.dumps(
+                {"prompt_version": SUMMARY_PROMPT_VERSION, "property": property_payload},
+                sort_keys=True,
+                default=str,
+            ).encode("utf-8")
         ).hexdigest()
 
         if (
+            not force
+            and
             prop.ai_summary_markdown
             and prop.ai_summary_payload_hash == payload_hash
             and is_summary_complete(prop.ai_summary_markdown)
@@ -2758,5 +2781,3 @@ class PropertyNoteAPIView(APIView):
         return Response(
             {"listing_key": lk, "body": note.body, "updated_at": note.updated_at}
         )
-
-

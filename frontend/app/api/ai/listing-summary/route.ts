@@ -14,21 +14,16 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const property = body?.property;
-    if (!property || typeof property !== "object") {
-      return NextResponse.json(
-        { error: "Missing property payload." },
-        { status: 400 },
-      );
-    }
-    const listingKey = String(
-      property.listing_key || property.PropertyKey || property.id || "",
-    ).trim();
+    const listingKey = String(body?.listing_key || "").trim();
     if (!listingKey) {
       return NextResponse.json(
         { error: "listing_key (or PropertyKey) is required." },
         { status: 400 },
       );
+    }
+    const authorization = req.headers.get("authorization");
+    if (!authorization) {
+      return NextResponse.json({ error: "Sign in to generate a summary." }, { status: 401 });
     }
 
     const response = await fetch(
@@ -37,10 +32,11 @@ export async function POST(req: NextRequest) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: authorization,
         },
         body: JSON.stringify({
           listing_key: listingKey,
-          property,
+          force: body?.force === true,
         }),
       },
     );

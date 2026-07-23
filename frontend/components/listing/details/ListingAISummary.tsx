@@ -1,22 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Property } from "@/lib/api/types";
 import { ds } from "@/lib/design-system-utils";
-import {
-  getDisplayAddress,
-  getListingIsPrivileged,
-  hasListPrice,
-} from "@/lib/listingDisplay";
-import { getDescription } from "@/lib/propertyUtils";
+import { useUserAuth } from "@/contexts/UserAuthContext";
 
 interface ListingAISummaryProps {
   property: Property;
 }
 
 export default function ListingAISummary({ property }: ListingAISummaryProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, isLoading: isAuthLoading } = useUserAuth();
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryMarkdown, setSummaryMarkdown] = useState<string>(
     property.ai_summary_markdown || "",
@@ -31,36 +30,21 @@ export default function ListingAISummary({ property }: ListingAISummaryProps) {
     [property],
   );
 
-  const summaryPayload = useMemo(() => {
-    const isPrivileged = getListingIsPrivileged();
-    return {
-      listing_key: listingKey,
-      address: getDisplayAddress(property, { isPrivileged }),
-      city: property.city || property.City || "",
-      city_region: property.city_region || "",
-      list_price:
-        isPrivileged || hasListPrice(property)
-          ? property.list_price ?? property.ListPrice ?? null
-          : null,
-      bedrooms_total: property.bedrooms_total ?? property.BedroomsTotal ?? null,
-      bathrooms_total_integer:
-        property.bathrooms_total_integer ?? property.BathroomsTotalInteger ?? null,
-      building_area_total:
-        property.building_area_total ?? property.LivingArea ?? null,
-      property_sub_type: property.property_sub_type || property.PropertySubType || "",
-      year_built: property.year_built ?? property.YearBuilt ?? null,
-      standard_status: property.standard_status || property.StandardStatus || "",
-      public_remarks: getDescription(property),
-      parking_total: property.parking_total ?? property.ParkingTotal ?? null,
-      lot_size_area: property.lot_size_area ?? property.LotSizeArea ?? null,
-      appliances: property.appliances || property.Appliances || "",
-    };
-  }, [property, listingKey]);
-
   const handleGenerateSummary = async () => {
     setSummaryError("");
     if (!listingKey) {
       setSummaryError("Listing key is missing for this property.");
+      return;
+    }
+
+    if (!user) {
+      router.push(`/sign-in?next=${encodeURIComponent(pathname)}`);
+      return;
+    }
+
+    const token = window.localStorage.getItem("access_token");
+    if (!token) {
+      setSummaryError("Your sign-in session has expired. Please sign in again.");
       return;
     }
 
@@ -70,10 +54,11 @@ export default function ListingAISummary({ property }: ListingAISummaryProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           listing_key: listingKey,
-          property: summaryPayload,
+          force: Boolean(summaryMarkdown),
         }),
       });
 
@@ -98,16 +83,22 @@ export default function ListingAISummary({ property }: ListingAISummaryProps) {
         <button
           type="button"
           onClick={handleGenerateSummary}
-          disabled={isSummarizing}
+          disabled={isSummarizing || isAuthLoading}
           className="px-3 py-2 bg-blue-50 text-blue-700 text-xs font-bold rounded-xl border border-blue-200 hover:bg-blue-100 transition-all disabled:opacity-60"
         >
-          {isSummarizing ? "Generating..." : summaryMarkdown ? "Refresh Summary" : "Generate Summary"}
+          {isSummarizing
+            ? "Generating..."
+            : !user
+              ? "Sign in to generate"
+              : summaryMarkdown
+                ? "Regenerate summary"
+                : "Generate summary"}
         </button>
       </div>
 
       {lastUpdated && (
         <p className="text-xs text-ds-body mb-3">
-          Last updated: {new Date(lastUpdated).toLocaleString()}
+          AI-generated from current listing data · Last updated: {new Date(lastUpdated).toLocaleString()}
         </p>
       )}
 
@@ -121,7 +112,7 @@ export default function ListingAISummary({ property }: ListingAISummaryProps) {
         </div>
       ) : (
         <p className="text-sm text-ds-body">
-          Generate a concise AI summary for this listing, including highlights and key considerations.
+          Generate a decision brief with confirmed facts, costs and conditions, details to verify, and questions to ask.
         </p>
       )}
     </section>

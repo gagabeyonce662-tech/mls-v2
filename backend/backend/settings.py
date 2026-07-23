@@ -339,6 +339,9 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_THROTTLE_RATES': {
+        'listing_ai_summary': '10/hour',
+    },
 }
 
 SPECTACULAR_SETTINGS = {
