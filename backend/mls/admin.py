@@ -311,25 +311,78 @@ class TaxonomyAdmin(admin.ModelAdmin):
 
 class ContentMetaInline(admin.TabularInline):
     model = ContentMeta
-    extra = 0
-    classes = ("collapse",)
+    extra = 1
+    fields = ("key", "value")
+    verbose_name = "Project detail"
+    verbose_name_plural = "Project details (metadata)"
 
 
 class AttachmentInline(admin.TabularInline):
     model = Attachment
+    extra = 1
+    fields = ("title", "url", "mime_type")
+
+
+class PreComPropertyInline(admin.StackedInline):
+    """Keep a pre-con project's structured fields beside its content."""
+
+    model = PreComProperty
     extra = 0
-    classes = ("collapse",)
+    max_num = 1
+    fields = (
+        "price",
+        "bedrooms",
+        "bathrooms",
+        "garages",
+        "area",
+        "lot_size",
+        "address",
+        "latitude",
+        "longitude",
+    )
+    verbose_name = "Pre-construction project details"
+    verbose_name_plural = "Pre-construction project details"
 
 
 @admin.register(Content)
 class ContentAdmin(admin.ModelAdmin):
-    list_display = ("wp_id", "content_type", "title", "slug", "status", "published_at", "author")
+    list_display = ("wp_id", "content_type", "title", "slug", "status", "published_at", "author", "project_details_link")
     list_filter = ("content_type", "status")
     search_fields = ("title", "slug", "wp_id")
     autocomplete_fields = ("author",)
     filter_horizontal = ("taxonomies",)
-    inlines = [ContentMetaInline, AttachmentInline]
+    prepopulated_fields = {"slug": ("title",)}
+    inlines = [PreComPropertyInline, ContentMetaInline, AttachmentInline]
+    list_select_related = ("property", "author")
     ordering = ("-published_at", "-id")
+    fieldsets = (
+        ("Content", {
+            "fields": (
+                "wp_id",
+                "content_type",
+                "title",
+                "slug",
+                "status",
+                "published_at",
+                "author",
+                "taxonomies",
+            )
+        }),
+        ("Writing", {"fields": ("content", "excerpt")}),
+    )
+
+    @admin.display(description="Project details")
+    def project_details_link(self, obj):
+        if obj.content_type != Content.PROPERTY:
+            return "—"
+        try:
+            property_id = obj.property.id
+        except PreComProperty.DoesNotExist:
+            return "Add below"
+        return format_html(
+            '<a class="button" href="../precomproperty/{}/change/">Edit project details</a>',
+            property_id,
+        )
 
 
 @admin.register(ContentMeta)
@@ -358,6 +411,7 @@ class PreComPropertyAdmin(admin.ModelAdmin):
     )
     search_fields = ("content__title", "content__slug", "content__wp_id", "address")
     autocomplete_fields = ("content",)
+    list_select_related = ("content",)
     ordering = ("-id",)
 
 

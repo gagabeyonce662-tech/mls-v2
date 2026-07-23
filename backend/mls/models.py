@@ -1165,6 +1165,24 @@ class Content(models.Model):
         (PROPERTY, "Property"),
     ]
 
+    DRAFT = "draft"
+    PUBLISH = "publish"
+    PENDING = "pending"
+    PRIVATE = "private"
+    ARCHIVED = "archived"
+    ACTIVE = "active"
+
+    STATUS_CHOICES = [
+        (DRAFT, "Draft"),
+        (PUBLISH, "Published"),
+        (PENDING, "Pending review"),
+        (PRIVATE, "Private"),
+        (ARCHIVED, "Archived"),
+        # Retained for existing manually-created records that used this value
+        # before status was a controlled field.
+        (ACTIVE, "Active (legacy)"),
+    ]
+
     wp_id = models.BigIntegerField(unique=True)
 
     content_type = models.CharField(max_length=30, choices=TYPES)
@@ -1177,13 +1195,18 @@ class Content(models.Model):
 
     excerpt = models.TextField(blank=True)
 
-    status = models.CharField(max_length=30)
+    status = models.CharField(
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default=DRAFT,
+    )
 
-    published_at = models.DateTimeField(null=True)
+    published_at = models.DateTimeField(null=True, blank=True)
 
     author = models.ForeignKey(
         Author,
         null=True,
+        blank=True,
         on_delete=models.SET_NULL
     )
 
