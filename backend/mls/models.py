@@ -53,6 +53,18 @@ class AccessToken(models.Model):
         return None
 
 
+class ListingSyncStatus(models.Model):
+    """Tracks the most recent successful import of MLS listing data."""
+
+    key = models.CharField(max_length=50, unique=True)
+    last_successful_at = models.DateTimeField()
+    listing_count = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "listing sync statuses"
+
+
 class Property(models.Model):
     EXCLUSIVE = 'exclusive'
     PRE_CONN = 'pre_conn'

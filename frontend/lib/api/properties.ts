@@ -1333,6 +1333,23 @@ export type ListingCatalogStatsPayload = {
   disclaimer: string;
 };
 
+export type ListingSyncStatusPayload = {
+  last_successful_at: string | null;
+  listing_count: number;
+};
+
+export async function fetchListingSyncStatus(): Promise<ListingSyncStatusPayload | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/mls/listing-sync-status/`, {
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as ListingSyncStatusPayload;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchListingCatalogStats(params: {
   city?: string;
   fsa?: string;

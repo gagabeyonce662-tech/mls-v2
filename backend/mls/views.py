@@ -43,6 +43,7 @@ from mls.models import (
     UserFollowedArea,
     UserAlertPreference,
     ListingViewEvent,
+    ListingSyncStatus,
     UserPropertyInteraction,
     PropertyNote,
     PropertySnapshot,
@@ -2317,6 +2318,25 @@ class NewlyListedPropertiesAPIView(APIView):
         }
         cache.set(cache_key, payload, LISTING_CACHE_TTL_SECONDS)
         return Response(payload)
+
+
+class ListingSyncStatusAPIView(APIView):
+    """Reports the last fully successful DDF listing import."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        sync_status = ListingSyncStatus.objects.filter(
+            key="ddf_properties"
+        ).first()
+        return Response(
+            {
+                "last_successful_at": (
+                    sync_status.last_successful_at if sync_status else None
+                ),
+                "listing_count": sync_status.listing_count if sync_status else 0,
+            }
+        )
 
 
 class ListingCatalogStatsAPIView(APIView):

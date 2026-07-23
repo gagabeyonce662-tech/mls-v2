@@ -77,6 +77,7 @@ urlpatterns = [
     path('properties/comapare/', PropertyCompareDetailView.as_view(), name='property_detail_compare'),
     path('nearest-school/', NearestSchoolAPIView.as_view(), name='nearest-school'),
     path('nearby-amenities/', NearbyAmenitiesAPIView.as_view(), name='nearby-amenities'),
+    path('listing-sync-status/', ListingSyncStatusAPIView.as_view(), name='listing-sync-status'),
     path('catalog-stats/', ListingCatalogStatsAPIView.as_view(), name='catalog-stats'),
     path('trends/', ListingTrendsAPIView.as_view(), name='listing-trends'),
     path('listing-views/', ListingViewBeaconAPIView.as_view(), name='listing-view-beacon'),

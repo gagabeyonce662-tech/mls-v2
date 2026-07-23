@@ -2,9 +2,10 @@
 import time
 from django.core.management.base import BaseCommand
 from django.db import connections, transaction
+from django.utils import timezone
 from mls.helpers import get_access_token
 from datetime import timedelta
-from mls.models import Property, Room, Media  # Replace with your actual app name
+from mls.models import ListingSyncStatus, Property, Room, Media  # Replace with your actual app name
 from mls.services.map_aggregates import rebuild_h3_aggregates
 from mls.snapshot_utils import bulk_record_listing_first_seen
 from mls.services.ddf.converters import (
@@ -138,6 +139,14 @@ class Command(BaseCommand):
         aggregate_cells = rebuild_h3_aggregates()
         self.stdout.write(
             self.style.SUCCESS(f"Built {aggregate_cells:,} aggregate cells")
+        )
+
+        ListingSyncStatus.objects.update_or_create(
+            key="ddf_properties",
+            defaults={
+                "last_successful_at": timezone.now(),
+                "listing_count": len(all_properties),
+            },
         )
 
         elapsed = time.time() - start_time

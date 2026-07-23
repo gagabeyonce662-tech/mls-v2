@@ -1,11 +1,12 @@
 // components/homepage/HeroSection.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Search, ChevronDown } from "lucide-react";
+import { Search, ChevronDown, Clock3 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { colors } from "@/config/design-system";
+import { fetchListingSyncStatus } from "@/lib/api";
 
 export default function HeroSection() {
   const router = useRouter();
@@ -13,6 +14,28 @@ export default function HeroSection() {
   const [searchType, setSearchType] = useState("Buy");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchListingSyncStatus().then((status) => {
+      if (!cancelled) {
+        setLastUpdatedAt(status?.last_successful_at ?? null);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const lastUpdatedLabel = lastUpdatedAt
+    ? new Intl.DateTimeFormat("en-CA", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(lastUpdatedAt))
+    : null;
 
   const handleSearch = async () => {
     if (isLoading) return;
@@ -193,6 +216,13 @@ export default function HeroSection() {
                   <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
                   {error}
                 </motion.div>
+              )}
+
+              {lastUpdatedLabel && (
+                <p className="mt-3 flex items-center gap-2 text-sm font-medium text-white/85 drop-shadow-md">
+                  <Clock3 className="h-4 w-4" aria-hidden="true" />
+                  MLS listings last updated {lastUpdatedLabel}
+                </p>
               )}
             </div>
           </motion.div>
