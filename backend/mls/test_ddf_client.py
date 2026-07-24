@@ -3,8 +3,10 @@ from unittest.mock import Mock, patch
 import requests
 from django.test import SimpleTestCase
 
-from mls.services.ddf.client import get_page_with_retries
-
+from mls.services.ddf.client import (
+    fetch_all_open_houses,
+    get_page_with_retries,
+)
 
 class DDFClientTests(SimpleTestCase):
     @patch("mls.services.ddf.client.time.sleep")
@@ -50,3 +52,40 @@ class DDFClientTests(SimpleTestCase):
         self.assertIs(result, success_response)
         unavailable_response.close.assert_called_once_with()
         mock_sleep.assert_called_once_with(1)
+    @patch("mls.services.ddf.client.get_page_with_retries")
+    def test_fetch_all_open_houses_follows_next_link(self, mock_get):
+        first_response = Mock()
+        first_response.json.return_value = {
+            "value": [
+                {
+                    "OpenHouseKey": "OH-1",
+                    "ListingKey": "LISTING-1",
+                }
+            ],
+            "@odata.nextLink": "https://example.test/open-houses?page=2",
+        }
+
+        second_response = Mock()
+        second_response.json.return_value = {
+            "value": [
+                {
+                    "OpenHouseKey": "OH-2",
+                    "ListingKey": "LISTING-2",
+                }
+            ]
+        }
+
+        mock_get.side_effect = [
+            first_response,
+            second_response,
+        ]
+
+        results, page_count = fetch_all_open_houses(
+            headers={"Authorization": "Bearer token"},
+        )
+
+        self.assertEqual(page_count, 2)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["OpenHouseKey"], "OH-1")
+        self.assertEqual(results[1]["OpenHouseKey"], "OH-2")
+        

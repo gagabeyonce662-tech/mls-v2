@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 
 import pytz
@@ -93,3 +93,25 @@ def safe_datetime(value):
         return parsed_datetime.astimezone(pytz.UTC).replace(tzinfo=None)
     except (TypeError, ValueError):
         return None
+
+
+def safe_date(value, default=None):
+    if value in NULL_VALUES:
+        return default
+
+    try:
+        return date.fromisoformat(
+            str(value).split("T", 1)[0]
+        )
+    except (TypeError, ValueError):
+        return default
+
+
+def safe_time(value, default=None):
+    if value in NULL_VALUES:
+        return default
+
+    try:
+        return time.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return default

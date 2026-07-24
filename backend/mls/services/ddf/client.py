@@ -4,6 +4,7 @@ import requests
 
 
 DDF_PROPERTIES_URL = "https://ddfapi.realtor.ca/odata/v1/Property"
+DDF_OPEN_HOUSES_URL = "https://ddfapi.realtor.ca/odata/v1/OpenHouse"
 REQUEST_TIMEOUT_SECONDS = 30
 MAX_REQUEST_ATTEMPTS = 5
 RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
@@ -158,3 +159,65 @@ def fetch_all_properties(
         )
 
     return all_properties, page_count
+
+
+def fetch_all_open_houses(
+    headers,
+    filter_expression=None,
+    max_pages=0,
+    progress_callback=None,
+):
+    """
+    Download OpenHouse pages from the DDF API.
+
+    Returns:
+        tuple[list[dict], int]:
+        - downloaded OpenHouse records
+        - number of downloaded pages
+    """
+    params = {
+        "$top": 100,
+        "$orderby": "OpenHouseDate asc",
+    }
+
+    if filter_expression:
+        params["$filter"] = filter_expression
+
+    all_open_houses = []
+    url = DDF_OPEN_HOUSES_URL
+    page_count = 0
+    page_limit = max(0, int(max_pages or 0))
+
+    while url and (
+        page_limit == 0 or page_count < page_limit
+    ):
+        response = get_page_with_retries(
+            url,
+            headers=headers,
+            params=params if page_count == 0 else None,
+            progress_callback=progress_callback,
+        )
+
+        response_data = response.json()
+
+        page_open_houses = (
+            response_data.get("value", []) or []
+        )
+
+        all_open_houses.extend(page_open_houses)
+        page_count += 1
+
+        if progress_callback:
+            progress_callback(
+                f"Completed OpenHouse page {page_count:,}: "
+                f"{len(page_open_houses):,} events | "
+                f"{len(all_open_houses):,} total"
+            )
+
+        url = response_data.get("@odata.nextLink")
+        params = None
+
+        if url:
+            time.sleep(0.2)
+
+    return all_open_houses, page_count

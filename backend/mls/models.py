@@ -1449,3 +1449,73 @@ class ListingSubmissionMedia(models.Model):
 
     def __str__(self):
         return f"{self.get_media_type_display()} for submission {self.submission_id}"
+
+
+class OpenHouse(models.Model):
+    property = models.ForeignKey(
+        Property,
+        on_delete=models.CASCADE,
+        related_name="open_houses",
+    )
+
+    open_house_key = models.CharField(
+        max_length=255,
+        unique=True,
+    )
+
+    listing_id = models.CharField(
+        max_length=2000,
+        null=True,
+        blank=True,
+    )
+
+    date = models.DateField(
+        null=True,
+        blank=True,
+    )
+
+    start_time = models.TimeField(
+        null=True,
+        blank=True,
+    )
+
+    end_time = models.TimeField(
+        null=True,
+        blank=True,
+    )
+
+    remarks = models.TextField(
+        null=True,
+        blank=True,
+    )
+
+    open_house_type = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+    )
+
+    status = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+    )
+
+    livestream_url = models.URLField(
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ["date", "start_time"]
+        indexes = [
+            models.Index(fields=["date", "status"]),
+            models.Index(fields=["property", "date"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"OpenHouse<{self.open_house_key}> "
+            f"{self.property.listing_key} "
+            f"{self.date}"
+        )

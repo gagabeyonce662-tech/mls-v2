@@ -1,0 +1,39 @@
+57 objects imported automatically (use -v 2 for details).
+
+pages: 1
+events: 100
+
+{'ListingId': 'R3082084',
+ 'ListingKey': '29277363',
+ 'LivestreamOpenHouseURL': None,
+ 'OpenHouseDate': '2026-07-24',
+ 'OpenHouseEndTime': '16:00:00.00',
+ 'OpenHouseKey': '31598269',
+ 'OpenHouseRemarks': None,
+ 'OpenHouseStartTime': '12:00:00.00',
+ 'OpenHouseStatus': 'Active',
+ 'OpenHouseType': 'Open House'}
+--------------------------------------------------------------------------------
+{'ListingId': 'R3118267',
+ 'ListingKey': '29686578',
+ 'LivestreamOpenHouseURL': None,
+ 'OpenHouseDate': '2026-07-24',
+ 'OpenHouseEndTime': '16:00:00.00',
+ 'OpenHouseKey': '31598283',
+ 'OpenHouseRemarks': None,
+ 'OpenHouseStartTime': '12:00:00.00',
+ 'OpenHouseStatus': 'Active',
+ 'OpenHouseType': 'Open House'}
+--------------------------------------------------------------------------------
+{'ListingId': 'R3115163',
+ 'ListingKey': '29649803',
+ 'LivestreamOpenHouseURL': None,
+ 'OpenHouseDate': '2026-07-24',
+ 'OpenHouseEndTime': '15:00:00.00',
+ 'OpenHouseKey': '31605987',
+ 'OpenHouseRemarks': "Stop in and visit the showhome at #101 - we're there "
+                     'every Fri - Sun 12-3pm',
+ 'OpenHouseStartTime': '12:00:00.00',
+ 'OpenHouseStatus': 'Active',
+ 'OpenHouseType': 'Open House'}
+--------------------------------------------------------------------------------

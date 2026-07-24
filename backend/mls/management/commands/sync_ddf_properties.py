@@ -6,20 +6,32 @@ from django.db.models import Q
 from django.utils import timezone
 from mls.helpers import get_access_token
 from datetime import timedelta
-from mls.models import ListingSyncStatus, Property, Room, Media  # Replace with your actual app name
+from mls.models import (
+    ListingSyncStatus,
+    Media,
+    OpenHouse,
+    Property,
+    Room,
+)
 from mls.services.map_aggregates import rebuild_h3_aggregates
 from mls.snapshot_utils import (
     bulk_record_listing_first_seen,
     bulk_record_property_snapshots,
-)from mls.services.ddf.converters import (
+)
+from mls.services.ddf.converters import (
     safe_bool,
     safe_decimal,
     safe_int,
     safe_str,
 )
 from mls.services.ddf.mapper import map_property_defaults
-from mls.services.ddf.client import fetch_all_properties
-
+from mls.services.ddf.client import (
+    fetch_all_open_houses,
+    fetch_all_properties,
+)
+from mls.services.ddf.open_house_mapper import (
+    map_open_house_defaults,
+)
 
 class Command(BaseCommand):
     help = 'Maintain a small, recent DDF listing cache.'
@@ -224,6 +236,8 @@ class Command(BaseCommand):
             self.prune_expired_properties(retention_days)
         self.enforce_storage_limit(max_storage_mb)
 
+        self.sync_open_houses(headers)
+
         self.stdout.write("Rebuilding H3 map aggregates...")
         aggregate_cells = rebuild_h3_aggregates()
         self.stdout.write(
@@ -249,23 +263,25 @@ class Command(BaseCommand):
         insert_new_only,
         max_storage_mb,
     ):
-        """Fetch and commit each priority tier before requesting the next one.
-
-        DDF requests can take many minutes.  A staged commit ensures a timeout
-        or interruption later in the run never loses the listings fetched from
-        the earlier GTA cities.
-        """
+        """Fetch and commit each priority tier before requesting the next one."""
         downloaded_count = 0
         page_count = 0
         seen_listing_keys = set()
 
-        # The DDF API rejects very long ``or`` expressions.  Fetch each GTA
-        # city separately, sharing the tier's page budget across all cities.
-        gta_city_page_limit = max(1, max_pages // len(self.GTA_CITIES))
+        gta_city_page_limit = max(
+            1,
+            max_pages // len(self.GTA_CITIES),
+        )
+
         gta_tiers = tuple(
-            (f"GTA: {city}", f"City eq '{city}'", gta_city_page_limit)
+            (
+                f"GTA: {city}",
+                f"City eq '{city}'",
+                gta_city_page_limit,
+            )
             for city in self.GTA_CITIES
         )
+
         tiers = gta_tiers + (
             (
                 "remaining Ontario",
@@ -279,48 +295,279 @@ class Command(BaseCommand):
                 f"Fetching {tier_name} priority tier (up to "
                 f"{tier_page_limit * 100:,} listings)..."
             )
+
             properties, tier_pages = fetch_all_properties(
                 headers=headers,
                 filter_expression=filter_expression,
                 max_pages=tier_page_limit,
                 progress_callback=self.stdout.write,
             )
+
             page_count += tier_pages
             unique_properties = []
+
             for property_data in properties:
                 listing_key = property_data.get("ListingKey")
-                if listing_key and listing_key not in seen_listing_keys:
+
+                if (
+                    listing_key
+                    and listing_key not in seen_listing_keys
+                ):
                     seen_listing_keys.add(listing_key)
                     unique_properties.append(property_data)
 
             downloaded_count += len(unique_properties)
+
             if not unique_properties:
-                self.stdout.write(f"{tier_name}: no new listing keys to write.")
+                self.stdout.write(
+                    f"{tier_name}: no new listing keys to write."
+                )
                 continue
 
             self.stdout.write(
-                f"{tier_name}: committing {len(unique_properties):,} listings "
+                f"{tier_name}: committing "
+                f"{len(unique_properties):,} listings "
                 "before continuing..."
             )
+
             connections.close_all()
+
             self.bulk_upsert(
                 unique_properties,
                 batch_size=batch_size,
                 insert_new_only=insert_new_only,
                 max_storage_mb=max_storage_mb,
             )
+
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"{tier_name}: committed {len(unique_properties):,} listings."
+                    f"{tier_name}: committed "
+                    f"{len(unique_properties):,} listings."
                 )
             )
 
         self.stdout.write(
-            f"Downloaded and checkpointed {page_count:,} pages containing "
-            f"{downloaded_count:,} unique listings."
+            f"Downloaded and checkpointed {page_count:,} pages "
+            f"containing {downloaded_count:,} unique listings."
         )
+
         return downloaded_count, page_count
 
+
+    def sync_open_houses(self, headers):
+        self.stdout.write("Downloading DDF open houses...")
+
+        open_house_data, page_count = fetch_all_open_houses(
+            headers=headers,
+            progress_callback=self.stdout.write,
+        )
+
+        self.stdout.write(
+            f"Downloaded {page_count:,} OpenHouse pages containing "
+            f"{len(open_house_data):,} events."
+        )
+
+        cached_properties = (
+            Property.objects
+            .filter(category_type=Property.DDF)
+            .in_bulk(field_name="listing_key")
+        )
+
+        open_house_objects = []
+        seen_open_house_keys = set()
+
+        skipped_missing_key = 0
+        skipped_missing_property = 0
+
+        for data in open_house_data:
+            open_house_key = data.get("OpenHouseKey")
+            listing_key = data.get("ListingKey")
+
+            if not open_house_key or not listing_key:
+                skipped_missing_key += 1
+                continue
+
+            property_obj = cached_properties.get(listing_key)
+
+            if property_obj is None:
+                skipped_missing_property += 1
+                continue
+
+            if open_house_key in seen_open_house_keys:
+                continue
+
+            seen_open_house_keys.add(open_house_key)
+
+            open_house_objects.append(
+                OpenHouse(
+                    property=property_obj,
+                    open_house_key=open_house_key,
+                    **map_open_house_defaults(data),
+                )
+            )
+
+        OpenHouse.objects.filter(
+            property__category_type=Property.DDF
+        ).delete()
+
+        if open_house_objects:
+            OpenHouse.objects.bulk_create(
+                open_house_objects,
+                batch_size=1000,
+            )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Stored {len(open_house_objects):,} open houses. "
+                f"Skipped {skipped_missing_property:,} events for listings "
+                f"outside the local DDF cache and "
+                f"{skipped_missing_key:,} malformed events."
+            )
+        )
+
+    def sync_open_houses(self, headers):
+        self.stdout.write("Downloading DDF open houses...")
+
+        open_house_data, page_count = fetch_all_open_houses(
+            headers=headers,
+            progress_callback=self.stdout.write,
+        )
+
+        self.stdout.write(
+            f"Downloaded {page_count:,} OpenHouse pages containing "
+            f"{len(open_house_data):,} events."
+        )
+
+        cached_properties = Property.objects.filter(
+            category_type=Property.DDF
+        ).in_bulk(
+            field_name="listing_key"
+        )
+
+        open_house_objects = []
+        seen_open_house_keys = set()
+
+        skipped_missing_key = 0
+        skipped_missing_property = 0
+
+        for data in open_house_data:
+            open_house_key = data.get("OpenHouseKey")
+            listing_key = data.get("ListingKey")
+
+            if not open_house_key or not listing_key:
+                skipped_missing_key += 1
+                continue
+
+            property_obj = cached_properties.get(listing_key)
+
+            if property_obj is None:
+                skipped_missing_property += 1
+                continue
+
+            if open_house_key in seen_open_house_keys:
+                continue
+
+            seen_open_house_keys.add(open_house_key)
+
+            open_house_objects.append(
+                OpenHouse(
+                    property=property_obj,
+                    open_house_key=open_house_key,
+                    **map_open_house_defaults(data),
+                )
+            )
+
+        OpenHouse.objects.filter(
+            property__category_type=Property.DDF
+        ).delete()
+
+        if open_house_objects:
+            OpenHouse.objects.bulk_create(
+                open_house_objects,
+                batch_size=1000,
+            )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Stored {len(open_house_objects):,} open houses. "
+                f"Skipped {skipped_missing_property:,} events for listings "
+                f"outside the local DDF cache and "
+                f"{skipped_missing_key:,} malformed events."
+            )
+        )
+
+    def sync_open_houses(self, headers):
+        self.stdout.write("Downloading DDF open houses...")
+
+        open_house_data, page_count = fetch_all_open_houses(
+            headers=headers,
+            progress_callback=self.stdout.write,
+        )
+
+        self.stdout.write(
+            f"Downloaded {page_count:,} OpenHouse pages containing "
+            f"{len(open_house_data):,} events."
+        )
+
+        cached_properties = Property.objects.filter(
+            category_type=Property.DDF
+        ).in_bulk(
+            field_name="listing_key"
+        )
+
+        open_house_objects = []
+        seen_open_house_keys = set()
+
+        skipped_missing_key = 0
+        skipped_missing_property = 0
+
+        for data in open_house_data:
+            open_house_key = data.get("OpenHouseKey")
+            listing_key = data.get("ListingKey")
+
+            if not open_house_key or not listing_key:
+                skipped_missing_key += 1
+                continue
+
+            property_obj = cached_properties.get(listing_key)
+
+            if property_obj is None:
+                skipped_missing_property += 1
+                continue
+
+            if open_house_key in seen_open_house_keys:
+                continue
+
+            seen_open_house_keys.add(open_house_key)
+
+            open_house_objects.append(
+                OpenHouse(
+                    property=property_obj,
+                    open_house_key=open_house_key,
+                    **map_open_house_defaults(data),
+                )
+            )
+
+        OpenHouse.objects.filter(
+            property__category_type=Property.DDF
+        ).delete()
+
+        if open_house_objects:
+            OpenHouse.objects.bulk_create(
+                open_house_objects,
+                batch_size=1000,
+            )
+
+        
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Stored {len(open_house_objects):,} open houses. "
+                f"Skipped {skipped_missing_property:,} events for listings "
+                f"outside the local DDF cache and "
+                f"{skipped_missing_key:,} malformed events."
+            )
+        )
     def initialize_small_cache(self):
         """Discard the old full-catalogue cache exactly once.
 
