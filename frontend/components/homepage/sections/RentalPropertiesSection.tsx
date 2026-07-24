@@ -15,8 +15,12 @@ export function RentalPropertiesSection() {
    */
   const { openQuickView } = useQuickView();
   const { properties, totalCount, isLoading, requestedCount } =
-    useOneRowListing((p) => fetchLeaseProperties(p));
-
+    useOneRowListing((p) =>
+      fetchLeaseProperties({
+        ...p,
+        has_photos: true,
+      }),
+    );
   return (
     <PropertyGridSection
       title="Rental Properties"

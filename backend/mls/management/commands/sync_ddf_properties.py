@@ -8,7 +8,7 @@ from mls.helpers import get_access_token
 from datetime import timedelta
 from mls.models import ListingSyncStatus, Property, Room, Media  # Replace with your actual app name
 from mls.services.map_aggregates import rebuild_h3_aggregates
-from mls.snapshot_utils import bulk_record_listing_first_seen
+from mls.snapshot_utils import (bulk_record_listing_first_seen, record_property_snapshot)
 from mls.services.ddf.converters import (
     safe_bool,
     safe_decimal,

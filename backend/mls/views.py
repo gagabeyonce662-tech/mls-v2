@@ -2017,6 +2017,9 @@ class LeasePropertiesAPIView(APIView):
             ("-lease_amount", "-modification_timestamp"),
         )
 
+        if request.query_params.get("has_photos") in ("true", "1", "True"):
+            qs = qs.filter(photos_count__gt=0)
+
         # Pagination
         paginator = Paginator(qs, limit)
         page = paginator.get_page((offset // limit) + 1)
