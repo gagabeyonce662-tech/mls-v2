@@ -179,6 +179,8 @@ MAP_FILTER_KEYS = {
     "lot_size_min",
     "lot_size_max",
     "community_slug",
+    "structure_type",
+    "common_interest",
 }
 SEARCH_TEXT_FIELDS = [
     "unparsed_address",
@@ -348,6 +350,24 @@ def _apply_common_filters(
         types = _split_csv(params.get("property_type", ""))
         if types:
             qs = qs.filter(property_sub_type__in=types)
+    if params.get("structure_type"):
+        structure_types = _split_csv(params.get("structure_type", ""))
+        if structure_types:
+            structure_q = Q()
+
+            for structure_type in structure_types:
+                structure_q |= Q(structure_type__icontains=structure_type)
+
+            qs = qs.filter(structure_q)
+    if params.get("common_interest"):
+        common_interests = _split_csv(params.get("common_interest", ""))
+        if common_interests:
+            common_interest_q = Q()
+
+            for common_interest in common_interests:
+                common_interest_q |= Q(common_interest__iexact=common_interest)
+
+            qs = qs.filter(common_interest_q)
     if include_location:
         qs = _apply_location_filters(
             qs,
@@ -551,6 +571,25 @@ def _apply_map_filters_to_queryset(qs, params):
         ]
         if types:
             qs = qs.filter(property_sub_type__in=types)
+    if params.get("structure_type"):
+        structure_types = _split_csv(params.get("structure_type", ""))
+        if structure_types:
+            structure_q = Q()
+
+            for structure_type in structure_types:
+                structure_q |= Q(structure_type__icontains=structure_type)
+
+            qs = qs.filter(structure_q)
+
+    if params.get("common_interest"):
+        common_interests = _split_csv(params.get("common_interest", ""))
+        if common_interests:
+            common_interest_q = Q()
+
+            for common_interest in common_interests:
+                common_interest_q |= Q(common_interest__iexact=common_interest)
+
+            qs = qs.filter(common_interest_q)
     if params.get("status"):
         qs = qs.filter(standard_status=params.get("status").strip())
     status_group_q = _build_status_group_q(params.get("status_group"))

@@ -1,4 +1,7 @@
-import type { HomepageCategory, HomepageCategoryCatalog } from "@/lib/api/types";
+import type {
+  HomepageCategory,
+  HomepageCategoryCatalog,
+} from "@/lib/api/types";
 
 export interface HomepageCategoryConfigItem {
   key: string;
@@ -63,7 +66,10 @@ export const HOMEPAGE_CATEGORY_DEFAULTS: HomepageCategoryConfigItem[] = [
     label: "Condo Apartments",
     kind: "property_type",
     route: "/listing",
-    query: { property_type: "Condo Apt" },
+    query: {
+      structure_type: "Apartment",
+      common_interest: "Condo/Strata",
+    },
     order: 50,
     enabled: true,
     minCount: 5,
@@ -96,7 +102,10 @@ export const HOMEPAGE_CATEGORY_DEFAULTS: HomepageCategoryConfigItem[] = [
     label: "Freehold Townhouses",
     kind: "property_type",
     route: "/listing",
-    query: { property_type: "Freehold Townhouse" },
+    query: {
+      structure_type: "Row / Townhouse",
+      common_interest: "Freehold",
+    },
     order: 80,
     enabled: true,
     minCount: 5,
@@ -107,7 +116,10 @@ export const HOMEPAGE_CATEGORY_DEFAULTS: HomepageCategoryConfigItem[] = [
     label: "Condo Townhouses",
     kind: "property_type",
     route: "/listing",
-    query: { property_type: "Condo Townhouse" },
+    query: {
+      structure_type: "Row / Townhouse",
+      common_interest: "Condo/Strata",
+    },
     order: 90,
     enabled: true,
     minCount: 5,
@@ -120,9 +132,8 @@ export const HOMEPAGE_MIN_COUNT_THRESHOLD = 5;
 
 export const toCatalogFallback = (): HomepageCategoryCatalog => ({
   fetchedAt: new Date().toISOString(),
-  categories: HOMEPAGE_CATEGORY_DEFAULTS
-    .filter((item) => item.enabled)
-    .map((item) => ({
+  categories: HOMEPAGE_CATEGORY_DEFAULTS.filter((item) => item.enabled).map(
+    (item) => ({
       key: item.key,
       kind: item.kind,
       label: item.label,
@@ -132,11 +143,15 @@ export const toCatalogFallback = (): HomepageCategoryCatalog => ({
       query: item.query,
       source: "fallback" as const,
       order: item.order,
-    })),
+    }),
+  ),
 });
 
 const normalize = (value: string): string =>
-  value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-");
 
 const PROPERTY_TYPE_ALIASES: Record<string, string> = {
   "condo-apartment": "condo-apt",
@@ -160,7 +175,9 @@ export function mergeHomepageCategories(
   backend: HomepageCategory[],
   options?: { maxSections?: number; minCountThreshold?: number },
 ): HomepageCategory[] {
-  const configMap = new Map(HOMEPAGE_CATEGORY_DEFAULTS.map((cfg) => [cfg.key, cfg]));
+  const configMap = new Map(
+    HOMEPAGE_CATEGORY_DEFAULTS.map((cfg) => [cfg.key, cfg]),
+  );
   const maxSections = options?.maxSections ?? HOMEPAGE_MAX_SECTIONS;
   const minCountThreshold =
     options?.minCountThreshold ?? HOMEPAGE_MIN_COUNT_THRESHOLD;
@@ -172,9 +189,13 @@ export function mergeHomepageCategories(
       if (!cfg.enabled) return null;
 
       const threshold = Math.max(cfg.minCount, minCountThreshold);
-      const isAlwaysVisible = ["newly_listed", "exclusive", "community", "rental", "precon"].includes(
-        cfg.key,
-      );
+      const isAlwaysVisible = [
+        "newly_listed",
+        "exclusive",
+        "community",
+        "rental",
+        "precon",
+      ].includes(cfg.key);
       const hasCount = Number.isFinite(category.count);
       if (!isAlwaysVisible) {
         if (hasCount && category.count < threshold) return null;
@@ -194,6 +215,25 @@ export function mergeHomepageCategories(
     .filter(isHomepageCategory)
     .sort((a, b) => a.order - b.order);
 
+  const knownKeys = new Set(known.map((category) => category.key));
+
+  const configuredDerivedCategories: HomepageCategory[] =
+    HOMEPAGE_CATEGORY_DEFAULTS.filter((cfg) => cfg.enabled)
+      .filter((cfg) => cfg.kind === "property_type")
+      .filter((cfg) => cfg.allowWhenCountMissing)
+      .filter((cfg) => !knownKeys.has(cfg.key))
+      .map((cfg) => ({
+        key: cfg.key,
+        kind: cfg.kind,
+        label: cfg.label,
+        count: Number.NaN,
+        enabled: true,
+        route: cfg.route,
+        query: cfg.query,
+        source: "fallback" as const,
+        order: cfg.order,
+      }));
+
   const unknownPropertyTypes = backend
     .filter((category) => category.kind === "property_type")
     .filter((category) => !configMap.has(category.key))
@@ -211,8 +251,13 @@ export function mergeHomepageCategories(
       query: category.query,
     }));
 
-  const merged = [...known, ...unknownPropertyTypes].slice(0, maxSections);
-
+  const merged = [
+    ...known,
+    ...configuredDerivedCategories,
+    ...unknownPropertyTypes,
+  ]
+    .sort((a, b) => a.order - b.order)
+    .slice(0, maxSections);
   if (merged.length === 0) {
     return toCatalogFallback().categories;
   }

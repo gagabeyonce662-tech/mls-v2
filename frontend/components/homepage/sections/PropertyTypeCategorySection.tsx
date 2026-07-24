@@ -3,8 +3,10 @@
 import { useMemo } from "react";
 import { useOneRowListing } from "@/hooks/useOneRowListing";
 import { PropertyGridSection } from "@/components/shared/PropertyGridSection";
-import { fetchFilteredProperties } from "@/lib/api/properties";
-import { mapPropertyFromAPI } from "@/lib/api/properties";
+import {
+  fetchFilteredProperties,
+  mapPropertyFromAPI,
+} from "@/lib/api/properties";
 import { useQuickView } from "@/contexts/QuickViewContext";
 import type { HomepageCategory } from "@/lib/api/types";
 import { trackHomepageCategoryEvent } from "@/lib/analytics/homepageCategories";
@@ -17,15 +19,21 @@ export function PropertyTypeCategorySection({
   category,
 }: PropertyTypeCategorySectionProps) {
   const { openQuickView } = useQuickView();
-  const propertyType = category.query?.property_type || "";
+
+  const categoryQuery = category.query ?? {};
+  const queryKey = JSON.stringify(categoryQuery);
 
   const fetcher = useMemo(
     () => async (params: { limit: number; offset: number }) => {
       const data = await fetchFilteredProperties({
         ...params,
-        property_sub_type: propertyType,
+        ...categoryQuery,
       });
-      const mapped = (data.results || []).map((item: any) => mapPropertyFromAPI(item));
+
+      const mapped = (data.results || []).map((item: any) =>
+        mapPropertyFromAPI(item),
+      );
+
       return {
         results: mapped,
         count: Number(data.count || mapped.length || 0),
@@ -33,24 +41,22 @@ export function PropertyTypeCategorySection({
         previous: data.previous ?? null,
       };
     },
-    [propertyType],
+    [queryKey],
   );
 
-  const { properties, totalCount, isLoading, requestedCount } = useOneRowListing(fetcher, [
-    propertyType,
-  ]);
+  const { properties, totalCount, isLoading, requestedCount } =
+    useOneRowListing(fetcher, [queryKey]);
+
+  const viewAllHref =
+    Object.keys(categoryQuery).length > 0
+      ? `${category.route}?${new URLSearchParams(categoryQuery).toString()}`
+      : category.route;
 
   return (
     <PropertyGridSection
       title={category.label}
       subtitle={`${totalCount || properties.length} properties available`}
-      viewAllHref={
-        category.query && Object.keys(category.query).length > 0
-          ? `${category.route}?${new URLSearchParams({
-              property_sub_type: propertyType,
-            }).toString()}`
-          : category.route
-      }
+      viewAllHref={viewAllHref}
       properties={properties}
       totalCount={totalCount}
       isLoading={isLoading}
