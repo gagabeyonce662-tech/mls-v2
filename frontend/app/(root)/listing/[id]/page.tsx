@@ -173,7 +173,10 @@ export default async function ListingPage(props: ListingPageProps) {
   const uiPropertyType = getPropertyType(property);
   // Normalizer sets all address/title fields to the listing_key as last resort,
   // so filter out purely-numeric values (those are listing IDs, not display text).
-  const _nn = (v: unknown) => { const s = String(v ?? "").trim(); return !s || /^\d+$/.test(s) ? "" : s; };
+  const _nn = (v: unknown) => {
+    const s = String(v ?? "").trim();
+    return !s || /^\d+$/.test(s) ? "" : s;
+  };
   const headline =
     _nn(property.project_name) ||
     _nn(property.property_title) ||
@@ -276,14 +279,12 @@ export default async function ListingPage(props: ListingPageProps) {
 
   if (hasValidCoordinates) {
     try {
-      nearestSchoolsData = await fetchNearestSchools(
-        latitude,
-        longitude,
-        schoolRadiusMeters,
-      );
-      nearbyAmenities = await fetchNearbyAmenities(latitude, longitude, 1800);
+      [nearestSchoolsData, nearbyAmenities] = await Promise.all([
+        fetchNearestSchools(latitude, longitude, schoolRadiusMeters),
+        fetchNearbyAmenities(latitude, longitude, 1800),
+      ]);
     } catch (error) {
-      console.error("Failed to fetch nearest schools:", error);
+      console.error("Failed to fetch location data:", error);
       schoolFetchFailed = true;
     }
   }
