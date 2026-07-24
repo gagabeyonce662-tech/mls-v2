@@ -92,6 +92,11 @@ urlpatterns = [
     path('census/fsa/<str:fsa>/', CensusFSAAPIView.as_view(), name='census-fsa'),
     path('properties/<str:listing_key>/snapshots/', PropertySnapshotsAPIView.as_view(), name='property-snapshots'),
     path('property-notes/', PropertyNoteAPIView.as_view(), name='property-notes'),
+    path(
+        'properties/open-houses/',
+        OpenHouseListAPIView.as_view(),
+        name='open-house-list',
+    ),
     path('properties/<str:PropertyKey>/', PropertyDetailView.as_view(), name='property_detail_path'),
     path('estate-properties/schema/', EstatePropertySchemaAPIView.as_view(), name='estate-property-schema'),
     path('estate-properties/media-upload/', EstatePropertyMediaUploadAPIView.as_view(), name='estate-property-media-upload'),

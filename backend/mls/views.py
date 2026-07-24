@@ -79,6 +79,7 @@ from mls.services.ai_listing_summary import (
     SUMMARY_PROMPT_VERSION,
 )
 from mls.services.recommendations import build_recommendation_payload
+from mls.services.redis_cache import get_cached_open_houses
 
 logger = logging.getLogger(__name__)
 # Shared TTL for map bbox responses (aggregates + property filter). Override via env; default 15m fits ~24h listing refresh cadence.
@@ -1749,6 +1750,44 @@ class PropertyDetailView(APIView):
         auth=[],
     )
     def get(self, request, PropertyKey):
+        if not PropertyKey:
+            return Response(
+                {"error": "PropertyKey is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        property_obj = (
+            Property.objects
+            .prefetch_related(
+                "media",
+                "rooms",
+            )
+            .filter(
+                listing_key=PropertyKey,
+            )
+            .first()
+        )
+
+        if property_obj is None:
+            return Response(
+                {
+                    "error": (
+                        "Property not found for the given "
+                        "PropertyKey."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = PropertyDetailSerializer(
+            property_obj,
+            context={"request": request},
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )
 
         property_keys = request.GET.getlist('PropertyKey')
         # Validate PropertyKey
@@ -3081,4 +3120,30 @@ class PropertyNoteAPIView(APIView):
         )
         return Response(
             {"listing_key": lk, "body": note.body, "updated_at": note.updated_at}
+        )
+
+
+class OpenHouseListAPIView(APIView):
+    """
+    Return Open House listings cached in Redis.
+    """
+
+    def get(self, request):
+        open_houses = get_cached_open_houses()
+
+        if open_houses is None:
+            return Response(
+                {
+                    "count": 0,
+                    "results": [],
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {
+                "count": len(open_houses),
+                "results": open_houses,
+            },
+            status=status.HTTP_200_OK,
         )

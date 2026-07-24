@@ -1521,3 +1521,138 @@ export async function fetchListingEngagement(
     return null;
   }
 }
+export interface OpenHouseEvent {
+  open_house_key: string | null;
+  date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  type: string | null;
+  status: string | null;
+  remarks: string | null;
+  livestream_url: string | null;
+}
+
+interface OpenHousePropertyPayload {
+  listing_key: string;
+  listing_id: string | null;
+  price: number | string | null;
+  address: string | null;
+  city: string | null;
+  province: string | null;
+  postal_code: string | null;
+  property_type: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  latitude: number | string | null;
+  longitude: number | string | null;
+  image_url: string | null;
+}
+
+interface RawOpenHouseListing {
+  open_house: OpenHouseEvent;
+  property: OpenHousePropertyPayload;
+}
+
+export interface OpenHouseListing {
+  open_house: OpenHouseEvent;
+  property: Property;
+}
+
+export interface OpenHouseResponse {
+  count: number;
+  results: OpenHouseListing[];
+}
+
+function mapOpenHouseProperty(raw: OpenHousePropertyPayload): Property {
+  const media = raw.image_url
+    ? [
+        {
+          media_url: raw.image_url,
+          media_category: "Photo",
+          is_preferred: true,
+          order: 1,
+        },
+      ]
+    : [];
+
+  return mapPropertyFromAPI({
+    listing_key: raw.listing_key,
+    listing_id: raw.listing_id,
+
+    list_price: raw.price,
+
+    unparsed_address: raw.address,
+    address: raw.address,
+
+    city: raw.city,
+    state_or_province: raw.province,
+    province: raw.province,
+    postal_code: raw.postal_code,
+
+    property_sub_type: raw.property_type,
+
+    bedrooms_total: raw.bedrooms,
+    bathrooms_total_integer: raw.bathrooms,
+
+    latitude: raw.latitude,
+    longitude: raw.longitude,
+
+    standard_status: "Active",
+
+    media,
+
+    // Legacy aliases used by some existing frontend helpers.
+    ListingKey: raw.listing_key,
+    PropertyKey: raw.listing_key,
+    ListingId: raw.listing_id,
+    ListPrice: raw.price,
+    City: raw.city,
+    StateOrProvince: raw.province,
+    PostalCode: raw.postal_code,
+    PropertySubType: raw.property_type,
+    BedroomsTotal: raw.bedrooms,
+    BathroomsTotalInteger: raw.bathrooms,
+    Latitude: raw.latitude,
+    Longitude: raw.longitude,
+    StandardStatus: "Active",
+
+    Media: raw.image_url ? [{ MediaURL: raw.image_url }] : [],
+
+    Photos: raw.image_url ? [{ PhotoURL: raw.image_url }] : [],
+  });
+}
+
+export async function fetchOpenHouses(): Promise<OpenHouseResponse> {
+  try {
+    const response = await fetchAPI<{
+      count: number;
+      results: RawOpenHouseListing[];
+    }>(`${API_BASE_URL}/api/mls/properties/open-houses/`, {
+      next: {
+        revalidate: 300,
+      },
+    });
+
+    const results = Array.isArray(response.results)
+      ? response.results
+          .filter((row) => row?.open_house && row?.property?.listing_key)
+          .map((row) => ({
+            open_house: row.open_house,
+            property: mapOpenHouseProperty(row.property),
+          }))
+      : [];
+
+    return {
+      count:
+        typeof response.count === "number" ? response.count : results.length,
+      results,
+    };
+  } catch (error) {
+    console.error("Error fetching Open House listings:", error);
+
+    return {
+      count: 0,
+      results: [],
+    };
+  }
+}

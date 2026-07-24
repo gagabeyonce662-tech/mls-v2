@@ -6,11 +6,11 @@ import { MobileHeader } from "@/components/header/MobileHeader";
 export default function Header() {
   const navigation = [
     { name: "Map Search", href: "/map-search" },
+    { name: "Open Houses", href: "/open-houses" },
     { name: "Trends", href: "/trends" },
     { name: "Home Valuation", href: "/valuation" },
     { name: "Watched", href: "/watched" },
     { name: "Our Properties", href: "/pre-construction" },
-    { name: "PreCon", href: "/precon-listings" },
     { name: "Blog", href: "/blog" },
   ];
 
