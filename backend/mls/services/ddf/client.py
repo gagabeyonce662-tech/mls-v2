@@ -161,6 +161,51 @@ def fetch_all_properties(
     return all_properties, page_count
 
 
+def fetch_properties_by_listing_keys(
+    headers,
+    listing_keys,
+    progress_callback=None,
+):
+    """
+    Fetch DDF Property records for specific ListingKey values.
+
+    Keys are chunked to avoid creating an excessively large
+    OData filter expression.
+    """
+    cleaned_keys = [
+        str(key).strip()
+        for key in listing_keys
+        if key is not None and str(key).strip()
+    ]
+
+    if not cleaned_keys:
+        return []
+
+    properties = []
+    chunk_size = 20
+
+    for index in range(0, len(cleaned_keys), chunk_size):
+        chunk = cleaned_keys[index:index + chunk_size]
+
+        quoted_keys = ", ".join(
+            f"'{key}'"
+            for key in chunk
+        )
+
+        filter_expression = (
+            f"ListingKey in ({quoted_keys})"
+        )
+
+        chunk_properties, _ = fetch_all_properties(
+            headers=headers,
+            filter_expression=filter_expression,
+            progress_callback=progress_callback,
+        )
+
+        properties.extend(chunk_properties)
+
+    return properties
+
 def fetch_all_open_houses(
     headers,
     filter_expression=None,

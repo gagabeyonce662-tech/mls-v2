@@ -6,6 +6,7 @@ from django.test import SimpleTestCase
 from mls.services.ddf.client import (
     fetch_all_open_houses,
     get_page_with_retries,
+    fetch_properties_by_listing_keys,
 )
 
 class DDFClientTests(SimpleTestCase):
@@ -88,4 +89,26 @@ class DDFClientTests(SimpleTestCase):
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0]["OpenHouseKey"], "OH-1")
         self.assertEqual(results[1]["OpenHouseKey"], "OH-2")
-        
+
+    @patch("mls.services.ddf.client.fetch_all_properties")
+    def test_fetch_properties_by_listing_keys_chunks_requests(
+        self,
+        mock_fetch,
+    ):
+        mock_fetch.return_value = (
+            [{"ListingKey": "TEST"}],
+            1,
+        )
+
+        listing_keys = [
+            str(number)
+            for number in range(25)
+        ]
+
+        results = fetch_properties_by_listing_keys(
+            headers={"Authorization": "Bearer token"},
+            listing_keys=listing_keys,
+        )
+
+        self.assertEqual(mock_fetch.call_count, 2)
+        self.assertEqual(len(results), 2)
