@@ -86,3 +86,54 @@ def bulk_record_listing_first_seen(rows: Iterable[tuple[str, object]]) -> None:
         ListingFirstSeen.objects.bulk_create(to_create, ignore_conflicts=True)
     except Exception as e:
         logger.warning("bulk_record_listing_first_seen failed: %s", e)
+
+
+def bulk_record_property_snapshots(rows: Iterable[tuple[str, object, str, object]]) -> None:
+    """
+    Bulk-create PropertySnapshot rows.
+
+    Each row is:
+        (
+            listing_key,
+            list_price,
+            standard_status,
+            source_modification_timestamp,
+        )
+
+    The caller is responsible for including only listings whose tracked
+    values actually changed, plus newly-created listings.
+    """
+    from mls.models import PropertySnapshot
+
+    try:
+        snapshots = []
+        seen = set()
+
+        for listing_key, list_price, standard_status, source_ts in rows:
+            key = (listing_key or "").strip()
+
+            if not key or key in seen:
+                continue
+
+            seen.add(key)
+
+            snapshots.append(
+                PropertySnapshot(
+                    listing_key=key,
+                    list_price=list_price,
+                    standard_status=(standard_status or "").strip(),
+                    source_modification_timestamp=source_ts,
+                )
+            )
+
+        if snapshots:
+            PropertySnapshot.objects.bulk_create(
+                snapshots,
+                batch_size=1000,
+            )
+
+    except Exception as exc:
+        logger.warning(
+            "bulk_record_property_snapshots failed: %s",
+            exc,
+        )

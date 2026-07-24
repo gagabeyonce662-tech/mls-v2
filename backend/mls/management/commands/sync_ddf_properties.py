@@ -8,8 +8,10 @@ from mls.helpers import get_access_token
 from datetime import timedelta
 from mls.models import ListingSyncStatus, Property, Room, Media  # Replace with your actual app name
 from mls.services.map_aggregates import rebuild_h3_aggregates
-from mls.snapshot_utils import (bulk_record_listing_first_seen, record_property_snapshot)
-from mls.services.ddf.converters import (
+from mls.snapshot_utils import (
+    bulk_record_listing_first_seen,
+    bulk_record_property_snapshots,
+)from mls.services.ddf.converters import (
     safe_bool,
     safe_decimal,
     safe_int,
@@ -484,6 +486,7 @@ class Command(BaseCommand):
         media_objs = []
         properties_to_update = []
         first_seen_rows = []
+        snapshot_rows = []
 
         for data in batch:
             key = data.get("ListingKey")
@@ -499,13 +502,50 @@ class Command(BaseCommand):
             if key in existing:
                 if insert_new_only:
                     continue
+
                 prop = existing[key]
+
+                old_price = prop.list_price
+                old_status = (prop.standard_status or "").strip()
+                old_modification_timestamp = prop.modification_timestamp
+
+                new_price = defaults.get("list_price")
+                new_status = (defaults.get("standard_status") or "").strip()
+                new_modification_timestamp = defaults.get("modification_timestamp")
+
+                snapshot_changed = (
+                    old_price != new_price
+                    or old_status != new_status
+                    or old_modification_timestamp != new_modification_timestamp
+                )
+
                 for field, value in defaults.items():
                     setattr(prop, field, value)
+
                 properties_to_update.append(prop)
+
+                if snapshot_changed:
+                    snapshot_rows.append(
+                        (
+                            key,
+                            new_price,
+                            new_status,
+                            new_modification_timestamp,
+                        )
+                    )
+
             else:
                 prop = Property(listing_key=key, **defaults)
                 property_objs.append(prop)
+
+                snapshot_rows.append(
+                    (
+                        key,
+                        defaults.get("list_price"),
+                        defaults.get("standard_status") or "",
+                        defaults.get("modification_timestamp"),
+                    )
+                )
 
             # === Rooms ===
             for r in data.get("Rooms", []):
@@ -554,6 +594,9 @@ class Command(BaseCommand):
 
         if first_seen_rows:
             bulk_record_listing_first_seen(first_seen_rows)
+
+        if snapshot_rows:
+            bulk_record_property_snapshots(snapshot_rows)
 
 
 # Incremental sync
