@@ -1340,9 +1340,12 @@ export type ListingSyncStatusPayload = {
 
 export async function fetchListingSyncStatus(): Promise<ListingSyncStatusPayload | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/mls/listing-sync-status/`, {
-      cache: "no-store",
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/api/mls/listing-sync-status/`,
+      {
+        cache: "no-store",
+      },
+    );
     if (!response.ok) return null;
     return (await response.json()) as ListingSyncStatusPayload;
   } catch {
@@ -1489,6 +1492,32 @@ export async function fetchListingTrends(params: {
     if (!res.ok) return null;
     return (await res.json()) as ListingTrendsResponse;
   } catch {
+    return null;
+  }
+}
+
+export type ListingEngagementPayload = {
+  listing_key: string;
+  views_7d: number;
+  views_30d: number;
+  activity_band: string;
+  peer_views_7d_sample?: number;
+  peer_context_note?: string;
+};
+
+export async function fetchListingEngagement(
+  listingKey: string,
+): Promise<ListingEngagementPayload | null> {
+  try {
+    const url =
+      `${API_BASE_URL}/api/mls/listing-engagement/` +
+      `?listing_key=${encodeURIComponent(listingKey)}`;
+
+    return await fetchAPI<ListingEngagementPayload>(url, {
+      next: { revalidate: 60 },
+    });
+  } catch (error) {
+    console.error("Error fetching listing engagement:", error);
     return null;
   }
 }

@@ -456,10 +456,20 @@ export default async function ListingPage(props: ListingPageProps) {
 
           <aside className="space-y-6">
             <PropertySidebar property={property} city={getCity()} />
-            <ListingEngagementMeter
-              listingKey={listingKeyStr}
-              title={t("engagementTitle")}
-            />
+            <Suspense
+              fallback={
+                <div className="rounded-2xl border border-ds-card-border bg-white p-6">
+                  <p className="text-sm text-ds-body">
+                    Loading listing activity...
+                  </p>
+                </div>
+              }
+            >
+              <ListingEngagementMeter
+                listingKey={listingKeyStr}
+                title={t("engagementTitle")}
+              />
+            </Suspense>
             <PropertyNotesPanel
               listingKey={listingKeyStr}
               title={t("myNotesTitle")}

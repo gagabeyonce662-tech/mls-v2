@@ -2892,6 +2892,11 @@ class ListingEngagementAPIView(APIView):
 
     def get(self, request):
         lk = (request.query_params.get("listing_key") or "").strip()
+        cache_key = f"listing-engagement:{lk}"
+        cached_payload = cache.get(cache_key)
+
+        if cached_payload is not None:
+            return Response(cached_payload)
         if not lk:
             return Response(
                 {"error": "listing_key required"},
@@ -2926,16 +2931,21 @@ class ListingEngagementAPIView(APIView):
             activity = "high"
         elif views_7d >= 5:
             activity = "medium"
-        return Response(
-            {
-                "listing_key": lk,
-                "views_7d": views_7d,
-                "views_30d": views_30d,
-                "activity_band": activity,
-                "peer_views_7d_sample": peer_views,
-                "peer_context_note": "Counts reflect traffic on this site only (approximate peer sample by city).",
-            }
-        )
+        payload = {
+            "listing_key": lk,
+            "views_7d": views_7d,
+            "views_30d": views_30d,
+            "activity_band": activity,
+            "peer_views_7d_sample": peer_views,
+            "peer_context_note": (
+                "Counts reflect traffic on this site only "
+                "(approximate peer sample by city)."
+            ),
+        }
+
+        cache.set(cache_key, payload, 60)
+
+        return Response(payload)
 
 
 class CensusFSAAPIView(APIView):
