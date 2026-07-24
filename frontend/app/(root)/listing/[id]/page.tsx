@@ -1,5 +1,5 @@
 // app/(root)/listing/[id]/page.tsx
-import React, { cache } from "react";
+import React, { cache, Suspense } from "react";
 import { Metadata } from "next";
 import { Home as HomeIcon } from "lucide-react";
 import Header from "@/components/Header";
@@ -8,8 +8,6 @@ import GalleryGateWrapper from "@/components/listing/GalleryGateWrapper";
 import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
 import { ds } from "@/lib/design-system-utils";
 import {
-  fetchNearestSchools,
-  fetchNearbyAmenities,
   fetchPropertyByKey,
   fetchListingCatalogStats,
   fetchPropertySnapshots,
@@ -24,7 +22,6 @@ import PropertyHistory from "@/components/listing/details/PropertyHistory";
 import PropertyDetailsGrid from "@/components/listing/details/PropertyDetailsGrid";
 import PropertySidebar from "@/components/listing/details/PropertySidebar";
 import ListingAISummary from "@/components/listing/details/ListingAISummary";
-import NearestSchoolsSection from "../../../../components/listing/details/NearestSchoolsSection";
 import SimilarProperties from "@/components/listing/SimilarProperties";
 import { PropertyViewerTracker } from "@/components/listing/PropertyViewerTracker";
 import ListingCatalogStatsSection from "@/components/listing/details/ListingCatalogStatsSection";
@@ -34,7 +31,6 @@ import PropertyNotesPanel from "@/components/listing/details/PropertyNotesPanel"
 import { MortgageCalculator } from "@/components/ui/MortgageCalculator";
 import { CashflowCalculator } from "@/components/calculators/CashflowCalculator";
 import ClosingCostsEstimator from "@/components/listing/details/ClosingCostsEstimator";
-import ListingAmenitiesSection from "@/components/listing/details/ListingAmenitiesSection";
 import ListingFeatureStatusSection from "@/components/listing/details/ListingFeatureStatusSection";
 import {
   getAnnualTaxDisplayWithYear,
@@ -56,6 +52,8 @@ import {
   getPropertyHistorySource,
 } from "@/lib/listingDisplay";
 import { getTranslations } from "next-intl/server";
+
+import LocationInsights from "@/components/listing/details/LocationInsights";
 
 /** One property fetch per request (shared by generateMetadata + page). */
 const getCachedPropertyByKey = cache(fetchPropertyByKey);
@@ -271,24 +269,6 @@ export default async function ListingPage(props: ListingPageProps) {
     longitude >= -180 &&
     longitude <= 180;
 
-  const schoolRadiusMeters = 5000;
-  let nearestSchoolsData: Awaited<ReturnType<typeof fetchNearestSchools>> =
-    null;
-  let nearbyAmenities: Awaited<ReturnType<typeof fetchNearbyAmenities>> = null;
-  let schoolFetchFailed = false;
-
-  if (hasValidCoordinates) {
-    try {
-      [nearestSchoolsData, nearbyAmenities] = await Promise.all([
-        fetchNearestSchools(latitude, longitude, schoolRadiusMeters),
-        fetchNearbyAmenities(latitude, longitude, 1800),
-      ]);
-    } catch (error) {
-      console.error("Failed to fetch location data:", error);
-      schoolFetchFailed = true;
-    }
-  }
-
   return (
     <div className="min-h-screen bg-ds-background">
       <Header />
@@ -375,19 +355,24 @@ export default async function ListingPage(props: ListingPageProps) {
               profile={census?.profile ?? null}
               headingPrefix={t("demographicsTitle")}
             />
-
-            <NearestSchoolsSection
-              schools={nearestSchoolsData?.nearest_schools || []}
-              radiusMeters={
-                nearestSchoolsData?.search_radius_m || schoolRadiusMeters
-              }
-              hasCoordinates={hasValidCoordinates}
-              isUnavailable={
-                schoolFetchFailed ||
-                (!nearestSchoolsData && hasValidCoordinates)
-              }
-            />
-            <ListingAmenitiesSection amenities={nearbyAmenities} />
+            {hasValidCoordinates && latitude !== null && longitude !== null ? (
+              <Suspense
+                fallback={
+                  <div className="py-8 text-sm text-ds-body">
+                    Loading nearby schools and amenities...
+                  </div>
+                }
+              >
+                <LocationInsights latitude={latitude} longitude={longitude} />
+              </Suspense>
+            ) : (
+              <NearestSchoolsSection
+                schools={[]}
+                radiusMeters={5000}
+                hasCoordinates={false}
+                isUnavailable={false}
+              />
+            )}
             <ListingFeatureStatusSection
               rows={[
                 {
