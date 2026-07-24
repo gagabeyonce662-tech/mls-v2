@@ -181,6 +181,7 @@ MAP_FILTER_KEYS = {
     "community_slug",
     "structure_type",
     "common_interest",
+    "property_attached_yn",
 }
 SEARCH_TEXT_FIELDS = [
     "unparsed_address",
@@ -368,6 +369,14 @@ def _apply_common_filters(
                 common_interest_q |= Q(common_interest__iexact=common_interest)
 
             qs = qs.filter(common_interest_q)
+
+    if params.get("property_attached_yn") is not None:
+        attached_value = str(params.get("property_attached_yn")).strip().lower()
+
+        if attached_value in {"true", "1", "yes"}:
+            qs = qs.filter(property_attached_yn=True)
+        elif attached_value in {"false", "0", "no"}:
+            qs = qs.filter(property_attached_yn=False)
     if include_location:
         qs = _apply_location_filters(
             qs,
@@ -654,6 +663,14 @@ def _apply_map_filters_to_queryset(qs, params):
         slugs = _split_csv(params.get("community_slug", ""))
         if slugs:
             qs = qs.filter(community_listings__community_slug__in=slugs)
+
+    if params.get("property_attached_yn") is not None:
+        attached_value = str(params.get("property_attached_yn")).strip().lower()
+
+        if attached_value in {"true", "1", "yes"}:
+            qs = qs.filter(property_attached_yn=True)
+        elif attached_value in {"false", "0", "no"}:
+            qs = qs.filter(property_attached_yn=False)
     return qs
 
 class FetchProperties(APIView):

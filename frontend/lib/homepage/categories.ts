@@ -80,7 +80,10 @@ export const HOMEPAGE_CATEGORY_DEFAULTS: HomepageCategoryConfigItem[] = [
     label: "Detached Homes",
     kind: "property_type",
     route: "/listing",
-    query: { property_type: "Detached" },
+    query: {
+      structure_type: "House",
+      property_attached_yn: "false",
+    },
     order: 60,
     enabled: true,
     minCount: 5,
