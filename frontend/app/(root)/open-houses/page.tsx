@@ -10,8 +10,7 @@ import OpenHouseCard from "@/components/open-houses/OpenHouseCard";
 
 import { fetchOpenHouses } from "@/lib/api/properties";
 
-export const revalidate = 300;
-
+export const dynamic = "force-dynamic";
 const PAGE_SIZE = 24;
 
 export const metadata: Metadata = {

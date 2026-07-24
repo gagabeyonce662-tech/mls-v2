@@ -1628,9 +1628,7 @@ export async function fetchOpenHouses(): Promise<OpenHouseResponse> {
       count: number;
       results: RawOpenHouseListing[];
     }>(`${API_BASE_URL}/api/mls/properties/open-houses/`, {
-      next: {
-        revalidate: 300,
-      },
+      cache: "no-store",
     });
 
     const results = Array.isArray(response.results)
