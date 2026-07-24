@@ -47,6 +47,19 @@ export default function FullGalleryModal({
   }, [open, images.length, onClose]);
 
   useEffect(() => {
+    if (!open || images.length === 0) return;
+
+    const adjacentIndexes = [index - 1, index + 1].filter(
+      (i) => i >= 0 && i < images.length,
+    );
+
+    adjacentIndexes.forEach((i) => {
+      const img = new window.Image();
+      img.src = images[i];
+    });
+  }, [open, index, images]);
+
+  useEffect(() => {
     onIndexChange?.(index);
   }, [index, onIndexChange]);
 
