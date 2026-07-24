@@ -131,9 +131,10 @@ export default function FullGalleryModal({
                   src={images[index]}
                   alt={`Photo ${index + 1}`}
                   fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 75vw, 1100px"
                   className="object-contain drop-shadow-2xl rounded-lg"
                   draggable={false}
-                  priority
+                  priority={index === startIndex}
                 />
               </motion.div>
             </AnimatePresence>
@@ -186,10 +187,11 @@ export default function FullGalleryModal({
               >
                 <Image
                   src={src}
-                  alt="thumbnail"
-                  width={200}
-                  height={150}
-                  className="w-full h-full object-cover"
+                  alt={`Photo ${i + 1} thumbnail`}
+                  fill
+                  sizes="128px"
+                  loading="lazy"
+                  className="object-cover"
                 />
               </button>
             ))}
