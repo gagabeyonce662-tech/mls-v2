@@ -7,26 +7,18 @@ import Footer from "@/components/Footer";
 import GalleryGateWrapper from "@/components/listing/GalleryGateWrapper";
 import OverviewExcerpt from "@/components/listing/OverviewExcerpt";
 import { ds } from "@/lib/design-system-utils";
-import {
-  fetchPropertyByKey,
-  fetchListingCatalogStats,
-  fetchPropertySnapshots,
-  fetchCensusFsaProfile,
-} from "@/lib/api";
+import { fetchPropertyByKey } from "@/lib/api";
 import { notFound } from "next/navigation";
 
 // Modular Detail Components
 import PropertyHeader from "@/components/listing/details/PropertyHeader";
 import PropertyStats from "@/components/listing/details/PropertyStats";
-import PropertyHistory from "@/components/listing/details/PropertyHistory";
 import PropertyDetailsGrid from "@/components/listing/details/PropertyDetailsGrid";
 import PropertySidebar from "@/components/listing/details/PropertySidebar";
 import ListingAISummary from "@/components/listing/details/ListingAISummary";
 import SimilarProperties from "@/components/listing/SimilarProperties";
 import { PropertyViewerTracker } from "@/components/listing/PropertyViewerTracker";
-import ListingCatalogStatsSection from "@/components/listing/details/ListingCatalogStatsSection";
 import ListingEngagementMeter from "@/components/listing/details/ListingEngagementMeter";
-import ListingDemographicsSection from "@/components/listing/details/ListingDemographicsSection";
 import PropertyNotesPanel from "@/components/listing/details/PropertyNotesPanel";
 import { MortgageCalculator } from "@/components/ui/MortgageCalculator";
 import { CashflowCalculator } from "@/components/calculators/CashflowCalculator";
@@ -54,6 +46,8 @@ import {
 import { getTranslations } from "next-intl/server";
 
 import LocationInsights from "@/components/listing/details/LocationInsights";
+import ListingSecondaryInsights from "@/components/listing/details/ListingSecondaryInsights";
+import NearestSchoolsSection from "@/components/listing/details/NearestSchoolsSection";
 
 /** One property fetch per request (shared by generateMetadata + page). */
 const getCachedPropertyByKey = cache(fetchPropertyByKey);
@@ -147,15 +141,6 @@ export default async function ListingPage(props: ListingPageProps) {
     property.listing_key || property.ListingKey || (await props.params).id,
   );
 
-  const [catalogStats, snapshots, census] = await Promise.all([
-    fetchListingCatalogStats({
-      city: cityForStats || undefined,
-      fsa: fsa || undefined,
-    }),
-    fetchPropertySnapshots(listingKeyStr),
-    fsa ? fetchCensusFsaProfile(fsa) : Promise.resolve(null),
-  ]);
-
   // Data extraction helpers
   const propertyImages =
     property.media && property.media.length > 0
@@ -199,29 +184,29 @@ export default async function ListingPage(props: ListingPageProps) {
     source: getPropertyHistorySource(property, { isPrivileged }),
   };
 
-  const snapshotHistoryRows = [...snapshots]
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    )
-    .map((s) => ({
-      date: new Date(s.created_at).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }),
-      event: s.standard_status || "Catalog snapshot",
-      price:
-        s.list_price != null
-          ? `$${Number(s.list_price).toLocaleString("en-US")}`
-          : "—",
-      source: "Our catalog sync history",
-    }));
+  // const snapshotHistoryRows = [...snapshots]
+  //   .sort(
+  //     (a, b) =>
+  //       new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  //   )
+  //   .map((s) => ({
+  //     date: new Date(s.created_at).toLocaleDateString("en-US", {
+  //       year: "numeric",
+  //       month: "short",
+  //       day: "numeric",
+  //     }),
+  //     event: s.standard_status || "Catalog snapshot",
+  //     price:
+  //       s.list_price != null
+  //         ? `$${Number(s.list_price).toLocaleString("en-US")}`
+  //         : "—",
+  //     source: "Our catalog sync history",
+  //   }));
 
-  const history =
-    snapshotHistoryRows.length > 0
-      ? [...snapshotHistoryRows, currentHistoryRow]
-      : [currentHistoryRow];
+  // const history =
+  //   snapshotHistoryRows.length > 0
+  //     ? [...snapshotHistoryRows, currentHistoryRow]
+  //     : [currentHistoryRow];
 
   const currentListNumeric = getMortgageInitialPrice(property, {
     isPrivileged,
@@ -342,7 +327,7 @@ export default async function ListingPage(props: ListingPageProps) {
               </section>
             )}
 
-            <ListingCatalogStatsSection
+            {/* <ListingCatalogStatsSection
               stats={catalogStats}
               currentListPrice={
                 currentListNumeric > 0 ? currentListNumeric : null
@@ -354,7 +339,27 @@ export default async function ListingPage(props: ListingPageProps) {
               fsa={fsa}
               profile={census?.profile ?? null}
               headingPrefix={t("demographicsTitle")}
-            />
+            /> */}
+
+            <Suspense
+              fallback={
+                <div className="py-8 text-sm text-ds-body">
+                  Loading market and property insights...
+                </div>
+              }
+            >
+              <ListingSecondaryInsights
+                listingKey={listingKeyStr}
+                city={cityForStats}
+                fsa={fsa || undefined}
+                currentListPrice={
+                  currentListNumeric > 0 ? currentListNumeric : null
+                }
+                currentHistoryRow={currentHistoryRow}
+                catalogStatsTitle={t("catalogStatsTitle")}
+                demographicsTitle={t("demographicsTitle")}
+              />
+            </Suspense>
             {hasValidCoordinates && latitude !== null && longitude !== null ? (
               <Suspense
                 fallback={
@@ -407,7 +412,7 @@ export default async function ListingPage(props: ListingPageProps) {
 
             <ListingAISummary property={property} />
 
-            <PropertyHistory history={history} />
+            {/* <PropertyHistory history={history} /> */}
 
             {/* Mortgage Calculator Section */}
             <section className="bg-white border border-ds-card-border rounded-2xl p-8 shadow-sm">
