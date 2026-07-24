@@ -100,6 +100,8 @@ export function UserAuthProvider({ children }: { children: React.ReactNode }) {
   }, [logout]);
 
   useEffect(() => {
+    loadProfile();
+
     const handleStorageChange = (event: StorageEvent) => {
       if (
         event.key === "access_token" ||
