@@ -357,7 +357,7 @@ def _apply_common_filters(
             structure_q = Q()
 
             for structure_type in structure_types:
-                structure_q |= Q(structure_type__icontains=structure_type)
+                structure_q |= Q(structure_type__iexact=structure_type)
 
             qs = qs.filter(structure_q)
     if params.get("common_interest"):
@@ -586,7 +586,7 @@ def _apply_map_filters_to_queryset(qs, params):
             structure_q = Q()
 
             for structure_type in structure_types:
-                structure_q |= Q(structure_type__icontains=structure_type)
+                structure_q |= Q(structure_type__iexact=structure_type)
 
             qs = qs.filter(structure_q)
 

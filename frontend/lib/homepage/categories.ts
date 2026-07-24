@@ -94,7 +94,11 @@ export const HOMEPAGE_CATEGORY_DEFAULTS: HomepageCategoryConfigItem[] = [
     label: "Semi-Detached Homes",
     kind: "property_type",
     route: "/listing",
-    query: { property_type: "Semi-Detached" },
+    query: {
+      structure_type: "House",
+      property_attached_yn: "true",
+      keywords: "semi-detached,semi detached,semidetached",
+    },
     order: 70,
     enabled: true,
     minCount: 5,
@@ -130,7 +134,7 @@ export const HOMEPAGE_CATEGORY_DEFAULTS: HomepageCategoryConfigItem[] = [
   },
 ];
 
-export const HOMEPAGE_MAX_SECTIONS = 8;
+export const HOMEPAGE_MAX_SECTIONS = 10;
 export const HOMEPAGE_MIN_COUNT_THRESHOLD = 5;
 
 export const toCatalogFallback = (): HomepageCategoryCatalog => ({
