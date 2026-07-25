@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.db.models import OuterRef, Subquery
 from django.utils import timezone
 
-from mls.models import Media, Property
+from mls.models import Media, Property, OpenHouse
 from mls.services.ddf.client import (
     fetch_open_houses_by_listing_keys,
 )
@@ -11,6 +11,8 @@ from mls.services.redis_cache import (
     set_cached_open_houses,
 )
 
+from django.db import transaction
+from mls.services.ddf.open_house_mapper import map_open_house_defaults  
 
 def decimal_to_number(value):
     if value is None:
@@ -77,6 +79,64 @@ def build_compact_open_house_record(
         },
     }
 
+
+def persist_open_houses(open_houses, properties_by_key):
+    """
+    Replace the current DDF OpenHouse rows with the freshly fetched
+    active/upcoming events.
+
+    The Property table remains the parent/source of listing data.
+    """
+
+    open_house_objects = []
+    seen_open_house_keys = set()
+
+    skipped_missing_key = 0
+    skipped_missing_property = 0
+
+    for data in open_houses:
+        open_house_key = data.get("OpenHouseKey")
+        listing_key = data.get("ListingKey")
+
+        if not open_house_key or not listing_key:
+            skipped_missing_key += 1
+            continue
+
+        property_obj = properties_by_key.get(listing_key)
+
+        if property_obj is None:
+            skipped_missing_property += 1
+            continue
+
+        if open_house_key in seen_open_house_keys:
+            continue
+
+        seen_open_house_keys.add(open_house_key)
+
+        open_house_objects.append(
+            OpenHouse(
+                property=property_obj,
+                open_house_key=open_house_key,
+                **map_open_house_defaults(data),
+            )
+        )
+
+    with transaction.atomic():
+        OpenHouse.objects.filter(
+            property__category_type=Property.DDF,
+        ).delete()
+
+        if open_house_objects:
+            OpenHouse.objects.bulk_create(
+                open_house_objects,
+                batch_size=1000,
+            )
+
+    return {
+        "stored_count": len(open_house_objects),
+        "skipped_missing_key": skipped_missing_key,
+        "skipped_missing_property": skipped_missing_property,
+    }
 
 def refresh_open_house_cache(
     headers,

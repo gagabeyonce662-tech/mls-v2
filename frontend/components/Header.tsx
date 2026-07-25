@@ -4,9 +4,13 @@ import { DesktopHeader } from "@/components/header/DesktopHeader";
 import { MobileHeader } from "@/components/header/MobileHeader";
 
 export default function Header() {
+  const isDevelopment = process.env.NODE_ENV === "development";
+
   const navigation = [
     { name: "Map Search", href: "/map-search" },
-    { name: "Open Houses", href: "/open-houses" },
+
+    ...(isDevelopment ? [{ name: "Open Houses", href: "/open-houses" }] : []),
+
     { name: "Trends", href: "/trends" },
     { name: "Home Valuation", href: "/valuation" },
     { name: "Watched", href: "/watched" },
