@@ -1,5 +1,0 @@
-===== ESTATE CONTENT PARSER =====
-
-===== ALISTER SOURCE SNAPSHOT =====
-45 objects imported automatically (use -v 2 for details).
-

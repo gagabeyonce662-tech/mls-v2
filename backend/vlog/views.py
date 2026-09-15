@@ -2,7 +2,7 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework import generics
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser
 
 from .models import VlogPost, VlogCategory
 from .serializers import (
@@ -56,18 +56,12 @@ class VlogPostManageListCreateView(generics.ListCreateAPIView):
     """GET  /api/vlog/manage/       list all posts (drafts included)
     POST /api/vlog/manage/       create a new post.
 
-    Staff users see every post; regular users see only their own.
+    Admin-only. Staff users see and manage every post.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
-
-    def get_queryset(self):
-        user = self.request.user
-        qs = VlogPost.objects.all().order_by("-created_at")
-        if not user.is_staff:
-            qs = qs.filter(author=user)
-        return qs
+    queryset = VlogPost.objects.all().order_by("-created_at")
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -79,18 +73,12 @@ class VlogPostManageListCreateView(generics.ListCreateAPIView):
 
 
 class VlogPostManageDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """GET / PUT / PATCH / DELETE /api/vlog/manage/<slug>/"""
+    """GET / PUT / PATCH / DELETE /api/vlog/manage/<slug>/  (admin-only)."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
     lookup_field = "slug"
-
-    def get_queryset(self):
-        user = self.request.user
-        qs = VlogPost.objects.all()
-        if not user.is_staff:
-            qs = qs.filter(author=user)
-        return qs
+    queryset = VlogPost.objects.all()
 
     def get_serializer_class(self):
         if self.request.method in {"PUT", "PATCH"}:
@@ -105,7 +93,7 @@ class VlogPostManageDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class VlogCategoryListCreateView(generics.ListCreateAPIView):
     """GET  /api/vlog/categories/   list categories (public)
-    POST /api/vlog/categories/   create a category (authenticated).
+    POST /api/vlog/categories/   create a category (admin-only).
     """
 
     queryset = VlogCategory.objects.all().order_by("name")
@@ -113,12 +101,12 @@ class VlogCategoryListCreateView(generics.ListCreateAPIView):
 
     def get_permissions(self):
         if self.request.method == "POST":
-            return [IsAuthenticated()]
+            return [IsAdminUser()]
         return [AllowAny()]
 
 
 class VlogCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """GET / PUT / PATCH / DELETE /api/vlog/categories/<slug>/"""
+    """GET is public; PUT / PATCH / DELETE are admin-only."""
 
     queryset = VlogCategory.objects.all()
     serializer_class = VlogCategorySerializer
@@ -127,4 +115,4 @@ class VlogCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
-        return [IsAuthenticated()]
+        return [IsAdminUser()]

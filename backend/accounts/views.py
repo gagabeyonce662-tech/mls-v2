@@ -73,6 +73,7 @@ def _issue_token_and_respond(user, extra: dict = None):
     tokens = get_tokens_for_user(user)
     data = {
         'user': UserProfileSerializer(user).data,
+        'superadmin': bool(user.is_staff),
         **tokens,
     }
     if extra:
