@@ -1,8 +1,15 @@
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import generics
-from .models import VlogPost
-from .serializers import VlogPostSerializer
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
+from rest_framework.permissions import AllowAny, IsAuthenticated
+
+from .models import VlogPost, VlogCategory
+from .serializers import (
+    VlogCategorySerializer,
+    VlogPostSerializer,
+    VlogPostWriteSerializer,
+)
 
 
 def published_posts():
@@ -11,17 +18,113 @@ def published_posts():
         Q(publish_date__isnull=True) | Q(publish_date__lte=timezone.now())
     )
 
+
+# -----------------------------------------------------------------------------
+# Public read endpoints (unchanged surface).
+# -----------------------------------------------------------------------------
+
+
 class VlogPostListView(generics.ListAPIView):
+    """GET /api/vlog/ - list published posts."""
+
     queryset = VlogPost.objects.none()
     serializer_class = VlogPostSerializer
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         return published_posts()
+
 
 class VlogPostDetailView(generics.RetrieveAPIView):
+    """GET /api/vlog/<slug>/ - fetch a single published post."""
+
     queryset = VlogPost.objects.none()
     serializer_class = VlogPostSerializer
-    lookup_field = 'slug'  # We use 'slug' for the lookup instead of pk
+    lookup_field = "slug"
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         return published_posts()
+
+
+# -----------------------------------------------------------------------------
+# CRUD endpoints for VlogPost (authenticated).
+# -----------------------------------------------------------------------------
+
+
+class VlogPostManageListCreateView(generics.ListCreateAPIView):
+    """GET  /api/vlog/manage/       list all posts (drafts included)
+    POST /api/vlog/manage/       create a new post.
+
+    Staff users see every post; regular users see only their own.
+    """
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = VlogPost.objects.all().order_by("-created_at")
+        if not user.is_staff:
+            qs = qs.filter(author=user)
+        return qs
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return VlogPostWriteSerializer
+        return VlogPostSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+
+class VlogPostManageDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET / PUT / PATCH / DELETE /api/vlog/manage/<slug>/"""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+    lookup_field = "slug"
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = VlogPost.objects.all()
+        if not user.is_staff:
+            qs = qs.filter(author=user)
+        return qs
+
+    def get_serializer_class(self):
+        if self.request.method in {"PUT", "PATCH"}:
+            return VlogPostWriteSerializer
+        return VlogPostSerializer
+
+
+# -----------------------------------------------------------------------------
+# CRUD endpoints for VlogCategory.
+# -----------------------------------------------------------------------------
+
+
+class VlogCategoryListCreateView(generics.ListCreateAPIView):
+    """GET  /api/vlog/categories/   list categories (public)
+    POST /api/vlog/categories/   create a category (authenticated).
+    """
+
+    queryset = VlogCategory.objects.all().order_by("name")
+    serializer_class = VlogCategorySerializer
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return [AllowAny()]
+
+
+class VlogCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET / PUT / PATCH / DELETE /api/vlog/categories/<slug>/"""
+
+    queryset = VlogCategory.objects.all()
+    serializer_class = VlogCategorySerializer
+    lookup_field = "slug"
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [AllowAny()]
+        return [IsAuthenticated()]

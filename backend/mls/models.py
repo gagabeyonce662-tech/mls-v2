@@ -210,6 +210,11 @@ class Property(models.Model):
     ai_summary_payload_hash = models.CharField(max_length=64, null=True, blank=True)
     ai_summary_updated_at = models.DateTimeField(null=True, blank=True)
 
+    close_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    close_date = models.DateField(null=True, blank=True)
+    previous_list_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    price_change_timestamp = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         return f"Property {self.listing_key} - {self.city}"
 
@@ -665,6 +670,7 @@ class PropertyInquiry(models.Model):
         default="buy",
     )
     message = models.TextField(help_text="Free-form description from the user")
+    listing_key = models.CharField(max_length=2000, blank=True, db_index=True)
 
     preferred_locations = models.CharField(max_length=500, blank=True)
     property_types = models.CharField(max_length=255, blank=True)
@@ -1314,6 +1320,24 @@ class PreComProperty(models.Model):
     )
 
     address = models.TextField(blank=True)
+
+    developer_name = models.CharField(max_length=255, blank=True)
+
+    SALES_STAGE_COMING_SOON = "coming_soon"
+    SALES_STAGE_VIP_RELEASE = "vip_release"
+    SALES_STAGE_NOW_SELLING = "now_selling"
+    SALES_STAGE_SOLD_OUT = "sold_out"
+    SALES_STAGE_CHOICES = [
+        (SALES_STAGE_COMING_SOON, "Coming Soon"),
+        (SALES_STAGE_VIP_RELEASE, "VIP Release"),
+        (SALES_STAGE_NOW_SELLING, "Now Selling"),
+        (SALES_STAGE_SOLD_OUT, "Sold Out"),
+    ]
+    sales_stage = models.CharField(
+        max_length=32,
+        choices=SALES_STAGE_CHOICES,
+        blank=True,
+    )
 
 
 class PreComFloorPlanIntent(models.Model):

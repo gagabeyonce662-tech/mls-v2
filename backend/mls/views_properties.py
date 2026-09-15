@@ -62,6 +62,14 @@ class PropertyFilterView(APIView):
             OpenApiParameter("sold_days", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("modified_since", OpenApiTypes.DATETIME, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("orderby", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("price_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum list_price."),
+            OpenApiParameter("price_max", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Maximum list_price."),
+            OpenApiParameter("beds_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum bedrooms_total."),
+            OpenApiParameter("baths_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum bathrooms_total_integer."),
+            OpenApiParameter("property_sub_type", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Repeatable. Comma-separated or repeated param values (e.g. 'Detached,Condo Apartment')."),
+            OpenApiParameter("sqft_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum building_area_total."),
+            OpenApiParameter("sqft_max", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Maximum building_area_total."),
+            OpenApiParameter("year_built_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum year_built."),
         ],
         responses={
             200: OpenApiResponse(response=inline_serializer(
@@ -92,6 +100,37 @@ class PropertyFilterView(APIView):
             qs = qs.filter(standard_status=request.GET.get("status", "").strip())
         if request.GET.get("has_lease") in ("true", "1", "True"):
             qs = qs.filter(Q(lease_amount__gt=0) | Q(total_actual_rent__gt=0))
+
+        try:
+            if request.GET.get("price_min"):
+                qs = qs.filter(list_price__gte=int(request.GET.get("price_min")))
+            if request.GET.get("price_max"):
+                qs = qs.filter(list_price__lte=int(request.GET.get("price_max")))
+            if request.GET.get("beds_min"):
+                qs = qs.filter(bedrooms_total__gte=int(request.GET.get("beds_min")))
+            if request.GET.get("baths_min"):
+                qs = qs.filter(bathrooms_total_integer__gte=int(request.GET.get("baths_min")))
+            if request.GET.get("sqft_min"):
+                qs = qs.filter(building_area_total__gte=int(request.GET.get("sqft_min")))
+            if request.GET.get("sqft_max"):
+                qs = qs.filter(building_area_total__lte=int(request.GET.get("sqft_max")))
+            if request.GET.get("year_built_min"):
+                qs = qs.filter(year_built__gte=int(request.GET.get("year_built_min")))
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "price_min/price_max/beds_min/baths_min/sqft_min/sqft_max/year_built_min must be integers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        sub_type_values: list[str] = []
+        for raw in request.GET.getlist("property_sub_type"):
+            for value in str(raw).split(","):
+                cleaned = value.strip()
+                if cleaned and cleaned not in sub_type_values:
+                    sub_type_values.append(cleaned)
+        if sub_type_values:
+            qs = qs.filter(property_sub_type__in=sub_type_values)
+
         if all(k in request.GET for k in ["lat_min", "lat_max", "lng_min", "lng_max"]):
             qs = qs.annotate(
                 lat_float=Cast("latitude", FloatField()),

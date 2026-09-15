@@ -778,7 +778,10 @@ class PropertyInquiryAPIView(APIView):
         )
         page_url = serializer.validated_data.get("page_url") or ""
         listing_match = re.search(r"/listing/(?:rental/)?([^/?#]+)", page_url)
-        inferred_listing_key = listing_match.group(1) if listing_match else ""
+        inferred_listing_key = (
+            serializer.validated_data.get("listing_key")
+            or (listing_match.group(1) if listing_match else "")
+        )
         if inferred_listing_key:
             UserPropertyInteraction.objects.create(
                 listing_key=inferred_listing_key,

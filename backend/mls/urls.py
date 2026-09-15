@@ -11,6 +11,12 @@ from .views_estate import (
     EstatePropertySchemaAPIView,
 )
 from .views_properties import PropertyFilterView
+from .views_market import (
+    CatalogStatsBulkAPIView,
+    MarketSoldTrendsAPIView,
+    PlatformStatsAPIView,
+    PropertyFacetsAPIView,
+)
 from .views_valuation import (
     ValuationAutocompleteAPIView,
     ValuationLookupAPIView,
@@ -75,6 +81,10 @@ urlpatterns = [
     path('precon-properties/<int:pk>/', PreComPropertyDetailAPIView.as_view(), name='precon-property-detail'),
     path('properties/', FetchProperties.as_view(), name='fetch_properties'),
     path('properties/filter/', PropertyFilterView.as_view(), name='property_filter'),
+    path('properties/facets/', PropertyFacetsAPIView.as_view(), name='property-facets'),
+    path('market/sold-trends/', MarketSoldTrendsAPIView.as_view(), name='market-sold-trends'),
+    path('catalog-stats/bulk/', CatalogStatsBulkAPIView.as_view(), name='catalog-stats-bulk'),
+    path('stats/platform/', PlatformStatsAPIView.as_view(), name='stats-platform'),
     path('properties/<str:listing_key>/recommendations/', PropertyRecommendationsAPIView.as_view(), name='property-recommendations'),
     path('properties/recommendations/track/', RecommendationTrackAPIView.as_view(), name='property-recommendations-track'),
     path('properties/ai-summary/', ListingAISummaryAPIView.as_view(), name='listing-ai-summary'),

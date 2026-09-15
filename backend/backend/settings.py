@@ -284,6 +284,16 @@ CORS_ALLOW_CREDENTIALS = True
 CLIENT_ID = 'uCyucNP7QrV4fLA8YtWngTUg'
 CLIENT_SECRET = 'OFocUcAnQShbZRPUKdaafgEi'
 
+# AMPRE (TRREB) OData feed used for sold data and sold-trends.
+AMPRE_ODATA_BASE_URL = os.environ.get(
+    'AMPRE_ODATA_BASE_URL',
+    'https://query.ampre.ca/odata',
+).rstrip('/')
+AMPRE_ODATA_BEARER_TOKEN = os.environ.get(
+    'AMPRE_ODATA_BEARER_TOKEN',
+    'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ2ZW5kb3IvdHJyZWIvOTA5NCIsImF1ZCI6IkFtcFVzZXJzUHJkIiwicm9sZXMiOlsiQW1wVmVuZG9yIl0sImlzcyI6InByb2QuYW1wcmUuY2EiLCJleHAiOjI1MzQwMjMwMDc5OSwiaWF0IjoxNzU0NDMxMDk3LCJzdWJqZWN0VHlwZSI6InZlbmRvciIsInN1YmplY3RLZXkiOiI5MDk0IiwianRpIjoiZGUwMjA4YmJmYjE3YTlhNSIsImN1c3RvbWVyTmFtZSI6InRycmViIn0.mw4UWv_7gXJraeHrejeQA0muv7apyjyrC5YmD4bwC60',
+)
+
 AUTH_USER_MODEL = 'accounts.User'
 
 # Google OAuth

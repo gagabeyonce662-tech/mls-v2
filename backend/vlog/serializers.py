@@ -5,6 +5,55 @@ class VlogCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = VlogCategory
         fields = ['id', 'name', 'slug']
+        extra_kwargs = {
+            "slug": {"required": False, "allow_blank": True},
+        }
+
+
+class VlogPostWriteSerializer(serializers.ModelSerializer):
+    """Serializer used for POST/PUT/PATCH on VlogPost.
+
+    Accepts ``category_id`` for the FK and returns the full read serializer
+    representation in the response so the caller gets the same shape as GET.
+    """
+
+    category_id = serializers.PrimaryKeyRelatedField(
+        source="category",
+        queryset=VlogCategory.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+    faq_items = serializers.JSONField(required=False)
+
+    class Meta:
+        model = VlogPost
+        fields = [
+            "title", "slug", "excerpt", "content",
+            "embed_url", "video_file", "thumbnail",
+            "category_id", "tags",
+            "status", "publish_date", "allow_comments",
+            "seo_title", "seo_description", "seo_keywords", "focus_keyword",
+            "seo_canonical_url", "seo_noindex",
+            "og_title", "og_description", "og_image",
+            "twitter_title", "twitter_description", "twitter_image",
+            "faq_items",
+        ]
+        extra_kwargs = {
+            "slug": {"required": False, "allow_blank": True},
+            "excerpt": {"required": False, "allow_blank": True},
+            "embed_url": {"required": False, "allow_blank": True},
+            "tags": {"required": False, "allow_blank": True},
+        }
+
+    def validate(self, attrs):
+        if not attrs.get("embed_url") and not attrs.get("video_file") and self.instance is None:
+            # Content-only posts are allowed; video/embed both remain optional.
+            pass
+        return attrs
+
+    def to_representation(self, instance):
+        return VlogPostSerializer(instance, context=self.context).data
 
 class VlogPostSerializer(serializers.ModelSerializer):
     category = VlogCategorySerializer(read_only=True)

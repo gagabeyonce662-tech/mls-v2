@@ -46,6 +46,7 @@ class RoomSerializer(serializers.ModelSerializer):
 class PropertySerializer(serializers.ModelSerializer):
     # media = MediaSerializer(many=True, read_only=True)
     media = serializers.SerializerMethodField()
+    next_open_house = serializers.SerializerMethodField()
     # rooms = RoomSerializer(many=True, read_only=True)
 
     class Meta:
@@ -55,9 +56,35 @@ class PropertySerializer(serializers.ModelSerializer):
             'bedrooms_total', 'bathrooms_total_integer', 'building_area_total',"listing_id","city","directions","city_region",
             'year_built', 'public_remarks', 'listing_url', 'category_type',"state_or_province","lease_amount",
             'latitude', 'longitude', 'photos_count', 'standard_status',
-            'media', 
+            'media',
+            'close_price', 'close_date',
+            'previous_list_price', 'price_change_timestamp',
+            'next_open_house',
             # 'rooms'
         ]
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_next_open_house(self, obj):
+        from django.utils import timezone as _tz
+        from datetime import datetime as _dt, time as _time
+        today = _tz.localdate()
+        events = obj.open_houses.filter(date__gte=today).order_by("date", "start_time")[:1]
+        event = next(iter(events), None)
+        if not event or not event.date:
+            return None
+        start_time = event.start_time or _time(0, 0)
+        end_time = event.end_time or _time(23, 59)
+        tz = _tz.get_current_timezone()
+        try:
+            start_dt = _tz.make_aware(_dt.combine(event.date, start_time), tz)
+            end_dt = _tz.make_aware(_dt.combine(event.date, end_time), tz)
+        except Exception:
+            start_dt = _dt.combine(event.date, start_time)
+            end_dt = _dt.combine(event.date, end_time)
+        return {
+            "start": start_dt.isoformat(),
+            "end": end_dt.isoformat(),
+        }
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_media(self, obj):
         # 1. Try to get the preferred photo
@@ -152,6 +179,7 @@ class PropertyInquirySerializer(serializers.ModelSerializer):
             "bathrooms_min",
             "timeline",
             "page_url",
+            "listing_key",
             "status",
             "ghl_contact_id",
             "ghl_synced_at",
