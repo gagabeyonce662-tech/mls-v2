@@ -54,11 +54,22 @@ class FacebookAuthSerializer(serializers.Serializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
     avatar = serializers.URLField(source="avatar_url", read_only=True, allow_null=True)
+    can_use_studio = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = User
-        fields = ('id', 'name', 'email', 'phone', 'phone_verified', 'avatar', 'date_joined')
-        read_only_fields = ('id', 'email', 'phone_verified', 'avatar', 'date_joined')
+        # `is_staff` / `can_author` are exposed so the frontend knows whether to
+        # offer the Studio. They are READ-ONLY here: privilege is granted through
+        # the team endpoints or Django admin, never by a user PATCHing their own
+        # profile.
+        fields = (
+            'id', 'name', 'email', 'phone', 'phone_verified', 'avatar',
+            'date_joined', 'is_staff', 'can_author', 'can_use_studio',
+        )
+        read_only_fields = (
+            'id', 'email', 'phone_verified', 'avatar', 'date_joined',
+            'is_staff', 'can_author', 'can_use_studio',
+        )
 
     def get_name(self, obj) -> str:
         return obj.full_name
