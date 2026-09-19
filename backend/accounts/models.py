@@ -17,12 +17,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
-    # Blog Studio access, deliberately SEPARATE from is_staff: a writer needs to
-    # publish posts, not to reach the Django admin and the MLS tables behind it.
-    can_author = models.BooleanField(
-        default=False,
-        help_text="May create, edit and publish blog posts in the Studio.",
-    )
     date_joined = models.DateTimeField(auto_now_add=True)
 
     USERNAME_FIELD = 'email'
@@ -36,14 +30,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
-
-    @property
-    def can_use_studio(self) -> bool:
-        """Single source of truth for Studio access.
-
-        Staff keep access so existing admins are not locked out by the new flag.
-        """
-        return bool(self.is_staff or self.can_author)
 
 
 class EmailVerificationToken(models.Model):
