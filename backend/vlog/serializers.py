@@ -1,5 +1,7 @@
 from rest_framework import serializers
+
 from .models import VlogPost, VlogCategory
+from .sanitizers import sanitize_post_html
 
 class VlogCategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -46,10 +48,61 @@ class VlogPostWriteSerializer(serializers.ModelSerializer):
             "tags": {"required": False, "allow_blank": True},
         }
 
+    def validate_content(self, value):
+        """Strip anything that is not prose markup before it reaches the DB.
+
+        See vlog/sanitizers.py for why this runs server-side as well as at
+        render time.
+        """
+        return sanitize_post_html(value)
+
+    def validate_title(self, value):
+        title = (value or "").strip()
+        if not title:
+            raise serializers.ValidationError("A title is required.")
+        return title
+
+    def validate_faq_items(self, value):
+        """FAQ is free-form JSON on the model; enforce the shape the UI expects."""
+        if value in (None, ""):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError(
+                "FAQ items must be a list of {question, answer} objects."
+            )
+        cleaned = []
+        for item in value:
+            if not isinstance(item, dict):
+                raise serializers.ValidationError(
+                    "Each FAQ item must be an object with question and answer."
+                )
+            question = str(item.get("question", "")).strip()
+            answer = str(item.get("answer", "")).strip()
+            if question or answer:
+                cleaned.append({"question": question, "answer": answer})
+        return cleaned
+
     def validate(self, attrs):
-        if not attrs.get("embed_url") and not attrs.get("video_file") and self.instance is None:
-            # Content-only posts are allowed; video/embed both remain optional.
-            pass
+        """Guard publishing, and guard against silently overwriting a co-author.
+
+        `expected_updated_at` is optional: clients that send it get a 409 instead
+        of clobbering an edit made since they loaded the form. Clients that don't
+        keep the previous last-write-wins behaviour.
+        """
+        status_value = attrs.get(
+            "status", getattr(self.instance, "status", VlogPost.DRAFT)
+        )
+        if status_value == VlogPost.PUBLISHED:
+            title = attrs.get("title", getattr(self.instance, "title", "")) or ""
+            content = attrs.get("content", getattr(self.instance, "content", "")) or ""
+            if not title.strip():
+                raise serializers.ValidationError(
+                    {"title": "A published post needs a title."}
+                )
+            if not content.strip():
+                raise serializers.ValidationError(
+                    {"content": "A published post needs some content."}
+                )
         return attrs
 
     def to_representation(self, instance):
