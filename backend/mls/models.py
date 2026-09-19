@@ -645,6 +645,11 @@ class PropertyInquiry(models.Model):
         ("sell", "Sell"),
         ("rent", "Rent"),
         ("explore", "Just Exploring"),
+        # A showing request is a distinct, higher-intent lead than a general
+        # "buy" enquiry: it names one listing and expects an agent to confirm a
+        # time. Folding it into "buy" would hide that in the admin queue and in
+        # the GHL sync, so it gets its own choice.
+        ("showing", "Request a Showing"),
     ]
     STATUS_CHOICES = [
         ("new", "New"),
