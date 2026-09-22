@@ -59,14 +59,30 @@ class UserProfileSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
     email = serializers.EmailField(required=False)
     avatar = serializers.URLField(source="avatar_url", read_only=True, allow_null=True)
+    can_use_studio = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = User
+<<<<<<< HEAD
         fields = (
             'id', 'name', 'first_name', 'last_name', 'email',
             'phone', 'phone_verified', 'avatar', 'date_joined',
         )
         read_only_fields = ('id', 'phone_verified', 'avatar', 'date_joined')
+=======
+        # `is_staff` / `can_author` are exposed so the frontend knows whether to
+        # offer the Studio. They are READ-ONLY here: privilege is granted through
+        # the team endpoints or Django admin, never by a user PATCHing their own
+        # profile.
+        fields = (
+            'id', 'name', 'email', 'phone', 'phone_verified', 'avatar',
+            'date_joined', 'is_staff', 'can_author', 'can_use_studio',
+        )
+        read_only_fields = (
+            'id', 'email', 'phone_verified', 'avatar', 'date_joined',
+            'is_staff', 'can_author', 'can_use_studio',
+        )
+>>>>>>> 2274f3279bd2e555b202f641b42667f95c9f26d4
 
     def get_name(self, obj) -> str:
         return obj.full_name
