@@ -17,6 +17,7 @@ from mls.models import (
     PropertySnapshot,
     ListingSubmission,
     ListingSubmissionMedia,
+    SavedSearch,
 )
 
 
@@ -60,6 +61,8 @@ class PropertySerializer(serializers.ModelSerializer):
             'close_price', 'close_date',
             'previous_list_price', 'price_change_timestamp',
             'next_open_house',
+            'original_entry_timestamp',
+            'virtual_tour_url',
             # 'rooms'
         ]
 
@@ -137,10 +140,17 @@ class MediaDetailSerializer(serializers.ModelSerializer):
 class PropertyDetailSerializer(serializers.ModelSerializer):
     rooms = RoomSerializer(many=True, read_only=True)
     media = MediaSerializer(many=True, read_only=True)
+    next_open_house = serializers.SerializerMethodField()
 
     class Meta:
         model = Property
-        fields = '__all__' 
+        fields = '__all__'
+
+    # Reuse the exact implementation from PropertySerializer so list + detail
+    # return an identical shape (GAP-23: fields='__all__' skips method fields).
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_next_open_house(self, obj):
+        return PropertySerializer.get_next_open_house(self, obj)
 
 
 class UserFeedbackSerializer(serializers.ModelSerializer):
@@ -180,6 +190,9 @@ class PropertyInquirySerializer(serializers.ModelSerializer):
             "timeline",
             "page_url",
             "listing_key",
+            "project",
+            "is_vip_list",
+            "newsletter_opt_in",
             "status",
             "ghl_contact_id",
             "ghl_synced_at",
@@ -200,12 +213,20 @@ class PropertyInquirySerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-    def validate_message(self, value):
-        if not value or len(value.strip()) < 10:
+    def validate(self, attrs):
+        # VIP / newsletter-only signups do not need a 10-char message.
+        is_registration = bool(
+            attrs.get("project") or attrs.get("is_vip_list") or attrs.get("newsletter_opt_in")
+        )
+        message = (attrs.get("message") or "").strip()
+        if not is_registration and len(message) < 10:
             raise serializers.ValidationError(
-                "Please enter at least 10 characters describing what you are looking for."
+                {"message": "Please enter at least 10 characters describing what you are looking for."}
             )
-        return value
+        if is_registration and not message:
+            # Preserve the requirement's non-empty semantics on the model column.
+            attrs["message"] = "Registered interest via preconstruction form."
+        return attrs
 
 
 class ListingSubmissionMediaSerializer(serializers.ModelSerializer):
@@ -401,6 +422,50 @@ class RecommendationTrackSerializer(serializers.Serializer):
     )
     section = serializers.CharField(max_length=64, required=False, allow_blank=True)
     metadata = serializers.JSONField(required=False, default=dict)
+
+
+class SavedSearchSerializer(serializers.ModelSerializer):
+    """Round-trip serializer for GAP-03 SavedSearch endpoints.
+
+    filters_json is stored as the raw query params (e.g. {"city": "Toronto",
+    "price_max": "900000"}) so it can be replayed by expanding it into the
+    /properties/filter/ URL.
+    """
+
+    class Meta:
+        model = SavedSearch
+        fields = [
+            "id",
+            "name",
+            "filters_json",
+            "alert_cadence",
+            "last_run_at",
+            "last_result_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "last_run_at",
+            "last_result_count",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate_name(self, value):
+        value = (value or "").strip()
+        if not value:
+            raise serializers.ValidationError("Name is required.")
+        return value
+
+    def validate_filters_json(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("filters_json must be an object.")
+        # Guard against unbounded payloads (~4 KB is plenty for query params).
+        if len(str(value)) > 4096:
+            raise serializers.ValidationError("filters_json is too large.")
+        # Coerce every value to a scalar string so replay produces a clean URL.
+        return {str(k): ("" if v is None else str(v)) for k, v in value.items()}
 
 
 class EstatePropertyWriteSerializer(serializers.Serializer):

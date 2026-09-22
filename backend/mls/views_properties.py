@@ -17,6 +17,7 @@ from .models import Property, SearchEvent
 from .serializers import PropertySerializer
 from .services.query_helpers import (
     _apply_fallback_pipeline,
+    _apply_open_house_filters,
     _build_property_filter_cache_key,
 )
 from .views import (
@@ -70,6 +71,10 @@ class PropertyFilterView(APIView):
             OpenApiParameter("sqft_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum building_area_total."),
             OpenApiParameter("sqft_max", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Maximum building_area_total."),
             OpenApiParameter("year_built_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum year_built."),
+            OpenApiParameter("has_open_house", OpenApiTypes.BOOL, OpenApiParameter.QUERY, required=False, description="Restrict to listings with an upcoming open house (defaults to today onwards)."),
+            OpenApiParameter("open_house_from", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False, description="Open-house date lower bound (YYYY-MM-DD)."),
+            OpenApiParameter("open_house_to", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False, description="Open-house date upper bound (YYYY-MM-DD)."),
+            OpenApiParameter("allow_fallback", OpenApiTypes.BOOL, OpenApiParameter.QUERY, required=False, description="Set to false to disable the relaxed/nearby/safety-net fallback and return count=0 on no-match."),
         ],
         responses={
             200: OpenApiResponse(response=inline_serializer(
@@ -147,6 +152,11 @@ class PropertyFilterView(APIView):
             qs = qs.filter(status_change_timestamp__gte=cutoff)
         if request.GET.get("modified_since"):
             qs = qs.filter(modification_timestamp__gte=request.GET.get("modified_since"))
+
+        # GAP-01: open-house filters are applied before the fallback pipeline
+        # so a strict "must have an open house" search returns count=0 rather
+        # than the relaxed catalog when nothing matches.
+        qs = _apply_open_house_filters(qs, request.GET)
 
         order_by = request.GET.get("orderby", "-modification_timestamp")
         final_qs, fallback_meta = _apply_fallback_pipeline(qs, request.GET, (order_by,))

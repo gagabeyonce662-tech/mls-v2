@@ -52,16 +52,35 @@ class FacebookAuthSerializer(serializers.Serializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    # ``name`` is a legacy read-only convenience; writers should use
+    # first_name/last_name so we do not have to guess at how to split.
     name = serializers.SerializerMethodField()
+    first_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    email = serializers.EmailField(required=False)
     avatar = serializers.URLField(source="avatar_url", read_only=True, allow_null=True)
 
     class Meta:
         model = User
-        fields = ('id', 'name', 'email', 'phone', 'phone_verified', 'avatar', 'date_joined')
-        read_only_fields = ('id', 'email', 'phone_verified', 'avatar', 'date_joined')
+        fields = (
+            'id', 'name', 'first_name', 'last_name', 'email',
+            'phone', 'phone_verified', 'avatar', 'date_joined',
+        )
+        read_only_fields = ('id', 'phone_verified', 'avatar', 'date_joined')
 
     def get_name(self, obj) -> str:
         return obj.full_name
+
+    def validate_email(self, value):
+        normalized = (value or "").strip().lower()
+        if not normalized:
+            raise serializers.ValidationError("Email is required.")
+        # If unchanged, allow it through without a uniqueness check.
+        if self.instance and normalized == (self.instance.email or "").lower():
+            return normalized
+        if User.objects.exclude(pk=getattr(self.instance, 'pk', None)).filter(email__iexact=normalized).exists():
+            raise serializers.ValidationError('A user with this email already exists.')
+        return normalized
 
 
 class ResendVerificationSerializer(serializers.Serializer):

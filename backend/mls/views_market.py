@@ -7,11 +7,12 @@
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import statistics
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Iterable
 
 from django.core.cache import cache
 from django.db.models import Count, Q
@@ -203,105 +204,70 @@ def _parse_ampre_datetime(raw: str | None) -> datetime | None:
         return None
 
 
-class MarketSoldTrendsAPIView(APIView):
-    """GET /api/market/sold-trends/ - monthly sold aggregates for a city.
+GTA_CITIES: list[str] = [
+    "Toronto",
+    "Mississauga",
+    "Brampton",
+    "Vaughan",
+    "Markham",
+    "Richmond Hill",
+    "Oakville",
+    "Burlington",
+    "Ajax",
+    "Pickering",
+    "Whitby",
+    "Oshawa",
+    "Milton",
+]
 
-    Data is pulled from the AMPRE (TRREB) OData feed rather than the local
-    Property table because DDF does not carry close/sold prices.
-    """
 
-    permission_classes = [AllowAny]
+def _sold_bucket() -> dict[str, list[float]]:
+    return {"prices": [], "dom": [], "ratios": [], "count": []}
 
-    @extend_schema(
-        summary="Monthly sold trends for a city",
-        description=(
-            "Returns median close price, average days on market, sale-to-list "
-            "ratio, and units sold per month for the requested window. "
-            "Backed by the AMPRE OData Property feed (Sold statuses only)."
+
+def _summarise_sold_bucket(b: dict[str, list[float]]) -> dict[str, Any]:
+    over_asking = 0
+    if b["ratios"]:
+        over_asking = sum(1 for r in b["ratios"] if r > 1.0)
+    return {
+        "median_sold_price": _median(b["prices"]),
+        "avg_sold_price": round(sum(b["prices"]) / len(b["prices"]), 2) if b["prices"] else None,
+        "avg_days_on_market": (
+            round(sum(b["dom"]) / len(b["dom"]), 1) if b["dom"] else None
         ),
-        parameters=[
-            OpenApiParameter("city", OpenApiTypes.STR, OpenApiParameter.QUERY, required=True),
-            OpenApiParameter("window", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Window in months, e.g. '12m'. Capped at 36."),
-        ],
-        responses={
-            200: OpenApiResponse(
-                response=inline_serializer(
-                    name="MarketSoldTrendsResponse",
-                    fields={
-                        "city": serializers.CharField(),
-                        "window_months": serializers.IntegerField(),
-                        "months": serializers.ListField(child=serializers.DictField()),
-                    },
-                )
-            ),
-            400: OpenApiResponse(description="city query parameter is required."),
-            502: OpenApiResponse(description="AMPRE upstream returned an error."),
-        },
-        auth=[],
+        "sale_to_list_ratio": (
+            round(sum(b["ratios"]) / len(b["ratios"]), 4) if b["ratios"] else None
+        ),
+        "over_asking_share": (
+            round(over_asking / len(b["ratios"]), 4) if b["ratios"] else None
+        ),
+        "units_sold": int(sum(b["count"])),
+    }
+
+
+def _bucket_sold_rows(rows: Iterable[dict[str, Any]]) -> tuple[dict[str, dict], dict[str, list[float]]]:
+    """Group sold rows by (city, month) and return (per_city_month, per_city_total)."""
+    per_city_month: dict[str, dict[str, dict[str, list[float]]]] = defaultdict(
+        lambda: defaultdict(_sold_bucket)
     )
-    def get(self, request):
-        city = (request.query_params.get("city") or "").strip()
-        if not city:
-            return Response(
-                {"error": "city query parameter is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        window_months = _parse_window_months(request.query_params.get("window"), default=12)
-        cache_key = f"sold-trends:{city.lower()}:{window_months}"
-        cached = cache.get(cache_key)
-        if cached is not None:
-            return Response(cached)
-
-        now = timezone.now()
-        window_start = (now - timedelta(days=window_months * 31)).date().isoformat()
-        safe_city = city.replace("'", "''")
-        filter_expression = (
-            f"City eq '{safe_city}' "
-            f"and StandardStatus eq 'Closed' "
-            f"and CloseDate ge {window_start}"
-        )
-        select_fields = [
-            "ListingKey",
-            "City",
-            "StandardStatus",
-            "ClosePrice",
-            "ListPrice",
-            "OriginalListPrice",
-            "CloseDate",
-            "OriginalEntryTimestamp",
-        ]
-
+    per_city_total: dict[str, dict[str, list[float]]] = defaultdict(_sold_bucket)
+    for row in rows:
+        close_price = row.get("ClosePrice")
+        close_date_raw = row.get("CloseDate")
+        list_price = row.get("ListPrice") or row.get("OriginalListPrice")
+        entry_ts_raw = row.get("OriginalEntryTimestamp")
+        city = (row.get("City") or "").strip()
+        close_dt = _parse_ampre_datetime(close_date_raw)
+        if not close_dt or close_price in (None, 0) or not city:
+            continue
         try:
-            rows = fetch_property_page(
-                filter_expression=filter_expression,
-                select_fields=select_fields,
-                orderby="CloseDate desc",
-                top=1000,
-            )
-        except AmpreClientError as exc:
-            return Response(
-                {"error": "AMPRE upstream error.", "detail": str(exc)},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
-
-        buckets: dict[str, dict[str, list[float]]] = defaultdict(
-            lambda: {"prices": [], "dom": [], "ratios": [], "count": []}
-        )
-        for row in rows:
-            close_price = row.get("ClosePrice")
-            close_date_raw = row.get("CloseDate")
-            list_price = row.get("ListPrice") or row.get("OriginalListPrice")
-            entry_ts_raw = row.get("OriginalEntryTimestamp")
-            close_dt = _parse_ampre_datetime(close_date_raw)
-            if not close_dt or close_price in (None, 0):
-                continue
-            month = _month_key(close_dt)
-            bucket = buckets[month]
-            try:
-                bucket["prices"].append(float(close_price))
-            except (TypeError, ValueError):
-                continue
+            price = float(close_price)
+        except (TypeError, ValueError):
+            continue
+        month = _month_key(close_dt)
+        for bucket in (per_city_month[city][month], per_city_total[city]):
+            bucket["prices"].append(price)
+            bucket["count"].append(1.0)
             entry_dt = _parse_ampre_datetime(entry_ts_raw)
             if entry_dt:
                 dom = (close_dt.date() - entry_dt.date()).days
@@ -311,35 +277,172 @@ class MarketSoldTrendsAPIView(APIView):
                 try:
                     lp = float(list_price)
                     if lp > 0:
-                        bucket["ratios"].append(float(close_price) / lp)
+                        bucket["ratios"].append(price / lp)
                 except (TypeError, ValueError):
                     pass
-            bucket["count"].append(1.0)
+    return per_city_month, per_city_total
 
-        months_out: list[dict[str, Any]] = []
-        for month in sorted(buckets.keys()):
-            b = buckets[month]
-            months_out.append(
+
+def _fetch_sold_rows(cities: list[str], window_months: int) -> list[dict[str, Any]]:
+    """Pull closed listings for the given cities in one AMPRE request."""
+    now = timezone.now()
+    window_start = (now - timedelta(days=window_months * 31)).date().isoformat()
+    # OData ``in`` is not supported by AMPRE; build (City eq 'a' or City eq 'b').
+    city_clause = " or ".join(
+        f"City eq '{c.replace(chr(39), chr(39)*2)}'" for c in cities
+    )
+    filter_expression = (
+        f"({city_clause}) "
+        f"and StandardStatus eq 'Closed' "
+        f"and CloseDate ge {window_start}"
+    )
+    select_fields = [
+        "ListingKey",
+        "City",
+        "StandardStatus",
+        "ClosePrice",
+        "ListPrice",
+        "OriginalListPrice",
+        "CloseDate",
+        "OriginalEntryTimestamp",
+    ]
+    return fetch_property_page(
+        filter_expression=filter_expression,
+        select_fields=select_fields,
+        orderby="CloseDate desc",
+        top=1000,
+    )
+
+
+class MarketSoldTrendsAPIView(APIView):
+    """GET /api/market/sold-trends/ - monthly sold aggregates.
+
+    Data is pulled from the AMPRE (TRREB) OData feed rather than the local
+    Property table because DDF does not carry close/sold prices.
+
+    Supports a single city (?city=), a CSV of cities (?cities=), or the GTA
+    scope (?scope=gta). The response returns one series per city and, when
+    multiple cities are queried, an ``aggregate`` block used by the GTA-wide
+    sold KPI strip.
+    """
+
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        summary="Monthly sold trends for one or more cities",
+        description=(
+            "Returns median close price, avg sold price, over-asking share, "
+            "avg days on market, sale-to-list ratio, and units sold per month "
+            "for each city in the requested window. Backed by the AMPRE OData "
+            "Property feed (Sold statuses only)."
+        ),
+        parameters=[
+            OpenApiParameter("city", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Single city (backward-compatible)."),
+            OpenApiParameter("cities", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Comma-separated list of city names (GAP-07)."),
+            OpenApiParameter("scope", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Set to 'gta' for the GTA-wide summary (GAP-08)."),
+            OpenApiParameter("window", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Window in months, e.g. '12m'. Capped at 36."),
+        ],
+        responses={
+            200: OpenApiResponse(
+                response=inline_serializer(
+                    name="MarketSoldTrendsResponse",
+                    fields={
+                        "scope": serializers.CharField(),
+                        "window_months": serializers.IntegerField(),
+                        "series": serializers.ListField(child=serializers.DictField()),
+                        "aggregate": serializers.DictField(required=False),
+                    },
+                )
+            ),
+            400: OpenApiResponse(description="Provide city, cities, or scope=gta."),
+            502: OpenApiResponse(description="AMPRE upstream returned an error."),
+        },
+        auth=[],
+    )
+    def get(self, request):
+        scope = (request.query_params.get("scope") or "").strip().lower()
+        raw_cities_multi = (request.query_params.get("cities") or "").strip()
+        raw_city_single = (request.query_params.get("city") or "").strip()
+
+        if scope == "gta":
+            cities = list(GTA_CITIES)
+        elif raw_cities_multi:
+            cities = [c.strip() for c in raw_cities_multi.split(",") if c.strip()]
+        elif raw_city_single:
+            cities = [raw_city_single]
+        else:
+            return Response(
+                {"error": "Provide city, cities=<csv>, or scope=gta."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Cap so a malicious ?cities=a,b,c...x50 cannot blow up the OData query.
+        cities = cities[:20]
+        if not cities:
+            return Response({"scope": scope or "cities", "series": []})
+
+        window_months = _parse_window_months(request.query_params.get("window"), default=12)
+        scope_label = scope or ("cities" if len(cities) > 1 else "city")
+        cities_digest = hashlib.md5(
+            "|".join(sorted(c.lower() for c in cities)).encode()
+        ).hexdigest()
+        cache_key = f"sold-trends:v2:{scope_label}:{cities_digest}:{window_months}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        try:
+            rows = _fetch_sold_rows(cities, window_months)
+        except AmpreClientError as exc:
+            return Response(
+                {"error": "AMPRE upstream error.", "detail": str(exc)},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        per_city_month, per_city_total = _bucket_sold_rows(rows)
+        canonical_by_norm = {c.lower(): c for c in cities}
+
+        series: list[dict[str, Any]] = []
+        for city_key in sorted(
+            set(list(per_city_month.keys()) + list(canonical_by_norm.values()))
+        ):
+            display = canonical_by_norm.get(city_key.lower(), city_key)
+            monthly = per_city_month.get(city_key, {})
+            months_out = [
+                {"month": m, **_summarise_sold_bucket(monthly[m])}
+                for m in sorted(monthly.keys())
+            ]
+            series.append(
                 {
-                    "month": month,
-                    "median_sold_price": _median(b["prices"]),
-                    "avg_days_on_market": (
-                        round(sum(b["dom"]) / len(b["dom"]), 1) if b["dom"] else None
+                    "city": display,
+                    "window_months": window_months,
+                    "months": months_out,
+                    "totals": _summarise_sold_bucket(
+                        per_city_total.get(city_key, _sold_bucket())
                     ),
-                    "sale_to_list_ratio": (
-                        round(sum(b["ratios"]) / len(b["ratios"]), 4)
-                        if b["ratios"]
-                        else None
-                    ),
-                    "units_sold": int(sum(b["count"])),
                 }
             )
 
-        payload = {
-            "city": city,
+        payload: dict[str, Any] = {
+            "scope": scope_label,
             "window_months": window_months,
-            "months": months_out,
+            "series": series,
         }
+
+        # GAP-08: GTA-wide (or multi-city) headline strip.
+        if len(cities) > 1 or scope == "gta":
+            aggregate_bucket = _sold_bucket()
+            for b in per_city_total.values():
+                for k in aggregate_bucket:
+                    aggregate_bucket[k].extend(b[k])
+            payload["aggregate"] = _summarise_sold_bucket(aggregate_bucket)
+
+        # Preserve the legacy single-city top-level fields so existing
+        # callers do not break when they used ?city= without opting in.
+        if len(cities) == 1 and scope != "gta":
+            single = series[0] if series else {"city": cities[0], "months": [], "totals": _summarise_sold_bucket(_sold_bucket())}
+            payload["city"] = single["city"]
+            payload["months"] = single["months"]
+
         cache.set(cache_key, payload, 60 * 30)
         return Response(payload)
 
@@ -348,43 +451,37 @@ class CatalogStatsBulkAPIView(APIView):
     """GET /api/catalog-stats/bulk/ - per-city active-catalog aggregates.
 
     Accepts a comma-separated ``cities`` list or ``scope=gta`` for the
-    Greater Toronto Area headline figure. Runs one aggregate query per city
-    over the local ``Property`` table; no upstream calls.
+    Greater Toronto Area headline figure. Active-catalog aggregates come
+    from the local ``Property`` table; the ``sold_count_90d`` /
+    ``median_sold_price_90d`` columns (GAP-06) come from AMPRE in a single
+    bulk query and are attached per-city. ``include=sold`` (default true)
+    can be flipped off if the caller does not need sold data.
     """
 
-    GTA_CITIES = [
-        "Toronto",
-        "Mississauga",
-        "Brampton",
-        "Vaughan",
-        "Markham",
-        "Richmond Hill",
-        "Oakville",
-        "Burlington",
-        "Ajax",
-        "Pickering",
-        "Whitby",
-        "Oshawa",
-        "Milton",
-    ]
+    GTA_CITIES = GTA_CITIES
 
     permission_classes = [AllowAny]
 
     @extend_schema(
-        summary="Per-city active catalog stats in one request",
+        summary="Per-city active catalog stats + 90-day sold summary",
         description=(
-            "Returns active_count and median_list_price per city. Use "
-            "?cities=Toronto,Vaughan,... or ?scope=gta for the GTA headline."
+            "Returns active_count, median_list_price, median_price_per_sqft (GAP-27), "
+            "sold_count_90d, and median_sold_price_90d (GAP-06) per city. "
+            "Use ?cities=Toronto,Vaughan,... or ?scope=gta for the GTA headline. "
+            "Sold data is optional (?include_sold=false skips the AMPRE call)."
         ),
         parameters=[
-            OpenApiParameter("cities", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Comma-separated list of city names."),
-            OpenApiParameter("scope", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Set to 'gta' to aggregate the Greater Toronto Area."),
+            OpenApiParameter("cities", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("scope", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("include_sold", OpenApiTypes.BOOL, OpenApiParameter.QUERY, required=False, description="Set to false to skip the AMPRE sold aggregate."),
         ],
         responses={
             200: OpenApiResponse(response=inline_serializer(
                 name="CatalogStatsBulkResponse",
                 fields={
+                    "scope": serializers.CharField(),
                     "results": serializers.ListField(child=serializers.DictField()),
+                    "aggregate": serializers.DictField(required=False),
                 },
             )),
             400: OpenApiResponse(description="Provide either cities or scope=gta."),
@@ -394,6 +491,8 @@ class CatalogStatsBulkAPIView(APIView):
     def get(self, request):
         scope = (request.query_params.get("scope") or "").strip().lower()
         raw_cities = (request.query_params.get("cities") or "").strip()
+        include_sold = (request.query_params.get("include_sold") or "true").strip().lower() != "false"
+
         cities: list[str]
         if scope == "gta":
             cities = list(self.GTA_CITIES)
@@ -404,10 +503,17 @@ class CatalogStatsBulkAPIView(APIView):
                 {"error": "Provide cities=<csv> or scope=gta."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        cities = cities[:20]
         if not cities:
-            return Response({"results": []})
+            return Response({"scope": scope or "cities", "results": []})
 
-        cache_key = f"catalog-stats-bulk:{scope or 'cities'}:{'|'.join(sorted(c.lower() for c in cities))}"
+        # md5 keeps the key memcached-safe (no spaces) regardless of city names.
+        cities_digest = hashlib.md5(
+            "|".join(sorted(c.lower() for c in cities)).encode()
+        ).hexdigest()
+        cache_key = (
+            f"catalog-stats-bulk:v2:{scope or 'cities'}:{int(include_sold)}:{cities_digest}"
+        )
         cached = cache.get(cache_key)
         if cached is not None:
             return Response(cached)
@@ -419,34 +525,79 @@ class CatalogStatsBulkAPIView(APIView):
                 city__iexact=city,
                 list_price__isnull=False,
             ).exclude(list_price__lte=0)
-            prices = [float(p) for p in city_qs.values_list("list_price", flat=True) if p]
+            prices: list[float] = []
+            ppsf: list[float] = []
+            for lp, la in city_qs.values_list("list_price", "living_area"):
+                try:
+                    price = float(lp)
+                except (TypeError, ValueError):
+                    continue
+                if price <= 0:
+                    continue
+                prices.append(price)
+                if la:
+                    try:
+                        area = float(la)
+                        if area > 0:
+                            ppsf.append(price / area)
+                    except (TypeError, ValueError):
+                        pass
             results.append(
                 {
                     "city": city,
                     "active_count": len(prices),
                     "median_list_price": _median(prices),
+                    # GAP-27: heatmap tile shows $/sqft.
+                    "median_price_per_sqft": _median(ppsf),
+                    # Populated below when include_sold is true.
+                    "sold_count_90d": None,
+                    "median_sold_price_90d": None,
                 }
             )
 
-        if scope == "gta":
-            total_active = sum(row["active_count"] for row in results)
-            all_prices: list[float] = []
+        sold_error: str | None = None
+        if include_sold:
+            try:
+                sold_rows = _fetch_sold_rows(cities, window_months=3)
+            except AmpreClientError as exc:
+                sold_error = str(exc)
+                sold_rows = []
+            _, per_city_total = _bucket_sold_rows(sold_rows)
+            norm_totals = {k.lower(): v for k, v in per_city_total.items()}
             for row in results:
-                # We need real prices back to compute the aggregate median.
-                # Re-query per city would double-count; instead just aggregate
-                # the recorded per-city medians as a stable, cheap proxy.
-                if row["median_list_price"] is not None:
-                    all_prices.append(float(row["median_list_price"]))
+                bucket = norm_totals.get(row["city"].lower())
+                if bucket:
+                    row["sold_count_90d"] = int(sum(bucket["count"]))
+                    row["median_sold_price_90d"] = _median(bucket["prices"])
+                else:
+                    row["sold_count_90d"] = 0
+
+        if scope == "gta" or len(cities) > 1:
+            total_active = sum(row["active_count"] for row in results)
+            median_of_city_medians = _median(
+                [float(row["median_list_price"]) for row in results if row["median_list_price"] is not None]
+            )
+            total_sold_90d = sum((row.get("sold_count_90d") or 0) for row in results) if include_sold else None
+            median_of_city_sold_medians = (
+                _median(
+                    [float(row["median_sold_price_90d"]) for row in results if row.get("median_sold_price_90d") is not None]
+                ) if include_sold else None
+            )
             payload = {
-                "scope": "gta",
+                "scope": scope or "cities",
                 "results": results,
                 "aggregate": {
                     "active_count": total_active,
-                    "median_of_city_medians": _median(all_prices),
+                    "median_of_city_medians": median_of_city_medians,
+                    "sold_count_90d": total_sold_90d,
+                    "median_of_city_sold_medians_90d": median_of_city_sold_medians,
                 },
             }
         else:
             payload = {"scope": "cities", "results": results}
+
+        if sold_error:
+            payload["sold_error"] = sold_error
 
         cache.set(cache_key, payload, 60 * 15)
         return Response(payload)

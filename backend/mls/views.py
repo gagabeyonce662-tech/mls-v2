@@ -2954,6 +2954,74 @@ class ListingTrendsAPIView(APIView):
             },
             "disclaimer": "Based on active listings in this site catalog only; not sold-market stats.",
         }
+
+        # GAP-27: Year-over-year comparison for the price cards + heatmap.
+        # Compares median list price and median $/sqft against the equivalent
+        # window ending 12 months ago, using the same city/FSA scope.
+        yoy_end = now - timedelta(days=365)
+        yoy_start = yoy_end - timedelta(days=window_months * 31)
+        yoy_qs = Property.objects.filter(
+            list_price__isnull=False,
+        ).exclude(list_price__lte=0)
+        if city:
+            yoy_qs = yoy_qs.filter(city__iexact=city)
+        if len(fsa) == 3:
+            pc_norm_prev = Upper(
+                Replace(
+                    Replace(F("postal_code"), Value(" "), Value("")),
+                    Value("-"),
+                    Value(""),
+                )
+            )
+            yoy_qs = yoy_qs.annotate(pc_norm=pc_norm_prev).filter(pc_norm__startswith=fsa)
+        yoy_qs = yoy_qs.filter(
+            Q(original_entry_timestamp__gte=yoy_start, original_entry_timestamp__lt=yoy_end)
+            | Q(modification_timestamp__gte=yoy_start, modification_timestamp__lt=yoy_end)
+        )
+        yoy_prices: list[float] = []
+        yoy_ppsf: list[float] = []
+        for lp, la in yoy_qs.values_list("list_price", "living_area")[:5000]:
+            try:
+                p = float(lp)
+            except (TypeError, ValueError):
+                continue
+            if p <= 0:
+                continue
+            yoy_prices.append(p)
+            if la:
+                try:
+                    area = float(la)
+                    if area > 0:
+                        yoy_ppsf.append(p / area)
+                except (TypeError, ValueError):
+                    pass
+
+        current_median = percentile(all_prices, 0.50)
+        prior_median = percentile(yoy_prices, 0.50)
+        current_ppsf = percentile(all_ppsf, 0.50)
+        prior_ppsf = percentile(yoy_ppsf, 0.50)
+
+        def _pct_change(current, prior):
+            if current is None or prior is None or prior == 0:
+                return None
+            return round((current - prior) / prior, 4)
+
+        payload["yoy"] = {
+            "window_months": window_months,
+            "prior_window_start": yoy_start.date().isoformat(),
+            "prior_window_end": yoy_end.date().isoformat(),
+            "median_list_price": {
+                "current": current_median,
+                "prior": prior_median,
+                "pct_change": _pct_change(current_median, prior_median),
+            },
+            "median_price_per_sqft": {
+                "current": current_ppsf,
+                "prior": prior_ppsf,
+                "pct_change": _pct_change(current_ppsf, prior_ppsf),
+            },
+        }
+
         cache.set(cache_key, payload, 300)
         return Response(payload)
 
@@ -3096,12 +3164,29 @@ class PropertySnapshotsAPIView(APIView):
 class PropertyNoteAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    # GAP-09: list-all when no listing_key. Cap keeps the Notes tab response
+    # bounded even if a user has thousands of notes.
+    NOTES_LIST_LIMIT = 500
+
     def get(self, request):
         lk = (request.query_params.get("listing_key") or "").strip()
         if not lk:
-            return Response(
-                {"error": "listing_key required"}, status=status.HTTP_400_BAD_REQUEST
+            notes = (
+                PropertyNote.objects.filter(user=request.user)
+                .exclude(body__exact="")
+                .order_by("-updated_at")[: self.NOTES_LIST_LIMIT]
             )
+            results = [
+                {
+                    "listing_key": n.listing_key,
+                    "body": n.body,
+                    "updated_at": n.updated_at,
+                    "created_at": n.created_at,
+                }
+                for n in notes
+            ]
+            return Response({"count": len(results), "results": results})
+
         note, _ = PropertyNote.objects.get_or_create(
             user=request.user, listing_key=lk, defaults={"body": ""}
         )

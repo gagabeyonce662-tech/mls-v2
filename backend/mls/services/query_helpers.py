@@ -167,10 +167,27 @@ def _apply_location_filters(qs, params, *, relaxed_city: bool = False, city_cand
             qs = qs.filter(state_or_province__in=provinces)
     if params.get("postal_code"):
         codes = [_normalize_postal(c) for c in _split_csv(params.get("postal_code", ""))]
+        codes = [c for c in codes if c]
         if codes:
             qs = qs.annotate(
                 postal_compact=Upper(Replace("postal_code", Value(" "), Value("")))
-            ).filter(postal_compact__in=codes)
+            )
+            # GAP-39: branch on FSA (3 chars) vs full postal (6 chars).
+            # Same param accepts a CSV mixing both, so we OR the two clauses.
+            full_codes = [c for c in codes if len(c) == 6]
+            fsa_codes = [c for c in codes if len(c) == 3]
+            other_codes = [c for c in codes if len(c) not in (3, 6)]
+            postal_q = Q()
+            if full_codes:
+                postal_q |= Q(postal_compact__in=full_codes)
+            for fsa in fsa_codes:
+                postal_q |= Q(postal_compact__startswith=fsa)
+            if other_codes:
+                # Preserve the previous exact-match behavior for anything
+                # that is neither an FSA nor a full postal.
+                postal_q |= Q(postal_compact__in=other_codes)
+            if postal_q:
+                qs = qs.filter(postal_q)
     return qs
 
 
@@ -294,12 +311,30 @@ def _apply_common_filters(
     return qs
 
 
+def _is_truthy(value) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_falsy(value) -> bool:
+    return str(value).strip().lower() in {"0", "false", "no", "off"}
+
+
 def _apply_fallback_pipeline(base_qs, params, order_by: tuple[str, ...]):
     strict = _apply_common_filters(
         base_qs, params, include_search=True, include_location=True, relaxed_city=False
     )
     strict = strict.order_by(*order_by)
     if strict.exists():
+        return strict, {
+            "fallback_applied": False,
+            "fallback_stage": None,
+            "suggested_locations": [],
+        }
+
+    # GAP-02: strict mode returns an empty result set instead of falling
+    # through to the safety_net stage that returns the entire catalog.
+    allow_fallback_raw = params.get("allow_fallback")
+    if allow_fallback_raw is not None and _is_falsy(allow_fallback_raw):
         return strict, {
             "fallback_applied": False,
             "fallback_stage": None,
@@ -340,6 +375,35 @@ def _apply_fallback_pipeline(base_qs, params, order_by: tuple[str, ...]):
         "fallback_stage": "safety_net",
         "suggested_locations": suggestions,
     }
+
+
+def _apply_open_house_filters(qs, params):
+    """GAP-01: has_open_house + open_house_from/open_house_to date-range filter.
+
+    Applied on the caller side (PropertyFilterView) so it composes with
+    the existing fallback pipeline. Uses the reverse ``open_houses`` FK
+    on Property. .distinct() is required because the join across
+    open_houses can duplicate rows.
+    """
+    from django.utils import timezone as _tz
+
+    has_open_house = params.get("has_open_house")
+    open_from = (params.get("open_house_from") or "").strip()
+    open_to = (params.get("open_house_to") or "").strip()
+
+    filter_kwargs: dict = {}
+    if open_from:
+        filter_kwargs["open_houses__date__gte"] = open_from
+    if open_to:
+        filter_kwargs["open_houses__date__lte"] = open_to
+
+    if has_open_house is not None and _is_truthy(has_open_house):
+        if "open_houses__date__gte" not in filter_kwargs:
+            filter_kwargs["open_houses__date__gte"] = _tz.localdate()
+        return qs.filter(**filter_kwargs).distinct()
+    if filter_kwargs:
+        return qs.filter(**filter_kwargs).distinct()
+    return qs
 
 
 def _parse_bbox(params):

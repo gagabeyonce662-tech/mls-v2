@@ -214,6 +214,7 @@ class Property(models.Model):
     close_date = models.DateField(null=True, blank=True)
     previous_list_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     price_change_timestamp = models.DateTimeField(null=True, blank=True)
+    virtual_tour_url = models.URLField(max_length=2000, null=True, blank=True)
 
     def __str__(self):
         return f"Property {self.listing_key} - {self.city}"
@@ -672,6 +673,19 @@ class PropertyInquiry(models.Model):
     message = models.TextField(help_text="Free-form description from the user")
     listing_key = models.CharField(max_length=2000, blank=True, db_index=True)
 
+    # Preconstruction "Register Interest" + VIP list capture (GAP-14).
+    # SET_NULL keeps the inquiry record if the project is later archived.
+    project = models.ForeignKey(
+        "mls.EstateProject",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inquiries",
+        db_index=True,
+    )
+    is_vip_list = models.BooleanField(default=False, db_index=True)
+    newsletter_opt_in = models.BooleanField(default=False)
+
     preferred_locations = models.CharField(max_length=500, blank=True)
     property_types = models.CharField(max_length=255, blank=True)
     budget_min = models.PositiveIntegerField(null=True, blank=True)
@@ -790,6 +804,59 @@ class SearchEvent(models.Model):
             models.Index(fields=["session_key", "created_at"]),
             models.Index(fields=["city", "created_at"]),
         ]
+
+
+class SavedSearch(models.Model):
+    """A named, re-runnable search a user can manage from Watched > Saved Searches (GAP-03).
+
+    filters_json holds the raw query params from properties/filter/ so the
+    saved search can be replayed by dropping them straight back into the URL.
+    """
+
+    ALERT_OFF = "off"
+    ALERT_INSTANT = "instant"
+    ALERT_DAILY = "daily"
+    ALERT_WEEKLY = "weekly"
+    ALERT_CHOICES = [
+        (ALERT_OFF, "Off"),
+        (ALERT_INSTANT, "Instant"),
+        (ALERT_DAILY, "Daily digest"),
+        (ALERT_WEEKLY, "Weekly digest"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="saved_searches",
+    )
+    name = models.CharField(max_length=120)
+    filters_json = models.JSONField(default=dict, blank=True)
+    alert_cadence = models.CharField(
+        max_length=16,
+        choices=ALERT_CHOICES,
+        default=ALERT_OFF,
+    )
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    last_alert_sent_at = models.DateTimeField(null=True, blank=True)
+    last_result_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "name"],
+                name="uniq_savedsearch_user_name",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "-updated_at"]),
+            models.Index(fields=["alert_cadence", "last_alert_sent_at"]),
+        ]
+
+    def __str__(self):
+        return f"SavedSearch<{self.user_id}:{self.name}>"
 
 
 class PropertyNote(models.Model):

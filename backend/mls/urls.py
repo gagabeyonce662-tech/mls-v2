@@ -35,6 +35,11 @@ from .views_precon import (
     PreComPropertyRecommendationsAPIView,
     PreComPropertyListAPIView,
 )
+from .views_search import SearchSuggestAPIView
+from .views_saved_search import (
+    SavedSearchDetailAPIView,
+    SavedSearchListCreateAPIView,
+)
 
 urlpatterns = [
     path('estate-projects/', EstateProjectListAPIView.as_view(), name='estate-project-list'),
@@ -42,6 +47,9 @@ urlpatterns = [
     path('estate-documents/<int:document_id>/intent/', EstateDocumentIntentAPIView.as_view(), name='estate-document-intent'),
     path('estate-documents/<int:document_id>/access/', EstateDocumentAccessAPIView.as_view(), name='estate-document-access'),
     path('estate-documents/proxy/', EstateDocumentProxyAPIView.as_view(), name='estate-document-proxy'),
+    path('search/suggest/', SearchSuggestAPIView.as_view(), name='search-suggest'),
+    path('saved-searches/', SavedSearchListCreateAPIView.as_view(), name='saved-search-list'),
+    path('saved-searches/<int:pk>/', SavedSearchDetailAPIView.as_view(), name='saved-search-detail'),
     path('valuation/autocomplete/', ValuationAutocompleteAPIView.as_view(), name='valuation-autocomplete'),
     path('valuation/lookup/', ValuationLookupAPIView.as_view(), name='valuation-lookup'),
     path('valuation/estimate/', ValuationEstimateAPIView.as_view(), name='valuation-estimate'),

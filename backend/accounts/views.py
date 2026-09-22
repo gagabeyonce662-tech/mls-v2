@@ -658,11 +658,22 @@ class ProfileView(APIView):
             if getattr(user, field) != serializer.validated_data[field]
         }
 
+        email_changed = "email" in changed
+
         serializer.save()
 
         if "phone" in changed:
             user.phone_verified = False
             user.save(update_fields=["phone_verified"])
+
+        # GAP-20: email edits are allowed but trigger re-verification: mark
+        # the account inactive until the new address is confirmed.
+        if email_changed:
+            user.is_active = False
+            user.save(update_fields=["is_active"])
+            EmailVerificationToken.objects.filter(user=user).delete()
+            token_obj = EmailVerificationToken.objects.create(user=user)
+            _send_verification_email(user.id, str(token_obj.token))
 
         # Sync any changed fields to GHL
         if changed and user.ghl_contact_id:
@@ -679,4 +690,7 @@ class ProfileView(APIView):
                 user.ghl_contact_id = contact_id
                 user.save(update_fields=['ghl_contact_id'])
 
-        return Response(UserProfileSerializer(user).data)
+        response_body = UserProfileSerializer(user).data
+        if email_changed:
+            response_body["email_verification_sent"] = True
+        return Response(response_body)
