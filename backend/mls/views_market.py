@@ -31,7 +31,14 @@ from rest_framework.views import APIView
 
 from .models import Property, PropertyInquiry
 from .services.ampre_client import AmpreClientError, fetch_property_page
-from .services.query_helpers import _apply_location_filters, _apply_open_house_filters
+from .services.query_helpers import (
+    STATUS_GROUPS,
+    _apply_location_filters,
+    cities_match_q,
+    city_match_q,
+    price_field_for,
+    _apply_open_house_filters,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -61,14 +68,22 @@ def _apply_facet_filters(qs, params) -> Any:
     if params.get("city"):
         cities = [c.strip() for c in params.get("city", "").split(",") if c.strip()]
         if cities:
-            qs = qs.filter(city__in=cities)
+            qs = qs.filter(cities_match_q(cities))
     if params.get("has_lease") in ("true", "1", "True"):
         qs = qs.filter(Q(lease_amount__gt=0) | Q(total_actual_rent__gt=0))
+    # Buy / Rent split - the same rules as PropertyFilterView, so each status
+    # tab's count matches the listings it links to.
+    transaction_type = params.get("transaction_type")
+    if transaction_type == "rent":
+        qs = qs.filter(Q(lease_amount__gt=0) | Q(total_actual_rent__gt=0))
+    elif transaction_type == "sale":
+        qs = qs.filter(lease_amount__isnull=True, total_actual_rent__isnull=True)
+    qs, price_field = price_field_for(qs, params)
     try:
         if params.get("price_min"):
-            qs = qs.filter(list_price__gte=int(params.get("price_min")))
+            qs = qs.filter(**{f"{price_field}__gte": int(params.get("price_min"))})
         if params.get("price_max"):
-            qs = qs.filter(list_price__lte=int(params.get("price_max")))
+            qs = qs.filter(**{f"{price_field}__lte": int(params.get("price_max"))})
         if params.get("beds_min"):
             qs = qs.filter(bedrooms_total__gte=int(params.get("beds_min")))
         if params.get("baths_min"):
@@ -112,6 +127,7 @@ class PropertyFacetsAPIView(APIView):
             OpenApiParameter("city", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("status", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("has_lease", OpenApiTypes.BOOL, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("transaction_type", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="'sale' or 'rent'; 'rent' also moves price filters to lease_amount."),
             OpenApiParameter("price_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("price_max", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("beds_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
@@ -128,6 +144,10 @@ class PropertyFacetsAPIView(APIView):
                     name="PropertyFacetsResponse",
                     fields={
                         "status": serializers.DictField(child=serializers.IntegerField()),
+                        "status_group": serializers.DictField(
+                            child=serializers.IntegerField(),
+                            help_text="Counts for 'active', 'sold' and 'de-listed'; always all three keys.",
+                        ),
                         "property_sub_type": serializers.DictField(child=serializers.IntegerField()),
                         "price_buckets": serializers.ListField(child=serializers.DictField()),
                         "open_house": serializers.IntegerField(),
@@ -151,6 +171,16 @@ class PropertyFacetsAPIView(APIView):
             (row["standard_status"] or "Unknown"): row["count"]
             for row in qs.values("standard_status").annotate(count=Count("id")).order_by()
         }
+        # Fixed status tabs (For Sale / Sold / De-listed): every group is always
+        # present, zero included, and rows whose status belongs to no group
+        # (test data, "Unknown") are counted nowhere.
+        status_group_counts = {group: 0 for group in STATUS_GROUPS}
+        for raw_status, count in status_counts.items():
+            normalized = raw_status.strip().lower()
+            for group, statuses in STATUS_GROUPS.items():
+                if normalized in statuses:
+                    status_group_counts[group] += count
+                    break
         sub_type_counts = {
             (row["property_sub_type"] or "Unknown"): row["count"]
             for row in qs.exclude(property_sub_type__isnull=True)
@@ -183,6 +213,7 @@ class PropertyFacetsAPIView(APIView):
         return Response(
             {
                 "status": status_counts,
+                "status_group": status_group_counts,
                 "property_sub_type": sub_type_counts,
                 "price_buckets": price_buckets,
                 "open_house": open_house_count,
@@ -538,8 +569,8 @@ class CatalogStatsBulkAPIView(APIView):
     @extend_schema(
         summary="Per-city active catalog stats + 90-day sold summary",
         description=(
-            "Returns active_count, median_list_price, median_price_per_sqft (GAP-27), "
-            "sold_count_90d, and median_sold_price_90d (GAP-06) per city. "
+            "Returns active_count, median_list_price, mean_list_price, median_price_per_sqft (GAP-27), "
+            "sold_count_90d, median_sold_price_90d and avg_sold_price_90d (GAP-06) per city. "
             "Use ?cities=Toronto,Vaughan,... or ?scope=gta for the GTA headline. "
             "Sold data is optional (?include_sold=false skips the AMPRE call)."
         ),
@@ -585,7 +616,7 @@ class CatalogStatsBulkAPIView(APIView):
             "|".join(sorted(c.lower() for c in cities)).encode()
         ).hexdigest()
         cache_key = (
-            f"catalog-stats-bulk:v2:{scope or 'cities'}:{int(include_sold)}:{cities_digest}"
+            f"catalog-stats-bulk:v4:{scope or 'cities'}:{int(include_sold)}:{cities_digest}"
         )
         cached = cache.get(cache_key)
         if cached is not None:
@@ -594,8 +625,8 @@ class CatalogStatsBulkAPIView(APIView):
         results: list[dict[str, Any]] = []
         for city in cities:
             city_qs = Property.objects.filter(
+                city_match_q(city),
                 standard_status__iexact="Active",
-                city__iexact=city,
                 list_price__isnull=False,
             ).exclude(list_price__lte=0)
             prices: list[float] = []
@@ -620,11 +651,14 @@ class CatalogStatsBulkAPIView(APIView):
                     "city": city,
                     "active_count": len(prices),
                     "median_list_price": _median(prices),
+                    # Communities cards label this "Avg. Price".
+                    "mean_list_price": round(sum(prices) / len(prices), 2) if prices else None,
                     # GAP-27: heatmap tile shows $/sqft.
                     "median_price_per_sqft": _median(ppsf),
                     # Populated below when include_sold is true.
                     "sold_count_90d": None,
                     "median_sold_price_90d": None,
+                    "avg_sold_price_90d": None,
                 }
             )
 
@@ -644,6 +678,11 @@ class CatalogStatsBulkAPIView(APIView):
                 if bucket:
                     row["sold_count_90d"] = int(sum(bucket["count"]))
                     row["median_sold_price_90d"] = _median(bucket["prices"])
+                    row["avg_sold_price_90d"] = (
+                        round(sum(bucket["prices"]) / len(bucket["prices"]), 2)
+                        if bucket["prices"]
+                        else None
+                    )
                 else:
                     row["sold_count_90d"] = 0
 
