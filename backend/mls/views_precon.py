@@ -4,7 +4,12 @@ from decimal import Decimal, InvalidOperation
 from io import BytesIO
 
 import pandas as pd
+import requests
+from django.conf import settings
+from django.core import signing
 from django.db import transaction
+from django.http import StreamingHttpResponse
+from django.urls import reverse
 from django.utils.text import slugify
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
@@ -17,11 +22,16 @@ from rest_framework.views import APIView
 
 from mls.models import Content, PreComFloorPlanIntent, PreComProperty
 from mls.serializers_precon import (
+    PRECON_DOCUMENT_TYPES,
     PreComBulkUploadResponseSerializer,
     PreComBulkUploadSerializer,
     PreComPropertyDetailSerializer,
     PreComPropertySerializer,
+    resolve_precon_document_url,
 )
+# Same host allowlist and bounded streaming as the estate-document proxy, so
+# pre-con documents get identical SSRF / size protections.
+from mls.services.estate_documents import _is_allowed_source_url, iter_bounded_content
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +136,12 @@ class PreComPropertyRecommendationsAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        limit = max(2, min(int(request.query_params.get("limit", "4")), 8))
+        # A non-integer ?limit= used to 500; fall back to the default instead.
+        try:
+            limit = int(request.query_params.get("limit", "4"))
+        except (TypeError, ValueError):
+            limit = 4
+        limit = max(2, min(limit, 8))
         candidates = list(
             PreComProperty.objects.select_related("content")
             .filter(content__status=Content.PUBLISH)
@@ -187,7 +202,7 @@ class PreComFloorPlanIntentAPIView(APIView):
             property = (
                 PreComProperty.objects.select_related("content")
                 .prefetch_related("content__attachments", "content__meta")
-                .get(pk=pk)
+                .get(pk=pk, content__status=Content.PUBLISH)
             )
         except PreComProperty.DoesNotExist:
             return Response(
@@ -217,6 +232,178 @@ class PreComFloorPlanIntentAPIView(APIView):
             {"intent_id": intent.id, "access_url": source_url},
             status=status.HTTP_201_CREATED,
         )
+
+
+PRECON_DOCUMENT_TOKEN_SALT = "precon-document-access"
+PRECON_DOCUMENT_UNAVAILABLE = {
+    "floor_plan": "Floor plans are not available for this project yet.",
+    "price_list": "Pricing is not available for this project yet.",
+    "brochure": "A brochure is not available for this project yet.",
+}
+# Upstream types safe to render inline from the API origin. Anything else
+# (notably text/html or SVG, which can carry script) is forced to download.
+PRECON_INLINE_CONTENT_TYPES = (
+    "application/pdf",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/gif",
+)
+
+
+def _published_precon(pk):
+    return (
+        PreComProperty.objects.select_related("content")
+        .prefetch_related("content__attachments", "content__meta")
+        .get(pk=pk, content__status=Content.PUBLISH)
+    )
+
+
+class PreComDocumentIntentAPIView(APIView):
+    """Release a gated pre-con document (floor plan, price list, brochure).
+
+    POST {"type": "floor_plan" | "price_list" | "brochure"}. Requires a
+    signed-in user with a verified phone. Returns a short-lived signed proxy
+    URL when the source host is allowlisted (ESTATE_DOCUMENT_ALLOWED_HOSTS), so
+    the raw document URL never reaches the browser; for any other host it
+    falls back to the raw URL, as `floor-plan-intent/` always did.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        doc_type = str(request.data.get("type") or "").strip()
+        if doc_type not in PRECON_DOCUMENT_TYPES:
+            return Response(
+                {"detail": "type must be one of floor_plan, price_list, brochure."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            property = _published_precon(pk)
+        except PreComProperty.DoesNotExist:
+            return Response(
+                {"detail": "Pre-construction property not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not request.user.phone_verified:
+            return Response(
+                {"detail": "Verify your phone number to view this document."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        source_url = resolve_precon_document_url(property.content, doc_type)
+        if not source_url:
+            return Response(
+                {"detail": PRECON_DOCUMENT_UNAVAILABLE[doc_type]},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # The intent model has no type column, so only floor-plan requests are
+        # recorded; logging a price list as a "floor plan intent" would mislead.
+        if doc_type == "floor_plan":
+            PreComFloorPlanIntent.objects.create(
+                property=property,
+                user=request.user,
+                source_url=source_url[:3000],
+            )
+
+        if not _is_allowed_source_url(source_url):
+            return Response({"access_url": source_url}, status=status.HTTP_201_CREATED)
+
+        token = signing.dumps(
+            {"property_id": property.pk, "type": doc_type, "user_id": request.user.pk},
+            salt=PRECON_DOCUMENT_TOKEN_SALT,
+        )
+        proxy_path = reverse("precon-document-proxy")
+        return Response(
+            {"access_url": request.build_absolute_uri(f"{proxy_path}?token={token}")},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PreComDocumentProxyAPIView(APIView):
+    """Stream a gated pre-con document for a valid short-lived signed token.
+
+    Opened directly by the browser in a new tab, so it takes no auth header;
+    the token binds property, document type and user, and expires after
+    ESTATE_DOCUMENT_ACCESS_MAX_AGE seconds.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        not_found = Response({"detail": "Document not found."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            payload = signing.loads(
+                request.query_params.get("token", ""),
+                salt=PRECON_DOCUMENT_TOKEN_SALT,
+                max_age=settings.ESTATE_DOCUMENT_ACCESS_MAX_AGE,
+            )
+            property_id = int(payload["property_id"])
+            doc_type = str(payload["type"])
+            int(payload["user_id"])
+        except (signing.BadSignature, KeyError, TypeError, ValueError):
+            return not_found
+
+        try:
+            property = _published_precon(property_id)
+        except PreComProperty.DoesNotExist:
+            return not_found
+
+        # Re-resolved rather than carried in the token: signed tokens are
+        # readable, and the URL is exactly what is being kept private.
+        source_url = resolve_precon_document_url(property.content, doc_type)
+        if not source_url or not _is_allowed_source_url(source_url):
+            return not_found
+
+        try:
+            upstream = requests.get(source_url, stream=True, timeout=(5, 20), allow_redirects=False)
+        except (requests.ConnectionError, requests.Timeout):
+            logger.exception("Pre-con document service unavailable for %s", property_id)
+            return Response(
+                {"detail": "External document service unavailable."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except requests.RequestException:
+            logger.exception("Unable to fetch pre-con document for %s", property_id)
+            return Response(
+                {"detail": "Upstream document fetch failed."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        if upstream.status_code != 200:
+            upstream.close()
+            return Response(
+                {"detail": "Upstream document fetch failed."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        try:
+            content_length = int(upstream.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            content_length = 0
+        if content_length > settings.ESTATE_DOCUMENT_MAX_BYTES:
+            upstream.close()
+            return Response(
+                {"detail": "Document exceeds the response size limit."},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
+
+        content_type = (upstream.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        inline = content_type in PRECON_INLINE_CONTENT_TYPES
+        response = StreamingHttpResponse(
+            iter_bounded_content(upstream),
+            content_type=content_type if inline else "application/octet-stream",
+        )
+        filename = f"precon-{property_id}-{doc_type.replace('_', '-')}"
+        disposition = "inline" if inline else "attachment"
+        response["Content-Disposition"] = f'{disposition}; filename="{filename}"'
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
 
 
 class PreComPropertyListAPIView(ListAPIView):

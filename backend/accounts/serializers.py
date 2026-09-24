@@ -63,26 +63,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-<<<<<<< HEAD
-        fields = (
-            'id', 'name', 'first_name', 'last_name', 'email',
-            'phone', 'phone_verified', 'avatar', 'date_joined',
-        )
-        read_only_fields = ('id', 'phone_verified', 'avatar', 'date_joined')
-=======
         # `is_staff` / `can_author` are exposed so the frontend knows whether to
         # offer the Studio. They are READ-ONLY here: privilege is granted through
         # the team endpoints or Django admin, never by a user PATCHing their own
         # profile.
         fields = (
-            'id', 'name', 'email', 'phone', 'phone_verified', 'avatar',
-            'date_joined', 'is_staff', 'can_author', 'can_use_studio',
-        )
-        read_only_fields = (
-            'id', 'email', 'phone_verified', 'avatar', 'date_joined',
+            'id', 'name', 'first_name', 'last_name', 'email',
+            'phone', 'phone_verified', 'avatar', 'date_joined',
             'is_staff', 'can_author', 'can_use_studio',
         )
->>>>>>> 2274f3279bd2e555b202f641b42667f95c9f26d4
+        read_only_fields = (
+            'id', 'phone_verified', 'avatar', 'date_joined',
+            'is_staff', 'can_author', 'can_use_studio',
+        )
 
     def get_name(self, obj) -> str:
         return obj.full_name
@@ -101,3 +94,20 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class ResendVerificationSerializer(serializers.Serializer):
     email = serializers.EmailField()
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Step 1 of the reset flow: who is asking."""
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """
+    Step 2: the token from the email plus the new password.
+
+    `validate_password` applies the same Django password policy as
+    registration, so a reset cannot be used to set a weaker password than
+    signup would have allowed.
+    """
+    token = serializers.UUIDField()
+    password = serializers.CharField(write_only=True, validators=[validate_password])

@@ -8,6 +8,7 @@ import re
 from io import BytesIO
 import pandas as pd
 from datetime import timedelta, datetime
+from difflib import get_close_matches
 import h3
 
 from rest_framework.views import APIView
@@ -70,6 +71,7 @@ from .serializers import (
     PublicListingSubmissionSerializer,
 )
 from mls.services.map_aggregates import get_resolution_for_zoom
+from mls.services.query_helpers import city_match_q, cities_match_q, price_field_for
 from mls.services.inquiry_ghl import sync_inquiry_to_ghl
 from mls.services.inquiry_notifications import send_inquiry_email_to_realtor
 from mls.services.ai_listing_summary import (
@@ -302,7 +304,7 @@ def _apply_location_filters(qs, params, *, relaxed_city: bool = False, city_cand
                 if relaxed_city:
                     city_q |= Q(city__icontains=city)
                 else:
-                    city_q |= Q(city__iexact=city)
+                    city_q |= city_match_q(city)
             qs = qs.filter(city_q)
     if city_candidates:
         qs = qs.filter(city__in=city_candidates)
@@ -542,7 +544,7 @@ def _build_query_params_cache_key(prefix: str, params) -> str:
 
 
 def _apply_map_filters_to_queryset(qs, params):
-    price_field = "lease_amount" if params.get("transaction_type") == "rent" else "list_price"
+    qs, price_field = price_field_for(qs, params)
     if params.get("price_min"):
         qs = qs.filter(**{f"{price_field}__gte": float(params.get("price_min"))})
     if params.get("price_max"):
@@ -558,7 +560,7 @@ def _apply_map_filters_to_queryset(qs, params):
     if params.get("city"):
         cities = [c.strip() for c in params.get("city", "").split(",") if c.strip()]
         if cities:
-            qs = qs.filter(city__in=cities)
+            qs = qs.filter(cities_match_q(cities))
     if params.get("province"):
         provinces = [
             p.strip().upper()
@@ -2488,6 +2490,7 @@ class NewlyListedPropertiesAPIView(APIView):
             OpenApiParameter("lease_amount_max", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("city", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("search", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("since_hours", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Only listings first entered in the last N hours (strict: no fallback)."),
         ],
         responses={
             200: OpenApiResponse(response=inline_serializer(
@@ -2528,6 +2531,16 @@ class NewlyListedPropertiesAPIView(APIView):
             request.query_params,
             ("-original_entry_timestamp", "-modification_timestamp"),
         )
+        # "Today's new listings": applied after the fallback pipeline so it
+        # stays strict — an empty day must return nothing, not the safety-net
+        # catalogue the pipeline substitutes for an empty result.
+        since_hours = request.query_params.get("since_hours")
+        if since_hours:
+            try:
+                hours = max(1, min(int(since_hours), 24 * 30))
+            except (TypeError, ValueError):
+                return Response({"error": "since_hours must be an integer."}, status=400)
+            qs = qs.filter(original_entry_timestamp__gte=timezone.now() - timedelta(hours=hours))
 
         # Pagination
         paginator = Paginator(qs, limit)
@@ -2590,7 +2603,7 @@ class ListingCatalogStatsAPIView(APIView):
             list_price__isnull=False,
         ).exclude(list_price__lte=0)
         if city:
-            qs = qs.filter(city__iexact=city)
+            qs = qs.filter(city_match_q(city))
         if len(fsa) == 3:
             pc_norm = Upper(
                 Replace(
@@ -2668,7 +2681,7 @@ class ListingTrendsAPIView(APIView):
             list_price__isnull=False,
         ).exclude(list_price__lte=0)
         if city:
-            qs = qs.filter(city__iexact=city)
+            qs = qs.filter(city_match_q(city))
         if len(fsa) == 3:
             pc_norm = Upper(
                 Replace(
@@ -2888,7 +2901,7 @@ class ListingTrendsAPIView(APIView):
             list_price__isnull=False,
         ).exclude(list_price__lte=0)
         if city:
-            active_prev_30d = active_prev_30d.filter(city__iexact=city)
+            active_prev_30d = active_prev_30d.filter(city_match_q(city))
         if len(fsa) == 3:
             pc_norm_prev = Upper(
                 Replace(
@@ -2964,7 +2977,7 @@ class ListingTrendsAPIView(APIView):
             list_price__isnull=False,
         ).exclude(list_price__lte=0)
         if city:
-            yoy_qs = yoy_qs.filter(city__iexact=city)
+            yoy_qs = yoy_qs.filter(city_match_q(city))
         if len(fsa) == 3:
             pc_norm_prev = Upper(
                 Replace(
@@ -3084,7 +3097,7 @@ class ListingEngagementAPIView(APIView):
         if city:
             peer_keys = list(
                 Property.objects.filter(
-                    city__iexact=city, standard_status__iexact="Active"
+                    city_match_q(city), standard_status__iexact="Active"
                 ).values_list("listing_key", flat=True)[:500]
             )
             if peer_keys:

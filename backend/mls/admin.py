@@ -749,18 +749,21 @@ class ListingSubmissionAdmin(admin.ModelAdmin):
 
     inlines = (ListingSubmissionMediaInline,)
     list_display = (
-        "id", "address_line_1", "city", "purpose", "submitter_type", "status",
+        "id", "address_line_1", "city", "purpose", "project_name", "submitter_type", "status",
         "asking_price", "submitted_at", "reviewed_at",
     )
     list_filter = ("status", "purpose", "submitter_type", "province")
     search_fields = (
-        "address_line_1", "address_line_2", "city", "postal_code",
+        "address_line_1", "address_line_2", "city", "postal_code", "project_name", "builder_name",
         "contact_name", "contact_email", "submitted_by__email",
     )
     readonly_fields = ("submitted_by", "submitted_at", "created_at", "updated_at", "reviewed_at")
+    # PreComProperty has thousands of rows; a raw id avoids a giant <select>.
+    raw_id_fields = ("precon_property",)
     fieldsets = (
         ("Submission", {"fields": ("submitted_by", "submitter_type", "purpose", "status", "submitted_at", "created_at", "updated_at")}),
         ("Property", {"fields": ("address_line_1", "address_line_2", "city", "province", "postal_code", "country", "property_type", "bedrooms", "bathrooms", "interior_area_sqft", "asking_price", "available_from", "description")}),
+        ("Assignment", {"classes": ("collapse",), "fields": ("project_name", "builder_name", "precon_property", "occupancy_date", "original_purchase_price", "deposit_paid", "assignment_fee")}),
         ("Private contact and declarations", {"fields": ("contact_name", "contact_email", "contact_phone", "ownership_confirmed", "publication_consent")}),
         ("Review", {"fields": ("review_note", "reviewed_by", "reviewed_at")}),
     )

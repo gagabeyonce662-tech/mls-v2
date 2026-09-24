@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from decimal import Decimal
 
 from django.core.cache import cache
 from django.core.paginator import Paginator
@@ -16,6 +17,7 @@ from django.db.models.functions import Cast
 from .models import Property, SearchEvent
 from .serializers import PropertySerializer
 from .services.query_helpers import (
+    price_field_for,
     _apply_fallback_pipeline,
     _apply_open_house_filters,
     _build_property_filter_cache_key,
@@ -106,11 +108,17 @@ class PropertyFilterView(APIView):
         if request.GET.get("has_lease") in ("true", "1", "True"):
             qs = qs.filter(Q(lease_amount__gt=0) | Q(total_actual_rent__gt=0))
 
+        # On Rent, price filters and price sorting use the monthly rent:
+        # rentals have no list_price, so filtering on it returned nothing.
+        # Annotated on the base queryset because the fallback's safety-net
+        # stage orders it directly, without passing through the filters.
+        qs, price_field = price_field_for(qs, request.GET)
+
         try:
             if request.GET.get("price_min"):
-                qs = qs.filter(list_price__gte=int(request.GET.get("price_min")))
+                qs = qs.filter(**{f"{price_field}__gte": int(request.GET.get("price_min"))})
             if request.GET.get("price_max"):
-                qs = qs.filter(list_price__lte=int(request.GET.get("price_max")))
+                qs = qs.filter(**{f"{price_field}__lte": int(request.GET.get("price_max"))})
             if request.GET.get("beds_min"):
                 qs = qs.filter(bedrooms_total__gte=int(request.GET.get("beds_min")))
             if request.GET.get("baths_min"):
@@ -159,6 +167,8 @@ class PropertyFilterView(APIView):
         qs = _apply_open_house_filters(qs, request.GET)
 
         order_by = request.GET.get("orderby", "-modification_timestamp")
+        if order_by.lstrip("-") == "list_price":
+            order_by = order_by.replace("list_price", price_field)
         final_qs, fallback_meta = _apply_fallback_pipeline(qs, request.GET, (order_by,))
 
         polygon = None
@@ -175,6 +185,21 @@ class PropertyFilterView(APIView):
                 return Response({"error": "polygon must contain at least three lat/lng points"}, status=status.HTTP_400_BAD_REQUEST)
 
         if polygon:
+            # Narrow in SQL to the polygon's bounding box first. The exact
+            # point-in-polygon test below runs in Python over every row it is
+            # given, so without this it iterated the whole filtered catalogue;
+            # the bbox is a strict superset of the polygon, so no match is lost.
+            # latitude/longitude are DecimalFields, compared directly (indexed).
+            lats = [point["lat"] for point in polygon]
+            lngs = [point["lng"] for point in polygon]
+            final_qs = final_qs.filter(
+                latitude__isnull=False,
+                longitude__isnull=False,
+                latitude__gte=Decimal(str(min(lats))),
+                latitude__lte=Decimal(str(max(lats))),
+                longitude__gte=Decimal(str(min(lngs))),
+                longitude__lte=Decimal(str(max(lngs))),
+            )
             final_qs = [
                 prop
                 for prop in final_qs.iterator(chunk_size=1000)

@@ -31,6 +31,14 @@ from rest_framework.views import APIView
 
 from .models import Property, PropertyInquiry
 from .services.ampre_client import AmpreClientError, fetch_property_page
+from .services.query_helpers import (
+    STATUS_GROUPS,
+    _apply_location_filters,
+    cities_match_q,
+    city_match_q,
+    price_field_for,
+    _apply_open_house_filters,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -60,14 +68,22 @@ def _apply_facet_filters(qs, params) -> Any:
     if params.get("city"):
         cities = [c.strip() for c in params.get("city", "").split(",") if c.strip()]
         if cities:
-            qs = qs.filter(city__in=cities)
+            qs = qs.filter(cities_match_q(cities))
     if params.get("has_lease") in ("true", "1", "True"):
         qs = qs.filter(Q(lease_amount__gt=0) | Q(total_actual_rent__gt=0))
+    # Buy / Rent split - the same rules as PropertyFilterView, so each status
+    # tab's count matches the listings it links to.
+    transaction_type = params.get("transaction_type")
+    if transaction_type == "rent":
+        qs = qs.filter(Q(lease_amount__gt=0) | Q(total_actual_rent__gt=0))
+    elif transaction_type == "sale":
+        qs = qs.filter(lease_amount__isnull=True, total_actual_rent__isnull=True)
+    qs, price_field = price_field_for(qs, params)
     try:
         if params.get("price_min"):
-            qs = qs.filter(list_price__gte=int(params.get("price_min")))
+            qs = qs.filter(**{f"{price_field}__gte": int(params.get("price_min"))})
         if params.get("price_max"):
-            qs = qs.filter(list_price__lte=int(params.get("price_max")))
+            qs = qs.filter(**{f"{price_field}__lte": int(params.get("price_max"))})
         if params.get("beds_min"):
             qs = qs.filter(bedrooms_total__gte=int(params.get("beds_min")))
         if params.get("baths_min"):
@@ -88,6 +104,10 @@ def _apply_facet_filters(qs, params) -> Any:
                 sub_types.append(cleaned)
     if sub_types:
         qs = qs.filter(property_sub_type__in=sub_types)
+    # postal_code (CSV of FSAs / full codes) uses the same helper as the filter
+    # view, so a postal-scoped listings page gets postal-scoped tab counts.
+    if params.get("postal_code"):
+        qs = _apply_location_filters(qs, {"postal_code": params.get("postal_code")})
     return qs
 
 
@@ -107,6 +127,7 @@ class PropertyFacetsAPIView(APIView):
             OpenApiParameter("city", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("status", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("has_lease", OpenApiTypes.BOOL, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("transaction_type", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="'sale' or 'rent'; 'rent' also moves price filters to lease_amount."),
             OpenApiParameter("price_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("price_max", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("beds_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
@@ -115,6 +136,7 @@ class PropertyFacetsAPIView(APIView):
             OpenApiParameter("sqft_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("sqft_max", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("year_built_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("postal_code", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="CSV of FSAs (L7A) and/or full codes (L7A3K9)."),
         ],
         responses={
             200: OpenApiResponse(
@@ -122,8 +144,13 @@ class PropertyFacetsAPIView(APIView):
                     name="PropertyFacetsResponse",
                     fields={
                         "status": serializers.DictField(child=serializers.IntegerField()),
+                        "status_group": serializers.DictField(
+                            child=serializers.IntegerField(),
+                            help_text="Counts for 'active', 'sold' and 'de-listed'; always all three keys.",
+                        ),
                         "property_sub_type": serializers.DictField(child=serializers.IntegerField()),
                         "price_buckets": serializers.ListField(child=serializers.DictField()),
+                        "open_house": serializers.IntegerField(),
                     },
                 )
             ),
@@ -144,6 +171,16 @@ class PropertyFacetsAPIView(APIView):
             (row["standard_status"] or "Unknown"): row["count"]
             for row in qs.values("standard_status").annotate(count=Count("id")).order_by()
         }
+        # Fixed status tabs (For Sale / Sold / De-listed): every group is always
+        # present, zero included, and rows whose status belongs to no group
+        # (test data, "Unknown") are counted nowhere.
+        status_group_counts = {group: 0 for group in STATUS_GROUPS}
+        for raw_status, count in status_counts.items():
+            normalized = raw_status.strip().lower()
+            for group, statuses in STATUS_GROUPS.items():
+                if normalized in statuses:
+                    status_group_counts[group] += count
+                    break
         sub_type_counts = {
             (row["property_sub_type"] or "Unknown"): row["count"]
             for row in qs.exclude(property_sub_type__isnull=True)
@@ -166,11 +203,20 @@ class PropertyFacetsAPIView(APIView):
                 }
             )
 
+        # Listings with an upcoming open house (today onwards) under the same
+        # filters — powers the "Open house" status tab. Reuses the exact helper
+        # PropertyFilterView applies for has_open_house=1, so the tab count and
+        # the result it links to cannot disagree. distinct() is applied inside
+        # the helper because the open_houses join duplicates rows.
+        open_house_count = _apply_open_house_filters(qs, {"has_open_house": "1"}).count()
+
         return Response(
             {
                 "status": status_counts,
+                "status_group": status_group_counts,
                 "property_sub_type": sub_type_counts,
                 "price_buckets": price_buckets,
+                "open_house": open_house_count,
             }
         )
 
@@ -189,6 +235,12 @@ def _median(values: list[float]) -> float | None:
     if not values:
         return None
     return float(statistics.median(values))
+
+
+# A close price below a third or above triple the list price is a data error
+# (usually a $1 placeholder list price), not a real sale-to-list outcome.
+RATIO_SANITY_MIN = 0.3
+RATIO_SANITY_MAX = 3.0
 
 
 def _month_key(dt: datetime) -> str:
@@ -245,8 +297,31 @@ def _summarise_sold_bucket(b: dict[str, list[float]]) -> dict[str, Any]:
     }
 
 
-def _bucket_sold_rows(rows: Iterable[dict[str, Any]]) -> tuple[dict[str, dict], dict[str, list[float]]]:
-    """Group sold rows by (city, month) and return (per_city_month, per_city_total)."""
+def _bucket_sold_rows(
+    rows: Iterable[dict[str, Any]],
+    requested_cities: Iterable[str] | None = None,
+) -> tuple[dict[str, dict], dict[str, list[float]]]:
+    """Group sold rows by (city, month) and return (per_city_month, per_city_total).
+
+    Rows are folded back onto the city that was asked for. AMPRE splits Toronto
+    across district-coded names ("Toronto C01", "Toronto W05"), which would
+    otherwise become dozens of one-district series instead of the single
+    "Toronto" line the chart asks for.
+    """
+    # Longest first, so "Richmond Hill" wins over a hypothetical "Richmond".
+    wanted = sorted(
+        ((c or "").strip() for c in (requested_cities or []) if (c or "").strip()),
+        key=len,
+        reverse=True,
+    )
+
+    def canonical(raw_city: str) -> str:
+        lowered = raw_city.lower()
+        for candidate in wanted:
+            if lowered.startswith(candidate.lower()):
+                return candidate
+        return raw_city
+
     per_city_month: dict[str, dict[str, dict[str, list[float]]]] = defaultdict(
         lambda: defaultdict(_sold_bucket)
     )
@@ -256,7 +331,7 @@ def _bucket_sold_rows(rows: Iterable[dict[str, Any]]) -> tuple[dict[str, dict], 
         close_date_raw = row.get("CloseDate")
         list_price = row.get("ListPrice") or row.get("OriginalListPrice")
         entry_ts_raw = row.get("OriginalEntryTimestamp")
-        city = (row.get("City") or "").strip()
+        city = canonical((row.get("City") or "").strip())
         close_dt = _parse_ampre_datetime(close_date_raw)
         if not close_dt or close_price in (None, 0) or not city:
             continue
@@ -277,7 +352,14 @@ def _bucket_sold_rows(rows: Iterable[dict[str, Any]]) -> tuple[dict[str, dict], 
                 try:
                     lp = float(list_price)
                     if lp > 0:
-                        bucket["ratios"].append(price / lp)
+                        ratio = price / lp
+                        # Placeholder list prices ($1) produce ratios in the
+                        # hundreds of thousands. Three such rows out of 24,279
+                        # moved the Toronto sale-to-list average from 0.99 to
+                        # 55.85, so anything outside a plausible band is junk
+                        # data rather than a real sale-to-list outcome.
+                        if RATIO_SANITY_MIN <= ratio <= RATIO_SANITY_MAX:
+                            bucket["ratios"].append(ratio)
                 except (TypeError, ValueError):
                     pass
     return per_city_month, per_city_total
@@ -287,14 +369,32 @@ def _fetch_sold_rows(cities: list[str], window_months: int) -> list[dict[str, An
     """Pull closed listings for the given cities in one AMPRE request."""
     now = timezone.now()
     window_start = (now - timedelta(days=window_months * 31)).date().isoformat()
-    # OData ``in`` is not supported by AMPRE; build (City eq 'a' or City eq 'b').
+    # Upper bound as well as lower. A handful of TRREB records carry corrupt
+    # CloseDates ("5199-12-31", "3549-10-01" - the year mirrors the rent),
+    # and because the query sorts by CloseDate desc those junk rows sat at the
+    # top and consumed the 1000-row budget, pushing out the real recent sales:
+    # the 12-month window came back starting 14 months in the future.
+    window_end = (now + timedelta(days=1)).date().isoformat()
+    # OData ``in`` is not supported by AMPRE; build a clause per city.
+    #
+    # ``startswith`` rather than ``eq``: AMPRE stores Toronto as district-coded
+    # names ("Toronto C01", "Toronto C08", "Toronto W05", ...) and never as a
+    # bare "Toronto", so an exact match found none of its ~29,000 closed sales
+    # and the chart came back empty for the single biggest market. Ordinary
+    # cities ("Mississauga") are unaffected, since they match their own prefix.
     city_clause = " or ".join(
-        f"City eq '{c.replace(chr(39), chr(39)*2)}'" for c in cities
+        f"startswith(City,'{c.replace(chr(39), chr(39)*2)}')" for c in cities
     )
+    # TransactionType keeps leases out of the sold figures. A closed lease has
+    # a ClosePrice too, but it is a monthly rent: more than half the Toronto
+    # rows came back "For Lease", which pulled the median sold price down to
+    # around $2,000 and made sale-to-list ratios meaningless.
     filter_expression = (
         f"({city_clause}) "
         f"and StandardStatus eq 'Closed' "
-        f"and CloseDate ge {window_start}"
+        f"and TransactionType eq 'For Sale' "
+        f"and CloseDate ge {window_start} "
+        f"and CloseDate le {window_end}"
     )
     select_fields = [
         "ListingKey",
@@ -306,11 +406,15 @@ def _fetch_sold_rows(cities: list[str], window_months: int) -> list[dict[str, An
         "CloseDate",
         "OriginalEntryTimestamp",
     ]
+    # AMPRE caps a page at 1000, so a 12-month multi-city window needs several.
+    # `max_rows` is the real budget: with only 1000 the newest month alone
+    # exhausted it and the chart showed a single bar.
     return fetch_property_page(
         filter_expression=filter_expression,
         select_fields=select_fields,
         orderby="CloseDate desc",
         top=1000,
+        max_rows=25000,
     )
 
 
@@ -398,7 +502,7 @@ class MarketSoldTrendsAPIView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        per_city_month, per_city_total = _bucket_sold_rows(rows)
+        per_city_month, per_city_total = _bucket_sold_rows(rows, cities)
         canonical_by_norm = {c.lower(): c for c in cities}
 
         series: list[dict[str, Any]] = []
@@ -465,8 +569,8 @@ class CatalogStatsBulkAPIView(APIView):
     @extend_schema(
         summary="Per-city active catalog stats + 90-day sold summary",
         description=(
-            "Returns active_count, median_list_price, median_price_per_sqft (GAP-27), "
-            "sold_count_90d, and median_sold_price_90d (GAP-06) per city. "
+            "Returns active_count, median_list_price, mean_list_price, median_price_per_sqft (GAP-27), "
+            "sold_count_90d, median_sold_price_90d and avg_sold_price_90d (GAP-06) per city. "
             "Use ?cities=Toronto,Vaughan,... or ?scope=gta for the GTA headline. "
             "Sold data is optional (?include_sold=false skips the AMPRE call)."
         ),
@@ -512,7 +616,7 @@ class CatalogStatsBulkAPIView(APIView):
             "|".join(sorted(c.lower() for c in cities)).encode()
         ).hexdigest()
         cache_key = (
-            f"catalog-stats-bulk:v2:{scope or 'cities'}:{int(include_sold)}:{cities_digest}"
+            f"catalog-stats-bulk:v4:{scope or 'cities'}:{int(include_sold)}:{cities_digest}"
         )
         cached = cache.get(cache_key)
         if cached is not None:
@@ -521,8 +625,8 @@ class CatalogStatsBulkAPIView(APIView):
         results: list[dict[str, Any]] = []
         for city in cities:
             city_qs = Property.objects.filter(
+                city_match_q(city),
                 standard_status__iexact="Active",
-                city__iexact=city,
                 list_price__isnull=False,
             ).exclude(list_price__lte=0)
             prices: list[float] = []
@@ -547,11 +651,14 @@ class CatalogStatsBulkAPIView(APIView):
                     "city": city,
                     "active_count": len(prices),
                     "median_list_price": _median(prices),
+                    # Communities cards label this "Avg. Price".
+                    "mean_list_price": round(sum(prices) / len(prices), 2) if prices else None,
                     # GAP-27: heatmap tile shows $/sqft.
                     "median_price_per_sqft": _median(ppsf),
                     # Populated below when include_sold is true.
                     "sold_count_90d": None,
                     "median_sold_price_90d": None,
+                    "avg_sold_price_90d": None,
                 }
             )
 
@@ -562,13 +669,20 @@ class CatalogStatsBulkAPIView(APIView):
             except AmpreClientError as exc:
                 sold_error = str(exc)
                 sold_rows = []
-            _, per_city_total = _bucket_sold_rows(sold_rows)
+            # Pass the requested cities so AMPRE's district-coded Toronto rows
+            # fold back onto "Toronto" and the lookup below can find them.
+            _, per_city_total = _bucket_sold_rows(sold_rows, cities)
             norm_totals = {k.lower(): v for k, v in per_city_total.items()}
             for row in results:
                 bucket = norm_totals.get(row["city"].lower())
                 if bucket:
                     row["sold_count_90d"] = int(sum(bucket["count"]))
                     row["median_sold_price_90d"] = _median(bucket["prices"])
+                    row["avg_sold_price_90d"] = (
+                        round(sum(bucket["prices"]) / len(bucket["prices"]), 2)
+                        if bucket["prices"]
+                        else None
+                    )
                 else:
                     row["sold_count_90d"] = 0
 

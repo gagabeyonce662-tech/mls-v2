@@ -1,6 +1,8 @@
 import json
+import os
 from datetime import timedelta
 from decimal import Decimal
+from unittest import mock
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -26,6 +28,14 @@ from mls.services.valuation.comps import select_comps, haversine_km
 from mls.services.valuation.hedonic import apply_hedonic
 from mls.services.valuation.agents import match_agent
 from mls.services.valuation.lot_dims import parse_lot_depth_from_dimensions, infer_lot_depth
+from backend import settings as backend_settings
+
+
+class SecretConfigTests(TestCase):
+    def test_required_env_var_raises_runtime_error(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(RuntimeError):
+                backend_settings.env_required("SECRET_KEY")
 
 
 class MapAggregationAndFilterTests(TestCase):
@@ -188,6 +198,82 @@ class MapAggregationAndFilterTests(TestCase):
         self.assertEqual(payload["mode"], "aggregates")
         total_count = sum(cell["property_count"] for cell in payload["results"])
         self.assertEqual(total_count, 1)
+
+    def test_city_filter_matches_neighbourhood_qualified_names(self):
+        Property.objects.create(
+            listing_key="annex-1", city="Toronto (Annex)", standard_status="Active", list_price=1000000
+        )
+        Property.objects.create(
+            listing_key="lookalike-1", city="Torontoville", standard_status="Active", list_price=500000
+        )
+        response = self.client.get(
+            "/api/mls/properties/filter/",
+            {"city": "Toronto", "allow_fallback": "false", "limit": 30},
+        )
+        self.assertEqual(response.status_code, 200)
+        keys = {row["listing_key"] for row in response.json()["results"]}
+        self.assertIn("annex-1", keys)
+        self.assertIn(self.p1.listing_key, keys)
+        self.assertNotIn("lookalike-1", keys)
+
+    def test_bulk_stats_count_neighbourhood_qualified_cities(self):
+        Property.objects.create(
+            listing_key="annex-2", city="Toronto (Annex)", standard_status="Active", list_price=1100000
+        )
+        response = self.client.get(
+            "/api/mls/catalog-stats/bulk/", {"cities": "Toronto", "include_sold": "false"}
+        )
+        self.assertEqual(response.status_code, 200)
+        row = response.json()["results"][0]
+        # p1 ("Toronto", Active) + annex-2; p3/p4 are not Active.
+        self.assertEqual(row["active_count"], 2)
+        self.assertEqual(row["mean_list_price"], 1000000.0)
+
+    def test_facets_group_statuses_and_skip_ungrouped(self):
+        Property.objects.create(listing_key="junk-1", standard_status="high")
+        response = self.client.get("/api/mls/properties/facets/")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(
+            payload["status_group"], {"active": 2, "sold": 1, "de-listed": 1}
+        )
+        # Raw counts are unchanged, junk included, for existing consumers.
+        self.assertEqual(payload["status"]["high"], 1)
+
+    def test_rent_filters_and_sorts_on_total_actual_rent(self):
+        # Most DDF rentals carry the rent in total_actual_rent, not lease_amount.
+        Property.objects.create(
+            listing_key="rent-1500", city="Toronto", standard_status="Active", total_actual_rent=1500
+        )
+        Property.objects.create(
+            listing_key="rent-3200", city="Toronto", standard_status="Active", total_actual_rent=3200
+        )
+        params = {"transaction_type": "rent", "status_group": "active", "allow_fallback": "false"}
+        cheap = self.client.get("/api/mls/properties/filter/", {**params, "price_max": 2000}).json()
+        self.assertEqual([r["listing_key"] for r in cheap["results"]], ["rent-1500"])
+        self.assertEqual(cheap["results"][0]["total_actual_rent"], "1500.00")
+
+        ordered = self.client.get("/api/mls/properties/filter/", {**params, "orderby": "-list_price"}).json()
+        self.assertEqual([r["listing_key"] for r in ordered["results"]], ["rent-3200", "rent-1500"])
+
+    def test_facets_split_sale_and_rent(self):
+        # p4 is the only row with a lease_amount.
+        rent = self.client.get("/api/mls/properties/facets/", {"transaction_type": "rent"}).json()
+        self.assertEqual(rent["status_group"], {"active": 0, "sold": 0, "de-listed": 1})
+        sale = self.client.get("/api/mls/properties/facets/", {"transaction_type": "sale"}).json()
+        self.assertEqual(sale["status_group"], {"active": 2, "sold": 1, "de-listed": 0})
+        # Rent prices filter on the monthly lease, not the list price.
+        cheap = self.client.get(
+            "/api/mls/properties/facets/", {"transaction_type": "rent", "price_max": 3000}
+        ).json()
+        self.assertEqual(cheap["status_group"]["de-listed"], 1)
+
+    def test_facets_status_group_keeps_zero_groups(self):
+        response = self.client.get("/api/mls/properties/facets/", {"city": "Mississauga"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["status_group"], {"active": 1, "sold": 0, "de-listed": 0}
+        )
 
     def test_exclusive_search_typo_city_returns_fallback_match(self):
         self.p1.city = "Kitchener"

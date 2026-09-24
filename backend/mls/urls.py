@@ -11,6 +11,7 @@ from .views_estate import (
     EstatePropertySchemaAPIView,
 )
 from .views_properties import PropertyFilterView
+from .views_sitemap import SitemapListingKeysView
 from .views_market import (
     CatalogStatsBulkAPIView,
     MarketSoldTrendsAPIView,
@@ -32,6 +33,8 @@ from .views_precon import (
     PreComPropertyBulkUploadAPIView,
     PreComPropertyDetailAPIView,
     PreComFloorPlanIntentAPIView,
+    PreComDocumentIntentAPIView,
+    PreComDocumentProxyAPIView,
     PreComPropertyRecommendationsAPIView,
     PreComPropertyListAPIView,
 )
@@ -85,8 +88,12 @@ urlpatterns = [
     path('precon-properties/', PreComPropertyListAPIView.as_view(), name='precon-property-list'),
     path('precon-properties/bulk-upload/', PreComPropertyBulkUploadAPIView.as_view(), name='precon-property-bulk-upload'),
     path('precon-properties/<int:pk>/floor-plan-intent/', PreComFloorPlanIntentAPIView.as_view(), name='precon-floor-plan-intent'),
+    path('precon-properties/<int:pk>/document-intent/', PreComDocumentIntentAPIView.as_view(), name='precon-document-intent'),
+    path('precon-properties/document-proxy/', PreComDocumentProxyAPIView.as_view(), name='precon-document-proxy'),
     path('precon-properties/<int:pk>/recommendations/', PreComPropertyRecommendationsAPIView.as_view(), name='precon-property-recommendations'),
     path('precon-properties/<int:pk>/', PreComPropertyDetailAPIView.as_view(), name='precon-property-detail'),
+    # Before any properties/<str:...>/ pattern so it isn't read as a listing key.
+    path('properties/sitemap-keys/', SitemapListingKeysView.as_view(), name='property-sitemap-keys'),
     path('properties/', FetchProperties.as_view(), name='fetch_properties'),
     path('properties/filter/', PropertyFilterView.as_view(), name='property_filter'),
     path('properties/facets/', PropertyFacetsAPIView.as_view(), name='property-facets'),

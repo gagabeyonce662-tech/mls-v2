@@ -5,7 +5,7 @@ from datetime import timedelta
 from difflib import get_close_matches
 
 from django.db.models import Q, FloatField, Value
-from django.db.models.functions import Cast, Replace, Upper
+from django.db.models.functions import Cast, Coalesce, Replace, Upper
 from django.utils import timezone
 
 
@@ -76,28 +76,71 @@ def _split_csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def city_match_q(city: str) -> Q:
+    """A city and its neighbourhood-qualified variants.
+
+    DDF stores most listings as "Toronto (Annex)" or "Oakville (CO Central)",
+    so an exact match on "Toronto" found 6 of its ~2,500 listings. The
+    parenthesised prefix keeps "Richmond Hill" from matching "Richmond".
+    """
+    city = (city or "").strip()
+    return Q(city__iexact=city) | Q(city__istartswith=f"{city} (")
+
+
+def with_rent_amount(qs):
+    """Annotate ``rent_amount``: the monthly rent, wherever the feed put it.
+
+    DDF rentals carry it in ``total_actual_rent`` (1,172 of 1,215 rows at the
+    time of writing); a few use ``lease_amount``. None have a ``list_price``.
+    Idempotent, so every filter stage can call it safely.
+    """
+    if "rent_amount" in qs.query.annotations:
+        return qs
+    return qs.annotate(rent_amount=Coalesce("lease_amount", "total_actual_rent"))
+
+
+def price_field_for(qs, params):
+    """The field price filters and price sorting use: rent for Rent, else list price."""
+    if params.get("transaction_type") == "rent":
+        return with_rent_amount(qs), "rent_amount"
+    return qs, "list_price"
+
+
+def cities_match_q(cities) -> Q:
+    q = Q()
+    for city in cities:
+        q |= city_match_q(city)
+    return q
+
+
+# Feed status words per status group. Shared by the `status_group` filter and
+# the facets endpoint's grouped counts, so a tab count always matches the
+# result set its link returns. Statuses outside every group (junk or test rows)
+# are deliberately unreachable through a group.
+STATUS_GROUPS: dict[str, set[str]] = {
+    "active": {"active", "a"},
+    "sold": {"sold", "closed", "leased"},
+    "de-listed": {
+        "delisted",
+        "de-listed",
+        "expired",
+        "terminated",
+        "suspended",
+        "cancelled",
+        "canceled",
+        "withdrawn",
+    },
+}
+
+
 def _build_status_group_q(raw_value: str | None):
     groups = {item.strip().lower() for item in _split_csv(raw_value or "")}
     if not groups:
         return None
 
-    group_to_statuses = {
-        "active": {"active", "a"},
-        "sold": {"sold", "closed", "leased"},
-        "de-listed": {
-            "delisted",
-            "de-listed",
-            "expired",
-            "terminated",
-            "suspended",
-            "cancelled",
-            "canceled",
-            "withdrawn",
-        },
-    }
     q = Q()
     for group in groups:
-        statuses = group_to_statuses.get(group)
+        statuses = STATUS_GROUPS.get(group)
         if not statuses:
             continue
         for status_value in statuses:
@@ -157,7 +200,7 @@ def _apply_location_filters(qs, params, *, relaxed_city: bool = False, city_cand
                 if relaxed_city:
                     city_q |= Q(city__icontains=city)
                 else:
-                    city_q |= Q(city__iexact=city)
+                    city_q |= city_match_q(city)
             qs = qs.filter(city_q)
     if city_candidates:
         qs = qs.filter(city__in=city_candidates)
@@ -204,7 +247,7 @@ def _apply_common_filters(
         search_term = params.get("search", "").strip()
         if search_term:
             qs = qs.filter(_build_search_q(search_term))
-    price_field = "lease_amount" if params.get("transaction_type") == "rent" else "list_price"
+    qs, price_field = price_field_for(qs, params)
     if params.get("price_min"):
         qs = qs.filter(**{f"{price_field}__gte": float(params.get("price_min"))})
     if params.get("price_max"):
@@ -486,7 +529,7 @@ def _apply_map_filters_to_queryset(qs, params):
     if params.get("city"):
         cities = [c.strip() for c in params.get("city", "").split(",") if c.strip()]
         if cities:
-            qs = qs.filter(city__in=cities)
+            qs = qs.filter(cities_match_q(cities))
     if params.get("province"):
         provinces = [
             p.strip().upper()

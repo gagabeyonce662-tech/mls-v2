@@ -56,6 +56,8 @@ class PropertySerializer(serializers.ModelSerializer):
             'listing_key', 'list_price',"property_sub_type",'city',"lease_amount", 'postal_code', 'unparsed_address',
             'bedrooms_total', 'bathrooms_total_integer', 'building_area_total',"listing_id","city","directions","city_region",
             'year_built', 'public_remarks', 'listing_url', 'category_type',"state_or_province","lease_amount",
+            # Most DDF rentals carry their monthly rent here, not in lease_amount.
+            "total_actual_rent",
             'latitude', 'longitude', 'photos_count', 'standard_status',
             'media',
             'close_price', 'close_date',
@@ -170,6 +172,16 @@ class UserFeedbackSerializer(serializers.ModelSerializer):
 
 
 class PropertyInquirySerializer(serializers.ModelSerializer):
+    # GAP-14: a VIP / newsletter registration legitimately has nothing to say,
+    # and the rule that allows that lives in validate() below. The model field
+    # is a plain TextField, so ModelSerializer would infer allow_blank=False
+    # and reject message="" during FIELD validation - before validate() ever
+    # runs - making the documented registration payload fail with
+    # "This field may not be blank." Accepting a blank string here lets
+    # validate() apply the real rule: >=10 chars for an ordinary inquiry,
+    # a substituted sentence for a registration.
+    message = serializers.CharField(allow_blank=True, required=False, default="")
+
     class Meta:
         model = PropertyInquiry
         fields = [
@@ -270,6 +282,8 @@ class ListingSubmissionSerializer(serializers.ModelSerializer):
             "status", "status_label", "address_line_1", "address_line_2", "city",
             "province", "postal_code", "country", "property_type", "bedrooms", "bathrooms",
             "interior_area_sqft", "asking_price", "available_from", "description",
+            "project_name", "builder_name", "precon_property", "occupancy_date",
+            "original_purchase_price", "deposit_paid", "assignment_fee",
             "contact_name", "contact_email", "contact_phone", "ownership_confirmed",
             "publication_consent", "review_note", "submitted_at", "reviewed_at", "created_at",
             "updated_at", "media",
@@ -287,6 +301,29 @@ class ListingSubmissionSerializer(serializers.ModelSerializer):
             ListingSubmission.Status.NEEDS_CHANGES,
         }:
             raise serializers.ValidationError("This submission can no longer be edited.")
+
+        # Evaluate assignment requirements against the merged state so a partial
+        # PATCH (e.g. only pricing fields) does not fail on fields it didn't send,
+        # while switching purpose to "assignment" still demands the extras.
+        def merged(field):
+            if field in attrs:
+                return attrs[field]
+            return getattr(instance, field, None) if instance else None
+
+        if merged("purpose") == ListingSubmission.Purpose.ASSIGNMENT:
+            required = {
+                "project_name": "Enter the pre-construction project name.",
+                "builder_name": "Enter the builder name.",
+                "occupancy_date": "Enter the expected occupancy date.",
+                "original_purchase_price": "Enter the original purchase price.",
+            }
+            errors = {}
+            for field, message in required.items():
+                value = merged(field)
+                if value is None or (isinstance(value, str) and not value.strip()):
+                    errors[field] = message
+            if errors:
+                raise serializers.ValidationError(errors)
         return attrs
 
 
@@ -301,7 +338,10 @@ class PublicListingSubmissionSerializer(serializers.ModelSerializer):
         fields = [
             "id", "source_label", "purpose", "address_line_1", "address_line_2", "city",
             "province", "postal_code", "country", "property_type", "bedrooms", "bathrooms",
-            "interior_area_sqft", "asking_price", "available_from", "description", "media",
+            "interior_area_sqft", "asking_price", "available_from", "description",
+            # Assignment context that is safe to publish; the seller's purchase
+            # price, deposit and assignment fee stay private to the reviewer.
+            "project_name", "builder_name", "occupancy_date", "media",
         ]
 
     def get_media(self, obj):

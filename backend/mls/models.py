@@ -1452,6 +1452,9 @@ class ListingSubmission(models.Model):
     class Purpose(models.TextChoices):
         SALE = "sale", "For sale"
         RENT = "rent", "For rent"
+        # Pre-construction contract resale: the seller transfers their purchase
+        # agreement before the builder closes, so there is no MLS record yet.
+        ASSIGNMENT = "assignment", "Assignment"
 
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
@@ -1468,7 +1471,7 @@ class ListingSubmission(models.Model):
         on_delete=models.CASCADE,
     )
     submitter_type = models.CharField(max_length=16, choices=SubmitterType.choices)
-    purpose = models.CharField(max_length=8, choices=Purpose.choices)
+    purpose = models.CharField(max_length=12, choices=Purpose.choices)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
 
     address_line_1 = models.CharField(max_length=255)
@@ -1485,6 +1488,23 @@ class ListingSubmission(models.Model):
     asking_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     available_from = models.DateField(null=True, blank=True)
     description = models.TextField(blank=True)
+
+    # Assignment-only details (required by the serializer when purpose is
+    # "assignment"). The optional precon link lets reviewers match the
+    # submission to a known project; the free-text name is the source of truth.
+    project_name = models.CharField(max_length=200, blank=True)
+    builder_name = models.CharField(max_length=200, blank=True)
+    precon_property = models.ForeignKey(
+        PreComProperty,
+        related_name="assignment_submissions",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
+    occupancy_date = models.DateField(null=True, blank=True)
+    original_purchase_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    deposit_paid = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    assignment_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     contact_name = models.CharField(max_length=255)
     contact_email = models.EmailField()
