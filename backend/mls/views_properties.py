@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from decimal import Decimal
 
 from django.core.cache import cache
 from django.core.paginator import Paginator
@@ -175,6 +176,21 @@ class PropertyFilterView(APIView):
                 return Response({"error": "polygon must contain at least three lat/lng points"}, status=status.HTTP_400_BAD_REQUEST)
 
         if polygon:
+            # Narrow in SQL to the polygon's bounding box first. The exact
+            # point-in-polygon test below runs in Python over every row it is
+            # given, so without this it iterated the whole filtered catalogue;
+            # the bbox is a strict superset of the polygon, so no match is lost.
+            # latitude/longitude are DecimalFields, compared directly (indexed).
+            lats = [point["lat"] for point in polygon]
+            lngs = [point["lng"] for point in polygon]
+            final_qs = final_qs.filter(
+                latitude__isnull=False,
+                longitude__isnull=False,
+                latitude__gte=Decimal(str(min(lats))),
+                latitude__lte=Decimal(str(max(lats))),
+                longitude__gte=Decimal(str(min(lngs))),
+                longitude__lte=Decimal(str(max(lngs))),
+            )
             final_qs = [
                 prop
                 for prop in final_qs.iterator(chunk_size=1000)

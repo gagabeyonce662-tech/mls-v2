@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "vlog",
     "mls",
     "accounts",
+    "homepage",
     "rest_framework",
     "rest_framework_simplejwt",
     "drf_spectacular",
@@ -157,6 +158,21 @@ if os.environ.get("DAILY_NEWSLETTER_BEAT_ENABLED", "0") == "1":
         },
     }
 
+
+# Homepage feeds (homepage/tasks.py). Off unless enabled, like the newsletter
+# above; deployments without a worker run `manage.py refresh_homepage_feeds`
+# from cron instead.
+if os.environ.get("HOMEPAGE_BEAT_ENABLED", "0") == "1":
+    CELERY_BEAT_SCHEDULE = {
+        **globals().get("CELERY_BEAT_SCHEDULE", {}),
+        "homepage-ingest-news": {"task": "homepage.tasks.ingest_news", "schedule": crontab(minute=15)},
+        "homepage-refresh-market": {"task": "homepage.tasks.refresh_market", "schedule": crontab(minute=30, hour="*/6")},
+        "homepage-sold-below-purchase": {
+            "task": "homepage.tasks.refresh_sold_below_purchase",
+            "schedule": crontab(hour=7, minute=0),
+        },
+        "homepage-nearby-alerts": {"task": "homepage.tasks.send_nearby_alerts", "schedule": crontab(hour=12, minute=0)},
+    }
 
 CACHE_URL = os.environ.get("CACHE_URL", os.environ.get("REDIS_URL", "")).strip()
 if CACHE_URL:
@@ -305,7 +321,7 @@ FACEBOOK_APP_ID = os.environ.get('FACEBOOK_APP_ID', '').strip()
 FACEBOOK_APP_SECRET = os.environ.get('FACEBOOK_APP_SECRET', '').strip()
 FACEBOOK_REDIRECT_URI = os.environ.get(
     'FACEBOOK_REDIRECT_URI',
-    'http://localhost:8000:3000/auth/facebook/callback',
+    'http://localhost:3000/api/auth/facebook/callback',
 ).strip()
 FACEBOOK_GRAPH_VERSION = os.environ.get('FACEBOOK_GRAPH_VERSION', 'v19.0').strip().lstrip('/')
 # Comma-separated list of extra redirect URIs allowed when client sends redirect_uri (e.g. staging + prod)
@@ -355,6 +371,14 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'listing_ai_summary': '10/hour',
         'map_geocoding': '30/minute',
+        # GAP-03. SavedSearchListCreateAPIView declares a ScopedRateThrottle
+        # with this scope; DRF raises ImproperlyConfigured (a 500) on every
+        # POST when the rate is missing, so it must be defined here.
+        'saved_search_create': '60/hour',
+        # SendOtpView: each request sends a paid Twilio SMS.
+        'otp_send': '5/hour',
+        # Homepage newsletter / neighbour-alert sign-ups (homepage/views.py).
+        'home_subscribe': '10/hour',
     },
 }
 

@@ -10,6 +10,67 @@ from mls.models import (
 )
 
 
+# Gated pre-con documents. Each type is resolved from its meta URL key first
+# (the WP importer and admin write these), then from an attachment whose title
+# contains the keyword. The detail payload only ever exposes `has_*` flags; the
+# URL itself is released through `document-intent/` to a phone-verified user.
+PRECON_DOCUMENT_TYPES = {
+    "floor_plan": ("floor_plan_url", "floor"),
+    "price_list": ("price_list_url", "price"),
+    "brochure": ("brochure_url", "brochure"),
+}
+PRECON_GATED_META_KEYS = frozenset(key for key, _ in PRECON_DOCUMENT_TYPES.values())
+
+
+def _is_gated_attachment(attachment):
+    title = (attachment.title or "").lower()
+    return any(keyword in title for _, keyword in PRECON_DOCUMENT_TYPES.values())
+
+
+def resolve_precon_document_url(content, doc_type):
+    """Source URL for a gated document, or "" when the project has none."""
+    if content is None or doc_type not in PRECON_DOCUMENT_TYPES:
+        return ""
+    meta_key, keyword = PRECON_DOCUMENT_TYPES[doc_type]
+    meta_url = next(
+        (str(m.value or "").strip() for m in content.meta.all() if m.key == meta_key),
+        "",
+    )
+    if meta_url:
+        return meta_url
+    attachment = next(
+        (
+            item
+            for item in content.attachments.all()
+            if item.url and keyword in (item.title or "").lower()
+        ),
+        None,
+    )
+    return attachment.url if attachment else ""
+
+
+def _featured_image_url(obj):
+    """First image attachment; shared by the list and detail serializers."""
+    if not obj.content_id:
+        return None
+    attachment = next(
+        (
+            item
+            for item in obj.content.attachments.all()
+            if item.url
+            and not _is_gated_attachment(item)
+            and (
+                (item.mime_type or "").startswith("image/")
+                or item.url.lower().split("?")[0].endswith(
+                    (".jpg", ".jpeg", ".png", ".webp", ".gif")
+                )
+            )
+        ),
+        None,
+    )
+    return attachment.url if attachment else None
+
+
 class AuthorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Author
@@ -55,6 +116,10 @@ class PreComPropertyDetailSerializer(serializers.ModelSerializer):
     taxonomies = serializers.SerializerMethodField()
     attachments = serializers.SerializerMethodField()
     meta = serializers.SerializerMethodField()
+    featured_image_url = serializers.SerializerMethodField()
+    has_floor_plan = serializers.SerializerMethodField()
+    has_price_list = serializers.SerializerMethodField()
+    has_brochure = serializers.SerializerMethodField()
 
     class Meta:
         model = PreComProperty
@@ -81,6 +146,12 @@ class PreComPropertyDetailSerializer(serializers.ModelSerializer):
             "taxonomies",
             "attachments",
             "meta",
+            "developer_name",
+            "sales_stage",
+            "featured_image_url",
+            "has_floor_plan",
+            "has_price_list",
+            "has_brochure",
         ]
 
     def get_author(self, obj):
@@ -104,15 +175,37 @@ class PreComPropertyDetailSerializer(serializers.ModelSerializer):
     def get_attachments(self, obj):
         if not obj.content_id:
             return []
+        # Floor plan / price list / brochure attachments are gated, so they are
+        # left out here; `has_*` tells the page whether to enable the button.
         return [
             {"id": a.id, "url": a.url, "mime_type": a.mime_type, "title": a.title}
             for a in obj.content.attachments.all()
+            if not _is_gated_attachment(a)
         ]
 
     def get_meta(self, obj):
         if not obj.content_id:
             return {}
-        return {m.key: m.value for m in obj.content.meta.all()}
+        return {
+            m.key: m.value
+            for m in obj.content.meta.all()
+            if m.key not in PRECON_GATED_META_KEYS
+        }
+
+    def get_featured_image_url(self, obj):
+        return _featured_image_url(obj)
+
+    def _has_document(self, obj, doc_type):
+        return bool(obj.content_id and resolve_precon_document_url(obj.content, doc_type))
+
+    def get_has_floor_plan(self, obj):
+        return self._has_document(obj, "floor_plan")
+
+    def get_has_price_list(self, obj):
+        return self._has_document(obj, "price_list")
+
+    def get_has_brochure(self, obj):
+        return self._has_document(obj, "brochure")
 
 
 class PreComPropertySerializer(serializers.ModelSerializer):
@@ -147,25 +240,8 @@ class PreComPropertySerializer(serializers.ModelSerializer):
         ]
 
     def get_featured_image_url(self, obj):
-        if not obj.content_id:
-            return None
+        return _featured_image_url(obj)
 
-        attachment = next(
-            (
-                item
-                for item in obj.content.attachments.all()
-                if item.url
-                and (
-                    (item.mime_type or "").startswith("image/")
-                    or item.url.lower().split("?")[0].endswith(
-                        (".jpg", ".jpeg", ".png", ".webp", ".gif")
-                    )
-                )
-            ),
-            None,
-        )
-
-        return attachment.url if attachment else None
 
 class PreComBulkUploadSerializer(serializers.Serializer):
     file = serializers.FileField(

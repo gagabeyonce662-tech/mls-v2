@@ -46,6 +46,41 @@ class User(AbstractBaseUser, PermissionsMixin):
         return bool(self.is_staff or self.can_author)
 
 
+class PasswordResetToken(models.Model):
+    """
+    A one-time UUID token used to reset a forgotten password.
+
+    Deliberately short-lived (1 hour, against the 24 of email verification):
+    it grants account access, so the window to abuse a leaked link is kept
+    small. `used_at` makes the token single-use even inside that window, so a
+    link sitting in an inbox cannot be replayed after the password is changed.
+    """
+    user = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.CASCADE,
+        related_name='password_reset_tokens',
+    )
+    token = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['user', '-created_at'])]
+
+    def save(self, *args, **kwargs):
+        if not self.pk and not self.expires_at:
+            self.expires_at = timezone.now() + timezone.timedelta(hours=1)
+        super().save(*args, **kwargs)
+
+    def is_expired(self) -> bool:
+        return timezone.now() > self.expires_at
+
+    def is_usable(self) -> bool:
+        return self.used_at is None and not self.is_expired()
+
+
 class EmailVerificationToken(models.Model):
     """
     A one-time UUID token used to verify a user's email address.

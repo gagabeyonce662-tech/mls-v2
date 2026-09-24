@@ -1,6 +1,8 @@
 import json
+import os
 from datetime import timedelta
 from decimal import Decimal
+from unittest import mock
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -26,6 +28,14 @@ from mls.services.valuation.comps import select_comps, haversine_km
 from mls.services.valuation.hedonic import apply_hedonic
 from mls.services.valuation.agents import match_agent
 from mls.services.valuation.lot_dims import parse_lot_depth_from_dimensions, infer_lot_depth
+from backend import settings as backend_settings
+
+
+class SecretConfigTests(TestCase):
+    def test_required_env_var_raises_runtime_error(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(RuntimeError):
+                backend_settings.env_required("SECRET_KEY")
 
 
 class MapAggregationAndFilterTests(TestCase):

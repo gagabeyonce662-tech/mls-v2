@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework import serializers
 from drf_spectacular.utils import (
     OpenApiResponse,
@@ -26,7 +27,7 @@ try:
 except ImportError:
     _twilio_available = False
 
-from .models import EmailVerificationToken
+from .models import EmailVerificationToken, PasswordResetToken
 from .serializers import (
     RegisterSerializer,
     LoginSerializer,
@@ -34,9 +35,12 @@ from .serializers import (
     FacebookAuthSerializer,
     UserProfileSerializer,
     ResendVerificationSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
 )
 from .services import create_ghl_contact, update_ghl_contact
 from .tasks import _send_now as _send_verification_email
+from .tasks import _send_password_reset_now
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -44,6 +48,11 @@ User = get_user_model()
 # Max resend attempts per email per hour (anti-spam).
 _RESEND_RATE_LIMIT = 3
 _RESEND_WINDOW_SECONDS = 3600
+
+# Password-reset requests per email per hour. Lower than the resend limit
+# because each one sends a link that can take over an account.
+_RESET_RATE_LIMIT = 3
+_RESET_WINDOW_SECONDS = 3600
 
 
 def _facebook_allowed_redirect_uris():
@@ -573,6 +582,10 @@ def _get_twilio_client():
 @extend_schema_view(post=extend_schema(tags=["Authentication"], summary="Send a phone verification code", request=inline_serializer(name="SendOtpRequest", fields={"phone": serializers.CharField()}), responses={200: OpenApiResponse(description="Verification code sent."), 400: OpenApiResponse(description="Invalid phone request."), 401: OpenApiResponse(description="Authentication is required."), 503: OpenApiResponse(description="SMS service is unavailable.")}))
 class SendOtpView(APIView):
     permission_classes = [IsAuthenticated]
+    # Every call costs a Twilio SMS; ScopedRateThrottle keys on the user id,
+    # so one account cannot run up the bill (rate: DEFAULT_THROTTLE_RATES['otp_send']).
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'otp_send'
 
     def post(self, request):
         phone = (request.data.get('phone') or '').strip()
@@ -694,3 +707,109 @@ class ProfileView(APIView):
         if email_changed:
             response_body["email_verification_sent"] = True
         return Response(response_body)
+
+
+@extend_schema(
+    tags=["Authentication"],
+    summary="Request a password-reset link",
+    request=PasswordResetRequestSerializer,
+    responses={200: OpenApiResponse(description="A link was sent if the account exists.")},
+    auth=[],
+)
+class PasswordResetRequestView(APIView):
+    """
+    POST /api/auth/password-reset/   Body: {"email": "..."}
+
+    Always answers 200 with the same message, whether or not the address is
+    registered: a different response for a known address would turn this
+    endpoint into a way to test which emails have accounts.
+
+    Rate-limited per email, for the same reason as resend-verification — each
+    call sends mail to an address the caller does not have to own.
+    """
+    permission_classes = [AllowAny]
+
+    GENERIC_RESPONSE = {
+        "detail": "If an account exists for that address, a reset link has been sent."
+    }
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = serializer.validated_data["email"].lower().strip()
+        cache_key = f"password_reset:{email}"
+
+        attempts = cache.get(cache_key, 0)
+        if attempts >= _RESET_RATE_LIMIT:
+            logger.warning("Password reset rate-limited for %s", email)
+            return Response(self.GENERIC_RESPONSE, status=status.HTTP_200_OK)
+
+        user = User.objects.filter(email__iexact=email).first()
+        if user is None:
+            # Unknown address: answer identically and send nothing.
+            return Response(self.GENERIC_RESPONSE, status=status.HTTP_200_OK)
+
+        # Any earlier link becomes invalid the moment a new one is issued.
+        PasswordResetToken.objects.filter(user=user, used_at__isnull=True).delete()
+        token_obj = PasswordResetToken.objects.create(user=user)
+        _send_password_reset_now(user.id, str(token_obj.token))
+
+        cache.set(cache_key, attempts + 1, timeout=_RESET_WINDOW_SECONDS)
+        return Response(self.GENERIC_RESPONSE, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["Authentication"],
+    summary="Set a new password using a reset token",
+    request=PasswordResetConfirmSerializer,
+    responses={
+        200: OpenApiResponse(description="Password changed; the user can sign in."),
+        400: OpenApiResponse(description="Token missing, expired, already used, or weak password."),
+    },
+    auth=[],
+)
+class PasswordResetConfirmView(APIView):
+    """
+    POST /api/auth/password-reset/confirm/
+    Body: {"token": "<uuid>", "password": "<new password>"}
+
+    Unlike the request step, this one reports a bad token plainly: the caller
+    already holds a token, so there is nothing left to enumerate, and silently
+    accepting an expired link would leave the user unable to sign in with no
+    idea why.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        token = serializer.validated_data["token"]
+        token_obj = (
+            PasswordResetToken.objects.select_related("user").filter(token=token).first()
+        )
+        if token_obj is None or not token_obj.is_usable():
+            return Response(
+                {"detail": "This reset link is invalid or has expired. Please request a new one."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = token_obj.user
+        user.set_password(serializer.validated_data["password"])
+        # Resetting the password proves control of the mailbox, so an account
+        # still held inactive by email verification becomes usable here.
+        user.is_active = True
+        user.save(update_fields=["password", "is_active"])
+
+        token_obj.used_at = timezone.now()
+        token_obj.save(update_fields=["used_at"])
+        # Burn every other outstanding link for this user.
+        PasswordResetToken.objects.filter(user=user, used_at__isnull=True).delete()
+
+        return Response(
+            {"detail": "Your password has been reset. You can now sign in."},
+            status=status.HTTP_200_OK,
+        )

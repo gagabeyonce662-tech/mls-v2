@@ -11,6 +11,8 @@ user's rows because every queryset is scoped by ``request.user``.
 """
 from __future__ import annotations
 
+import os
+
 from django.db import IntegrityError
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
@@ -24,7 +26,23 @@ from .models import SavedSearch
 from .serializers import SavedSearchSerializer
 
 
-MAX_SAVED_SEARCHES_PER_USER = 50
+def _saved_search_cap() -> int:
+    """Per-user cap, read from the environment.
+
+    The v3 frontend ships ONE saved search per user (it replaces the existing
+    row via PUT rather than creating a second), so the default is 1. A garbled
+    or non-positive value falls back to 1 instead of failing at import time or
+    silently disabling the cap.
+    """
+    raw = os.environ.get("MAX_SAVED_SEARCHES_PER_USER", "1")
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return 1
+    return value if value > 0 else 1
+
+
+MAX_SAVED_SEARCHES_PER_USER = _saved_search_cap()
 
 
 class _SavedSearchCreateThrottle(UserRateThrottle):

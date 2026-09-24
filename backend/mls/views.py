@@ -2488,6 +2488,7 @@ class NewlyListedPropertiesAPIView(APIView):
             OpenApiParameter("lease_amount_max", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("city", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("search", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("since_hours", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Only listings first entered in the last N hours (strict: no fallback)."),
         ],
         responses={
             200: OpenApiResponse(response=inline_serializer(
@@ -2528,6 +2529,16 @@ class NewlyListedPropertiesAPIView(APIView):
             request.query_params,
             ("-original_entry_timestamp", "-modification_timestamp"),
         )
+        # "Today's new listings": applied after the fallback pipeline so it
+        # stays strict — an empty day must return nothing, not the safety-net
+        # catalogue the pipeline substitutes for an empty result.
+        since_hours = request.query_params.get("since_hours")
+        if since_hours:
+            try:
+                hours = max(1, min(int(since_hours), 24 * 30))
+            except (TypeError, ValueError):
+                return Response({"error": "since_hours must be an integer."}, status=400)
+            qs = qs.filter(original_entry_timestamp__gte=timezone.now() - timedelta(hours=hours))
 
         # Pagination
         paginator = Paginator(qs, limit)
