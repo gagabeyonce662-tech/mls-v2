@@ -4,29 +4,76 @@ from rest_framework import serializers
 
 User = get_user_model()
 
+# Notification keys accepted on register (HomeAtlasUI AuthModal checkboxes).
+# Kept here so RegisterSerializer.create and the view tests share one list.
+REGISTER_ALERT_PREF_FIELDS = (
+    "email_recommend",
+    "email_watched_property",
+    "email_watched_community",
+    "email_watched_area",
+    "push_watched_property",
+)
+
 
 class RegisterSerializer(serializers.Serializer):
     name = serializers.CharField()
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, validators=[validate_password])
     phone = serializers.CharField()
+    # Required so signup cannot skip Terms & Privacy (UI checkbox).
+    agree_terms = serializers.BooleanField()
+    # Optional; omit → model defaults (all True). Signup UI sends the accordion state.
+    email_recommend = serializers.BooleanField(required=False, default=True)
+    email_watched_property = serializers.BooleanField(required=False, default=True)
+    email_watched_community = serializers.BooleanField(required=False, default=True)
+    email_watched_area = serializers.BooleanField(required=False, default=True)
+    push_watched_property = serializers.BooleanField(required=False, default=True)
 
     def validate_email(self, value):
         if User.objects.filter(email=value.lower()).exists():
             raise serializers.ValidationError('A user with this email already exists.')
         return value.lower()
 
+    def validate_agree_terms(self, value):
+        if value is not True:
+            raise serializers.ValidationError(
+                "You must agree to the Terms & Conditions and Privacy Policy."
+            )
+        return value
+
     def create(self, validated_data):
+        # Lazy import: accounts must not pull mls at module load (circular apps).
+        from mls.models import UserAlertPreference
+
+        prefs = {
+            field: validated_data.pop(field, True)
+            for field in REGISTER_ALERT_PREF_FIELDS
+        }
+        validated_data.pop("agree_terms", None)
+
         name_parts = validated_data['name'].strip().split(' ', 1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else ''
-        return User.objects.create_user(
+        user = User.objects.create_user(
             email=validated_data['email'],
             password=validated_data['password'],
             first_name=first_name,
             last_name=last_name,
             phone=validated_data.get('phone'),
         )
+        # Persist signup choices immediately — the account is inactive until
+        # email verify, so the authenticated prefs endpoint is not available yet.
+        email_any = any(
+            prefs[field]
+            for field in REGISTER_ALERT_PREF_FIELDS
+            if field.startswith("email_")
+        )
+        UserAlertPreference.objects.create(
+            user=user,
+            email_enabled=email_any,
+            **prefs,
+        )
+        return user
 
 
 class LoginSerializer(serializers.Serializer):

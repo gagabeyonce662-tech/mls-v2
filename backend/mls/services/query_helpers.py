@@ -347,9 +347,52 @@ def _apply_common_filters(
             qs = qs.filter(Q(parking_total=0) | Q(parking_total__isnull=True))
         elif garage in {"attached", "detached"}:
             qs = qs.filter(parking_features__icontains=garage)
+    qs = apply_structure_filters(qs, params)
     if params.get("community_slug"):
         qs = qs.filter(
             community_listings__community_slug__in=_split_csv(params.get("community_slug", ""))
+        )
+    return qs
+
+
+def apply_structure_filters(qs, params):
+    """
+    Garages, floors (stories), basement and year-built — shared by
+    PropertyFilterView and PropertyFacets so tab counts match results.
+    """
+    try:
+        if params.get("garages_min"):
+            # MLS Property stores garage/parking count on parking_total
+            # (EstateProperty has a separate `garages` field).
+            qs = qs.filter(parking_total__gte=int(params.get("garages_min")))
+        if params.get("stories_min"):
+            qs = qs.filter(stories__gte=int(params.get("stories_min")))
+        if params.get("year_built_min"):
+            qs = qs.filter(year_built__gte=int(params.get("year_built_min")))
+    except (TypeError, ValueError):
+        pass
+
+    basement = (params.get("basement") or "").strip().lower()
+    if basement == "yes":
+        qs = qs.exclude(Q(basement__isnull=True) | Q(basement="")).exclude(
+            basement__icontains="none"
+        )
+    elif basement == "finished":
+        qs = qs.filter(basement__icontains="finished").exclude(
+            basement__icontains="unfinished"
+        )
+    elif basement == "unfinished":
+        qs = qs.filter(basement__icontains="unfinished")
+    elif basement == "apartment":
+        qs = qs.filter(
+            Q(basement__icontains="apartment")
+            | Q(basement__icontains="separate entrance")
+            | Q(basement__icontains="walk-out")
+            | Q(basement__icontains="walkout")
+        )
+    elif basement == "none":
+        qs = qs.filter(
+            Q(basement__isnull=True) | Q(basement="") | Q(basement__icontains="none")
         )
     return qs
 
@@ -617,3 +660,27 @@ def _apply_map_filters_to_queryset(qs, params):
         if slugs:
             qs = qs.filter(community_listings__community_slug__in=slugs)
     return qs
+
+
+# UI home types -> DDF fields. The feed's property_sub_type is "Single Family"
+# for almost every home, so it cannot tell a condo from a detached house;
+# structure_type + property_attached_yn can (House/unattached 2,079,
+# House/attached 214, Apartment 1,007, Row / Townhouse 662 on 2026-09-25).
+HOME_TYPE_Q = {
+    "detached": Q(structure_type__iexact="House", property_attached_yn=False),
+    "semi": Q(structure_type__iexact="House", property_attached_yn=True),
+    "condo": Q(structure_type__iexact="Apartment"),
+    "townhouse": Q(structure_type__iexact="Row / Townhouse"),
+}
+
+
+def home_type_q(params):
+    """OR of the requested ``home_type`` values (repeatable or CSV); None when absent."""
+    raw_values = params.getlist("home_type") if hasattr(params, "getlist") else [params.get("home_type", "")]
+    combined = None
+    for raw in raw_values:
+        for value in str(raw or "").split(","):
+            q = HOME_TYPE_Q.get(value.strip().lower())
+            if q is not None:
+                combined = q if combined is None else combined | q
+    return combined

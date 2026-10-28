@@ -16,11 +16,14 @@ from django.db.models.functions import Cast
 
 from .models import Property, SearchEvent
 from .serializers import PropertySerializer
+from .services.listing_embeddings import rank_ids
 from .services.query_helpers import (
+    apply_structure_filters,
     price_field_for,
     _apply_fallback_pipeline,
     _apply_open_house_filters,
     _build_property_filter_cache_key,
+    home_type_q,
 )
 from .views import (
     MAP_VIEW_CACHE_TTL_SECONDS,
@@ -38,6 +41,22 @@ def _point_in_polygon(lat, lng, polygon):
             inside = not inside
         previous = current
     return inside
+
+
+# "Best match" scores at most this many filtered listings (newest first);
+# the result count is capped to it, which the rolling DDF cache rarely hits
+# once a city or price filter applies.
+RELEVANCE_POOL = 2000
+
+
+def _relevance_order(final_qs, text):
+    """Filtered listing ids ordered by similarity to ``text``, or None to keep
+    the normal order (no embeddings yet, or OpenAI unavailable)."""
+    if isinstance(final_qs, list):
+        ids = [prop.id for prop in final_qs[:RELEVANCE_POOL]]
+    else:
+        ids = list(final_qs.values_list("id", flat=True)[:RELEVANCE_POOL])
+    return rank_ids(ids, text)
 
 
 class PropertyFilterView(APIView):
@@ -64,7 +83,8 @@ class PropertyFilterView(APIView):
             OpenApiParameter("lng_max", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("sold_days", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("modified_since", OpenApiTypes.DATETIME, OpenApiParameter.QUERY, required=False),
-            OpenApiParameter("orderby", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("orderby", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="A field (e.g. -list_price), or 'relevance' to rank by similarity to `semantic`."),
+            OpenApiParameter("semantic", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Soft preferences from AI search (e.g. 'near subway, big backyard'). Used only with orderby=relevance; never filters."),
             OpenApiParameter("price_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum list_price."),
             OpenApiParameter("price_max", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Maximum list_price."),
             OpenApiParameter("beds_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum bedrooms_total."),
@@ -73,6 +93,9 @@ class PropertyFilterView(APIView):
             OpenApiParameter("sqft_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum building_area_total."),
             OpenApiParameter("sqft_max", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Maximum building_area_total."),
             OpenApiParameter("year_built_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum year_built."),
+            OpenApiParameter("garages_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum garage / parking spaces."),
+            OpenApiParameter("stories_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum number of floors/stories."),
+            OpenApiParameter("basement", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Basement: yes | finished | unfinished | apartment | none."),
             OpenApiParameter("has_open_house", OpenApiTypes.BOOL, OpenApiParameter.QUERY, required=False, description="Restrict to listings with an upcoming open house (defaults to today onwards)."),
             OpenApiParameter("open_house_from", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False, description="Open-house date lower bound (YYYY-MM-DD)."),
             OpenApiParameter("open_house_to", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False, description="Open-house date upper bound (YYYY-MM-DD)."),
@@ -129,11 +152,22 @@ class PropertyFilterView(APIView):
                 qs = qs.filter(building_area_total__lte=int(request.GET.get("sqft_max")))
             if request.GET.get("year_built_min"):
                 qs = qs.filter(year_built__gte=int(request.GET.get("year_built_min")))
+            if request.GET.get("garages_min"):
+                int(request.GET.get("garages_min"))  # validate early; applied below
+            if request.GET.get("stories_min"):
+                int(request.GET.get("stories_min"))
         except (TypeError, ValueError):
             return Response(
-                {"error": "price_min/price_max/beds_min/baths_min/sqft_min/sqft_max/year_built_min must be integers."},
+                {
+                    "error": (
+                        "price_min/price_max/beds_min/baths_min/sqft_min/sqft_max/"
+                        "year_built_min/garages_min/stories_min must be integers."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        qs = apply_structure_filters(qs, request.GET)
 
         sub_type_values: list[str] = []
         for raw in request.GET.getlist("property_sub_type"):
@@ -143,6 +177,9 @@ class PropertyFilterView(APIView):
                     sub_type_values.append(cleaned)
         if sub_type_values:
             qs = qs.filter(property_sub_type__in=sub_type_values)
+        home_q = home_type_q(request.GET)
+        if home_q is not None:
+            qs = qs.filter(home_q)
 
         if all(k in request.GET for k in ["lat_min", "lat_max", "lng_min", "lng_max"]):
             qs = qs.annotate(
@@ -167,9 +204,19 @@ class PropertyFilterView(APIView):
         qs = _apply_open_house_filters(qs, request.GET)
 
         order_by = request.GET.get("orderby", "-modification_timestamp")
+        # "relevance" (AI search's "Best match") ranks by description
+        # similarity after filtering; the SQL step keeps newest-first so
+        # equal scores and unembedded listings stay in a sensible order.
+        semantic = (request.GET.get("semantic") or "").strip()[:300]
+        rank_by_relevance = order_by == "relevance"
+        if rank_by_relevance:
+            order_by = "-modification_timestamp"
         if order_by.lstrip("-") == "list_price":
             order_by = order_by.replace("list_price", price_field)
-        final_qs, fallback_meta = _apply_fallback_pipeline(qs, request.GET, (order_by,))
+        # listing_key (unique) breaks ties. Price, beds and size sorts tie
+        # constantly, and Postgres may order tied rows differently per query,
+        # so offset paging repeated some homes across pages and skipped others.
+        final_qs, fallback_meta = _apply_fallback_pipeline(qs, request.GET, (order_by, "listing_key"))
 
         polygon = None
         if request.GET.get("polygon"):
@@ -208,22 +255,38 @@ class PropertyFilterView(APIView):
                 and _point_in_polygon(float(prop.latitude), float(prop.longitude), polygon)
             ]
 
-        paginator = Paginator(final_qs, limit)
-        page = paginator.get_page((offset // limit) + 1)
+        ranked_ids = _relevance_order(final_qs, semantic) if rank_by_relevance and semantic else None
+        if ranked_ids is not None:
+            # Page over the ranked ids, then load just that page's rows from
+            # the filtered queryset so its annotations (rent price) survive.
+            paginator = Paginator(ranked_ids, limit)
+            page = paginator.get_page((offset // limit) + 1)
+            page_ids = list(page.object_list)
+            if isinstance(final_qs, list):
+                by_id = {prop.id: prop for prop in final_qs}
+            else:
+                by_id = {prop.id: prop for prop in final_qs.filter(id__in=page_ids)}
+            page_objects = [by_id[pid] for pid in page_ids if pid in by_id]
+        else:
+            paginator = Paginator(final_qs, limit)
+            page = paginator.get_page((offset // limit) + 1)
+            page_objects = page.object_list
 
-        serializer = PropertySerializer(page.object_list, many=True, context={"request": request})
+        serializer = PropertySerializer(page_objects, many=True, context={"request": request})
 
         payload = {
             "count": paginator.count,
             "next": offset + limit if page.has_next() else None,
             "previous": offset - limit if offset >= limit else None,
             "results": serializer.data,
+            "ranked_by_relevance": ranked_ids is not None,
             **fallback_meta,
         }
         cache.set(filter_cache_key, payload, MAP_VIEW_CACHE_TTL_SECONDS)
         query = (request.GET.get("search") or "").strip()
         city = (request.GET.get("city") or "").strip()
-        if query or city:
+        # Internal replays (saved-search alerts) are not user searches.
+        if (query or city) and not getattr(request, "_skip_search_event", False):
             SearchEvent.objects.create(
                 user=request.user if request.user.is_authenticated else None,
                 session_key=(request.headers.get("X-Session-Key", "") or request.GET.get("session_key", ""))[:64],

@@ -25,7 +25,7 @@ from drf_spectacular.utils import (
     inline_serializer,
 )
 from rest_framework import serializers, status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -33,11 +33,13 @@ from .models import Property, PropertyInquiry
 from .services.ampre_client import AmpreClientError, fetch_property_page
 from .services.query_helpers import (
     STATUS_GROUPS,
+    apply_structure_filters,
     _apply_location_filters,
     cities_match_q,
     city_match_q,
     price_field_for,
     _apply_open_house_filters,
+    home_type_q,
 )
 
 
@@ -93,9 +95,14 @@ def _apply_facet_filters(qs, params) -> Any:
         if params.get("sqft_max"):
             qs = qs.filter(building_area_total__lte=int(params.get("sqft_max")))
         if params.get("year_built_min"):
-            qs = qs.filter(year_built__gte=int(params.get("year_built_min")))
+            int(params.get("year_built_min"))
+        if params.get("garages_min"):
+            int(params.get("garages_min"))
+        if params.get("stories_min"):
+            int(params.get("stories_min"))
     except (TypeError, ValueError):
         return None
+    qs = apply_structure_filters(qs, params)
     sub_types: list[str] = []
     for raw in params.getlist("property_sub_type") if hasattr(params, "getlist") else [params.get("property_sub_type", "")]:
         for value in str(raw or "").split(","):
@@ -104,6 +111,9 @@ def _apply_facet_filters(qs, params) -> Any:
                 sub_types.append(cleaned)
     if sub_types:
         qs = qs.filter(property_sub_type__in=sub_types)
+    home_q = home_type_q(params)
+    if home_q is not None:
+        qs = qs.filter(home_q)
     # postal_code (CSV of FSAs / full codes) uses the same helper as the filter
     # view, so a postal-scoped listings page gets postal-scoped tab counts.
     if params.get("postal_code"):
@@ -136,6 +146,9 @@ class PropertyFacetsAPIView(APIView):
             OpenApiParameter("sqft_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("sqft_max", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("year_built_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("garages_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("stories_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False),
+            OpenApiParameter("basement", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False),
             OpenApiParameter("postal_code", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="CSV of FSAs (L7A) and/or full codes (L7A3K9)."),
         ],
         responses={
@@ -365,57 +378,133 @@ def _bucket_sold_rows(
     return per_city_month, per_city_total
 
 
-def _fetch_sold_rows(cities: list[str], window_months: int) -> list[dict[str, Any]]:
-    """Pull closed listings for the given cities in one AMPRE request."""
-    now = timezone.now()
-    window_start = (now - timedelta(days=window_months * 31)).date().isoformat()
-    # Upper bound as well as lower. A handful of TRREB records carry corrupt
-    # CloseDates ("5199-12-31", "3549-10-01" - the year mirrors the rent),
-    # and because the query sorts by CloseDate desc those junk rows sat at the
-    # top and consumed the 1000-row budget, pushing out the real recent sales:
-    # the 12-month window came back starting 14 months in the future.
-    window_end = (now + timedelta(days=1)).date().isoformat()
-    # OData ``in`` is not supported by AMPRE; build a clause per city.
-    #
+SOLD_SELECT_FIELDS = [
+    "ListingKey",
+    "City",
+    "StandardStatus",
+    "ClosePrice",
+    "ListPrice",
+    "OriginalListPrice",
+    "CloseDate",
+    "OriginalEntryTimestamp",
+    "PropertySubType",
+    "CityRegion",
+]
+
+# UI property-type keys -> AMPRE PropertySubType prefixes. Prefixes, not exact
+# values: TRREB stores "Semi-Detached " with a trailing space, which an ``eq``
+# filter silently misses.
+SOLD_PROPERTY_TYPES: dict[str, list[str]] = {
+    "detached": ["Detached"],
+    "semi": ["Semi-Detached"],
+    "townhouse": ["Att/Row/Townhouse"],
+    "condo_townhouse": ["Condo Townhouse"],
+    "condo_apartment": ["Condo Apartment"],
+}
+# Communities listed per city payload, most active first.
+MAX_COMMUNITIES = 60
+# Concurrent AMPRE requests per sold-trends build. Pages inside one query must
+# follow @odata.nextLink in order, so parallelism comes from splitting the
+# window into (city, month) chunks instead.
+SOLD_FETCH_WORKERS = 8
+# Per-chunk row budget. One Toronto month is ~2-3k closed sales, so this is a
+# runaway guard, not a limit that real data reaches.
+SOLD_CHUNK_MAX_ROWS = 10000
+
+
+def _month_ranges(window_months: int, now: datetime) -> list[tuple[str, str]]:
+    """[start, end) ISO-date pairs covering the window, newest last.
+
+    The first range starts ``window_months * 31`` days back (the window the
+    single-query version used); the last ends tomorrow. Upper bound as well as
+    lower: a handful of TRREB records carry corrupt CloseDates ("5199-12-31"),
+    which an open-ended query would otherwise include.
+    """
+    window_start = (now - timedelta(days=window_months * 31)).date()
+    window_end = (now + timedelta(days=1)).date()
+    ranges: list[tuple[str, str]] = []
+    cursor = window_start
+    while cursor < window_end:
+        if cursor.month == 12:
+            next_month = cursor.replace(year=cursor.year + 1, month=1, day=1)
+        else:
+            next_month = cursor.replace(month=cursor.month + 1, day=1)
+        chunk_end = min(next_month, window_end)
+        ranges.append((cursor.isoformat(), chunk_end.isoformat()))
+        cursor = chunk_end
+    return ranges
+
+
+def _sold_filter(
+    city: str,
+    start: str,
+    end: str,
+    property_sub_types: list[str] | None,
+    community: str | None = None,
+) -> str:
     # ``startswith`` rather than ``eq``: AMPRE stores Toronto as district-coded
-    # names ("Toronto C01", "Toronto C08", "Toronto W05", ...) and never as a
-    # bare "Toronto", so an exact match found none of its ~29,000 closed sales
-    # and the chart came back empty for the single biggest market. Ordinary
-    # cities ("Mississauga") are unaffected, since they match their own prefix.
-    city_clause = " or ".join(
-        f"startswith(City,'{c.replace(chr(39), chr(39)*2)}')" for c in cities
-    )
-    # TransactionType keeps leases out of the sold figures. A closed lease has
-    # a ClosePrice too, but it is a monthly rent: more than half the Toronto
-    # rows came back "For Lease", which pulled the median sold price down to
-    # around $2,000 and made sale-to-list ratios meaningless.
-    filter_expression = (
-        f"({city_clause}) "
+    # names ("Toronto C01", "Toronto W05", ...) and never as a bare "Toronto",
+    # so an exact match found none of its closed sales. Ordinary cities
+    # ("Mississauga") are unaffected, since they match their own prefix.
+    #
+    # TransactionType keeps leases out: a closed lease has a ClosePrice too,
+    # but it is a monthly rent, which dragged the median sold price to ~$2,000.
+    quoted = city.replace("'", "''")
+    expression = (
+        f"startswith(City,'{quoted}') "
         f"and StandardStatus eq 'Closed' "
         f"and TransactionType eq 'For Sale' "
-        f"and CloseDate ge {window_start} "
-        f"and CloseDate le {window_end}"
+        f"and CloseDate ge {start} "
+        f"and CloseDate lt {end}"
     )
-    select_fields = [
-        "ListingKey",
-        "City",
-        "StandardStatus",
-        "ClosePrice",
-        "ListPrice",
-        "OriginalListPrice",
-        "CloseDate",
-        "OriginalEntryTimestamp",
+    if property_sub_types:
+        # OData ``in`` is not supported by AMPRE, so OR the prefixes.
+        subtype_clause = " or ".join(
+            f"startswith(PropertySubType,'{t.replace(chr(39), chr(39) * 2)}')" for t in property_sub_types
+        )
+        expression += f" and ({subtype_clause})"
+    if community:
+        expression += f" and CityRegion eq '{community.replace(chr(39), chr(39) * 2)}'"
+    return expression
+
+
+def _fetch_sold_rows(
+    cities: list[str],
+    window_months: int,
+    property_sub_types: list[str] | None = None,
+    community: str | None = None,
+) -> list[dict[str, Any]]:
+    """Pull closed listings for the given cities over the window.
+
+    One query per (city, month), run concurrently. The previous single query
+    paged sequentially through @odata.nextLink: Toronto's 12 months (~24k
+    rows) took ~63s, past every gateway and frontend timeout (the source of
+    the sold-trends 502s), and the GTA scope was silently truncated at a
+    25,000-row cap. Chunking bounds each query to a couple of pages and lets
+    them overlap. Any chunk failure raises, so a partial result is never
+    presented as the full market.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    chunks = [
+        _sold_filter(city, start, end, property_sub_types, community)
+        for city in cities
+        for start, end in _month_ranges(window_months, timezone.now())
     ]
-    # AMPRE caps a page at 1000, so a 12-month multi-city window needs several.
-    # `max_rows` is the real budget: with only 1000 the newest month alone
-    # exhausted it and the chart showed a single bar.
-    return fetch_property_page(
-        filter_expression=filter_expression,
-        select_fields=select_fields,
-        orderby="CloseDate desc",
-        top=1000,
-        max_rows=25000,
-    )
+
+    def run(expression: str) -> list[dict[str, Any]]:
+        return fetch_property_page(
+            filter_expression=expression,
+            select_fields=SOLD_SELECT_FIELDS,
+            top=1000,
+            max_rows=SOLD_CHUNK_MAX_ROWS,
+        )
+
+    rows: list[dict[str, Any]] = []
+    with ThreadPoolExecutor(max_workers=min(SOLD_FETCH_WORKERS, len(chunks) or 1)) as pool:
+        for chunk_rows in pool.map(run, chunks):
+            rows.extend(chunk_rows)
+    return rows
 
 
 class MarketSoldTrendsAPIView(APIView):
@@ -485,70 +574,154 @@ class MarketSoldTrendsAPIView(APIView):
             return Response({"scope": scope or "cities", "series": []})
 
         window_months = _parse_window_months(request.query_params.get("window"), default=12)
-        scope_label = scope or ("cities" if len(cities) > 1 else "city")
-        cities_digest = hashlib.md5(
-            "|".join(sorted(c.lower() for c in cities)).encode()
-        ).hexdigest()
-        cache_key = f"sold-trends:v2:{scope_label}:{cities_digest}:{window_months}"
-        cached = cache.get(cache_key)
-        if cached is not None:
-            return Response(cached)
-
+        property_type = (request.query_params.get("property_type") or "").strip().lower()
+        sub_types = SOLD_PROPERTY_TYPES.get(property_type)
+        # Communities belong to one city; ignored for multi-city scopes.
+        community = (request.query_params.get("community") or "").strip()[:120] if len(cities) == 1 else ""
         try:
-            rows = _fetch_sold_rows(cities, window_months)
+            payload = get_sold_trends(
+                cities, window_months, scope=scope, property_sub_types=sub_types, community=community or None
+            )
         except AmpreClientError as exc:
+            logger.warning("sold-trends upstream failure for %s: %s", cities, exc)
             return Response(
                 {"error": "AMPRE upstream error.", "detail": str(exc)},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-
-        per_city_month, per_city_total = _bucket_sold_rows(rows, cities)
-        canonical_by_norm = {c.lower(): c for c in cities}
-
-        series: list[dict[str, Any]] = []
-        for city_key in sorted(
-            set(list(per_city_month.keys()) + list(canonical_by_norm.values()))
-        ):
-            display = canonical_by_norm.get(city_key.lower(), city_key)
-            monthly = per_city_month.get(city_key, {})
-            months_out = [
-                {"month": m, **_summarise_sold_bucket(monthly[m])}
-                for m in sorted(monthly.keys())
-            ]
-            series.append(
-                {
-                    "city": display,
-                    "window_months": window_months,
-                    "months": months_out,
-                    "totals": _summarise_sold_bucket(
-                        per_city_total.get(city_key, _sold_bucket())
-                    ),
-                }
-            )
-
-        payload: dict[str, Any] = {
-            "scope": scope_label,
-            "window_months": window_months,
-            "series": series,
-        }
-
-        # GAP-08: GTA-wide (or multi-city) headline strip.
-        if len(cities) > 1 or scope == "gta":
-            aggregate_bucket = _sold_bucket()
-            for b in per_city_total.values():
-                for k in aggregate_bucket:
-                    aggregate_bucket[k].extend(b[k])
-            payload["aggregate"] = _summarise_sold_bucket(aggregate_bucket)
-
-        # Preserve the legacy single-city top-level fields so existing
-        # callers do not break when they used ?city= without opting in.
-        if len(cities) == 1 and scope != "gta":
-            single = series[0] if series else {"city": cities[0], "months": [], "totals": _summarise_sold_bucket(_sold_bucket())}
-            payload["city"] = single["city"]
-            payload["months"] = single["months"]
-
-        cache.set(cache_key, payload, 60 * 30)
         return Response(payload)
+
+
+# Fresh results are served for 6h; the warm task refreshes them before then.
+SOLD_TRENDS_FRESH_SECONDS = 60 * 60 * 6
+# The last good payload survives a week, so an AMPRE outage or a slow rebuild
+# serves slightly older figures (flagged ``stale``) instead of a 502.
+SOLD_TRENDS_STALE_SECONDS = 60 * 60 * 24 * 7
+
+
+def _sold_trends_cache_keys(
+    cities: list[str],
+    window_months: int,
+    scope: str,
+    property_sub_types: list[str] | None,
+    community: str | None = None,
+) -> tuple[str, str]:
+    scope_label = scope or ("cities" if len(cities) > 1 else "city")
+    digest = hashlib.md5(
+        (
+            "|".join(sorted(c.lower() for c in cities))
+            + "#"
+            + "|".join(sorted(t.lower() for t in property_sub_types or []))
+            + "#"
+            + (community or "").lower()
+        ).encode()
+    ).hexdigest()
+    base = f"sold-trends:v4:{scope_label}:{digest}:{window_months}"
+    return base, f"{base}:last-good"
+
+
+def get_sold_trends(
+    cities: list[str],
+    window_months: int,
+    scope: str = "",
+    property_sub_types: list[str] | None = None,
+    force_refresh: bool = False,
+    community: str | None = None,
+) -> dict[str, Any]:
+    """Cached sold-trends payload: fresh → rebuild → last good copy.
+
+    Raises AmpreClientError only when the rebuild fails AND no earlier good
+    payload exists. A payload served from the last-good copy carries
+    ``stale: true`` plus its ``generated_at``, so the UI can say how old it is.
+    """
+    fresh_key, stale_key = _sold_trends_cache_keys(cities, window_months, scope, property_sub_types, community)
+    if not force_refresh:
+        cached = cache.get(fresh_key)
+        if cached is not None:
+            return cached
+    try:
+        payload = build_sold_trends_payload(cities, window_months, scope, property_sub_types, community)
+    except AmpreClientError:
+        last_good = cache.get(stale_key)
+        if last_good is None:
+            raise
+        return {**last_good, "stale": True}
+    cache.set(fresh_key, payload, SOLD_TRENDS_FRESH_SECONDS)
+    cache.set(stale_key, payload, SOLD_TRENDS_STALE_SECONDS)
+    return payload
+
+
+def build_sold_trends_payload(
+    cities: list[str],
+    window_months: int,
+    scope: str = "",
+    property_sub_types: list[str] | None = None,
+    community: str | None = None,
+) -> dict[str, Any]:
+    """Fetch from AMPRE and aggregate. Uncached; use get_sold_trends()."""
+    scope_label = scope or ("cities" if len(cities) > 1 else "city")
+    rows = _fetch_sold_rows(cities, window_months, property_sub_types, community)
+    per_city_month, per_city_total = _bucket_sold_rows(rows, cities)
+    canonical_by_norm = {c.lower(): c for c in cities}
+
+    series: list[dict[str, Any]] = []
+    for city_key in sorted(
+        set(list(per_city_month.keys()) + list(canonical_by_norm.values()))
+    ):
+        display = canonical_by_norm.get(city_key.lower(), city_key)
+        monthly = per_city_month.get(city_key, {})
+        months_out = [
+            {"month": m, **_summarise_sold_bucket(monthly[m])}
+            for m in sorted(monthly.keys())
+        ]
+        series.append(
+            {
+                "city": display,
+                "window_months": window_months,
+                "months": months_out,
+                "totals": _summarise_sold_bucket(
+                    per_city_total.get(city_key, _sold_bucket())
+                ),
+            }
+        )
+
+    payload: dict[str, Any] = {
+        "scope": scope_label,
+        "window_months": window_months,
+        "series": series,
+        "generated_at": timezone.now().isoformat(),
+        "stale": False,
+        "community": community or None,
+    }
+
+    # The community picker's options, from the same rows: one city, unfiltered
+    # by community, so every community with sales in the window is listed.
+    if len(cities) == 1 and not community:
+        counts: dict[str, int] = defaultdict(int)
+        for row in rows:
+            name = (row.get("CityRegion") or "").strip()
+            if name:
+                counts[name] += 1
+        payload["communities"] = [
+            {"name": name, "units_sold": n}
+            for name, n in sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:MAX_COMMUNITIES]
+        ]
+
+    # GAP-08: GTA-wide (or multi-city) headline strip.
+    if len(cities) > 1 or scope == "gta":
+        aggregate_bucket = _sold_bucket()
+        for b in per_city_total.values():
+            for k in aggregate_bucket:
+                aggregate_bucket[k].extend(b[k])
+        payload["aggregate"] = _summarise_sold_bucket(aggregate_bucket)
+
+    # Preserve the legacy single-city top-level fields so existing
+    # callers do not break when they used ?city= without opting in.
+    if len(cities) == 1 and scope != "gta":
+        single = series[0] if series else {"city": cities[0], "months": [], "totals": _summarise_sold_bucket(_sold_bucket())}
+        payload["city"] = single["city"]
+        payload["months"] = single["months"]
+
+    return payload
 
 
 class CatalogStatsBulkAPIView(APIView):
@@ -762,3 +935,165 @@ class PlatformStatsAPIView(APIView):
         }
         cache.set(cache_key, payload, 60 * 10)
         return Response(payload)
+
+
+# Cities the Market Trends page offers (mls-v3-frontend lib/api/market.ts
+# MARKET_CITIES). Keep in sync: an unwarmed city still works, it is just
+# fetched live on first view.
+SOLD_TRENDS_WARM_CITIES: list[str] = [
+    "Toronto",
+    "Mississauga",
+    "Vaughan",
+    "Markham",
+    "Brampton",
+    "Oakville",
+    "Burlington",
+    "Hamilton",
+]
+
+
+SOLD_TRENDS_WARM_WINDOWS = (12, 24, 36)
+
+
+def warm_sold_trends(windows: Iterable[int] = SOLD_TRENDS_WARM_WINDOWS) -> dict[str, Any]:
+    """Rebuild the cached sold-trends payloads the site actually requests.
+
+    The GTA scope takes ~40s against AMPRE, far past any request timeout, so
+    it is only ever served from this warm cache. One target failing does not
+    stop the others; the report lists what failed.
+    """
+    report: dict[str, Any] = {"ok": [], "failed": {}}
+    targets: list[tuple[str, list[str], str]] = [
+        (city, [city], "") for city in SOLD_TRENDS_WARM_CITIES
+    ]
+    targets.append(("gta", list(GTA_CITIES), "gta"))
+    for window_months in windows:
+        for label, cities, scope in targets:
+            key = f"{label}:{window_months}m"
+            try:
+                get_sold_trends(cities, window_months, scope=scope, force_refresh=True)
+                report["ok"].append(key)
+            except AmpreClientError as exc:
+                logger.warning("sold-trends warm failed for %s: %s", key, exc)
+                report["failed"][key] = str(exc)
+    return report
+
+
+# --------------------------------------------------------------------------- #
+# Recently sold (scope #7): closed sales list, AMPRE-backed                    #
+# --------------------------------------------------------------------------- #
+
+RECENT_SALES_DAY_OPTIONS = (7, 30, 90)
+RECENT_SALES_PAGE_SIZE = 24
+RECENT_SALES_MAX_ROWS = 8000
+RECENT_SALES_CACHE_SECONDS = 60 * 60
+# Homes only: AMPRE mixes in commercial sales, parking spaces and lockers.
+RESIDENTIAL_SOLD_CLAUSE = (
+    "startswith(PropertyType,'Residential') "
+    "and PropertySubType ne 'Parking Space' and PropertySubType ne 'Locker'"
+)
+
+
+def _recent_sale_row(row: dict[str, Any]) -> dict[str, Any] | None:
+    close_price = row.get("ClosePrice")
+    close_dt = _parse_ampre_datetime(row.get("CloseDate"))
+    if not close_price or not close_dt:
+        return None
+    list_price = row.get("ListPrice") or row.get("OriginalListPrice")
+    entry_dt = _parse_ampre_datetime(row.get("OriginalEntryTimestamp"))
+    dom = (close_dt.date() - entry_dt.date()).days if entry_dt else None
+    over_under = None
+    if list_price:
+        ratio = float(close_price) / float(list_price)
+        if RATIO_SANITY_MIN <= ratio <= RATIO_SANITY_MAX:
+            over_under = round((ratio - 1) * 100, 1)
+    return {
+        "listing_key": row.get("ListingKey"),
+        "address": row.get("UnparsedAddress") or "",
+        "city": row.get("City") or "",
+        "property_sub_type": row.get("PropertySubType") or "",
+        "bedrooms": row.get("BedroomsTotal"),
+        "bathrooms": row.get("BathroomsTotalInteger"),
+        "close_price": float(close_price),
+        "list_price": float(list_price) if list_price else None,
+        "close_date": close_dt.date().isoformat(),
+        "days_on_market": dom if dom is not None and dom >= 0 else None,
+        "over_under_asking_pct": over_under,
+    }
+
+
+def get_recent_sales(city: str, days: int) -> list[dict[str, Any]]:
+    """Closed residential sales in ``city`` over ``days``, newest first. Cached 1h."""
+    cache_key = f"recent-sales:v1:{hashlib.md5(city.lower().encode()).hexdigest()}:{days}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+    now = timezone.now()
+    start = (now - timedelta(days=days)).date().isoformat()
+    end = (now + timedelta(days=1)).date().isoformat()
+    quoted = city.replace("'", "''")
+    raw = fetch_property_page(
+        filter_expression=(
+            f"startswith(City,'{quoted}') "
+            "and StandardStatus eq 'Closed' and TransactionType eq 'For Sale' "
+            f"and {RESIDENTIAL_SOLD_CLAUSE} "
+            f"and CloseDate ge {start} and CloseDate lt {end}"
+        ),
+        select_fields=[
+            "ListingKey", "UnparsedAddress", "City", "PropertySubType",
+            "BedroomsTotal", "BathroomsTotalInteger", "ClosePrice", "CloseDate",
+            "ListPrice", "OriginalListPrice", "OriginalEntryTimestamp",
+        ],
+        orderby="CloseDate desc",
+        top=1000,
+        max_rows=RECENT_SALES_MAX_ROWS,
+    )
+    rows = [r for r in (_recent_sale_row(row) for row in raw) if r]
+    cache.set(cache_key, rows, RECENT_SALES_CACHE_SECONDS)
+    return rows
+
+
+class RecentSalesAPIView(APIView):
+    """GET /api/mls/market/recent-sales/?city=&days=30&page=1 — recently sold homes.
+
+    Signed-in users only. TRREB's VOW rules require a registered, signed-in
+    user before sold prices are shown (the same reason HouseSigma gates them),
+    so this is IsAuthenticated rather than AllowAny.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        city = (request.query_params.get("city") or "").strip()[:60]
+        if not city:
+            return Response({"error": "Provide city."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            days = int(request.query_params.get("days") or 30)
+        except ValueError:
+            days = 30
+        if days not in RECENT_SALES_DAY_OPTIONS:
+            days = 30
+        try:
+            page = max(1, int(request.query_params.get("page") or 1))
+        except ValueError:
+            page = 1
+        try:
+            rows = get_recent_sales(city, days)
+        except AmpreClientError as exc:
+            logger.warning("recent-sales upstream failure for %s: %s", city, exc)
+            return Response(
+                {"error": "Sold data is temporarily unavailable."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        start = (page - 1) * RECENT_SALES_PAGE_SIZE
+        return Response(
+            {
+                "city": city,
+                "days": days,
+                "count": len(rows),
+                "page": page,
+                "page_size": RECENT_SALES_PAGE_SIZE,
+                "truncated": len(rows) >= RECENT_SALES_MAX_ROWS,
+                "results": rows[start:start + RECENT_SALES_PAGE_SIZE],
+            }
+        )

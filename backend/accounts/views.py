@@ -112,6 +112,10 @@ class RegisterView(APIView):
             last_name=user.last_name,
             email=user.email,
             phone=user.phone,
+            source="HomeAtlas sign-up",
+            tags=["account"],
+            note_title="HomeAtlas sign-up",
+            note_body="This person signed up for a HomeAtlas account.",
         )
         if contact_id:
             user.ghl_contact_id = contact_id
@@ -377,6 +381,10 @@ class GoogleAuthView(APIView):
                     first_name=first_name,
                     last_name=last_name,
                     email=email,
+                    source="Google sign-up",
+                    tags=["account", "google"],
+                    note_title="Google sign-up",
+                    note_body="This person signed up with Google.",
                 )
                 if contact_id:
                     user.ghl_contact_id = contact_id
@@ -538,6 +546,10 @@ class FacebookAuthView(APIView):
                     first_name=first_name,
                     last_name=last_name,
                     email=email,
+                    source="Facebook sign-up",
+                    tags=["account", "facebook"],
+                    note_title="Facebook sign-up",
+                    note_body="This person signed up with Facebook.",
                 )
                 if contact_id:
                     user.ghl_contact_id = contact_id
@@ -658,6 +670,10 @@ class ProfileView(APIView):
     def get(self, request):
         return Response(UserProfileSerializer(request.user).data)
 
+    def patch(self, request):
+        # Same handler as PUT — both accept partial profile updates.
+        return self.put(request)
+
     def put(self, request):
         user = request.user
         serializer = UserProfileSerializer(user, data=request.data, partial=True)
@@ -698,6 +714,10 @@ class ProfileView(APIView):
                 last_name=user.last_name,
                 email=user.email,
                 phone=user.phone,
+                source="HomeAtlas account",
+                tags=["account"],
+                note_title="HomeAtlas account",
+                note_body="This person saved their HomeAtlas profile. No contact existed in the CRM yet.",
             )
             if contact_id:
                 user.ghl_contact_id = contact_id

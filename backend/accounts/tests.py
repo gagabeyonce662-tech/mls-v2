@@ -46,6 +46,7 @@ class RegisterViewTests(TestCase):
                 "email": "alice@example.com",
                 "password": "StrongP@ss1",
                 "phone": "+15551234567",
+                "agree_terms": True,
             },
             format="json",
         )
@@ -59,13 +60,70 @@ class RegisterViewTests(TestCase):
         token_obj = EmailVerificationToken.objects.get(user=user)
         mock_send.assert_called_once_with(user.id, str(token_obj.token))
 
+        from mls.models import UserAlertPreference
+        prefs = UserAlertPreference.objects.get(user=user)
+        self.assertTrue(prefs.email_enabled)
+        self.assertTrue(prefs.email_recommend)
+        self.assertTrue(prefs.push_watched_property)
+
+    @patch("accounts.views._send_verification_email")
+    @patch("accounts.views.create_ghl_contact", return_value=None)
+    def test_register_saves_notification_preferences(self, _ghl, _send):
+        r = self.client.post(
+            "/api/auth/register/",
+            {
+                "name": "Bob Jones",
+                "email": "bob@example.com",
+                "password": "StrongP@ss1",
+                "phone": "+15557654321",
+                "agree_terms": True,
+                "email_recommend": False,
+                "email_watched_property": True,
+                "email_watched_community": False,
+                "email_watched_area": True,
+                "push_watched_property": False,
+            },
+            format="json",
+        )
+        self.assertEqual(r.status_code, 201)
+        from mls.models import UserAlertPreference
+        prefs = UserAlertPreference.objects.get(user__email="bob@example.com")
+        self.assertTrue(prefs.email_enabled)  # at least one email_* is True
+        self.assertFalse(prefs.email_recommend)
+        self.assertTrue(prefs.email_watched_property)
+        self.assertFalse(prefs.email_watched_community)
+        self.assertTrue(prefs.email_watched_area)
+        self.assertFalse(prefs.push_watched_property)
+
+    @patch("accounts.views._send_verification_email")
+    @patch("accounts.views.create_ghl_contact", return_value=None)
+    def test_register_rejects_without_agree_terms(self, _ghl, _send):
+        r = self.client.post(
+            "/api/auth/register/",
+            {
+                "name": "No Terms",
+                "email": "noterms@example.com",
+                "password": "StrongP@ss1",
+                "phone": "+1",
+                "agree_terms": False,
+            },
+            format="json",
+        )
+        self.assertEqual(r.status_code, 400)
+
     @patch("accounts.views._send_verification_email")
     @patch("accounts.views.create_ghl_contact", return_value=None)
     def test_register_duplicate_email_rejected(self, _ghl, _send):
         _active_user(email="dup@example.com", password="pass123456", first_name="Dup")
         r = self.client.post(
             "/api/auth/register/",
-            {"name": "Dup", "email": "dup@example.com", "password": "StrongP@ss1", "phone": "+1"},
+            {
+                "name": "Dup",
+                "email": "dup@example.com",
+                "password": "StrongP@ss1",
+                "phone": "+1",
+                "agree_terms": True,
+            },
             format="json",
         )
         self.assertEqual(r.status_code, 400)
