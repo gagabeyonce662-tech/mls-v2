@@ -1,4 +1,4 @@
-import time
+﻿import time
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand, CommandError
@@ -1224,6 +1224,25 @@ class Command(BaseCommand):
                     media_objs,
                     ignore_conflicts=True,
                 )
+
+            # DDF CDN URLs for TRREB listings often 404 while AMPRE still
+            # hosts the same photos. Rebuild gallery rows from AMPRE when
+            # the preferred DDF URL is already dead so sync does not leave
+            # (or re-introduce) blank house-icon galleries.
+            if affected_properties:
+                from mls.services.ampre_media import repair_dead_ddf_media
+
+                repaired = repair_dead_ddf_media(
+                    affected_properties.values(),
+                    only_if_dead=True,
+                )
+                if repaired:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f"Refreshed gallery URLs from AMPRE for "
+                            f"{repaired} listing(s) with dead DDF CDN links."
+                        )
+                    )
 
         if first_seen_rows:
             bulk_record_listing_first_seen(

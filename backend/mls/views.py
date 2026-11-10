@@ -1,4 +1,4 @@
-import requests
+﻿import requests
 import hashlib
 import os
 import json
@@ -1228,7 +1228,7 @@ class WatchedAlertPreviewAPIView(APIView):
 class DDFAPIClient:
     def make_api_call(self, endpoint, params=None):
         """
-        Makes an API call to the DDF® Web API
+        Makes an API call to the DDF┬« Web API
         """
         DDF_API_URL = 'https://ddfapi.realtor.ca/odata/v1'
         access_token = get_access_token()
@@ -1735,7 +1735,7 @@ class ListingAISummaryAPIView(APIView):
 
 class PropertyDetailView(APIView):
     """
-    Fetches a single property from DDF® API by PropertyKey.
+    Fetches a single property from DDF┬« API by PropertyKey.
     Supports both path-style and function-style access.
     """
 
@@ -1772,6 +1772,15 @@ class PropertyDetailView(APIView):
             )
             .first()
         )
+        # Also accept the board MLS number (listing_id). Share links and
+        # client reports often use W12914842 rather than the DDF listing_key.
+        if property_obj is None:
+            property_obj = (
+                Property.objects
+                .prefetch_related("media", "rooms")
+                .filter(listing_id=PropertyKey)
+                .first()
+            )
 
         if property_obj is None:
             return Response(
@@ -1799,7 +1808,7 @@ class PropertyDetailView(APIView):
         if not PropertyKey:
             return Response({"error": "PropertyKey is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Building filters for the DDF® API
+        # Building filters for the DDF┬« API
         filters = {
             "$select": request.GET.get('$select', '*'),  # Default to all fields if $select not provided
         }
@@ -1834,7 +1843,7 @@ class PropertyCompareDetailView(APIView):
 class ExclusivePropertiesAPIView(APIView):
     """
     GET /api/exclusive-properties/
-    Only listings with "exclusive" in the FIRST 400 characters (~25–35 words)
+    Only listings with "exclusive" in the FIRST 400 characters (~25ΓÇô35 words)
     """
 
     def get_queryset(self, params):
@@ -2161,7 +2170,7 @@ class LeasePropertiesAPIView(APIView):
 #         # === ALL REALTOR.CA FILTERS ===
 #         params = request.query_params
 
-#         # Price range (original list price or sold price — here we use list_price)
+#         # Price range (original list price or sold price ΓÇö here we use list_price)
 #         if params.get('price_min'):
 #             qs = qs.filter(list_price__gte=float(params['price_min']))
 #         if params.get('price_max'):
@@ -2532,7 +2541,7 @@ class NewlyListedPropertiesAPIView(APIView):
             ("-original_entry_timestamp", "-modification_timestamp"),
         )
         # "Today's new listings": applied after the fallback pipeline so it
-        # stays strict — an empty day must return nothing, not the safety-net
+        # stays strict ΓÇö an empty day must return nothing, not the safety-net
         # catalogue the pipeline substitutes for an empty result.
         since_hours = request.query_params.get("since_hours")
         if since_hours:

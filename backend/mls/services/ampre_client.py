@@ -39,6 +39,10 @@ def _headers() -> dict[str, str]:
     return {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
+        # Cloudflare on query.ampre.ca rejects bare Python UA signatures.
+        "User-Agent": (
+            "Mozilla/5.0 (compatible; HomeAtlas/1.0; +https://homeatlas.ca)"
+        ),
     }
 
 
@@ -110,6 +114,63 @@ def fetch_property_page(
         # so without this the loop always ran to MAX_PAGES_SAFETY: a top=3
         # probe pulled 50 pages, and the GTA scope took long enough to time
         # the request out. This was invisible while every query 400'd.
+        if len(all_rows) >= row_budget:
+            del all_rows[row_budget:]
+            break
+
+    return all_rows
+
+
+def fetch_media_page(
+    filter_expression: str | None = None,
+    select_fields: Iterable[str] | None = None,
+    orderby: str | None = None,
+    top: int = 200,
+    max_rows: int | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch AMPRE ``Media`` rows (photo URLs for a ListingKey / ResourceRecordKey).
+
+    Same pagination / encoding rules as :func:`fetch_property_page`. Used to
+    refresh gallery URLs when DDF CDN links 404 but AMPRE still hosts the
+    images on ``trreb-image.ampre.ca``.
+    """
+    requested_top = min(int(top or 200), 1000)
+    row_budget = max(int(max_rows), 1) if max_rows else requested_top
+    params: dict[str, Any] = {"$top": requested_top}
+    if filter_expression:
+        params["$filter"] = filter_expression
+    if select_fields:
+        params["$select"] = ",".join(select_fields)
+    if orderby:
+        params["$orderby"] = orderby
+
+    query = "&".join(
+        quote(str(key), safe=_SAFE_KEY_CHARS)
+        + "="
+        + quote(str(value), safe=_SAFE_VALUE_CHARS)
+        for key, value in params.items()
+    )
+    url = f"{_base_url()}/Media?{query}"
+    all_rows: list[dict[str, Any]] = []
+    pages = 0
+
+    while url and pages < MAX_PAGES_SAFETY:
+        try:
+            response = requests.get(
+                url,
+                headers=_headers(),
+                timeout=DEFAULT_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            logger.warning("AMPRE Media fetch failed: %s", exc)
+            raise AmpreClientError(str(exc)) from exc
+
+        data = response.json() or {}
+        all_rows.extend(data.get("value") or [])
+        url = data.get("@odata.nextLink")
+        pages += 1
+
         if len(all_rows) >= row_budget:
             del all_rows[row_budget:]
             break
