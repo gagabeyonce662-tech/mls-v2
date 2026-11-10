@@ -18,6 +18,7 @@ click-repl==0.3.0
 cloudinary==1.42.1
 colorama==0.4.6
 cryptography==46.0.5
+pywebpush==2.0.3
 dj-database-url==2.1.0
 Django==5.2.16
 django-ckeditor==6.7.3

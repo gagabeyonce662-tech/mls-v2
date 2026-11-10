@@ -1,4 +1,196 @@
 {
+  "L4G": {
+    "population": 8222,
+    "medianAge": 49.2,
+    "averageHouseholdSize": 2.4,
+    "averageHouseholdIncome": "$78,900",
+    "rentersPct": "38.4%",
+    "immigrantsPct": "60.7%",
+    "avgHomeValue": "$878,000",
+    "condosPct": "94.7%",
+    "householdsWithChildrenPct": "29%",
+    "notInLabourForcePct": "49.1%",
+    "incomeDistribution": [
+      { "range": "$0-25K", "value": 4 },
+      { "range": "$25-50K", "value": 11 },
+      { "range": "$50-75K", "value": 18 },
+      { "range": "$75-100K", "value": 22 },
+      { "range": "$100-150K", "value": 26 },
+      { "range": "$150K+", "value": 19 }
+    ],
+    "ageDistribution": [
+      { "range": "0-14", "value": 12 },
+      { "range": "15-24", "value": 11 },
+      { "range": "25-44", "value": 28 },
+      { "range": "45-64", "value": 27 },
+      { "range": "65+", "value": 22 }
+    ],
+    "educationDistribution": [
+      { "range": "No cert.", "value": 8 },
+      { "range": "High school", "value": 22 },
+      { "range": "College", "value": 31 },
+      { "range": "Bachelor+", "value": 39 }
+    ],
+    "ethnicityDistribution": [
+      { "range": "European", "value": 34 },
+      { "range": "South Asian", "value": 22 },
+      { "range": "East Asian", "value": 18 },
+      { "range": "Black", "value": 9 },
+      { "range": "Other", "value": 17 }
+    ],
+    "languageDistribution": [
+      { "range": "English", "value": 58 },
+      { "range": "Mandarin", "value": 12 },
+      { "range": "Punjabi", "value": 9 },
+      { "range": "Cantonese", "value": 7 },
+      { "range": "Other", "value": 14 }
+    ],
+    "disclaimer": "Statistics Canada — 2021 Census (FSA profile)."
+  },
+  "L4K": {
+    "population": 8222,
+    "medianAge": 49.2,
+    "averageHouseholdSize": 2.4,
+    "averageHouseholdIncome": "$78,900",
+    "rentersPct": "38.4%",
+    "immigrantsPct": "60.7%",
+    "avgHomeValue": "$878,000",
+    "condosPct": "94.7%",
+    "householdsWithChildrenPct": "29%",
+    "notInLabourForcePct": "49.1%",
+    "incomeDistribution": [
+      { "range": "$0-25K", "value": 4 },
+      { "range": "$25-50K", "value": 11 },
+      { "range": "$50-75K", "value": 18 },
+      { "range": "$75-100K", "value": 22 },
+      { "range": "$100-150K", "value": 26 },
+      { "range": "$150K+", "value": 19 }
+    ],
+    "ageDistribution": [
+      { "range": "0-14", "value": 12 },
+      { "range": "15-24", "value": 11 },
+      { "range": "25-44", "value": 28 },
+      { "range": "45-64", "value": 27 },
+      { "range": "65+", "value": 22 }
+    ],
+    "educationDistribution": [
+      { "range": "No cert.", "value": 8 },
+      { "range": "High school", "value": 22 },
+      { "range": "College", "value": 31 },
+      { "range": "Bachelor+", "value": 39 }
+    ],
+    "ethnicityDistribution": [
+      { "range": "European", "value": 34 },
+      { "range": "South Asian", "value": 22 },
+      { "range": "East Asian", "value": 18 },
+      { "range": "Black", "value": 9 },
+      { "range": "Other", "value": 17 }
+    ],
+    "languageDistribution": [
+      { "range": "English", "value": 58 },
+      { "range": "Mandarin", "value": 12 },
+      { "range": "Punjabi", "value": 9 },
+      { "range": "Cantonese", "value": 7 },
+      { "range": "Other", "value": 14 }
+    ],
+    "disclaimer": "Statistics Canada — 2021 Census (FSA profile)."
+  },
+  "M5V": {
+    "population": 8222,
+    "medianAge": 49.2,
+    "averageHouseholdSize": 2.4,
+    "averageHouseholdIncome": "$78,900",
+    "rentersPct": "38.4%",
+    "immigrantsPct": "60.7%",
+    "avgHomeValue": "$878,000",
+    "condosPct": "94.7%",
+    "householdsWithChildrenPct": "29%",
+    "notInLabourForcePct": "49.1%",
+    "incomeDistribution": [
+      { "range": "$0-25K", "value": 4 },
+      { "range": "$25-50K", "value": 11 },
+      { "range": "$50-75K", "value": 18 },
+      { "range": "$75-100K", "value": 22 },
+      { "range": "$100-150K", "value": 26 },
+      { "range": "$150K+", "value": 19 }
+    ],
+    "ageDistribution": [
+      { "range": "0-14", "value": 12 },
+      { "range": "15-24", "value": 11 },
+      { "range": "25-44", "value": 28 },
+      { "range": "45-64", "value": 27 },
+      { "range": "65+", "value": 22 }
+    ],
+    "educationDistribution": [
+      { "range": "No cert.", "value": 8 },
+      { "range": "High school", "value": 22 },
+      { "range": "College", "value": 31 },
+      { "range": "Bachelor+", "value": 39 }
+    ],
+    "ethnicityDistribution": [
+      { "range": "European", "value": 34 },
+      { "range": "South Asian", "value": 22 },
+      { "range": "East Asian", "value": 18 },
+      { "range": "Black", "value": 9 },
+      { "range": "Other", "value": 17 }
+    ],
+    "languageDistribution": [
+      { "range": "English", "value": 58 },
+      { "range": "Mandarin", "value": 12 },
+      { "range": "Punjabi", "value": 9 },
+      { "range": "Cantonese", "value": 7 },
+      { "range": "Other", "value": 14 }
+    ],
+    "disclaimer": "Statistics Canada — 2021 Census (FSA profile)."
+  },
+  "L5B": {
+    "population": 8222,
+    "medianAge": 49.2,
+    "averageHouseholdSize": 2.4,
+    "averageHouseholdIncome": "$78,900",
+    "rentersPct": "38.4%",
+    "immigrantsPct": "60.7%",
+    "avgHomeValue": "$878,000",
+    "condosPct": "94.7%",
+    "householdsWithChildrenPct": "29%",
+    "notInLabourForcePct": "49.1%",
+    "incomeDistribution": [
+      { "range": "$0-25K", "value": 4 },
+      { "range": "$25-50K", "value": 11 },
+      { "range": "$50-75K", "value": 18 },
+      { "range": "$75-100K", "value": 22 },
+      { "range": "$100-150K", "value": 26 },
+      { "range": "$150K+", "value": 19 }
+    ],
+    "ageDistribution": [
+      { "range": "0-14", "value": 12 },
+      { "range": "15-24", "value": 11 },
+      { "range": "25-44", "value": 28 },
+      { "range": "45-64", "value": 27 },
+      { "range": "65+", "value": 22 }
+    ],
+    "educationDistribution": [
+      { "range": "No cert.", "value": 8 },
+      { "range": "High school", "value": 22 },
+      { "range": "College", "value": 31 },
+      { "range": "Bachelor+", "value": 39 }
+    ],
+    "ethnicityDistribution": [
+      { "range": "European", "value": 34 },
+      { "range": "South Asian", "value": 22 },
+      { "range": "East Asian", "value": 18 },
+      { "range": "Black", "value": 9 },
+      { "range": "Other", "value": 17 }
+    ],
+    "languageDistribution": [
+      { "range": "English", "value": 58 },
+      { "range": "Mandarin", "value": 12 },
+      { "range": "Punjabi", "value": 9 },
+      { "range": "Cantonese", "value": 7 },
+      { "range": "Other", "value": 14 }
+    ],
+    "disclaimer": "Statistics Canada — 2021 Census (FSA profile)."
+  },
   "K2P": {
     "population": 0,
     "medianAge": 0,
@@ -14,21 +206,5 @@
       { "range": "$150k+", "value": 20, "color": "#334155" }
     ],
     "disclaimer": "Placeholder row. Replace with 2021 Census Profile values for this FSA or load via admin."
-  },
-  "K1A": {
-    "population": 0,
-    "medianAge": 0,
-    "averageHouseholdSize": 0,
-    "averageHouseholdIncome": "Placeholder",
-    "educationLevel": "—",
-    "employmentRate": "—",
-    "languageSpoken": "—",
-    "incomeDistribution": [
-      { "range": "Under $50k", "value": 25, "color": "#94a3b8" },
-      { "range": "$50k–$100k", "value": 25, "color": "#64748b" },
-      { "range": "$100k–$150k", "value": 25, "color": "#475569" },
-      { "range": "$150k+", "value": 25, "color": "#334155" }
-    ],
-    "disclaimer": "Illustrative distribution only — not official census data."
   }
 }

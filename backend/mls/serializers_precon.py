@@ -148,6 +148,7 @@ class PreComPropertyDetailSerializer(serializers.ModelSerializer):
             "meta",
             "developer_name",
             "sales_stage",
+            "updated_at",
             "featured_image_url",
             "has_floor_plan",
             "has_price_list",
@@ -237,6 +238,7 @@ class PreComPropertySerializer(serializers.ModelSerializer):
             "featured_image_url",
             "developer_name",
             "sales_stage",
+            "is_featured",
         ]
 
     def get_featured_image_url(self, obj):

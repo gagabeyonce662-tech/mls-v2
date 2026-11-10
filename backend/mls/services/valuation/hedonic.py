@@ -86,14 +86,15 @@ def apply_hedonic(subject: Dict[str, Any], comps: List[Dict[str, Any]]) -> Dict[
             pps_list.append(p / sq)
     pps = median(pps_list) if pps_list else median(c["price"] for c in comps if c.get("price"))
 
+    def _row(feature: str, delta: float) -> Dict[str, Any]:
+        return {"feature": feature, "delta": round(delta, 2), "source": "hedonic"}
+
     if sqft_sub > 0 and pps_list:
         baseline = pps * sqft_sub
         areas = [float(c["living_area"]) for c in comps if c.get("living_area")]
         if areas:
             med_a = median(areas)
-            breakdown.append(
-                {"feature": "living_area", "delta": round((sqft_sub - med_a) * pps, 2)}
-            )
+            breakdown.append(_row("living_area", (sqft_sub - med_a) * pps))
     else:
         baseline = median(c["price"] for c in comps if c.get("price"))
 
@@ -103,20 +104,20 @@ def apply_hedonic(subject: Dict[str, Any], comps: List[Dict[str, Any]]) -> Dict[
     med_park = median(park_vals) if park_vals else 0
 
     bed_delta = (_i(subject.get("bedrooms_total"), 0) - med_beds) * (baseline * 0.025 if baseline else 0)
-    breakdown.append({"feature": "bedrooms_total", "delta": round(bed_delta, 2)})
+    breakdown.append(_row("bedrooms_total", bed_delta))
 
     bath_delta = (_i(subject.get("bathrooms_total"), 0) - med_baths) * (baseline * 0.02 if baseline else 0)
-    breakdown.append({"feature": "bathrooms_total", "delta": round(bath_delta, 2)})
+    breakdown.append(_row("bathrooms_total", bath_delta))
 
     partial = _i(subject.get("bedrooms_partial"), 0)
     if partial:
         pdelta = partial * (baseline * 0.015 if baseline else 0)
-        breakdown.append({"feature": "bedrooms_partial", "delta": round(pdelta, 2)})
+        breakdown.append(_row("bedrooms_partial", pdelta))
     else:
         pdelta = 0
 
     park_delta = (_i(subject.get("parking_total"), 0) - med_park) * (baseline * 0.012 if baseline else 0)
-    breakdown.append({"feature": "parking_total", "delta": round(park_delta, 2)})
+    breakdown.append(_row("parking_total", park_delta))
 
     # Lot frontage x depth premium (rough)
     lf = _f(subject.get("lot_frontage"), 0)
@@ -133,7 +134,7 @@ def apply_hedonic(subject: Dict[str, Any], comps: List[Dict[str, Any]]) -> Dict[
             med_lot = median(comp_lot_areas)
             if med_lot > 0:
                 lot_delta = (lot_area - med_lot) * 35.0  # $/sqft lot rough
-                breakdown.append({"feature": "lot_size", "delta": round(lot_delta, 2)})
+                breakdown.append(_row("lot_size", lot_delta))
 
     # Tax sanity: higher tax vs median -> small negative
     tax_sub = _f(subject.get("tax_annual_amount"), 0)
@@ -143,7 +144,7 @@ def apply_hedonic(subject: Dict[str, Any], comps: List[Dict[str, Any]]) -> Dict[
         mt = median(taxes)
         if mt > 0:
             tax_delta = (mt - tax_sub) * 0.15  # lower tax -> slight positive
-            breakdown.append({"feature": "tax_annual_amount", "delta": round(tax_delta, 2)})
+            breakdown.append(_row("tax_annual_amount", tax_delta))
 
     point = baseline + bed_delta + bath_delta + pdelta + park_delta + lot_delta + tax_delta
 
@@ -154,12 +155,21 @@ def apply_hedonic(subject: Dict[str, Any], comps: List[Dict[str, Any]]) -> Dict[
     if point <= 0:
         point = median(c["price"] for c in comps if c.get("price"))
 
-    low = point * 0.92
-    high = point * 1.08
+    # WOWA targets ≥5 sold comps for a solid CMA.
+    sold_n = sum(1 for c in comps if c.get("source") == "sold")
+    conf = "high" if sold_n >= 5 or len(comps) >= 6 else ("medium" if len(comps) >= 3 else "low")
+
+    # Range: tighter when high confidence, wider when sparse.
+    if conf == "high":
+        band = 0.06
+    elif conf == "medium":
+        band = 0.08
+    else:
+        band = 0.12
+    low = point * (1.0 - band)
+    high = point * (1.0 + band)
     quick_sale_low = point * 0.89
     quick_sale_high = point * 0.94
-
-    conf = "high" if len(comps) >= 6 else ("medium" if len(comps) >= 3 else "low")
 
     return {
         "point": round(point, 2),

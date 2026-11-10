@@ -1,4 +1,4 @@
-﻿import time
+import time
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand, CommandError
@@ -33,9 +33,10 @@ class Command(BaseCommand):
 
     CACHE_POLICY_KEY = "ddf_cache_v2_initialized"
 
-    # A 24-hour DDF cache is deliberately far below the database
-    # storage budget.
+    # Active listings older than this are pruned. Sold / de-listed rows
+    # use INACTIVE_RETENTION_DAYS so the Sold and De-listed tabs keep data.
     CACHE_RETENTION_DAYS = 1
+    INACTIVE_RETENTION_DAYS = 90
 
     INCREMENTAL_OVERLAP_MINUTES = 10
 
@@ -350,6 +351,35 @@ class Command(BaseCommand):
                 "aggregate cells."
             )
         )
+
+        # Open-house tab reads Postgres OpenHouse rows; keep them in sync
+        # with the Active catalogue after every property pull.
+        try:
+            self.sync_open_houses(headers=headers)
+        except Exception as exc:
+            self.stderr.write(
+                self.style.WARNING(
+                    f"Open House sync skipped after property pull: {exc}"
+                )
+            )
+
+        # DDF is Active-only; Sold / De-listed tabs need AMPRE inactive rows.
+        try:
+            from django.core.management import call_command
+
+            call_command(
+                "sync_ampre_closed",
+                days=90,
+                max_rows_per_city=500,
+                stdout=self.stdout,
+                stderr=self.stderr,
+            )
+        except Exception as exc:
+            self.stderr.write(
+                self.style.WARNING(
+                    f"AMPRE Closed/De-listed sync skipped: {exc}"
+                )
+            )
 
         ListingSyncStatus.objects.update_or_create(
             key="ddf_properties",
@@ -709,45 +739,57 @@ class Command(BaseCommand):
         retention_days,
     ):
         """
-        Keep only recent DDF records so the rolling cache
-        remains small.
+        Keep the Active rolling cache small, but retain Sold / De-listed
+        rows longer so those search tabs are not emptied every night.
+
+        CREA DDF is Active-only; once a home leaves the feed its row would
+        otherwise be deleted within ``retention_days`` and the Sold /
+        De-listed tabs would always show zero.
         """
-        cutoff = (
-            timezone.now()
-            - timedelta(
-                days=retention_days
+        from mls.services.query_helpers import STATUS_GROUPS
+
+        now = timezone.now()
+        active_cutoff = now - timedelta(days=retention_days)
+        inactive_cutoff = now - timedelta(days=self.INACTIVE_RETENTION_DAYS)
+
+        sold_statuses = list(STATUS_GROUPS["sold"])
+        delisted_statuses = list(STATUS_GROUPS["de-listed"])
+        inactive_q = Q()
+        for status_value in sold_statuses + delisted_statuses:
+            inactive_q |= Q(standard_status__iexact=status_value)
+
+        # Active (and anything not in an inactive group) — short retention.
+        active_stale = (
+            Property.objects.filter(category_type=Property.DDF)
+            .exclude(inactive_q)
+            .filter(
+                Q(modification_timestamp__lt=active_cutoff)
+                | Q(modification_timestamp__isnull=True)
             )
         )
-
-        expired = (
-            Property.objects
-            .filter(
-                category_type=Property.DDF
-            )
-            .filter(
-                Q(
-                    modification_timestamp__lt=(
-                        cutoff
-                    )
-                )
-                | Q(
-                    modification_timestamp__isnull=(
-                        True
-                    )
-                )
-            )
-        )
-
-        expired_count = expired.count()
-
-        if expired_count:
-            expired.delete()
-
+        active_count = active_stale.count()
+        if active_count:
+            active_stale.delete()
             self.stdout.write(
-                f"Deleted "
-                f"{expired_count:,} "
-                "DDF listings older than "
+                f"Deleted {active_count:,} Active DDF listings older than "
                 f"{retention_days} days."
+            )
+
+        # Sold / de-listed — longer retention so tabs stay populated.
+        inactive_stale = (
+            Property.objects.filter(category_type=Property.DDF)
+            .filter(inactive_q)
+            .filter(
+                Q(modification_timestamp__lt=inactive_cutoff)
+                | Q(modification_timestamp__isnull=True)
+            )
+        )
+        inactive_count = inactive_stale.count()
+        if inactive_count:
+            inactive_stale.delete()
+            self.stdout.write(
+                f"Deleted {inactive_count:,} Sold/De-listed DDF listings older than "
+                f"{self.INACTIVE_RETENTION_DAYS} days."
             )
 
     def cleanup_orphaned_properties(
@@ -1253,6 +1295,25 @@ class Command(BaseCommand):
             bulk_record_property_snapshots(
                 snapshot_rows
             )
+
+    def sync_open_houses(self, headers):
+        """Persist upcoming Open House rows and refresh the Redis cache."""
+        from mls.services.ddf.open_house_cache import refresh_open_house_cache
+
+        self.stdout.write("Syncing Open Houses...")
+        result = refresh_open_house_cache(
+            headers=headers,
+            progress_callback=self.stdout.write,
+        )
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Open Houses synced: "
+                f"{result.get('stored_count', 0):,} rows stored, "
+                f"{result.get('cached_count', 0):,} cached, "
+                f"{result.get('properties_upserted', 0):,} parents upserted."
+            )
+        )
+        return result
 
 
 # Normal incremental sync:

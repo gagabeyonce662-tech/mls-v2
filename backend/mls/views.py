@@ -1,4 +1,4 @@
-﻿import requests
+import requests
 import hashlib
 import os
 import json
@@ -73,7 +73,9 @@ from .serializers import (
 from mls.services.map_aggregates import get_resolution_for_zoom
 from mls.services.query_helpers import city_match_q, cities_match_q, price_field_for
 from mls.services.inquiry_ghl import sync_inquiry_to_ghl
+from mls.services.request_meta import client_ip, user_agent
 from mls.services.inquiry_notifications import send_inquiry_email_to_realtor
+from mls.services import openai_client
 from mls.services.ai_listing_summary import (
     AISummaryGenerationError,
     generate_listing_summary,
@@ -777,6 +779,8 @@ class PropertyInquiryAPIView(APIView):
 
         inquiry = serializer.save(
             user=request.user if request.user.is_authenticated else None,
+            ip_address=client_ip(request),
+            user_agent=user_agent(request),
         )
         page_url = serializer.validated_data.get("page_url") or ""
         listing_match = re.search(r"/listing/(?:rental/)?([^/?#]+)", page_url)
@@ -895,8 +899,34 @@ class ListingSubmissionSubmitAPIView(APIView):
             return Response({"detail": "Confirm ownership/authorization and publication consent before submitting."}, status=status.HTTP_400_BAD_REQUEST)
         submission.status = ListingSubmission.Status.SUBMITTED
         submission.submitted_at = timezone.now()
+        submission.submitted_ip = client_ip(request)
+        submission.submitted_user_agent = user_agent(request)
         submission.review_note = ""
-        submission.save(update_fields=["status", "submitted_at", "review_note", "updated_at"])
+        submission.save(
+            update_fields=[
+                "status", "submitted_at", "submitted_ip", "submitted_user_agent", "review_note", "updated_at",
+            ]
+        )
+        if submission.purpose == ListingSubmission.Purpose.ASSIGNMENT:
+            from mls.services.lead_ghl import push_lead_to_ghl
+
+            parts = (submission.contact_name or "").split(" ", 1)
+            push_lead_to_ghl(
+                email=submission.contact_email,
+                first_name=parts[0] if parts else "",
+                last_name=parts[1] if len(parts) > 1 else "",
+                phone=submission.contact_phone,
+                source="assignment-submission",
+                tags=["assignment-submission"],
+                note=(
+                    "Assignment submission\n"
+                    f"Address: {submission.address_line_1}, {submission.city}\n"
+                    f"Project: {submission.project_name or '—'}\n"
+                    f"Asking: {submission.asking_price or '—'}\n"
+                    f"Submission ID: {submission.pk}"
+                ),
+                user=request.user,
+            )
         return Response(ListingSubmissionSerializer(submission, context={"request": request}).data)
 
 
@@ -915,13 +945,119 @@ class ListingSubmissionWithdrawAPIView(APIView):
         return Response(ListingSubmissionSerializer(submission, context={"request": request}).data)
 
 
+def _public_submissions():
+    return (
+        ListingSubmission.objects.filter(status=ListingSubmission.Status.APPROVED)
+        .prefetch_related("media")
+        .order_by("-reviewed_at", "-submitted_at", "-id")
+    )
+
+
+def _int_param(request, name):
+    try:
+        return int(request.query_params.get(name) or "")
+    except ValueError:
+        return None
+
+
 class PublicListingSubmissionListAPIView(APIView):
+    """Approved non-MLS listings (scope #13: Exclusive Assignments).
+
+    Filters: purpose (sale|rent|assignment), city, price_min, price_max,
+    beds_min, precon_property. Paginated: page, page_size (max 48).
+    """
+
     permission_classes = [AllowAny]
+    MAX_PAGE_SIZE = 48
 
     @extend_schema(tags=["Listing submissions"], summary="List approved non-MLS listings", auth=[])
     def get(self, request):
-        queryset = ListingSubmission.objects.filter(status=ListingSubmission.Status.APPROVED).prefetch_related("media")
-        return Response(PublicListingSubmissionSerializer(queryset, many=True, context={"request": request}).data)
+        queryset = _public_submissions()
+        purpose = (request.query_params.get("purpose") or "").strip().lower()
+        if purpose in ListingSubmission.Purpose.values:
+            queryset = queryset.filter(purpose=purpose)
+        city = (request.query_params.get("city") or "").strip()
+        if city:
+            queryset = queryset.filter(city__iexact=city)
+        price_min, price_max = _int_param(request, "price_min"), _int_param(request, "price_max")
+        if price_min is not None:
+            queryset = queryset.filter(asking_price__gte=price_min)
+        if price_max is not None:
+            queryset = queryset.filter(asking_price__lte=price_max)
+        beds_min = _int_param(request, "beds_min")
+        if beds_min is not None:
+            queryset = queryset.filter(bedrooms__gte=beds_min)
+        project = _int_param(request, "precon_property")
+        if project is not None:
+            queryset = queryset.filter(precon_property_id=project)
+
+        page = max(1, _int_param(request, "page") or 1)
+        page_size = min(max(1, _int_param(request, "page_size") or 12), self.MAX_PAGE_SIZE)
+        total = queryset.count()
+        rows = queryset[(page - 1) * page_size : page * page_size]
+        return Response(
+            {
+                "count": total,
+                "page": page,
+                "page_size": page_size,
+                "results": PublicListingSubmissionSerializer(rows, many=True, context={"request": request}).data,
+            }
+        )
+
+
+class PublicListingSubmissionDetailAPIView(APIView):
+    """One approved submission; 404 for anything not approved."""
+
+    permission_classes = [AllowAny]
+
+    @extend_schema(tags=["Listing submissions"], summary="Get an approved non-MLS listing", auth=[])
+    def get(self, request, pk):
+        submission = _public_submissions().filter(pk=pk).first()
+        if not submission:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(PublicListingSubmissionSerializer(submission, context={"request": request}).data)
+
+
+def similar_public_submissions(submission, limit: int = 4) -> list:
+    """Approved listings like ``submission`` (scope #2e).
+
+    Scored: same pre-con project +3, same builder +1, same city +2, same
+    purpose required, and price closeness 0-1. The candidate pool is small
+    (approved user submissions), so scoring in Python is fine.
+    """
+    candidates = [
+        other
+        for other in _public_submissions().filter(purpose=submission.purpose).exclude(pk=submission.pk)[:300]
+    ]
+    price = float(submission.asking_price) if submission.asking_price else None
+
+    def score(other) -> float:
+        value = 0.0
+        if submission.precon_property_id and other.precon_property_id == submission.precon_property_id:
+            value += 3
+        if submission.builder_name and other.builder_name.strip().lower() == submission.builder_name.strip().lower():
+            value += 1
+        if other.city.strip().lower() == submission.city.strip().lower():
+            value += 2
+        if price and other.asking_price:
+            value += max(0.0, 1 - abs(float(other.asking_price) - price) / price)
+        return value
+
+    ranked = sorted(candidates, key=score, reverse=True)
+    return [other for other in ranked if score(other) > 0][:limit]
+
+
+class PublicListingSubmissionSimilarAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(tags=["Listing submissions"], summary="Similar approved non-MLS listings", auth=[])
+    def get(self, request, pk):
+        submission = _public_submissions().filter(pk=pk).first()
+        if not submission:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        limit = min(max(1, _int_param(request, "limit") or 4), 8)
+        rows = similar_public_submissions(submission, limit)
+        return Response(PublicListingSubmissionSerializer(rows, many=True, context={"request": request}).data)
 
 
 class WatchedOverviewAPIView(APIView):
@@ -1228,7 +1364,7 @@ class WatchedAlertPreviewAPIView(APIView):
 class DDFAPIClient:
     def make_api_call(self, endpoint, params=None):
         """
-        Makes an API call to the DDF┬« Web API
+        Makes an API call to the DDF® Web API
         """
         DDF_API_URL = 'https://ddfapi.realtor.ca/odata/v1'
         access_token = get_access_token()
@@ -1683,15 +1819,14 @@ class ListingAISummaryAPIView(APIView):
                 listing_key,
             )
 
-        gemini_api_key = os.environ.get("GEMINI_API_KEY", "").strip()
-        if not gemini_api_key:
+        if not openai_client.is_configured():
             return Response(
                 {"error": "GEMINI_API_KEY is not configured on backend"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
         try:
-            summary = generate_listing_summary(property_payload, gemini_api_key)
+            summary = generate_listing_summary(property_payload)
         except AISummaryGenerationError as exc:
             logger.error(
                 "AI summary generation failed for listing_key=%s: %s",
@@ -1735,7 +1870,7 @@ class ListingAISummaryAPIView(APIView):
 
 class PropertyDetailView(APIView):
     """
-    Fetches a single property from DDF┬« API by PropertyKey.
+    Fetches a single property from DDF® API by PropertyKey.
     Supports both path-style and function-style access.
     """
 
@@ -1772,7 +1907,7 @@ class PropertyDetailView(APIView):
             )
             .first()
         )
-        # Also accept the board MLS number (listing_id). Share links and
+        # Also accept the board MLS® number (listing_id). Share links and
         # client reports often use W12914842 rather than the DDF listing_key.
         if property_obj is None:
             property_obj = (
@@ -1808,7 +1943,7 @@ class PropertyDetailView(APIView):
         if not PropertyKey:
             return Response({"error": "PropertyKey is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Building filters for the DDF┬« API
+        # Building filters for the DDF® API
         filters = {
             "$select": request.GET.get('$select', '*'),  # Default to all fields if $select not provided
         }
@@ -1840,38 +1975,116 @@ class PropertyCompareDetailView(APIView):
         serializer = PropertyDetailSerializer(properties, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+def _exclusive_ids_qs():
+    """Ids of listings tagged exclusive or saying "exclusive" in the first
+    400 characters (~25–35 words) of the remarks.
+
+    Matched at read time rather than re-tagged: the DDF sync resets
+    ``category_type`` to ``ddf`` on every update, and a re-tagged row would
+    also escape the rolling-cache pruning, which only deletes ``ddf`` rows.
+    """
+    return (
+        Property.objects.annotate(intro=Lower(Substr("public_remarks", 1, 400)))
+        .filter(Q(intro__contains="exclusive") | Q(category_type=Property.EXCLUSIVE))
+        .values("id")
+    )
+
+
+# Statuses that must never appear in a homepage rail.
+INACTIVE_STATUS_Q = _build_status_group_q("sold,de-listed")
+FEATURED_CACHE_TTL_SECONDS = int(os.environ.get("FEATURED_CACHE_TTL_SECONDS", "300"))
+
+
+class FeaturedPropertiesAPIView(APIView):
+    """
+    GET /api/mls/properties/featured-properties/
+
+    Homepage Featured rail: listings an admin pinned (``is_featured``, in
+    ``featured_order``, until ``featured_until``) first, topped up with the
+    brokerage's exclusive listings when fewer than ``limit`` are pinned.
+    Sold and de-listed rows are left out of both.
+    """
+
+    @extend_schema(
+        summary="List featured properties",
+        description=(
+            "Admin-pinned listings first (featured_order, then newest), then exclusive "
+            "listings to fill the rail. Each row carries featured_source: pinned | exclusive."
+        ),
+        parameters=[
+            OpenApiParameter("limit", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Rail size, 1–24. Defaults to 6."),
+            OpenApiParameter("fill", OpenApiTypes.BOOL, OpenApiParameter.QUERY, required=False, description="Top up with exclusive listings. Defaults to true."),
+        ],
+        responses={
+            200: OpenApiResponse(response=inline_serializer(
+                name="FeaturedPropertiesResponse",
+                fields={
+                    "count": serializers.IntegerField(),
+                    "pinned_count": serializers.IntegerField(),
+                    "results": PropertySerializer(many=True),
+                },
+            )),
+            400: OpenApiResponse(description="Invalid query parameter."),
+        },
+        auth=[],
+    )
+    def get(self, request):
+        try:
+            limit = max(1, min(int(request.query_params.get("limit", 6)), 24))
+        except (TypeError, ValueError):
+            return Response({"error": "limit must be an integer."}, status=400)
+        fill = str(request.query_params.get("fill", "true")).lower() not in {"0", "false", "no"}
+
+        cache_key = f"featured-properties:{limit}:{int(fill)}"
+        cached_payload = cache.get(cache_key)
+        if cached_payload is not None:
+            return Response(cached_payload)
+
+        now = timezone.now()
+        newest = ("-original_entry_timestamp", "-modification_timestamp")
+        pinned = list(
+            Property.objects.filter(is_featured=True)
+            .filter(Q(featured_until__isnull=True) | Q(featured_until__gt=now))
+            .exclude(INACTIVE_STATUS_Q)
+            .order_by(F("featured_order").asc(nulls_last=True), *newest)[:limit]
+        )
+        rows = [(p, "pinned") for p in pinned]
+        if fill and len(rows) < limit:
+            exclusive = (
+                Property.objects.filter(id__in=_exclusive_ids_qs())
+                .exclude(id__in=[p.id for p in pinned])
+                .exclude(INACTIVE_STATUS_Q)
+                .order_by(*newest)[: limit - len(rows)]
+            )
+            rows += [(p, "exclusive") for p in exclusive]
+
+        serializer = PropertySerializer([p for p, _ in rows], many=True, context={"request": request})
+        results = [
+            {**data, "featured_source": source}
+            for data, (_, source) in zip(serializer.data, rows)
+        ]
+        payload = {"count": len(results), "pinned_count": len(pinned), "results": results}
+        cache.set(cache_key, payload, FEATURED_CACHE_TTL_SECONDS)
+        return Response(payload)
+
+
 class ExclusivePropertiesAPIView(APIView):
     """
     GET /api/exclusive-properties/
-    Only listings with "exclusive" in the FIRST 400 characters (~25ΓÇô35 words)
+    Only listings with "exclusive" in the FIRST 400 characters (~25–35 words)
     """
 
     def get_queryset(self, params):
         limit = min(int(params.get('limit', 6)), 100)
         offset = int(params.get('offset', 0))
 
-        # CHECK ONLY FIRST 400 CHARS FOR "exclusive" (case-insensitive)
-        base_qs = Property.objects.annotate(
-            intro=Lower(Substr('public_remarks', 1, 400))
-        ).filter(
-            Q(intro__contains='exclusive') |
-            Q(category_type=Property.EXCLUSIVE)
-        ).distinct()
-
-        # Auto-tag any new ones found in intro
-        to_tag = base_qs.filter(intro__contains='exclusive') \
-                        .exclude(category_type=Property.EXCLUSIVE)
-        updated_count = 0
-        if to_tag.exists():
-            updated_count = to_tag.update(category_type=Property.EXCLUSIVE)
-
-        scoped_qs = Property.objects.filter(id__in=base_qs.values('id')).distinct()
+        scoped_qs = Property.objects.filter(id__in=_exclusive_ids_qs())
         final_qs, fallback_meta = _apply_fallback_pipeline(
             scoped_qs,
             params,
             ("-modification_timestamp", "-list_price"),
         )
-        return final_qs, limit, offset, updated_count, fallback_meta
+        return final_qs, limit, offset, fallback_meta
 
     @extend_schema(
         summary="List exclusive properties",
@@ -1892,7 +2105,6 @@ class ExclusivePropertiesAPIView(APIView):
                     "count": serializers.IntegerField(),
                     "next": serializers.IntegerField(allow_null=True),
                     "previous": serializers.IntegerField(allow_null=True),
-                    "updated_to_exclusive": serializers.IntegerField(),
                     "results": PropertySerializer(many=True),
                     "fallback_applied": serializers.BooleanField(required=False),
                 },
@@ -1909,7 +2121,7 @@ class ExclusivePropertiesAPIView(APIView):
         if cached_payload is not None:
             return Response(cached_payload)
 
-        qs, limit, offset, updated, fallback_meta = self.get_queryset(request.query_params)
+        qs, limit, offset, fallback_meta = self.get_queryset(request.query_params)
         paginator = Paginator(qs, limit)
         page = paginator.get_page((offset // limit) + 1)
 
@@ -1919,7 +2131,6 @@ class ExclusivePropertiesAPIView(APIView):
             "count": paginator.count,
             "next": offset + limit if page.has_next() else None,
             "previous": offset - limit if offset >= limit else None,
-            "updated_to_exclusive": updated,
             "results": serializer.data,
             **fallback_meta,
         }
@@ -2170,7 +2381,7 @@ class LeasePropertiesAPIView(APIView):
 #         # === ALL REALTOR.CA FILTERS ===
 #         params = request.query_params
 
-#         # Price range (original list price or sold price ΓÇö here we use list_price)
+#         # Price range (original list price or sold price — here we use list_price)
 #         if params.get('price_min'):
 #             qs = qs.filter(list_price__gte=float(params['price_min']))
 #         if params.get('price_max'):
@@ -2298,8 +2509,10 @@ class NearestSchoolAPIView(APIView):
 
         # Step 1: Query Overpass for schools near the point
         # overpass-api.de requires a non-stock User-Agent (otherwise 406 Not Acceptable).
+        # Keep Overpass short: on free Vercel a 30s hang becomes a platform 502
+        # and takes the whole property page with it. Empty schools > hard fail.
         overpass_query = (
-            f"[out:json][timeout:25];"
+            f"[out:json][timeout:8];"
             f"("
             f'way(around:{radius},{lat},{lon})["amenity"="school"];'
             f'way(around:{radius},{lat},{lon})["landuse"="education"];'
@@ -2316,14 +2529,18 @@ class NearestSchoolAPIView(APIView):
                 OVERPASS_URL,
                 data={"data": overpass_query},
                 headers=overpass_headers,
-                timeout=30,
+                timeout=10,
             )
             response.raise_for_status()  # Raise an exception for HTTP errors
-        except requests.exceptions.RequestException as e:
-            return Response(
-                {"error": f"Failed to query OpenStreetMap: {str(e)}"},
-                status=status.HTTP_502_BAD_GATEWAY
-            )
+        except requests.exceptions.RequestException:
+            empty = {
+                "user_location": {"lat": lat, "lon": lon},
+                "nearest_schools": [],
+                "total_found": 0,
+                "search_radius_m": radius,
+                "degraded": True,
+            }
+            return Response(empty, status=status.HTTP_200_OK)
 
         data = response.json()
 
@@ -2428,8 +2645,9 @@ class NearbyAmenitiesAPIView(APIView):
         if cached_payload is not None:
             return Response(cached_payload, status=status.HTTP_200_OK)
 
+        # Short Overpass budget so free-tier Vercel does not 502 the page.
         overpass_query = (
-            f"[out:json][timeout:25];("
+            f"[out:json][timeout:8];("
             f'node(around:{radius},{lat},{lon})["shop"="supermarket"];'
             f'node(around:{radius},{lat},{lon})["amenity"="cafe"];'
             f'node(around:{radius},{lat},{lon})["amenity"="restaurant"];'
@@ -2447,14 +2665,17 @@ class NearbyAmenitiesAPIView(APIView):
                 "https://overpass-api.de/api/interpreter",
                 data={"data": overpass_query},
                 headers=headers,
-                timeout=30,
+                timeout=10,
             )
             response.raise_for_status()
-        except requests.exceptions.RequestException as exc:
-            return Response(
-                {"error": f"Failed to query OpenStreetMap amenities: {str(exc)}"},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+        except requests.exceptions.RequestException:
+            empty = {
+                "origin": {"lat": lat, "lon": lon},
+                "radius_m": radius,
+                "categories": {"groceries": [], "cafes": [], "parks": [], "transit": []},
+                "degraded": True,
+            }
+            return Response(empty, status=status.HTTP_200_OK)
 
         grouped = {"groceries": [], "cafes": [], "parks": [], "transit": []}
         for element in response.json().get("elements", []):
@@ -2541,7 +2762,7 @@ class NewlyListedPropertiesAPIView(APIView):
             ("-original_entry_timestamp", "-modification_timestamp"),
         )
         # "Today's new listings": applied after the fallback pipeline so it
-        # stays strict ΓÇö an empty day must return nothing, not the safety-net
+        # stays strict — an empty day must return nothing, not the safety-net
         # catalogue the pipeline substitutes for an empty result.
         since_hours = request.query_params.get("since_hours")
         if since_hours:
@@ -2572,19 +2793,28 @@ class ListingSyncStatusAPIView(APIView):
     """Reports the last fully successful DDF listing import."""
 
     permission_classes = [AllowAny]
+    CACHE_KEY = "listing-sync-status:v2"
 
     def get(self, request):
+        cached = cache.get(self.CACHE_KEY)
+        if cached is not None:
+            return Response(cached)
         sync_status = ListingSyncStatus.objects.filter(
             key="ddf_properties"
         ).first()
-        return Response(
-            {
-                "last_successful_at": (
-                    sync_status.last_successful_at if sync_status else None
-                ),
-                "listing_count": sync_status.listing_count if sync_status else 0,
-            }
-        )
+        payload = {
+            "last_successful_at": (
+                sync_status.last_successful_at if sync_status else None
+            ),
+            # Rows downloaded by the last run, NOT the catalogue size.
+            "listing_count": sync_status.listing_count if sync_status else 0,
+            # What the site can show right now: the figure for "N live listings".
+            "active_listing_count": Property.objects.filter(
+                standard_status__iexact="Active"
+            ).count(),
+        }
+        cache.set(self.CACHE_KEY, payload, 300)
+        return Response(payload)
 
 
 class ListingCatalogStatsAPIView(APIView):
@@ -3064,6 +3294,8 @@ class ListingViewBeaconAPIView(APIView):
             listing_key=lk,
             session_key=sk,
             user=user,
+            ip_address=client_ip(request),
+            user_agent=user_agent(request),
         )
         UserPropertyInteraction.objects.create(
             listing_key=lk,

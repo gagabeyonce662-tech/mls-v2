@@ -24,7 +24,9 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 "Open House cache refreshed: "
+                f"{result.get('stored_count', 0)} rows stored, "
                 f"{result['cached_count']} events cached, "
+                f"{result.get('properties_upserted', 0)} parents upserted, "
                 f"{result['skipped_missing_property']} unavailable."
             )
         )

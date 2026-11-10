@@ -1,14 +1,12 @@
-import requests
 import re
 
+from . import openai_client
 
-DEFAULT_GEMINI_MODELS = (
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-3.1-flash-lite-preview",
-    "gemini-3-flash-preview",
-)
+# Unchanged by the Gemini -> OpenAI move: the prompt is the same, so summaries
+# already cached under v2 stay valid and are not regenerated (or re-billed).
 SUMMARY_PROMPT_VERSION = "v2"
+# Room for reasoning models, whose hidden reasoning counts against this cap.
+SUMMARY_MAX_TOKENS = 1500
 
 
 class AISummaryGenerationError(Exception):
@@ -79,78 +77,28 @@ def is_summary_complete(summary: str) -> bool:
     return True
 
 
-def _extract_google_error(response: requests.Response) -> str:
-    try:
-        data = response.json()
-        message = (
-            data.get("error", {}).get("message")
-            or data.get("message")
-            or response.text
-        )
-        code = data.get("error", {}).get("code") or response.status_code
-        status_name = data.get("error", {}).get("status")
-        details = data.get("error", {}).get("details")
-        detail_hint = ""
-        if isinstance(details, list) and details:
-            detail_hint = f" | details={details[0]}"
-        if status_name:
-            return f"[{code} {status_name}] {message}{detail_hint}"
-        return f"[{code}] {message}{detail_hint}"
-    except Exception:
-        return f"[HTTP {response.status_code}] {response.text}"
-
-
-def _generate_with_model(property_payload: dict, api_key: str, model: str) -> str:
-    prompt = build_summary_prompt(property_payload)
-    response = requests.post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
-        headers={"Content-Type": "application/json"},
-        json={
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": prompt}],
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.3,
-                "maxOutputTokens": 500,
-            },
-        },
+def _generate_with_model(property_payload: dict, model: str) -> str:
+    result = openai_client.chat(
+        [{"role": "user", "content": build_summary_prompt(property_payload)}],
+        model=model,
+        max_tokens=SUMMARY_MAX_TOKENS,
         timeout=30,
     )
-    if not response.ok:
-        raise AISummaryGenerationError(_extract_google_error(response))
-
-    data = response.json()
-    summary = "".join(
-        part.get("text", "")
-        for part in data.get("candidates", [{}])[0]
-        .get("content", {})
-        .get("parts", [])
-    ).strip()
-    if not summary:
-        raise AISummaryGenerationError("Gemini returned an empty summary.")
+    summary = result.content.strip()
     if not is_summary_complete(summary):
-        raise AISummaryGenerationError(
-            "Gemini returned an incomplete summary. Please retry."
-        )
+        raise AISummaryGenerationError("OpenAI returned an incomplete summary. Please retry.")
     return summary
 
 
-def generate_listing_summary(property_payload: dict, api_key: str) -> str:
+def generate_listing_summary(property_payload: dict) -> str:
+    """Summary from the first ``OPENAI_SUMMARY_MODEL`` entry that succeeds."""
     per_model_errors: list[str] = []
-    for model in DEFAULT_GEMINI_MODELS:
+    for model in openai_client.summary_models():
         try:
-            return _generate_with_model(property_payload, api_key, model)
-        except AISummaryGenerationError as exc:
-            per_model_errors.append(f"{model}: {str(exc)}")
-            continue
-        except requests.RequestException as exc:
-            per_model_errors.append(f"{model}: network/request error: {str(exc)}")
-            continue
+            return _generate_with_model(property_payload, model)
+        except (AISummaryGenerationError, openai_client.OpenAIError) as exc:
+            per_model_errors.append(f"{model}: {exc}")
 
     raise AISummaryGenerationError(
-        "All configured Gemini models failed. "
-        + " | ".join(per_model_errors[:8])
+        "All configured OpenAI models failed. " + " | ".join(per_model_errors[:8])
     )

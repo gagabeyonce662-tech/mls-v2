@@ -11,10 +11,15 @@ from rest_framework import status
 
 from mls.models import Property
 from mls.services.valuation import (
+    ai_cma,
     apply_hedonic,
+    blend_with_prior_anchor,
     compute_trend,
     match_agent,
     parse_lot_depth_from_dimensions,
+    prior_sale_anchor,
+    pricing_comps,
+    select_active_comps,
     select_comps,
 )
 from mls.services.valuation.avm_report import confidence_stars, property_details, subject_details
@@ -188,11 +193,26 @@ class ValuationEstimateAPIView(APIView):
                         "quick_sale_high": 0,
                     },
                     "breakdown": [],
-                    "trend": {"pct_30d": 0.0, "applied": 0.0},
+                    "trend": {
+                        "pct_30d": 0.0,
+                        "pct_90d": 0.0,
+                        "pct_12m": 0.0,
+                        "applied": 0.0,
+                        "source": None,
+                        "series": [],
+                    },
                     "comps": [],
                     "agent": match_agent(_fsa_from_postal(postal), city, city_region),
                     "beta": True,
                     "sparse": True,
+                    "ai": {
+                        "suggested": None,
+                        "weight": 0.0,
+                        "rationale": None,
+                        "adjustments": [],
+                        "used": False,
+                    },
+                    "methodology": "hybrid_cma_v2",
                 },
                 status=status.HTTP_200_OK,
             )
@@ -207,6 +227,8 @@ class ValuationEstimateAPIView(APIView):
             "latitude": lat,
             "longitude": lng,
             "postal_code": postal,
+            "city": city,
+            "city_region": city_region,
             "property_sub_type": body.get("property_sub_type") or (prop.property_sub_type if prop else "") or "",
             "bedrooms_total": _int_or_none(body.get("bedrooms_total")),
             "bedrooms_partial": _int_or_none(body.get("bedrooms_partial")),
@@ -216,6 +238,9 @@ class ValuationEstimateAPIView(APIView):
             "tax_annual_amount": _float_or_none(body.get("tax_annual_amount")),
             "lot_frontage": _float_or_none(body.get("lot_frontage")),
             "lot_depth": _float_or_none(body.get("lot_depth")),
+            "year_built": _int_or_none(body.get("year_built")),
+            "last_sold_price": _float_or_none(body.get("last_sold_price")),
+            "last_sold_date": body.get("last_sold_date") or None,
         }
 
         if prop:
@@ -239,47 +264,132 @@ class ValuationEstimateAPIView(APIView):
                 )
                 if d is not None:
                     subject["lot_depth"] = float(d)
+            if subject["year_built"] is None:
+                subject["year_built"] = prop.year_built
+            if subject["last_sold_price"] is None and prop.close_price:
+                subject["last_sold_price"] = float(prop.close_price)
+            if not subject["last_sold_date"] and prop.close_date:
+                subject["last_sold_date"] = prop.close_date.isoformat()
 
         comps = select_comps(subject)
-        hed = apply_hedonic(subject, comps)
-        trend = compute_trend(postal or _fsa_from_postal(postal))
-        mult = 1.0 + float(trend.get("applied") or 0)
-
-        point = hed["point"] * mult
-        low = hed["low"] * mult
-        high = hed["high"] * mult
-        qsl = hed["quick_sale_low"] * mult
-        qsh = hed["quick_sale_high"] * mult
+        active_comps = select_active_comps(subject)
+        hed_comps = pricing_comps(comps, active_comps)
+        if not hed_comps:
+            hed_comps = active_comps
+        hed = apply_hedonic(subject, hed_comps or comps)
 
         fsa = _fsa_from_postal(postal)
+        trend = compute_trend(fsa, city=city, community=city_region or None)
+        mult = 1.0 + float(trend.get("applied") or 0)
+
+        cma_point = float(hed["point"] or 0) * mult
+        # Last-resort anchors when comps are empty: prior sale, then city
+        # median sold from the trend series, then the subject's own list price.
+        if cma_point <= 0:
+            series = trend.get("series") or []
+            medians = [
+                float(p["median_sold_price"])
+                for p in series
+                if isinstance(p, dict) and p.get("median_sold_price")
+            ]
+            if medians:
+                cma_point = medians[-1] * mult
+            elif prop and prop.list_price:
+                cma_point = float(prop.list_price)
+            elif subject.get("last_sold_price"):
+                cma_point = float(subject["last_sold_price"]) * mult
+
+        anchor = prior_sale_anchor(subject, trend)
+        cma_point = blend_with_prior_anchor(cma_point, anchor)
+
+        sold_for_ai = [c for c in comps if c.get("source") == "sold"]
+        ai = ai_cma.suggest(
+            subject,
+            sold_for_ai or comps or active_comps,
+            active_comps,
+            trend,
+            cma_point,
+        )
+        point = ai_cma.blend(cma_point, ai)
+
+        # Rebuild range around the blended market using hedonic band ratios.
+        hed_point = float(hed["point"] or 0)
+        if hed_point > 0 and float(hed.get("low") or 0) > 0:
+            low_ratio = float(hed["low"]) / hed_point
+            high_ratio = float(hed["high"]) / hed_point
+            qsl_ratio = float(hed["quick_sale_low"]) / hed_point
+            qsh_ratio = float(hed["quick_sale_high"]) / hed_point
+        else:
+            low_ratio, high_ratio, qsl_ratio, qsh_ratio = 0.88, 1.12, 0.85, 0.94
+        low = point * low_ratio
+        high = point * high_ratio
+        qsl = point * qsl_ratio
+        qsh = point * qsh_ratio
+
         agent = match_agent(fsa, city, city_region)
 
-        sparse = len(comps) < 3 or point <= 0
+        sold_count = sum(1 for c in comps if c.get("source") == "sold")
+        pricing_n = len(hed_comps or comps)
+        # WOWA targets ≥5 sold comps for a solid CMA.
+        sparse = (sold_count < 5 and pricing_n < 5) or point <= 0
 
-        # Full listing rows for the AVM report table (scope #10). A sold-proxy
-        # comp's listing may have been pruned from the catalogue; its details
-        # then come back empty and render as dashes.
+        all_comp_rows = comps + [
+            a for a in active_comps if a.get("listing_key") not in {c.get("listing_key") for c in comps}
+        ]
         comp_props = {
             p.listing_key: p
             for p in Property.objects.filter(
-                listing_key__in=[c.get("listing_key") for c in comps if c.get("listing_key")]
+                listing_key__in=[c.get("listing_key") for c in all_comp_rows if c.get("listing_key")]
             ).prefetch_related("rooms")
         }
-        comps_out = []
-        for c in comps:
-            comps_out.append(
+
+        def _comp_out(c: Dict[str, Any]) -> Dict[str, Any]:
+            details = property_details(comp_props.get(c.get("listing_key")))
+            # Enrich from AMPRE/proxy fields when the local catalogue row is gone.
+            if not details.get("address") and c.get("unparsed_address"):
+                details["address"] = c.get("unparsed_address")
+            if not details.get("city") and c.get("city"):
+                details["city"] = c.get("city")
+            if not details.get("community") and c.get("city_region"):
+                details["community"] = c.get("city_region")
+            if details.get("list_price") is None and c.get("list_price") is not None:
+                details["list_price"] = c.get("list_price")
+            if details.get("last_sold_price") is None and c.get("close_price") is not None:
+                details["last_sold_price"] = c.get("close_price")
+            if details.get("days_on_market") is None and c.get("days_on_market") is not None:
+                details["days_on_market"] = c.get("days_on_market")
+            if details.get("year_built") is None and c.get("year_built") is not None:
+                details["year_built"] = c.get("year_built")
+            if details.get("floor_area_sqft") is None and c.get("living_area") is not None:
+                details["floor_area_sqft"] = c.get("living_area")
+            return {
+                "listing_key": c.get("listing_key"),
+                "price": c.get("price"),
+                "close_price": c.get("close_price"),
+                "list_price": c.get("list_price"),
+                "bedrooms_total": c.get("bedrooms_total"),
+                "bathrooms_total_integer": c.get("bathrooms_total_integer"),
+                "living_area": c.get("living_area"),
+                "unparsed_address": c.get("unparsed_address") or "",
+                "city": c.get("city") or "",
+                "distance_km": c.get("distance_km"),
+                "source": c.get("source"),
+                "event_date": c.get("event_date"),
+                "days_on_market": c.get("days_on_market"),
+                "details": details,
+            }
+
+        comps_out = [_comp_out(c) for c in comps]
+        active_out = [_comp_out(c) for c in active_comps]
+
+        breakdown = list(hed.get("breakdown") or [])
+        for adj in ai.get("adjustments") or []:
+            breakdown.append(
                 {
-                    "listing_key": c.get("listing_key"),
-                    "price": c.get("price"),
-                    "bedrooms_total": c.get("bedrooms_total"),
-                    "bathrooms_total_integer": c.get("bathrooms_total_integer"),
-                    "living_area": c.get("living_area"),
-                    "unparsed_address": c.get("unparsed_address") or "",
-                    "city": c.get("city") or "",
-                    "distance_km": c.get("distance_km"),
-                    "source": c.get("source"),
-                    "event_date": c.get("event_date"),
-                    "details": property_details(comp_props.get(c.get("listing_key"))),
+                    "feature": adj.get("feature"),
+                    "delta": adj.get("delta"),
+                    "source": "ai",
+                    "note": adj.get("note"),
                 }
             )
 
@@ -313,16 +423,31 @@ class ValuationEstimateAPIView(APIView):
                     "quick_sale_low": round(qsl, 2),
                     "quick_sale_high": round(qsh, 2),
                 },
-                "breakdown": hed.get("breakdown") or [],
+                "breakdown": breakdown,
                 "trend": trend,
                 "comps": comps_out,
+                "active_comps": active_out,
                 "agent": agent,
                 "beta": True,
                 "sparse": sparse,
                 "confidence": hed.get("confidence"),
-                "confidence_stars": confidence_stars(hed.get("confidence"), len(comps)),
+                "confidence_stars": confidence_stars(
+                    hed.get("confidence"),
+                    max(sold_count, len(hed_comps or comps)),
+                ),
                 "valuation_date": timezone.localdate().isoformat(),
                 "subject_details": subject_details(prop, subject),
+                "ai": {
+                    "suggested": ai.get("suggested"),
+                    "weight": ai.get("weight") or 0.0,
+                    "rationale": ai.get("rationale"),
+                    "adjustments": ai.get("adjustments") or [],
+                    "used": bool(ai.get("used")),
+                    "confidence": ai.get("confidence"),
+                },
+                "methodology": "hybrid_cma_v2",
+                "cma_point": round(cma_point, 2),
+                "prior_sale_anchor": anchor,
             },
             status=status.HTTP_200_OK,
         )

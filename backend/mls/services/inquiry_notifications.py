@@ -9,6 +9,7 @@ from django.core.mail import send_mail
 from django.utils import timezone
 
 from mls.models import PropertyInquiry
+from mls.services.inquiry_ghl import inquiry_detail_lines
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +43,7 @@ def send_inquiry_email_to_realtor(inquiry: PropertyInquiry) -> None:
             "Message:",
             inquiry.message,
             "",
-            f"Preferred locations: {inquiry.preferred_locations or '—'}",
-            f"Property types: {inquiry.property_types or '—'}",
-            f"Budget min / max: {inquiry.budget_min or '—'} / {inquiry.budget_max or '—'}",
-            f"Min bedrooms / bathrooms: {inquiry.bedrooms_min or '—'} / {inquiry.bathrooms_min or '—'}",
-            f"Timeline: {inquiry.timeline or '—'}",
-            f"Page URL: {inquiry.page_url or '—'}",
+            *inquiry_detail_lines(inquiry),
             "",
             f"Django admin: {_admin_change_url(inquiry.pk)}",
         ]

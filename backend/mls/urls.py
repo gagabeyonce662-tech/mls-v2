@@ -1,4 +1,4 @@
-from django.conf import settings
+﻿from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
 from .views import *
@@ -10,11 +10,16 @@ from .views_estate import (
     EstatePropertyMediaUploadAPIView,
     EstatePropertySchemaAPIView,
 )
+from .views_ai import AIAssistAPIView, AISearchParseAPIView
+from .views_activity import PreconActivityAPIView, StudioActivityAPIView
+from .views_push import PushSubscribeAPIView, PushVapidAPIView
 from .views_properties import PropertyFilterView
+from .views_schools import SchoolsNearAPIView, SchoolsSearchAPIView, TopSchoolsAPIView
 from .views_sitemap import SitemapListingKeysView
 from .views_market import (
     CatalogStatsBulkAPIView,
     MarketSoldTrendsAPIView,
+    RecentSalesAPIView,
     PlatformStatsAPIView,
     PropertyFacetsAPIView,
 )
@@ -39,6 +44,16 @@ from .views_precon import (
     PreComPropertyListAPIView,
 )
 from .views_search import SearchSuggestAPIView
+from .views_featured_studio import StudioFeaturedAPIView
+from .views_studio import (
+    StudioPreconAssetUploadAPIView,
+    StudioPreconDetailAPIView,
+    StudioPreconListCreateAPIView,
+    StudioSubmissionDecisionAPIView,
+    StudioSubmissionDetailAPIView,
+    StudioSubmissionLinkAPIView,
+    StudioSubmissionListAPIView,
+)
 from .views_saved_search import (
     SavedSearchDetailAPIView,
     SavedSearchListCreateAPIView,
@@ -60,6 +75,8 @@ urlpatterns = [
     path('listing-submissions/', ListingSubmissionListCreateAPIView.as_view(), name='listing-submission-list'),
     path('listing-submissions/mine/', MyListingSubmissionsAPIView.as_view(), name='listing-submission-mine'),
     path('listing-submissions/public/', PublicListingSubmissionListAPIView.as_view(), name='listing-submission-public'),
+    path('listing-submissions/public/<int:pk>/', PublicListingSubmissionDetailAPIView.as_view(), name='listing-submission-public-detail'),
+    path('listing-submissions/public/<int:pk>/similar/', PublicListingSubmissionSimilarAPIView.as_view(), name='listing-submission-public-similar'),
     path('listing-submissions/<int:pk>/', ListingSubmissionDetailAPIView.as_view(), name='listing-submission-detail'),
     path('listing-submissions/<int:pk>/media/', ListingSubmissionMediaUploadAPIView.as_view(), name='listing-submission-media'),
     path('listing-submissions/<int:pk>/submit/', ListingSubmissionSubmitAPIView.as_view(), name='listing-submission-submit'),
@@ -80,12 +97,28 @@ urlpatterns = [
     path('properties/map-aggregates/', MapAggregatesAPIView.as_view(), name='map-aggregates'),
     path('locations/geocode/', MapGeocodingAPIView.as_view(), name='map-geocoding'),
     path('properties/property-types/', PropertyTypesAPIView.as_view(), name='property-types'),
+    path('ai-search/parse/', AISearchParseAPIView.as_view(), name='ai-search-parse'),
+    path('ai/assist/', AIAssistAPIView.as_view(), name='ai-assist'),
+    path('activity/precon/', PreconActivityAPIView.as_view(), name='precon-activity'),
+    path('studio/activity/', StudioActivityAPIView.as_view(), name='studio-activity'),
+    path('studio/featured/', StudioFeaturedAPIView.as_view(), name='studio-featured'),
+    path('push/vapid/', PushVapidAPIView.as_view(), name='push-vapid'),
+    path('push/subscribe/', PushSubscribeAPIView.as_view(), name='push-subscribe'),
+    path('properties/featured-properties/', FeaturedPropertiesAPIView.as_view(), name='featured_properties'),
     path('properties/exclusive-properties/', ExclusivePropertiesAPIView.as_view(), name='exclusive_properties'),
     path('properties/newly-listed-properties/', NewlyListedPropertiesAPIView.as_view(), name='exclusive_properties'),
     path('properties/community-properties/', CommunityPropertiesAPIView.as_view(), name='community-properties'),
     path('properties/pre-conn-properties/', PreConnPropertiesAPIView.as_view(), name='pre-conn-properties'),
     path('properties/upload-pre-conn/', UploadPreConnListingsAPIView.as_view(), name='upload-pre-conn'),
     path('precon-properties/', PreComPropertyListAPIView.as_view(), name='precon-property-list'),
+    # Staff Studio (scope #2d).
+    path('studio/precon/', StudioPreconListCreateAPIView.as_view(), name='studio-precon-list'),
+    path('studio/precon/assets/', StudioPreconAssetUploadAPIView.as_view(), name='studio-precon-assets'),
+    path('studio/precon/<int:pk>/', StudioPreconDetailAPIView.as_view(), name='studio-precon-detail'),
+    path('studio/submissions/', StudioSubmissionListAPIView.as_view(), name='studio-submission-list'),
+    path('studio/submissions/<int:pk>/', StudioSubmissionDetailAPIView.as_view(), name='studio-submission-detail'),
+    path('studio/submissions/<int:pk>/decision/', StudioSubmissionDecisionAPIView.as_view(), name='studio-submission-decision'),
+    path('studio/submissions/<int:pk>/precon/', StudioSubmissionLinkAPIView.as_view(), name='studio-submission-link'),
     path('precon-properties/bulk-upload/', PreComPropertyBulkUploadAPIView.as_view(), name='precon-property-bulk-upload'),
     path('precon-properties/<int:pk>/floor-plan-intent/', PreComFloorPlanIntentAPIView.as_view(), name='precon-floor-plan-intent'),
     path('precon-properties/<int:pk>/document-intent/', PreComDocumentIntentAPIView.as_view(), name='precon-document-intent'),
@@ -98,6 +131,7 @@ urlpatterns = [
     path('properties/filter/', PropertyFilterView.as_view(), name='property_filter'),
     path('properties/facets/', PropertyFacetsAPIView.as_view(), name='property-facets'),
     path('market/sold-trends/', MarketSoldTrendsAPIView.as_view(), name='market-sold-trends'),
+    path('market/recent-sales/', RecentSalesAPIView.as_view(), name='market-recent-sales'),
     path('catalog-stats/bulk/', CatalogStatsBulkAPIView.as_view(), name='catalog-stats-bulk'),
     path('stats/platform/', PlatformStatsAPIView.as_view(), name='stats-platform'),
     path('properties/<str:listing_key>/recommendations/', PropertyRecommendationsAPIView.as_view(), name='property-recommendations'),
@@ -107,6 +141,9 @@ urlpatterns = [
     # Keep backward compatibility for the original typo route while exposing the correct one.
     path('properties/compare/', PropertyCompareDetailView.as_view(), name='property_detail_compare'),
     path('properties/comapare/', PropertyCompareDetailView.as_view(), name='property_detail_compare'),
+    path('schools/near/', SchoolsNearAPIView.as_view(), name='schools-near'),
+    path('schools/top/', TopSchoolsAPIView.as_view(), name='schools-top'),
+    path('schools/search/', SchoolsSearchAPIView.as_view(), name='schools-search'),
     path('nearest-school/', NearestSchoolAPIView.as_view(), name='nearest-school'),
     path('nearby-amenities/', NearbyAmenitiesAPIView.as_view(), name='nearby-amenities'),
     path('listing-sync-status/', ListingSyncStatusAPIView.as_view(), name='listing-sync-status'),

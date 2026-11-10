@@ -21,6 +21,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from mls.services.request_meta import client_ip
+
 from .models import (
     BuyerIncentive,
     CommunityImage,
@@ -59,9 +61,7 @@ def _int_param(request, name: str, default: int, lo: int, hi: int) -> int:
     return max(lo, min(hi, value))
 
 
-def _client_ip(request) -> str | None:
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    return (forwarded.split(",")[0].strip() or request.META.get("REMOTE_ADDR")) or None
+_client_ip = client_ip
 
 
 def _unavailable(message: str) -> Response:
@@ -192,6 +192,17 @@ class NewsletterSubscribeView(APIView):
                 ),
                 to=subscriber.email,
             )
+            from mls.services.lead_ghl import push_lead_to_ghl
+
+            push_lead_to_ghl(
+                email=subscriber.email,
+                first_name=getattr(user, "first_name", "") if user else "",
+                last_name=getattr(user, "last_name", "") if user else "",
+                source="newsletter",
+                tags=["newsletter"],
+                note=f"Newsletter sign-up from {subscriber.source}.",
+                user=user,
+            )
         return Response({"subscribed": True}, status=status.HTTP_201_CREATED)
 
 
@@ -232,6 +243,21 @@ class NearbyAlertListCreateView(APIView):
                 consent_at=timezone.now(),
                 consent_text=NEARBY_CONSENT_TEXT,
             )
+        from mls.services.lead_ghl import push_lead_to_ghl
+
+        push_lead_to_ghl(
+            email=alert.email,
+            first_name=getattr(alert.user, "first_name", ""),
+            last_name=getattr(alert.user, "last_name", ""),
+            source="neighbour-alert",
+            tags=["neighbour-alert"],
+            note=(
+                "Neighbour alert sign-up\n"
+                f"Location: {alert.label}\n"
+                f"Radius: {alert.radius_km} km"
+            ),
+            user=alert.user,
+        )
         return Response(
             {"id": alert.pk, "label": alert.label, "radius_km": float(alert.radius_km)},
             status=status.HTTP_201_CREATED,

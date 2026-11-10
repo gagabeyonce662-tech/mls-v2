@@ -42,6 +42,23 @@ services:
     networks:
       - app_network
     restart: always
+
+  # Fires CELERY_BEAT_SCHEDULE (backend/settings.py): daily newsletter,
+  # saved-search alerts, homepage feeds, sold-trends cache warm. Each job is
+  # still opt-in via its *_BEAT_ENABLED env flag. Run exactly ONE beat, or
+  # jobs fire twice.
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    command: celery -A backend beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    container_name: celery_beat
+    depends_on:
+      - redis
+      - celery
+    networks:
+      - app_network
+    restart: always
   frontend:
     build:
       context: ./frontend

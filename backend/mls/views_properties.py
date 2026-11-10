@@ -1,10 +1,11 @@
 import json
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -95,6 +96,11 @@ class PropertyFilterView(APIView):
             OpenApiParameter("year_built_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum year_built."),
             OpenApiParameter("garages_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum garage / parking spaces."),
             OpenApiParameter("stories_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Minimum number of floors/stories."),
+            OpenApiParameter("year_built_max", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Latest year built."),
+            OpenApiParameter("stories_max", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Most floors."),
+            OpenApiParameter("maintenance_fee_min", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Lowest monthly maintenance fee."),
+            OpenApiParameter("maintenance_fee_max", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description="Highest monthly maintenance fee."),
+            OpenApiParameter("listed_since", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False, description="First listed on or after this date (YYYY-MM-DD)."),
             OpenApiParameter("basement", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Basement: yes | finished | unfinished | apartment | none."),
             OpenApiParameter("has_open_house", OpenApiTypes.BOOL, OpenApiParameter.QUERY, required=False, description="Restrict to listings with an upcoming open house (defaults to today onwards)."),
             OpenApiParameter("open_house_from", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False, description="Open-house date lower bound (YYYY-MM-DD)."),
@@ -152,6 +158,20 @@ class PropertyFilterView(APIView):
                 qs = qs.filter(building_area_total__lte=int(request.GET.get("sqft_max")))
             if request.GET.get("year_built_min"):
                 qs = qs.filter(year_built__gte=int(request.GET.get("year_built_min")))
+            if request.GET.get("year_built_max"):
+                qs = qs.filter(year_built__lte=int(request.GET.get("year_built_max")))
+            if request.GET.get("stories_max"):
+                qs = qs.filter(stories__lte=int(request.GET.get("stories_max")))
+            if request.GET.get("maintenance_fee_min"):
+                qs = qs.filter(
+                    association_fee_frequency__iexact="Monthly",
+                    association_fee__gte=int(request.GET.get("maintenance_fee_min")),
+                )
+            if request.GET.get("maintenance_fee_max"):
+                qs = qs.filter(
+                    association_fee_frequency__iexact="Monthly",
+                    association_fee__lte=int(request.GET.get("maintenance_fee_max")),
+                )
             if request.GET.get("garages_min"):
                 int(request.GET.get("garages_min"))  # validate early; applied below
             if request.GET.get("stories_min"):
@@ -161,10 +181,26 @@ class PropertyFilterView(APIView):
                 {
                     "error": (
                         "price_min/price_max/beds_min/baths_min/sqft_min/sqft_max/"
-                        "year_built_min/garages_min/stories_min must be integers."
+                        "year_built_min/year_built_max/garages_min/stories_min/stories_max/"
+                        "maintenance_fee_min/maintenance_fee_max must be integers."
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if request.GET.get("listed_since"):
+            # parse_date returns None for a bad format and raises for an impossible date.
+            try:
+                listed_since = parse_date(request.GET.get("listed_since"))
+            except ValueError:
+                listed_since = None
+            if listed_since is None:
+                return Response(
+                    {"error": "listed_since must be a date (YYYY-MM-DD)."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            qs = qs.filter(
+                original_entry_timestamp__gte=timezone.make_aware(datetime.combine(listed_since, time.min))
             )
 
         qs = apply_structure_filters(qs, request.GET)

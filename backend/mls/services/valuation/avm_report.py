@@ -219,7 +219,8 @@ def property_details(prop: Optional[Property]) -> dict[str, Any]:
         "bathrooms_half": prop.bathrooms_partial,
         "family_room": family_room,
         "kitchens": kitchens,
-        "rental_items": None,
+        # CREA OtherEquipment often carries rented HWTs / contract rentals.
+        "rental_items": _text(prop.other_equipment),
         "fireplaces": prop.fireplaces_total,
         "renovation_year": None,
         "renovation_type": None,

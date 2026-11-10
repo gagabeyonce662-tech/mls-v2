@@ -80,7 +80,13 @@ class Property(models.Model):
         choices=STATUS_CHOICES,
         default=None,null=True,blank=True
     )
-    is_featured = models.BooleanField(default=False)
+    is_featured = models.BooleanField(default=False, help_text="Pin this listing to the homepage Featured rail.")
+    featured_order = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Position in the Featured rail (1 = first). Blank sorts after numbered ones."
+    )
+    featured_until = models.DateTimeField(
+        null=True, blank=True, help_text="Stop featuring after this time. Blank = until unticked."
+    )
     is_manual = models.BooleanField(default=False, help_text="If true, automated sync will not overwrite this listing")
     listing_key = models.CharField(max_length=2000, unique=True)
     property_sub_type = models.CharField(max_length=2000, null=True, blank=True)
@@ -700,6 +706,10 @@ class PropertyInquiry(models.Model):
     timeline = models.CharField(max_length=80, blank=True)
 
     page_url = models.URLField(max_length=2000, blank=True)
+    # Lead context (scope #18): the visitor's address and browser, forwarded
+    # by the frontend. Client-supplied, so context only, never trust.
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=512, blank=True)
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -737,6 +747,8 @@ class ListingViewEvent(models.Model):
         on_delete=models.SET_NULL,
         related_name="listing_view_events",
     )
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=512, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
@@ -1395,6 +1407,13 @@ class PreComProperty(models.Model):
 
     developer_name = models.CharField(max_length=255, blank=True)
 
+    is_featured = models.BooleanField(
+        default=False, db_index=True, help_text="Pin this project to the homepage pre-construction rail."
+    )
+    featured_order = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Position among pinned projects (1 = first)."
+    )
+
     SALES_STAGE_COMING_SOON = "coming_soon"
     SALES_STAGE_VIP_RELEASE = "vip_release"
     SALES_STAGE_NOW_SELLING = "now_selling"
@@ -1410,6 +1429,8 @@ class PreComProperty(models.Model):
         choices=SALES_STAGE_CHOICES,
         blank=True,
     )
+
+    updated_at = models.DateTimeField(auto_now=True)
 
 
 class PreComFloorPlanIntent(models.Model):
@@ -1482,8 +1503,15 @@ class ListingSubmission(models.Model):
     country = models.CharField(max_length=80, default="Canada")
 
     property_type = models.CharField(max_length=100)
+    # Freehold / Condo/Strata / Leasehold — asked on assignment intake.
+    ownership_title = models.CharField(max_length=80, blank=True)
     bedrooms = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     bathrooms = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    storeys = models.PositiveSmallIntegerField(null=True, blank=True)
+    floors = models.CharField(max_length=80, blank=True)
+    parking = models.CharField(max_length=120, blank=True)
+    locker = models.CharField(max_length=120, blank=True)
+    maintenance_fees = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     interior_area_sqft = models.PositiveIntegerField(null=True, blank=True)
     asking_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     available_from = models.DateField(null=True, blank=True)
@@ -1501,10 +1529,12 @@ class ListingSubmission(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
     )
+    agreement_date = models.DateField(null=True, blank=True)
     occupancy_date = models.DateField(null=True, blank=True)
     original_purchase_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     deposit_paid = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     assignment_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    consent_to_advertise = models.BooleanField(default=False)
 
     contact_name = models.CharField(max_length=255)
     contact_email = models.EmailField()
@@ -1521,6 +1551,9 @@ class ListingSubmission(models.Model):
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
+    # Recorded when the owner submits for review (scope #18).
+    submitted_ip = models.GenericIPAddressField(null=True, blank=True)
+    submitted_user_agent = models.CharField(max_length=512, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1635,3 +1668,160 @@ class OpenHouse(models.Model):
             f"{self.property.listing_key} "
             f"{self.date}"
         )
+
+class AISearchLog(models.Model):
+    """One natural-language search parse: what was asked and what it became.
+
+    For tuning the prompt and watching cost. Results themselves are logged by
+    the search view (SearchEvent) once the frontend runs the filters.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="ai_search_logs",
+    )
+    session_key = models.CharField(max_length=64, blank=True)
+    query = models.CharField(max_length=300)
+    current_filters = models.JSONField(default=dict, blank=True)
+    filters = models.JSONField(default=dict, blank=True)
+    fallback = models.BooleanField(default=False)
+    cached = models.BooleanField(default=False)
+    error = models.TextField(blank=True)
+    model = models.CharField(max_length=80, blank=True)
+    prompt_tokens = models.PositiveIntegerField(default=0)
+    completion_tokens = models.PositiveIntegerField(default=0)
+    latency_ms = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["fallback", "created_at"])]
+
+    def __str__(self):
+        return f"AISearch<{self.query[:40]}>"
+
+
+class PropertyEmbedding(models.Model):
+    """OpenAI embedding of a listing's description, for "best match" ranking.
+
+    Stored as packed float32 bytes rather than a pgvector column: the rolling
+    DDF cache is small enough to score a filtered candidate set in numpy, and
+    this keeps the feature working on any database (tests run on SQLite).
+    ``text_hash`` lets the embed job skip listings whose text hasn't changed.
+    """
+
+    property = models.OneToOneField(
+        Property,
+        on_delete=models.CASCADE,
+        related_name="embedding",
+    )
+    model = models.CharField(max_length=80)
+    dimensions = models.PositiveIntegerField()
+    text_hash = models.CharField(max_length=64)
+    vector = models.BinaryField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Embedding<{self.property_id}:{self.model}>"
+
+
+class PreconActivityEvent(models.Model):
+    """Page views and Floor plans / Pricing / Contact clicks on a pre-con project."""
+
+    EVENT_VIEW = "view"
+    EVENT_FLOOR_PLANS = "floor_plans"
+    EVENT_PRICING = "pricing"
+    EVENT_CONTACT = "contact"
+    EVENT_CHOICES = [
+        (EVENT_VIEW, "Page view"),
+        (EVENT_FLOOR_PLANS, "Floor plans"),
+        (EVENT_PRICING, "Pricing"),
+        (EVENT_CONTACT, "Contact"),
+    ]
+
+    project = models.ForeignKey(
+        PreComProperty,
+        on_delete=models.CASCADE,
+        related_name="activity_events",
+    )
+    event = models.CharField(max_length=32, choices=EVENT_CHOICES, db_index=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="precon_activity_events",
+    )
+    session_key = models.CharField(max_length=64, blank=True, db_index=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=512, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["project", "event", "created_at"]),
+            models.Index(fields=["user", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"PreconActivity<{self.project_id}:{self.event}>"
+
+
+class WebPushSubscription(models.Model):
+    """A browser push subscription for one signed-in user (scope #5b)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="web_push_subscriptions",
+    )
+    endpoint = models.TextField(unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    user_agent = models.CharField(max_length=512, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["user", "-created_at"])]
+
+    def __str__(self):
+        return f"WebPush<{self.user_id}>"
+
+
+class AIAssistLog(models.Model):
+    """One question asked of the on-site assistant (scope #25)."""
+
+    HANDOFF_NONE = "none"
+    HANDOFF_WHATSAPP = "whatsapp"
+    HANDOFF_CONTACT = "contact"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="ai_assist_logs",
+    )
+    session_key = models.CharField(max_length=64, blank=True)
+    question = models.CharField(max_length=500)
+    answer = models.TextField(blank=True)
+    links = models.JSONField(default=list, blank=True)
+    handoff = models.CharField(max_length=16, default=HANDOFF_NONE)
+    fallback = models.BooleanField(default=False)
+    error = models.TextField(blank=True)
+    model = models.CharField(max_length=80, blank=True)
+    prompt_tokens = models.PositiveIntegerField(default=0)
+    completion_tokens = models.PositiveIntegerField(default=0)
+    latency_ms = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"AIAssist<{self.question[:40]}>"

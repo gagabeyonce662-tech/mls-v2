@@ -246,6 +246,7 @@ def fetch_properties_by_listing_keys(
     select_fields = [
         "ListingKey",
         "ListingId",
+        "StandardStatus",
         "ListPrice",
         "UnparsedAddress",
         "City",

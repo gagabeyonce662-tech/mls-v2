@@ -8,6 +8,7 @@ import requests
 from django.conf import settings
 from django.core import signing
 from django.db import transaction
+from django.db.models import F
 from django.http import StreamingHttpResponse
 from django.urls import reverse
 from django.utils.text import slugify
@@ -412,7 +413,24 @@ class PreComPropertyListAPIView(ListAPIView):
     Only published projects are public. The endpoint is intentionally not
     response-cached: a manual admin save should appear on the frontend
     immediately.
+
+    Query params:
+    - ``ordering``: ``newest`` (latest published first), ``featured``
+      (admin-pinned projects in ``featured_order``, then newest). Omitted
+      keeps the historical ``-id`` order.
+    - ``exclude_stage``: comma-separated ``sales_stage`` values to drop,
+      e.g. ``sold_out``.
     """
+
+    ORDERINGS = {
+        "newest": (F("content__published_at").desc(nulls_last=True), "-id"),
+        "featured": (
+            "-is_featured",
+            F("featured_order").asc(nulls_last=True),
+            F("content__published_at").desc(nulls_last=True),
+            "-id",
+        ),
+    }
 
     queryset = (
         PreComProperty.objects.select_related("content")
@@ -429,17 +447,33 @@ class PreComPropertyListAPIView(ListAPIView):
             "latitude",
             "longitude",
             "address",
+            "developer_name",
+            "sales_stage",
+            "is_featured",
+            "featured_order",
             "content__id",
             "content__wp_id",
             "content__title",
             "content__slug",
             "content__status",
+            "content__published_at",
         )
         .order_by("-id")
     )
     serializer_class = PreComPropertySerializer
     pagination_class = PreComPagination
     permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        params = self.request.query_params
+        stages = [s.strip() for s in (params.get("exclude_stage") or "").split(",") if s.strip()]
+        if stages:
+            qs = qs.exclude(sales_stage__in=stages)
+        ordering = self.ORDERINGS.get((params.get("ordering") or "").strip().lower())
+        if ordering:
+            qs = qs.order_by(*ordering)
+        return qs
 
 
 class PreComPropertyBulkUploadAPIView(APIView):
@@ -464,7 +498,6 @@ class PreComPropertyBulkUploadAPIView(APIView):
         },
     )
     def post(self, request):
-        print("qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq")
         serializer = PreComBulkUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         uploaded = serializer.validated_data["file"]

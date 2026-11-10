@@ -19,6 +19,7 @@ from mls.models import (
     ListingFirstSeen,
     NewsletterDelivery,
     Property,
+    PropertySnapshot,
     UserAlertPreference,
     UserFavorite,
     UserFollowedArea,
@@ -61,7 +62,7 @@ def _internal_listing_url(prop: Property) -> str:
     base = (
         getattr(settings, "FRONTEND_BASE_URL", "")
         or getattr(settings, "PUBLIC_FRONTEND_URL", "")
-        or DEFAULT_INTERNAL_SITE_URL
+        or os.environ.get("NEWSLETTER_SITE_URL", DEFAULT_INTERNAL_SITE_URL).strip()
     ).strip()
     if not base:
         base = "https://estate-4u.com"
@@ -270,8 +271,89 @@ def _build_sections(prefs: UserAlertPreference, user_id: int, new_props: list[Pr
     return sections
 
 
-def _compose_email(user_display_name: str, sections: dict[str, list[Property]], digest_date: date) -> tuple[str, str]:
-    subject = f"New listings for you - {digest_date.isoformat()}"
+def _collect_saved_home_changes(
+    prefs: UserAlertPreference, user_id: int, start_dt: datetime, end_dt: datetime, limit: int
+) -> dict[str, list[dict]]:
+    """Price and status changes on the user's saved homes during the digest day.
+
+    A change is the newest snapshot inside the window compared with the one
+    before it (which may be older than the window). Same comparison the
+    in-app alert preview uses, so the email and the Watched page agree.
+    """
+    changes: dict[str, list[dict]] = {}
+    if not (prefs.price_changes or prefs.status_updates):
+        return changes
+    favorite_keys = list(
+        UserFavorite.objects.filter(user_id=user_id).values_list("property_key", flat=True)[:500]
+    )
+    if not favorite_keys:
+        return changes
+
+    price_rows: list[dict] = []
+    status_rows: list[dict] = []
+    for listing_key in favorite_keys:
+        latest = (
+            PropertySnapshot.objects.filter(
+                listing_key=listing_key, created_at__gte=start_dt, created_at__lt=end_dt
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if latest is None:
+            continue
+        previous = (
+            PropertySnapshot.objects.filter(listing_key=listing_key, created_at__lt=latest.created_at)
+            .order_by("-created_at")
+            .first()
+        )
+        if previous is None:
+            continue
+        old_price = float(previous.list_price) if previous.list_price is not None else None
+        new_price = float(latest.list_price) if latest.list_price is not None else None
+        old_status = (previous.standard_status or "").strip()
+        new_status = (latest.standard_status or "").strip()
+        if prefs.price_changes and old_price is not None and new_price is not None and old_price != new_price:
+            price_rows.append({"listing_key": listing_key, "old": old_price, "new": new_price})
+        if prefs.status_updates and old_status and new_status and old_status.lower() != new_status.lower():
+            status_rows.append({"listing_key": listing_key, "old": old_status, "new": new_status})
+
+    props = {
+        p.listing_key: p
+        for p in Property.objects.filter(
+            listing_key__in=[r["listing_key"] for r in price_rows + status_rows]
+        )
+    }
+    for name, rows in (("price_changes", price_rows), ("status_updates", status_rows)):
+        rows = rows[:limit]
+        for row in rows:
+            row["property"] = props.get(row["listing_key"])
+        if rows:
+            changes[name] = rows
+    return changes
+
+
+def _change_line(row: dict, kind: str) -> str:
+    prop = row.get("property")
+    if prop is not None:
+        card = _property_card(prop)
+        label = card["address"] or card["city"] or row["listing_key"]
+        link = _internal_listing_url(prop)
+    else:
+        label, link = row["listing_key"], ""
+    if kind == "price_changes":
+        what = f"${row['old']:,.0f} -> ${row['new']:,.0f}"
+    else:
+        what = f"{row['old']} -> {row['new']}"
+    return f"- {label} | {what}" + (f" | {link}" if link else "")
+
+
+def _compose_email(
+    user_display_name: str,
+    sections: dict[str, list[Property]],
+    digest_date: date,
+    changes: dict[str, list[dict]] | None = None,
+) -> tuple[str, str]:
+    subject = f"Your home updates - {digest_date.isoformat()}"
     lines = [
         f"Hi {user_display_name or 'there'},",
         "",
@@ -302,6 +384,18 @@ def _compose_email(user_display_name: str, sections: dict[str, list[Property]], 
                 lines.append(f"- {address} | {price} | {card['status']} | key={card['listing_key']}")
         lines.append("")
 
+    change_labels = {
+        "price_changes": "Price changes on your saved homes",
+        "status_updates": "Status changes on your saved homes",
+    }
+    for key, label in change_labels.items():
+        rows = (changes or {}).get(key, [])
+        if not rows:
+            continue
+        lines.append(f"{label} ({len(rows)}):")
+        lines.extend(_change_line(row, key) for row in rows)
+        lines.append("")
+
     lines.append("Manage alerts in your Watched > Notifications settings.")
     return subject, "\n".join(lines)
 
@@ -323,6 +417,8 @@ def send_daily_listing_newsletters(
             | Q(email_watched_property=True)
             | Q(email_watched_community=True)
             | Q(email_watched_area=True)
+            | Q(price_changes=True)
+            | Q(status_updates=True)
         )
         .select_related("user")
         .order_by("user_id")
@@ -347,7 +443,9 @@ def send_daily_listing_newsletters(
             continue
 
         sections = _build_sections(prefs, user.id, new_props, max_per_section)
+        changes = _collect_saved_home_changes(prefs, user.id, start_dt, end_dt, max_per_section)
         section_counts = {k: len(v) for k, v in sections.items()}
+        section_counts.update({k: len(v) for k, v in changes.items()})
         total_listings = sum(section_counts.values())
 
         if total_listings == 0:
@@ -371,7 +469,9 @@ def send_daily_listing_newsletters(
 
         try:
             if not dry_run:
-                subject, body = _compose_email(getattr(user, "full_name", "") or "", sections, target_date)
+                subject, body = _compose_email(
+                    getattr(user, "full_name", "") or "", sections, target_date, changes
+                )
                 send_mail(
                     subject=subject,
                     message=body,
@@ -403,6 +503,20 @@ def send_daily_listing_newsletters(
                 skipped += 1
             else:
                 sent += 1
+                if getattr(prefs, "push_watched_property", False):
+                    try:
+                        from mls.services.web_push import send_push_to_user
+
+                        send_push_to_user(
+                            user,
+                            {
+                                "title": "HomeAtlas listing updates",
+                                "body": f"{total_listings} update{'s' if total_listings != 1 else ''} on homes you watch.",
+                                "url": "/watched",
+                            },
+                        )
+                    except Exception:
+                        logger.exception("web push failed for user_id=%s", user.id)
         except Exception as exc:  # pragma: no cover - defensive
             failed += 1
             logger.exception("daily newsletter send failed for user_id=%s", user.id)

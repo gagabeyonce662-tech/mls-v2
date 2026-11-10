@@ -180,6 +180,45 @@ class MapAggregationAndFilterTests(TestCase):
         self.assertIn(self.p1.listing_key, keys)
         self.assertNotIn(self.p2.listing_key, keys)
 
+    def _filter_keys(self, **params):
+        response = self.client.get(
+            "/api/mls/properties/filter/",
+            {"allow_fallback": "false", "limit": 30, **params},
+        )
+        self.assertEqual(response.status_code, 200)
+        return {row["listing_key"] for row in response.json()["results"]}
+
+    def test_property_filter_year_built_and_stories_max(self):
+        Property.objects.filter(pk=self.p1.pk).update(year_built=1990, stories=1)
+        Property.objects.filter(pk=self.p2.pk).update(year_built=2020, stories=3)
+        for params in ({"year_built_max": 2000}, {"stories_max": 2}):
+            keys = self._filter_keys(**params)
+            self.assertIn(self.p1.listing_key, keys)
+            self.assertNotIn(self.p2.listing_key, keys)
+
+    def test_property_filter_monthly_maintenance_fee(self):
+        Property.objects.filter(pk=self.p1.pk).update(association_fee=400, association_fee_frequency="Monthly")
+        Property.objects.filter(pk=self.p2.pk).update(association_fee=900, association_fee_frequency="Monthly")
+        keys = self._filter_keys(maintenance_fee_max=500)
+        self.assertIn(self.p1.listing_key, keys)
+        self.assertNotIn(self.p2.listing_key, keys)
+        keys = self._filter_keys(maintenance_fee_min=500)
+        self.assertIn(self.p2.listing_key, keys)
+        self.assertNotIn(self.p1.listing_key, keys)
+
+    def test_property_filter_listed_since(self):
+        Property.objects.filter(pk=self.p1.pk).update(original_entry_timestamp=timezone.now() - timedelta(days=2))
+        Property.objects.filter(pk=self.p2.pk).update(original_entry_timestamp=timezone.now() - timedelta(days=40))
+        since = (timezone.now() - timedelta(days=7)).date().isoformat()
+        keys = self._filter_keys(listed_since=since)
+        self.assertIn(self.p1.listing_key, keys)
+        self.assertNotIn(self.p2.listing_key, keys)
+
+    def test_property_filter_rejects_bad_new_filter_values(self):
+        for params in ({"listed_since": "soon"}, {"listed_since": "2026-02-31"}, {"maintenance_fee_max": "lots"}):
+            response = self.client.get("/api/mls/properties/filter/", params)
+            self.assertEqual(response.status_code, 400)
+
     def test_map_aggregates_respects_status_group_and_has_lease(self):
         response = self.client.get(
             "/api/mls/properties/map-aggregates/",
@@ -1242,3 +1281,111 @@ class ValuationAPITests(TestCase):
         self.assertTrue("estimate" in data)
         self.assertIn("sparse", data)
         self.assertTrue(data["beta"])
+
+
+class PropertySummaryPrefetchTests(TestCase):
+    """PropertySerializer(many=True) batches the photo and open-house lookups."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def _make(self, key, **extra):
+        return Property.objects.create(
+            listing_key=key,
+            city="Toronto",
+            state_or_province="ON",
+            unparsed_address=f"{key} King St",
+            latitude=43.65,
+            longitude=-79.38,
+            list_price=900000,
+            standard_status="Active",
+            **extra,
+        )
+
+    def _serialize(self):
+        from mls.serializers import PropertySerializer
+
+        return PropertySerializer(Property.objects.order_by("listing_key"), many=True).data
+
+    def test_query_count_does_not_grow_with_rows(self):
+        from mls.models import Media
+
+        for i in range(3):
+            prop = self._make(f"row-{i}")
+            Media.objects.create(property=prop, media_url=f"https://img.test/{i}.jpg", order=1)
+
+        with self.assertNumQueries(3):  # rows + photos + open houses
+            self._serialize()
+
+        for i in range(3, 8):
+            prop = self._make(f"row-{i}")
+            Media.objects.create(property=prop, media_url=f"https://img.test/{i}.jpg", order=1)
+
+        with self.assertNumQueries(3):
+            self._serialize()
+
+    def test_picks_preferred_photo_then_feed_order_and_next_open_house(self):
+        from mls.models import Media, OpenHouse
+
+        preferred = self._make("a-preferred")
+        Media.objects.create(property=preferred, media_url="https://img.test/first.jpg", order=1)
+        Media.objects.create(property=preferred, media_url="https://img.test/best.jpg", order=5, is_preferred=True)
+
+        ordered = self._make("b-ordered")
+        Media.objects.create(property=ordered, media_url="https://img.test/second.jpg", order=2)
+        Media.objects.create(property=ordered, media_url="https://img.test/lead.jpg", order=1)
+
+        self._make("c-no-photo")
+
+        today = timezone.localdate()
+        OpenHouse.objects.create(property=preferred, open_house_key="past", date=today - timedelta(days=2))
+        OpenHouse.objects.create(property=preferred, open_house_key="later", date=today + timedelta(days=6))
+        OpenHouse.objects.create(property=preferred, open_house_key="soon", date=today + timedelta(days=1))
+
+        rows = {row["listing_key"]: row for row in self._serialize()}
+
+        self.assertEqual(rows["a-preferred"]["media"]["media_url"], "https://img.test/best.jpg")
+        self.assertTrue(rows["a-preferred"]["media"]["is_preferred"])
+        self.assertEqual(rows["b-ordered"]["media"]["media_url"], "https://img.test/lead.jpg")
+        self.assertIsNone(rows["c-no-photo"]["media"])
+
+        self.assertTrue(rows["a-preferred"]["next_open_house"]["start"].startswith(str(today + timedelta(days=1))))
+        self.assertIsNone(rows["b-ordered"]["next_open_house"])
+
+    def test_single_serialisation_still_works_without_prefetch(self):
+        from mls.models import Media
+        from mls.serializers import PropertySerializer
+
+        prop = self._make("solo")
+        Media.objects.create(property=prop, media_url="https://img.test/solo.jpg", order=1)
+
+        self.assertEqual(PropertySerializer(prop).data["media"]["media_url"], "https://img.test/solo.jpg")
+
+    def test_filter_endpoint_returns_photo(self):
+        from mls.models import Media
+
+        prop = self._make("endpoint")
+        Media.objects.create(property=prop, media_url="https://img.test/endpoint.jpg", order=1)
+
+        response = self.client.get("/api/mls/properties/filter/", {"limit": 10, "allow_fallback": "false"})
+        self.assertEqual(response.status_code, 200)
+        row = next(r for r in response.json()["results"] if r["listing_key"] == "endpoint")
+        self.assertEqual(row["media"]["media_url"], "https://img.test/endpoint.jpg")
+
+    def test_offset_pages_over_tied_sort_keys_cover_every_row_once(self):
+        # Same price everywhere: only the listing_key tie-breaker orders them.
+        for key in ["tie-c", "tie-a", "tie-e", "tie-b", "tie-d"]:
+            self._make(key)
+
+        seen = []
+        for offset in (0, 2, 4):
+            response = self.client.get(
+                "/api/mls/properties/filter/",
+                {"limit": 2, "offset": offset, "orderby": "list_price", "allow_fallback": "false"},
+            )
+            self.assertEqual(response.status_code, 200)
+            seen += [row["listing_key"] for row in response.json()["results"]]
+
+        self.assertEqual(seen, ["tie-a", "tie-b", "tie-c", "tie-d", "tie-e"])

@@ -9,13 +9,21 @@ from .services.subscriptions import MAX_RADIUS_KM
 class BuyerIncentiveSerializer(serializers.ModelSerializer):
     class Meta:
         model = BuyerIncentive
-        fields = ["id", "title", "label", "icon", "amount_text", "description", "source_url", "reviewed_at"]
+        fields = [
+            "id", "title", "label", "icon", "amount_text", "description",
+            "source_url", "reviewed_at", "is_active", "display_order",
+        ]
+        read_only_fields = ["id"]
 
 
 class PartnerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Partner
-        fields = ["id", "name", "category", "description", "logo_url", "website_url"]
+        fields = [
+            "id", "name", "category", "description", "logo_url", "website_url",
+            "is_active", "display_order",
+        ]
+        read_only_fields = ["id"]
 
 
 class CommunityImageSerializer(serializers.ModelSerializer):
@@ -29,7 +37,7 @@ class NewsArticleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = NewsArticle
-        fields = ["id", "title", "url", "summary", "image_url", "tag", "source", "published_at"]
+        fields = ["id", "title", "url", "summary", "image_url", "tag", "source", "published_at", "is_hidden"]
 
 
 class ConsentField(serializers.BooleanField):
@@ -49,17 +57,30 @@ class NewsletterSubscribeSerializer(serializers.Serializer):
     source = serializers.CharField(max_length=80, required=False, default="homepage")
 
 
+class GeocoderDecimalField(serializers.DecimalField):
+    """Round extra places before DRF counts them.
+
+    ``DecimalField`` checks ``decimal_places`` and only then applies
+    ``rounding``, so a geocoder value such as 32.1985387 is rejected even
+    when ``rounding`` is set. Six places is about 10 cm.
+    """
+
+    def validate_precision(self, value):
+        if self.rounding is not None and self.decimal_places is not None:
+            value = self.quantize(value)
+        return super().validate_precision(value)
+
+
 class NearbyAlertCreateSerializer(serializers.Serializer):
     """Alerts always go to the signed-in account's own address — accepting an
     email field would let one user enrol someone else's inbox."""
 
     label = serializers.CharField(max_length=255)
-    # Geocoders return 7+ decimals; round (≈10 cm) rather than reject.
-    latitude = serializers.DecimalField(
+    latitude = GeocoderDecimalField(
         max_digits=9, decimal_places=6, rounding=ROUND_HALF_UP,
         min_value=Decimal("-90"), max_value=Decimal("90"),
     )
-    longitude = serializers.DecimalField(
+    longitude = GeocoderDecimalField(
         max_digits=9, decimal_places=6, rounding=ROUND_HALF_UP,
         min_value=Decimal("-180"), max_value=Decimal("180"),
     )

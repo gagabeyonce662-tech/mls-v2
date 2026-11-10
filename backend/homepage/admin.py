@@ -9,8 +9,15 @@ from .models import (
     NewsletterSubscriber,
     NewsSource,
     Partner,
+    SiteContent,
     SoldBelowPurchase,
 )
+
+
+@admin.register(SiteContent)
+class SiteContentAdmin(admin.ModelAdmin):
+    list_display = ("key", "updated_at", "published_at")
+    readonly_fields = ("key", "draft", "published", "schema_version", "updated_at", "published_at", "updated_by")
 
 
 @admin.register(BuyerIncentive)

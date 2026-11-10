@@ -18,6 +18,10 @@ from .permissions import IsStaffUser
 
 User = get_user_model()
 
+ROLE_AUTHOR = "author"
+ROLE_ADMIN = "admin"
+VALID_ROLES = {ROLE_AUTHOR, ROLE_ADMIN}
+
 
 class TeamMemberSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
@@ -30,9 +34,27 @@ class TeamMemberSerializer(serializers.ModelSerializer):
         return obj.full_name or obj.email
 
 
+def _apply_role(user, role: str) -> None:
+    """Writer = blog only. Admin = full Studio (and Django staff)."""
+    if role == ROLE_ADMIN:
+        user.is_staff = True
+        user.can_author = True
+        user.save(update_fields=["is_staff", "can_author"])
+    else:
+        user.is_staff = False
+        user.can_author = True
+        user.save(update_fields=["is_staff", "can_author"])
+
+
+def _revoke_studio_access(user) -> None:
+    user.is_staff = False
+    user.can_author = False
+    user.save(update_fields=["is_staff", "can_author"])
+
+
 class StudioTeamView(APIView):
     """GET  /api/vlog/team/  — list everyone who can reach the Studio
-    POST /api/vlog/team/  — grant authoring rights to an existing user
+    POST /api/vlog/team/  — grant Studio access to an existing user
     """
 
     permission_classes = [IsStaffUser]
@@ -52,7 +74,14 @@ class StudioTeamView(APIView):
         summary="Grant Studio access to a user by email",
         request=inline_serializer(
             name="StudioTeamGrantRequest",
-            fields={"email": serializers.EmailField()},
+            fields={
+                "email": serializers.EmailField(),
+                "role": serializers.ChoiceField(
+                    choices=[ROLE_AUTHOR, ROLE_ADMIN],
+                    required=False,
+                    default=ROLE_AUTHOR,
+                ),
+            },
         ),
         responses={
             200: TeamMemberSerializer,
@@ -65,6 +94,13 @@ class StudioTeamView(APIView):
         if not email:
             return Response(
                 {"error": "An email address is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        role = (request.data.get("role") or ROLE_AUTHOR).strip().lower()
+        if role not in VALID_ROLES:
+            return Response(
+                {"error": 'Role must be "author" or "admin".'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -85,15 +121,60 @@ class StudioTeamView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        user.can_author = True
-        user.save(update_fields=["can_author"])
+        _apply_role(user, role)
         return Response(TeamMemberSerializer(user).data)
 
 
 class StudioTeamMemberView(APIView):
-    """DELETE /api/vlog/team/<int:user_id>/ — revoke authoring rights."""
+    """PATCH  /api/vlog/team/<id>/ — change a member's Studio role
+    DELETE /api/vlog/team/<id>/ — revoke Studio access entirely
+    """
 
     permission_classes = [IsStaffUser]
+
+    @extend_schema(
+        summary="Change a user's Studio role",
+        request=inline_serializer(
+            name="StudioTeamRoleRequest",
+            fields={
+                "role": serializers.ChoiceField(choices=[ROLE_AUTHOR, ROLE_ADMIN]),
+            },
+        ),
+        responses={
+            200: TeamMemberSerializer,
+            400: OpenApiResponse(description="Cannot change this user."),
+            404: OpenApiResponse(description="No such user."),
+        },
+    )
+    def patch(self, request, user_id: int):
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "No such user."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if user.pk == request.user.pk:
+            return Response(
+                {"error": "You can't change your own access level."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not (user.is_staff or user.can_author):
+            return Response(
+                {"error": "That person is not on the Studio team."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        role = (request.data.get("role") or "").strip().lower()
+        if role not in VALID_ROLES:
+            return Response(
+                {"error": 'Role must be "author" or "admin".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        _apply_role(user, role)
+        return Response(TeamMemberSerializer(user).data)
 
     @extend_schema(
         summary="Revoke a user's Studio access",
@@ -117,20 +198,11 @@ class StudioTeamMemberView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # `is_staff` is granted in Django admin and carries far more than Studio
-        # access, so removing it is not this endpoint's job — say so plainly
-        # instead of appearing to succeed while the user keeps getting in.
-        if user.is_staff and not user.can_author:
+        if not (user.is_staff or user.can_author):
             return Response(
-                {
-                    "error": (
-                        "This user has Studio access through staff privileges. "
-                        "Change that in Django admin."
-                    )
-                },
+                {"error": "That person is not on the Studio team."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user.can_author = False
-        user.save(update_fields=["can_author"])
+        _revoke_studio_access(user)
         return Response(status=status.HTTP_204_NO_CONTENT)

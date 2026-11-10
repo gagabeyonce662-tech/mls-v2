@@ -57,8 +57,17 @@ def infer_attachment_mime_type(url):
 
 PRECON_META_KEY_GUIDE = (
     ("developer", "Builder or developer name", "Empire Communities"),
-    ("occupancy_year", "Expected occupancy/completion year", "2028"),
+    ("city", "City (after address)", "Vaughan"),
+    ("neighbourhood", "Neighbourhood / community", "VMC"),
+    ("province", "Province / state", "ON"),
+    ("location_display", "Location label shown to visitors", "Vaughan Metropolitan Centre"),
+    ("occupancy_year", "Estimated occupancy / completion year", "2028"),
+    ("ownership_type", "Freehold, condominium, or other", "Freehold"),
     ("property_types", "Comma-separated home types", "Townhomes, Detached Homes"),
+    ("stories", "Number of stories", "3"),
+    ("basement", "Basement finish / type", "Finished"),
+    ("maintenance_fees", "Monthly maintenance fees where applicable", "$450/mo"),
+    ("signing_amount", "Amount due on signing", "$5,000"),
     ("price_display", "Marketing price shown to visitors", "From $699,900"),
     ("bedrooms_min", "Lowest bedroom count", "2"),
     ("bedrooms_max", "Highest bedroom count", "4"),
@@ -284,10 +293,9 @@ class MediaInline(admin.TabularInline):
     )
 
 class PropertyAdmin(SectionedAdminMixin, admin.ModelAdmin):
-    change_list_template = "admin/mls/property_change_list.html"
-    list_display = ('listing_key','category_type','is_featured','list_price', 'property_sub_type', 'city', 'state_or_province')
+    list_display = ('listing_key','category_type','is_featured','featured_order','list_price', 'property_sub_type', 'city', 'state_or_province')
     list_filter = ('category_type', 'is_featured', 'city', 'state_or_province')
-    list_editable = ('is_featured',)
+    list_editable = ('is_featured', 'featured_order')
     search_fields = ('listing_key', 'city', 'street_name', 'public_remarks')
     inlines = [RoomInline, MediaInline]
     fieldsets = (
@@ -301,6 +309,8 @@ class PropertyAdmin(SectionedAdminMixin, admin.ModelAdmin):
                     "property_sub_type",
                     "standard_status",
                     "is_featured",
+                    "featured_order",
+                    "featured_until",
                     "is_manual",
                 )
             },
@@ -474,6 +484,8 @@ class PropertyInquiryAdmin(SectionedAdminMixin, admin.ModelAdmin):
         "email_sent_at",
         "last_error",
         "user",
+        "ip_address",
+        "user_agent",
     )
     fieldsets = (
         ("Contact", {"fields": ("user", "first_name", "last_name", "email", "phone")}),
@@ -506,11 +518,13 @@ class PropertyInquiryAdmin(SectionedAdminMixin, admin.ModelAdmin):
                 )
             },
         ),
+        ("Visitor", {"classes": ("collapse",), "fields": ("ip_address", "user_agent")}),
         ("Timestamps", {"fields": ("created_at", "updated_at")}),
     )
 
 
 
+admin.site.register(Property, PropertyAdmin)
 admin.site.register(Room, RoomAdmin)
 admin.site.register(Media, MediaAdmin)
 admin.site.register(UserFeedback, UserFeedbackAdmin)
@@ -563,6 +577,9 @@ class PreComPropertyInline(admin.StackedInline):
         "address",
         "latitude",
         "longitude",
+        "sales_stage",
+        "is_featured",
+        "featured_order",
     )
     verbose_name = "Pre-construction project details"
     verbose_name_plural = "Pre-construction project details"
@@ -657,7 +674,12 @@ class PreComPropertyAdmin(admin.ModelAdmin):
         "area",
         "latitude",
         "longitude",
+        "sales_stage",
+        "is_featured",
+        "featured_order",
     )
+    list_editable = ("is_featured", "featured_order")
+    list_filter = ("is_featured", "sales_stage")
     search_fields = ("content__title", "content__slug", "content__wp_id", "address")
     autocomplete_fields = ("content",)
     list_select_related = ("content",)
@@ -757,14 +779,28 @@ class ListingSubmissionAdmin(admin.ModelAdmin):
         "address_line_1", "address_line_2", "city", "postal_code", "project_name", "builder_name",
         "contact_name", "contact_email", "submitted_by__email",
     )
-    readonly_fields = ("submitted_by", "submitted_at", "created_at", "updated_at", "reviewed_at")
+    readonly_fields = (
+        "submitted_by", "submitted_at", "created_at", "updated_at", "reviewed_at",
+        "submitted_ip", "submitted_user_agent",
+    )
     # PreComProperty has thousands of rows; a raw id avoids a giant <select>.
     raw_id_fields = ("precon_property",)
     fieldsets = (
-        ("Submission", {"fields": ("submitted_by", "submitter_type", "purpose", "status", "submitted_at", "created_at", "updated_at")}),
-        ("Property", {"fields": ("address_line_1", "address_line_2", "city", "province", "postal_code", "country", "property_type", "bedrooms", "bathrooms", "interior_area_sqft", "asking_price", "available_from", "description")}),
-        ("Assignment", {"classes": ("collapse",), "fields": ("project_name", "builder_name", "precon_property", "occupancy_date", "original_purchase_price", "deposit_paid", "assignment_fee")}),
-        ("Private contact and declarations", {"fields": ("contact_name", "contact_email", "contact_phone", "ownership_confirmed", "publication_consent")}),
+        ("Submission", {"fields": ("submitted_by", "submitter_type", "purpose", "status", "submitted_at", "submitted_ip", "submitted_user_agent", "created_at", "updated_at")}),
+        ("Property", {"fields": (
+            "address_line_1", "address_line_2", "city", "province", "postal_code", "country",
+            "property_type", "ownership_title", "bedrooms", "bathrooms", "storeys", "floors",
+            "parking", "locker", "maintenance_fees", "interior_area_sqft", "asking_price",
+            "available_from", "description",
+        )}),
+        ("Assignment", {"classes": ("collapse",), "fields": (
+            "project_name", "builder_name", "precon_property", "agreement_date", "occupancy_date",
+            "original_purchase_price", "deposit_paid", "assignment_fee", "consent_to_advertise",
+        )}),
+        ("Private contact and declarations", {"fields": (
+            "contact_name", "contact_email", "contact_phone", "ownership_confirmed",
+            "publication_consent",
+        )}),
         ("Review", {"fields": ("review_note", "reviewed_by", "reviewed_at")}),
     )
     actions = ("mark_under_review", "mark_needs_changes", "approve", "reject")
@@ -928,3 +964,24 @@ class EstateDepositPlanAdmin(admin.ModelAdmin):
         "title",
         "project__title",
     )
+
+
+from .models import AISearchLog  # noqa: E402
+
+
+@admin.register(AISearchLog)
+class AISearchLogAdmin(admin.ModelAdmin):
+    """What people typed into AI search, what it became, and what it cost."""
+
+    list_display = ("created_at", "query", "fallback", "cached", "model", "prompt_tokens", "completion_tokens", "latency_ms", "user")
+    list_filter = ("fallback", "cached", "model", "created_at")
+    search_fields = ("query", "user__email")
+    list_select_related = ("user",)
+    readonly_fields = [f.name for f in AISearchLog._meta.fields]
+    ordering = ("-created_at",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return request.method in ("GET", "HEAD")

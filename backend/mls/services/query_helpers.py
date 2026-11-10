@@ -118,8 +118,8 @@ def cities_match_q(cities) -> Q:
 # result set its link returns. Statuses outside every group (junk or test rows)
 # are deliberately unreachable through a group.
 STATUS_GROUPS: dict[str, set[str]] = {
-    "active": {"active", "a"},
-    "sold": {"sold", "closed", "leased"},
+    "active": {"active", "a", "active under contract", "coming soon", "pending"},
+    "sold": {"sold", "closed", "leased", "rented"},
     "de-listed": {
         "delisted",
         "de-listed",
@@ -129,6 +129,8 @@ STATUS_GROUPS: dict[str, set[str]] = {
         "cancelled",
         "canceled",
         "withdrawn",
+        "hold",
+        "off market",
     },
 }
 

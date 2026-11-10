@@ -15,12 +15,14 @@ class OpenHouseSyncTests(TestCase):
         )
 
     @patch(
-        "mls.management.commands.sync_ddf_properties."
-        "fetch_all_open_houses"
+        "mls.services.ddf.open_house_cache.fetch_properties_by_listing_keys",
+        return_value=[],
     )
-    def test_sync_open_houses_stores_only_cached_listings(
+    @patch("mls.services.ddf.open_house_cache.fetch_all_open_houses")
+    def test_sync_open_houses_stores_matching_listings(
         self,
         mock_fetch,
+        _mock_missing_properties,
     ):
         mock_fetch.return_value = (
             [
@@ -48,26 +50,9 @@ class OpenHouseSyncTests(TestCase):
         )
 
         command = Command()
+        command.sync_open_houses(headers={"Authorization": "Bearer test"})
 
-        command.sync_open_houses(
-            headers={"Authorization": "Bearer test"},
-        )
-
-        self.assertEqual(
-            OpenHouse.objects.count(),
-            1,
-        )
-
-        open_house = OpenHouse.objects.get(
-            open_house_key="OH-1",
-        )
-
-        self.assertEqual(
-            open_house.property,
-            self.cached_property,
-        )
-
-        self.assertEqual(
-            open_house.listing_id,
-            "MLS-1",
-        )
+        self.assertEqual(OpenHouse.objects.count(), 1)
+        open_house = OpenHouse.objects.get(open_house_key="OH-1")
+        self.assertEqual(open_house.property, self.cached_property)
+        self.assertEqual(open_house.listing_id, "MLS-1")
